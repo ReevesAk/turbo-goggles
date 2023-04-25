@@ -1,0 +1,8 @@
+openapi: 3.0.3
+info:
+  title: Picadailys Swagger API Documentation
+  version: 0.0.0
+  description: Picadailys is a digital and multi-faceted app aimed at providingonline
+    intermediary services, under these main categories:```Value Added Servies(VAS)
+paths: {}
+components: {}
