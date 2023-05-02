@@ -52,7 +52,7 @@ class Register(generics.GenericAPIView):
         
         # Util.send_email(data)
 
-        generateOTP(user)
+        generateOTP(user.email)
 
         return Response(user_data, status=status.HTTP_201_CREATED)
     
@@ -63,7 +63,7 @@ class EmailVerify(generics.GenericAPIView):
         token = request.GET.get('token')
         try:
             payload = jwt.decode(token, settings.SECRET_KEY)
-            user = User.objects.get(id=payload['user_id'])
+            user = User.objects.get(id=payload['id'])
             if not user.is_verified:
                 user.verified =True
                 user.save()

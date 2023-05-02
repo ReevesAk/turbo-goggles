@@ -29,5 +29,9 @@ urlpatterns = [
     path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/v1/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
+    # Account creation endpoint.
     path('api/v1/accounts/', include('accounts.urls')),
+
+    # Profiles creation endpoints.
+    path('api/v1/profiles/', include('profiles.urls')),
 ]

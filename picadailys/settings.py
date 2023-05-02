@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', default='foo')
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
 
     # Internal Project apps.
     'accounts',
+    'profiles'
 ]
 
 MIDDLEWARE = [
@@ -146,8 +148,17 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Picadailys Swagger API Documentation',
     'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing"
     "online intermediary services, under these main categories:" 
-    "```Value Added Servies(VAS)",
-    "Self-Servives(SELF-SERV)"
+    "```Value Added Servies(VAS)```",
+    "```Self-Servives(SELF-SERV)```"
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# SMTP email configuration.
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_USE_TLS = False
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')

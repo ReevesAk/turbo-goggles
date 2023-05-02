@@ -2,6 +2,7 @@ import os
 import math
 import random
 import smtplib
+from decouple import config
 
 def generateOTP(email):
     digits="0123456789"
@@ -13,11 +14,16 @@ def generateOTP(email):
     
     s = smtplib.SMTP('smtp.gmail.com', 587)
     s.starttls()
-    os.environ.get("")
-    s.login("akwareeves@gmail.com", "obtlmutntqbcjayy")
+    host_email = config('EMAIL_HOST_USER')
+    app_password = config('EMAIL_HOST_PASSWORD')
+    s.login(host_email, app_password)
     s.sendmail('&&&&&&&&&&&', email,msg)
     a = input("Enter Your OTP >>: ")
     if a == OTP:
         print("Verified")
     else:
         print("Please Check your OTP again")
+    return OTP
+
+# def confirm_OTP(otp):
+    
