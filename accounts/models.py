@@ -2,9 +2,6 @@ from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser, BaseUserManager, PermissionsMixin)
 
-# Third party imports.
-from rest_framework_simplejwt.tokens import RefreshToken
-
 
 # UserManager handles the creation of superuser as well as manage creation of user accounts.
 class UserManager(BaseUserManager):
@@ -38,15 +35,16 @@ class UserManager(BaseUserManager):
 
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
-    first_name = models.CharField(max_length=150, blank=False)
-    last_name = models.CharField(max_length=150, blank=False)
-    phone_number = models.TextField(max_length=20, blank=False)
-    email = models.EmailField(max_length=255, unique=True, db_index=True)
-    is_verified = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    first_name      = models.CharField(max_length=150, blank=False)
+    last_name       = models.CharField(max_length=150, blank=False)
+    phone_number    = models.TextField(max_length=20, blank=False)
+    email           = models.EmailField(max_length=255, unique=True, db_index=True)
+    game_points     = models.IntegerField(null=True)
+    is_verified     = models.BooleanField(default=False)
+    is_active       = models.BooleanField(default=True)
+    is_staff        = models.BooleanField(default=False)
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
     
 
     USERNAME_FIELD = 'email'
@@ -56,10 +54,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+    def is_member(self):
+        if self.game_points == 100:
+            return True
 
-    def tokens(self):
-        refresh_token = RefreshToken.for_user(self)
-        return {
-            'refresh': str(refresh_token),
-            'access': str(refresh_token.access_token)
-        }
+

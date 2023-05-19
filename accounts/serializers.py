@@ -83,3 +83,7 @@ class LoginSerializer(serializers.ModelSerializer):
 
         return super().validate(attrs)
     
+
+class VerifyOTPSerailizer(serializers.Serializer):
+    otp = serializers.CharField()
+        

@@ -62,26 +62,3 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.full_name
-
-
-class MemberProfile(models.Model):
-    user                = models.ForeignKey(User, on_delete=models.CASCADE)
-    email               = models.EmailField()
-    full_name           = models.CharField(max_length=255, blank=False)
-    country             = models.CharField(max_length=155, blank=False)
-    state               = models.CharField(max_length=155, blank=False)
-    city                = models.CharField(max_length=155, blank=False)
-    address             = models.CharField(max_length=155, blank=False)
-    phone_number        = models.IntegerField()
-    createdAt           = models.DateTimeField(auto_now_add=True)
-    updatedAt           = models.DateTimeField(auto_now_add=True)
-
-
-    class Meta:
-        ordering = ['-createdAt']
-        verbose_name = 'Member Profile'
-        verbose_name_plural = 'Member Profiles'
-
-    def __str__(self):
-        return self.full_name
-
