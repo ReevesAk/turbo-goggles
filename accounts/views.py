@@ -1,19 +1,20 @@
 from decouple import config
 import smtplib
-import math
-import random
 
 # Third party imports.
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status, serializers
+from rest_framework.views import APIView
 
 # In project imports.
-from .serializers import RegisterSerializer, LoginSerializer, VerifyOTPSerailizer
+from .serializers import (RegisterSerializer, LoginSerializer, 
+    VerifyOTPSerailizer, ResetPasswordSerializer)
 from .models import User
-
+from commons import generateOTP
 
 global OTP
+
 
 # Register handles the POST request of registering a user, 
 # It takes in firstnmae, lastname, username, email and password
@@ -28,43 +29,40 @@ class Register(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             user_data = serializer.data
-        else:
-            serializers.ValidationError()
-        # Connect to smtp mail server and login using email and app_password.
-        s = smtplib.SMTP('smtp.gmail.com', 587)
-        s.starttls()
-        host_email = config('EMAIL_HOST_USER')
-        app_password = config('EMAIL_HOST_PASSWORD')
-        s.login(host_email, app_password)
-
-        # Retrieve user email.
-        user_obj = User.objects.get(email=user_data['email'])
-
-        # generate otp
-        digits="0123456789"
-
-        for i in range(6):
-            OTP+=digits[math.floor(random.random()*10)]
-
-
-        subject = 'Verify your email'
-        email_body = 'Hi '+user_obj.username + \
-            'Please use the one time password to verify your email \n' + OTP
-        message = 'Subject: {}\n\n{}'.format(subject, email_body)
-
-        data = {'email_body': message,
-                'from_email': host_email,
-                'to_email': user_obj.email}
         
-         # send mail
-        s.sendmail(
-                from_addr=data['host_email'], 
-                to_addrs=data['user.email'], 
-                msg=data['email_body'],
-            )
+            # Connect to smtp mail server and login using email and app_password.
+            s = smtplib.SMTP('smtp.gmail.com', 587)
+            s.starttls()
+            host_email = config('EMAIL_HOST_USER')
+            app_password = config('EMAIL_HOST_PASSWORD')
+            s.login(host_email, app_password)
+
+            # Retrieve user email.
+            user_obj = User.objects.get(email=user_data['email'])
+
+            # generate otp
+            OTP = generateOTP()
+
+            subject = 'Verify your email'
+            email_body = 'Hi '+user_obj.username + \
+                'Please use the one time password to verify your email \n' + OTP
+            message = 'Subject: {}\n\n{}'.format(subject, email_body)
+
+            data = {'email_body': message,
+                    'from_email': host_email,
+                    'to_email': user_obj.email}
+            
+            # send mail
+            s.sendmail(
+                    from_addr=data['host_email'], 
+                    to_addrs=data['user.email'], 
+                    msg=data['email_body'],
+                )
 
 
-        return Response(user_data, status=status.HTTP_201_CREATED)
+            return Response(user_data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 # EmailVerify handles the GET request of verifying a register user with valid email.
@@ -92,5 +90,65 @@ class Login(generics.GenericAPIView):
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if serializer.is_valid(raise_exception=True):
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPassword(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            user_data = serializer.data
+        
+            # Connect to smtp mail server and login using email and app_password.
+            s = smtplib.SMTP('smtp.gmail.com', 587)
+            s.starttls()
+            host_email = config('EMAIL_HOST_USER')
+            app_password = config('EMAIL_HOST_PASSWORD')
+            s.login(host_email, app_password)
+
+            # Retrieve user email.
+            user_obj = User.objects.get(email=user_data['email'])
+
+            # generate otp
+            OTP = generateOTP()
+
+            subject = 'Verify your email'
+            email_body = 'Hi '+user_obj.username + \
+                'Please use the one time password to reset your password \n' + OTP
+            message = 'Subject: {}\n\n{}'.format(subject, email_body)
+
+            data = {'email_body': message,
+                    'from_email': host_email,
+                    'to_email': user_obj.email}
+            
+            # send mail
+            s.sendmail(
+                    from_addr=data['host_email'], 
+                    to_addrs=data['user.email'], 
+                    msg=data['email_body'],
+                )
+            
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class ResetPassword(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            user_data = serializer.data
+
+            return Response(user_data, status=status.HTTP_201_CREATED)
+        
