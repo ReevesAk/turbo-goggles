@@ -2,9 +2,8 @@ from django.db import models
 
 
 from accounts.models import User
+from commons import upload_to
 
-def upload_to(instance, filename):
-    return 'profile/{filename}'.format(filename=filename)
 
 BUSINESS_CATEGORY_CHOICES = (
     ("Hotel and Accomodation", "Hotel and Accomodation"),
