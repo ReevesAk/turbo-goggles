@@ -9,8 +9,8 @@ class BusinessProfileSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = BusinessProfile
-        fields = ['id',   'full_name', 'phone_number', 'address', 'city', 'state', 'country', 'category', 'number_of_branches',
-                  'id_verification', 'business_docs', 'createdAt', 'updatedAt']
+        fields = ['id',  'full_name', 'phone_number', 'address', 'city', 'state', 'country', 'category', 'number_of_branches',
+                  'id_verification', 'business_docs']
 
     def validate(self, attrs):
         # return super().validate(attrs)
@@ -23,7 +23,7 @@ class UserProfileSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'email', 'full_name', 'phone_number', 'address', 'city', 'state', 'country', 'createdAt', 'updatedAt']
+        fields = ['id', 'email', 'full_name', 'phone_number', 'address']
 
     def validate(self, attrs):
         # return super().validate(attrs)

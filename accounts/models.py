@@ -1,56 +1,35 @@
 from django.db import models
 from django.contrib.auth.models import (
-    AbstractBaseUser, BaseUserManager, PermissionsMixin)
+    AbstractBaseUser, PermissionsMixin)
+from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 
-# UserManager handles the creation of superuser as well as manage creation of user accounts.
-class UserManager(BaseUserManager):
-
-    def create_user(self, first_name, last_name, phone_number, email, password=None, password2=None):
-        if phone_number is None:
-            raise TypeError('Users should have a phone_number')
-        if email is None:
-            raise TypeError('Users should have a Email')
-
-        user = self.model(
-            phone_number=phone_number, 
-            email=self.normalize_email(email),
-            first_name =first_name,
-            last_name = last_name
-            )
-        user.set_password(password)
-        user.save()
-        return user
-
-    def create_superuser(self, first_name, last_name, phone_number, email, password=None):
-        if password is None:
-            raise TypeError('Password should not be none')
-
-        user = self.create_user(first_name, last_name, phone_number, email, password)
-        user.is_superuser = True
-        user.is_staff = True
-        user.save()
-        return user
-
+from .manager import CustomUserManager
 
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
-    first_name      = models.CharField(max_length=150, blank=False)
-    last_name       = models.CharField(max_length=150, blank=False)
+    first_name = models.CharField(max_length=255, null=True)
+    last_name = models.CharField(max_length=255, null=True)
     phone_number    = models.TextField(max_length=20, blank=False)
-    email           = models.EmailField(max_length=255, unique=True, db_index=True)
+    email = models.EmailField(_("email address"), unique=True)
+    country         = models.CharField(max_length=155, blank=False)
+    state           = models.CharField(max_length=155, blank=False)
+    city            = models.CharField(max_length=155, blank=False)
     game_points     = models.IntegerField(null=True)
     is_verified     = models.BooleanField(default=False)
-    is_active       = models.BooleanField(default=True)
-    is_staff        = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    is_member       = models.BooleanField(default=False)
+    date_joined = models.DateTimeField(default=timezone.now)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
     
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['phone_number', 'first_name', 'last_name']
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
 
-    objects = UserManager()
+    objects = CustomUserManager()
 
     def __str__(self):
         return self.email
@@ -58,5 +37,3 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_member(self):
         if self.game_points == 100:
             return True
-
-

@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-import os
+import datetime
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     # Third party External Packages.
     'rest_framework',
     'drf_spectacular',
+    'rest_framework_simplejwt',
+    'rest_framework.authtoken',
 
     # Internal Project apps.
     'accounts',
@@ -144,6 +146,10 @@ REST_FRAMEWORK = {
     )
 }
 
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
+}
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Picadailys Swagger API Documentation',

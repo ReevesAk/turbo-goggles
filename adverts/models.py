@@ -32,7 +32,6 @@ class BrandAdvertRegistration(models.Model):
     service_desctiption     = models.CharField(max_length=150, blank=False)
 
     class Meta:
-        ordering = ['-createdAt']
         verbose_name = 'Brand Advert Resgistration'
         verbose_name_plural = 'Brand Advert Resgistration'
 

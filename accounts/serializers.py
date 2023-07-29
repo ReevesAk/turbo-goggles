@@ -3,41 +3,60 @@ from django.contrib import auth
 # Third party imports.
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.validators import ValidationError  
+from rest_framework.authtoken.models import Token   
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # In project imports.
 from .models import User
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     """ Serailizers for our User first time registration """
 
-    password = serializers.CharField(
-        max_length=68, min_length=6, write_only=True)
-    
     password2 = serializers.CharField(
-        max_length=68, min_length=6, write_only=True)
+        style={"input_type": "password"}, max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'phone_number', 'email','password', 'password2']
+        fields = ['first_name', 'last_name', 'phone_number', 'email', 'password', 'password2']
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
 
 
     def validate(self, attrs):
+
+        email_exists = User.objects.filter(email=attrs["email"]).exists()
+
+        if email_exists:
+            raise ValidationError("Email has already been used")
+        
         email = attrs.get('email', '')
         password = attrs.get('password', '')
-        password2 = attrs.get('password2', '')
+        password2 = attrs.pop('password2', '')
         
         if password != password2:
-            return serializers.ValidationError(
+            raise serializers.ValidationError(
                 'password: Passwords do not match'
             )
 
         if email is None:
-            return serializers.ValidationError(
+            raise serializers.ValidationError(
                 'email: email field can not be empty'
             )
-        return attrs
+        return super().validate(attrs)
 
     def create(self, validated_data):
+        password = validated_data.pop("password")
+
+        user = User
+        user = super().create(validated_data)
+
+        user.set_password(password)
+        
+        user.save()
+
         return User.objects.create_user(**validated_data)     
     
     
@@ -49,13 +68,13 @@ class LoginSerializer(serializers.ModelSerializer):
 
     # tokens = serializers.SerializerMethodField()
 
-    # def get_tokens(self, obj):
-    #     user = User.objects.get(email=obj['email'])
+    def get_tokens(self, obj):
+        user = User.objects.get(email=obj['email'])
 
-    #     return {
-    #         'refresh': user.tokens()['refresh'],
-    #         'access': user.tokens()['access']
-    #     }
+        return {
+            'refresh': user.tokens()['refresh'],
+            'access': user.tokens()['access']
+        }
 
     class Meta:
         model = User
@@ -105,16 +124,18 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
     
      
 class ResetPasswordSerializer(serializers.ModelSerializer):
+    old_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
 
     class Meta:
         model = User
-        fields = ['password', 'password2']
+        fields = ['old_password', 'password', 'password2']
 
 
     def validate(self, attrs):
+
         password = attrs.get('password', '')
         password2 = attrs.get('password2', '')
         
