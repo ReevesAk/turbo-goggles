@@ -1,5 +1,4 @@
 from decouple import config
-import smtplib
 
 # Third party imports.
 from rest_framework import generics
@@ -14,7 +13,8 @@ from rest_framework.views import APIView
 from .serializers import (RegisterSerializer, LoginSerializer, 
     VerifyOTPSerailizer, ResetPasswordSerializer)
 from .models import User
-from .utils import send_email, generate_otp
+from .utils import send_email
+from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 
 
@@ -32,8 +32,8 @@ class Register(generics.GenericAPIView):
             serializer.save()
             user_data = serializer.data
 
-            global OTP
-            OTP = generate_otp()
+            otp = otp_manager.create_otp(user_id=str(request.data.get('id')))
+            print(otp)
         
            # Retrieve host email and password.
             host_email = config('EMAIL_HOST_USER')
@@ -44,7 +44,7 @@ class Register(generics.GenericAPIView):
 
             subject = 'Picadailys - Verify your email'
             email_body = 'Hi '+user_obj.firstname, + \
-                'use the one time password(OTP) provided to verify your email \n' + OTP
+                'use this one time password(OTP) provided to verify your email \n' + otp
             message = 'Subject: {}\n\n{}'.format(subject, email_body)
 
     
@@ -65,22 +65,29 @@ class Register(generics.GenericAPIView):
 
 # EmailVerify handles the GET request of verifying a register user with valid email.
 class EmailVerifyOTP(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerailizer
+
     def post(self, request):
         data = request.data
-        serializer = VerifyOTPSerailizer(data=data) 
+        serializer = self.serializer_class(data=data) 
         user_data = serializer.data
 
         if serializer.is_valid():
-            otp = serializer.data['otp']
+            received_otp = serializer.data['otp']
 
             user = User.objects.get(email=user_data['email'])
 
-            if otp == OTP:
-                user.is_verified = True    
-                user.save()    
-                return Response({"Success": "Account is verified"}, status=status.HTTP_201_CREATED) 
-            else:
-                return Response({"error": "OTP is invalid"}, status=status.HTTP_400_BAD_REQUEST)
+            # Validate otp.
+            user_id = otp_manager.validate_user_otp(str(received_otp))
+            if not user_id:
+                return Response(data={"error": "Invalid or expired otp"}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = User.objects.get(id=user_id)
+            user.is_verified = True
+            user.save()
+ 
+            return Response({"Success": "Account is verified"}, status=status.HTTP_201_CREATED) 
 
 
 # LoginAPIView handles the POST request of logging in

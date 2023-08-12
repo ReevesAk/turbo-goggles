@@ -19,7 +19,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'phone_number', 'email', 'password', 'password2']
+        fields = ['first_name', 'last_name', 'country', 'state', 'city',  'phone_number', 'email', 'password', 'password2']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -103,7 +103,7 @@ class LoginSerializer(serializers.ModelSerializer):
     
 
 class VerifyOTPSerailizer(serializers.Serializer):
-    otp = serializers.CharField()    
+    otp = serializers.CharField()  
 
 
 class ForgotPasswordSerializer(serializers.ModelSerializer):

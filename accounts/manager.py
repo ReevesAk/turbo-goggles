@@ -34,10 +34,4 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_("Superuser must have is_superuser=True."))
         return self.create_user(email, password, **extra_fields)
     
-
-# class Role(AuditableModel):
-#     name = models.CharField(max_length=100, unique=True)
-#     permissions = models.ManyToManyField(Permission)
-
-#     def __str__(self):
-#         return f"{self.name}"        
+     
