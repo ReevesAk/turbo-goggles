@@ -13,6 +13,7 @@ urlpatterns = [
 
     # authentication endpouints.
     path('register/', Register.as_view(), name='register'),
+    path('register_partners/', RegisterPartner.as_view(), name='register-partners'),
     path('verify_email/', EmailVerifyOTP.as_view(), name="verify_email"),
     path('login/', Login.as_view(), name='login'),
     path('forgot_password/', ForgotPassword.as_view(), name='forgot_password'),

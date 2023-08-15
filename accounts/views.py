@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 # In project imports.
 from .serializers import (RegisterSerializer, LoginSerializer, 
-    VerifyOTPSerailizer, ResetPasswordSerializer)
+    VerifyOTPSerailizer, ResetPasswordSerializer, RegisterPartnerSerializer)
 from .models import User
 from .utils import send_email
 from .otp import otp_manager
@@ -62,6 +62,49 @@ class Register(generics.GenericAPIView):
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
+# RegisterPartner handles the POST request of registering a user, 
+# It takes in firstnmae, lastname, username, email and password
+#  and resturns a validation email upon success.
+class RegisterPartner(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = RegisterPartnerSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            user_data = serializer.data
+
+            otp = otp_manager.create_otp(user_id=str(request.data.get('id')))
+            print(otp)
+
+            # Retrieve host email and password.
+            host_email = config('EMAIL_HOST_USER')
+            app_password = config('EMAIL_HOST_PASSWORD')
+
+            # Retrieve user email.
+            user_obj = User.objects.get(email=user_data['email'])
+
+            subject = 'Picadailys - Verify your email'
+            email_body = 'Hi '+user_obj.firstname, + \
+                'use this one time password(OTP) provided to verify your email \n' + otp
+            message = 'Subject: {}\n\n{}'.format(subject, email_body)
+
+            # send mail.
+            send_email(
+                subject=subject,
+                body=message,
+                sender=host_email,
+                recipients=[user_obj.email],
+                password=app_password
+            )
+            response = {"message": "User Created Successfully. An OTP has been sent to your mail for verification", "data": serializer.data}
+            return Response(data=response, status=status.HTTP_201_CREATED)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # EmailVerify handles the GET request of verifying a register user with valid email.
 class EmailVerifyOTP(generics.GenericAPIView):

@@ -3,9 +3,7 @@ from django.contrib import auth
 # Third party imports.
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.validators import ValidationError  
-from rest_framework.authtoken.models import Token   
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.validators import ValidationError   
 
 # In project imports.
 from .models import User
@@ -19,7 +17,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'country', 'state', 'city',  'phone_number', 'email', 'password', 'password2']
+        fields = ['first_name', 'last_name', 'account_type','country', 'state', 'city',  'phone_number', 'email', 'password', 'password2']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -59,7 +57,58 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return User.objects.create_user(**validated_data)     
     
+
+class RegisterPartnerSerializer(serializers.ModelSerializer):
+    """ Serailizers for our Partners' first time registration """
+
+    password2 = serializers.CharField(
+        style={"input_type": "password"}, max_length=68, min_length=6, write_only=True)
+
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'country', 'account_type',
+        'state', 'city',  'phone_number', 'business_name', 'website',
+        'business_category', 'email', 'password', 'password2']
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def validate(self, attrs):
+
+        email_exists = User.objects.filter(email=attrs["email"]).exists()
+
+        if email_exists:
+            raise ValidationError("Email has already been used")
+        
+        email = attrs.get('email', '')
+        password = attrs.get('password', '')
+        password2 = attrs.pop('password2', '')
+        
+        if password != password2:
+            raise serializers.ValidationError(
+                'password: Passwords do not match'
+            )
+
+        if email is None:
+            raise serializers.ValidationError(
+                'email: email field can not be empty'
+            )
+        return super().validate(attrs)
     
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+
+        user = User
+        user = super().create(validated_data)
+
+        user.set_password(password)
+        
+        user.save()
+
+        return User.objects.create_user(**validated_data)     
+
+
 # LoginSerializer is a  serializer class for login credentials. 
 class LoginSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(max_length=255, min_length=3)
