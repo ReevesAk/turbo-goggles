@@ -5,7 +5,12 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 
-from .manager import CustomUserManager
+from .user_manager import CustomUserManager
+
+USER_CATEGORY_CHOICES = (
+    ("User", "User"),
+    ("Partner", "Partner"),
+)
 
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
@@ -17,6 +22,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     state           = models.CharField(max_length=155, blank=False)
     city            = models.CharField(max_length=155, blank=False)
     game_points     = models.IntegerField(null=True)
+
+    #Partner detials.
+    account_type = models.CharField(choices=USER_CATEGORY_CHOICES, max_length=40, null=True)
+    business_name = models.CharField(max_length=500, null=True)
+    website = models.CharField(max_length=255, null=True)
+    business_category = models.CharField(max_length=255, null=True)
     is_verified     = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
