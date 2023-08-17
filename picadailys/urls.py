@@ -36,6 +36,9 @@ urlpatterns = [
 
     # Profiles creation endpoints.
     path('api/v1/profiles/', include('profiles.urls')),
+
+    # Partners endpoints.
+    path('api/v1/partners/', include('partners.urls')),
 ]
 # urlpatterns += static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
 # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
