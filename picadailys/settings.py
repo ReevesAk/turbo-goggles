@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'profiles',
     'adverts',
     'roles',
+    'partners',
 ]
 
 MIDDLEWARE = [
@@ -183,5 +184,5 @@ EMAIL_USE_SSL = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
-STATICFILES_DIRS = os.path.join(BASE_DIR,'static'),
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+# STATICFILES_DIRS = os.path.join(BASE_DIR,'static'),
+# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
