@@ -30,6 +30,7 @@ class ServiceAndCharge(models.Model):
     partner = models.ForeignKey(PartnerServices, on_delete=models.CASCADE)
     service = models.CharField(max_length=255, null=True)
     price = models.FloatField(null=True)
+    description = models.TextField(null=True)
 
     def __str__(self):
         return f"{self.service}: {self.price}"
@@ -41,7 +42,5 @@ class PartnerServiceUploads(models.Model):
     user = models.ForeignKey(
         PartnerServices, on_delete=models.CASCADE
     )
-    document_type = models.CharField(max_length=255, null=True)
-    document_data = models.CharField(max_length=255, null=True)
     location = models.CharField(max_length=255, null=True)
     object_key = models.CharField(max_length=255, null=True)
