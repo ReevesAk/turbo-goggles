@@ -6,6 +6,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.parsers import MultiPartParser
+from rest_framework.generics import CreateAPIView
 
 
 # In project imports.
@@ -14,7 +16,7 @@ from .serializers import (
     ServiceAndChargeSerializers, PartnerServiceUploadsSerializers
 )
 from .models import (
-    PartnerServices, ServiceAndCharge, PartnerServiceUploads
+    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads
 )
 from accounts.models import User
 from accounts.utils import send_email
@@ -74,3 +76,8 @@ class ServiceAndChargeViewsets(viewsets.ModelViewSet):
     queryset = ServiceAndCharge.objects.all()
     serializer_class = ServiceAndChargeSerializers
     
+
+class UploadImage(CreateAPIView):
+    serializer_class = PartnerServiceUploadsSerializers
+    parser_classes = (MultiPartParser,)
+    queryset = PartnerServiceImageUploads.objects.all()

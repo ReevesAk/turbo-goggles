@@ -1,4 +1,7 @@
 from django.db import models
+from cloudinary.models import CloudinaryField
+
+from decouple import config
 
 from accounts.models import User
 # Create your models here.
@@ -30,18 +33,24 @@ class ServiceAndCharge(models.Model):
     partner = models.ForeignKey(PartnerServices, on_delete=models.CASCADE)
     service = models.CharField(max_length=255, null=True)
     price = models.FloatField(null=True)
+    description = models.TextField(null=True)
 
     def __str__(self):
         return f"{self.service}: {self.price}"
     
 
-class PartnerServiceUploads(models.Model):
+class PartnerServiceImageUploads(models.Model):
     """Model for partner service file uploads."""
 
     user = models.ForeignKey(
         PartnerServices, on_delete=models.CASCADE
     )
-    document_type = models.CharField(max_length=255, null=True)
-    document_data = models.CharField(max_length=255, null=True)
-    location = models.CharField(max_length=255, null=True)
-    object_key = models.CharField(max_length=255, null=True)
+    image = CloudinaryField(null=True)
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    @property
+    def image_url(self):
+        cloud_name = config('CLOUDINARY_CLOUD_NAME')
+        return (
+            f"https://res.cloudinary.com/{cloud_name}/{self.image}"
+        )

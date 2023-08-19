@@ -1,8 +1,14 @@
-import math, random
 import smtplib
 from email.mime.text import MIMEText
 import smtplib
+from decouple import config
 
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+
+# send_email handles the sending of emails to user.
 def send_email(subject, body, sender, recipients, password):
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -13,9 +19,11 @@ def send_email(subject, body, sender, recipients, password):
        smtp_server.sendmail(sender, recipients, msg.as_string())
 
 
-def generate_otp():
-   digits="0123456789"
-   OTP=""
-   for i in range(6):
-      OTP+=digits[math.floor(random.random()*10)]
-   return OTP
+# file_uploader handles the uploads of media files
+# cloud storage using cloudinary.
+def file_uploader():
+   cloudinary.config( 
+      cloud_name = config('CLOUDINARY_CLOUD_NAME'), 
+      api_key = config('CLOUDINARY_API_KEY'), 
+      api_secret = config('CLOUDINARY_API_SECRET') 
+   )
