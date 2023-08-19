@@ -5,7 +5,7 @@ from rest_framework.validators import ValidationError
 # In project imports.
 from accounts.models import User
 from .models import (
-    PartnerServices, ServiceAndCharge, PartnerServiceUploads
+    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads
 )
 
 
@@ -92,6 +92,12 @@ class PartnerServiceUploadsSerializers(serializers.ModelSerializer):
     """ Serailizers for our Partners' service uploads. """
 
     class Meta:
-        model = PartnerServiceUploads
-        fields = '__all__'
+        model = PartnerServiceImageUploads
+        fields = ['user', 'image_url', 'image', 'timestamp']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation.pop("image")
+
+        return representation    
     
