@@ -1,7 +1,9 @@
-from django.db import models
-from cloudinary.models import CloudinaryField
 
 from decouple import config
+
+from django.db import models
+from django.utils import timezone
+from cloudinary.models import CloudinaryField
 
 from accounts.models import User
 # Create your models here.
@@ -54,3 +56,4 @@ class PartnerServiceImageUploads(models.Model):
         return (
             f"https://res.cloudinary.com/{cloud_name}/{self.image}"
         )
+    
