@@ -10,7 +10,7 @@ class OTPManager:
     """Manage user OTP."""
 
 
-    redis_url = config('REDIS_URL', default='foo')
+    redis_url = "redis://red-cjfqob7r2b1s73dfjbc0:6379"
 
     redis = redis.from_url(redis_url)
 
