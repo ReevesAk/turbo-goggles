@@ -1,4 +1,7 @@
+from django.conf import settings
 from decouple import config
+import requests
+
 
 # Third party imports.
 from rest_framework import generics
@@ -8,15 +11,18 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import CreateAPIView
+from rest_framework.views import APIView
 
 
 # In project imports.
 from .serializers import (
     RegisterPartnerSerializer, PartnerServiceSerializers,
-    ServiceAndChargeSerializers, PartnerServiceUploadsSerializers
+    ServiceAndChargeSerializers, PartnerServiceUploadsSerializers,
+    WalletSerializer, DepositSerializer, TransferSerializer,
 )
 from .models import (
-    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads
+    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads,
+    WalletTransaction, Wallet
 )
 from accounts.models import User
 from accounts.utils import send_email
@@ -81,3 +87,56 @@ class UploadImage(CreateAPIView):
     serializer_class = PartnerServiceUploadsSerializers
     parser_classes = (MultiPartParser,)
     queryset = PartnerServiceImageUploads.objects.all()
+
+
+class WalletInfo(APIView):
+
+    def get(self, request):
+        wallet = Wallet.objects.get(user=request.user)
+        data = WalletSerializer(wallet).data
+        return Response(data)
+
+
+class DepositFunds(APIView):
+
+    def post(self, request):
+        serializer = DepositSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        resp = serializer.save()
+        return Response(resp)
+
+
+class VerifyDeposit(APIView):
+
+    def get(self, request, reference):
+        transaction = WalletTransaction.objects.get(
+        paystack_payment_reference=reference, wallet__user=request.user)
+        reference = transaction.paystack_payment_reference
+        url = 'https://api.paystack.co/transaction/verify/{}'.format(reference)
+        headers = {
+            {"authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+        }    
+        r = requests.get(url, headers=headers)
+        resp = r.json()
+        if resp['data']['status'] == 'success':
+            status = resp['data']['status']
+            amount = resp['data']['amount']
+            WalletTransaction.objects.filter(paystack_payment_reference=reference).update(status=status,
+                                                                                        amount=amount)
+            return Response(resp)
+        return Response(resp)
+
+
+# TransferFunds handles the transaction between
+# two picadailys wallets.
+class TransferFunds(APIView):
+    
+    def post(self, request):
+        serializer = TransferSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        resp = serializer.save()
+        return Response(resp)

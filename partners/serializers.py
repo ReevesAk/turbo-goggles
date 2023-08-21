@@ -1,3 +1,7 @@
+import requests
+from django.conf import settings
+from django.db.models import Sum
+
 # Third party imports.
 from rest_framework import serializers
 from rest_framework.validators import ValidationError   
@@ -5,7 +9,8 @@ from rest_framework.validators import ValidationError
 # In project imports.
 from accounts.models import User
 from .models import (
-    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads
+    PartnerServices, ServiceAndCharge, PartnerServiceImageUploads,
+    Wallet, WalletTransaction,
 )
 
 
@@ -15,6 +20,7 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(
         style={"input_type": "password"}, max_length=68, min_length=6, write_only=True)
 
+    account_type = serializers.CharField(default="Partner")
 
     class Meta:
         model = User
@@ -100,4 +106,85 @@ class PartnerServiceUploadsSerializers(serializers.ModelSerializer):
         representation.pop("image")
 
         return representation    
+
+
+class WalletSerializer(serializers.ModelSerializer):
+    """
+    Serializers to validate the user's wallet 
+    """
+    balance = serializers.SerializerMethodField()
+
+    def get_balance(self, obj):
+        bal = WalletTransaction.objects.filter(
+            wallet=obj, status="success").aggregate(Sum('amount'))['amount__sum']
+        return bal
+
+    class Meta:
+        model = Wallet
+        fields = ['id', 'currency', 'balance']
+
+
+def is_amount(value):
+    if value <= 0:
+        raise serializers.ValidationError({"detail": "Invalid Amount"})
+    return value
+
+
+class DepositSerializer(serializers.Serializer):
+
+    amount = serializers.IntegerField(validators=[is_amount])
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            return value
+        raise serializers.ValidationError({"detail": "Email not found"})
+
+    def save(self):
+        user = self.context['request'].user
+        wallet = Wallet.objects.get(user=user)
+        data = self.validated_data
+        url = 'https://api.paystack.co/transaction/initialize'
+        headers = {
+            {"authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+        }  
+        r = requests.post(url, headers=headers, data=data)
+        response = r.json()
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            transaction_type="deposit",
+            amount= data["amount"],
+            paystack_payment_reference=response['data']['reference'],
+            status="pending",
+        )
+
+        return response
+
+
+class TransferSerializer(serializers.Serializer):
+    amount = serializers.IntegerField(validators=[is_amount])
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            return value
+        raise serializers.ValidationError({"detail": "Email not found"})
     
+
+    def save(self):
+        user = self.context['request'].user
+        wallet = Wallet.objects.get(user=user)
+        data = self.validated_data
+        url = 'https://api.paystack.co/transaction/initialize'
+        headers = {
+            {"authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+        }  
+        r = requests.post(url, headers=headers, data=data)
+        response = r.json()
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            transaction_type="transfer",
+            amount= data["amount"],
+            paystack_payment_reference=response['data']['reference'],
+            status="pending",
+        )
