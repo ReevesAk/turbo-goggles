@@ -7,6 +7,8 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 
+from django.core.validators import URLValidator
+from rest_framework.validators import ValidationError
 
 # send_email handles the sending of emails to user.
 def send_email(subject, body, sender, recipients, password):
@@ -27,3 +29,13 @@ def file_uploader():
       api_key = config('CLOUDINARY_API_KEY'), 
       api_secret = config('CLOUDINARY_API_SECRET') 
    )
+
+
+def validate_url(to_validate:str) -> bool:
+    validator = URLValidator()
+    try:
+        validator(to_validate)
+        return True
+    except ValidationError as exception:
+        print(exception)
+        return False

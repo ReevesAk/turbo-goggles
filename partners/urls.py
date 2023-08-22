@@ -13,5 +13,5 @@ urlpatterns = [
     path('wallet_info/', WalletInfo.as_view(), name='wallet_info'),
     path('deposit/', DepositFunds.as_view(), name='deposit'),
     path('deposit/verify/<str:reference>/', VerifyDeposit.as_view(), name='verify_deposit'),
-    path('tranfer/', TransferFunds.as_view(), name='transfer'),
+    path('transfer/', TransferFunds.as_view(), name='transfer'),
 ]

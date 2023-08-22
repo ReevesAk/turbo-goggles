@@ -51,7 +51,6 @@ INSTALLED_APPS = [
 
     # Internal Project apps.
     'accounts',
-    'profiles',
     'adverts',
     'roles',
     'partners',

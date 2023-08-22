@@ -34,11 +34,12 @@ urlpatterns = [
     # Account creation endpoint.
     path('api/v1/accounts/', include('accounts.urls')),
 
-    # Profiles creation endpoints.
-    path('api/v1/profiles/', include('profiles.urls')),
-
     # Partners endpoints.
     path('api/v1/partners/', include('partners.urls')),
+
+    # Brand Adverts endpoints.
+    path('api/v1/adverts/', include('adverts.urls')),
+
 ]
 # urlpatterns += static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
 # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
