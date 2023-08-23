@@ -17,7 +17,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'account_type','country', 'state', 'city',  'phone_number', 'email', 'password', 'password2']
+        fields = ['id', 'first_name', 'last_name', 'account_type','country', 'state', 'city',  'phone_number', 'email', 'password', 'password']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -32,7 +32,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         email = attrs.get('email', '')
         password = attrs.get('password', '')
-        password2 = attrs.pop('password2', '')
+        password2 = attrs.pop('password', '')
         
         if password != password2:
             raise serializers.ValidationError(
