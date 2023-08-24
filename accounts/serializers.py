@@ -12,9 +12,6 @@ from .models import User
 class RegisterSerializer(serializers.ModelSerializer):
     """ Serailizers for our User first time registration """
 
-    password2 = serializers.CharField(
-        style={"input_type": "password"}, max_length=68, min_length=6, write_only=True)
-
     class Meta:
         model = User
         fields = ['id', 'first_name', 'last_name', 'account_type','country', 'state', 'city',  'phone_number', 'email', 'password', 'password']
@@ -31,14 +28,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise ValidationError("Email has already been used")
         
         email = attrs.get('email', '')
-        password = attrs.get('password', '')
-        password2 = attrs.pop('password', '')
         
-        if password != password2:
-            raise serializers.ValidationError(
-                'password: Passwords do not match'
-            )
-
         if email is None:
             raise serializers.ValidationError(
                 'email: email field can not be empty'
@@ -64,7 +54,6 @@ class LoginSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         max_length=68, min_length=6, write_only=True)
 
-    # tokens = serializers.SerializerMethodField()
 
     def get_tokens(self, obj):
         user = User.objects.get(email=obj['email'])
