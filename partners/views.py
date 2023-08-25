@@ -8,7 +8,6 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -73,15 +72,43 @@ class RegisterPartner(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PartnerServiceViewsets(viewsets.ModelViewSet):
+class PartnerServiceView(generics.GenericAPIView):
+    serializer_class = PartnerServiceSerializers
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            user_data = serializer.data
+
+        response = {"message": "Services recorded!", "data": user_data}
+        return Response(data=response, status=status.HTTP_201_CREATED)    
+
+
+class PartnerServiceListView(generics.RetrieveAPIView):
     queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializers
 
 
-class ServiceAndChargeViewsets(viewsets.ModelViewSet):
+class ServiceAndChargeView(generics.GenericAPIView):
+    serializer_class = ServiceAndChargeSerializers
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            user_data = serializer.data
+
+        response = {"message": "Service prices added!", "data": user_data}
+        return Response(data=response, status=status.HTTP_201_CREATED)   
+    
+
+class  ServiceAndChargeListView(generics.RetrieveAPIView):
     queryset = ServiceAndCharge.objects.all()
     serializer_class = ServiceAndChargeSerializers
-    
+
 
 class UploadImage(CreateAPIView):
     serializer_class = PartnerServiceUploadsSerializers
