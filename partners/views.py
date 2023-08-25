@@ -55,7 +55,7 @@ class RegisterPartner(generics.GenericAPIView):
             user_obj = User.objects.get(email=user_data['email'])
 
             subject = 'Picadailys - Verify your email'
-            email_body = 'Hi '+user_obj.firstname, + \
+            email_body = 'Hi '+user_obj.first_name, + \
                 'use this one time password(OTP) provided to verify your email \n' + otp
             message = 'Subject: {}\n\n{}'.format(subject, email_body)
 
