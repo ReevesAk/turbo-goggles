@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework.authtoken',
     'cloudinary',
-    'multiselectfield',
 
     # Internal Project apps.
     'accounts',
