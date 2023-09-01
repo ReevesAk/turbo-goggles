@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In project imports.
 from .serializers import (RegisterSerializer, LoginSerializer, 
@@ -87,13 +88,13 @@ class EmailVerifyOTP(generics.GenericAPIView):
             user.is_verified = True
             user.save()
  
-            return Response({"Success": "Account is verified"}, status=status.HTTP_201_CREATED) 
+            return Response({"Success": "Account is verified"}, status=status.HTTP_201_CREATED)
 
 
 # LoginAPIView handles the POST request of logging in
 # a verified user with valid login credentials.
 class Login(APIView):
-    permission_classes = []
+    permission_classes = (AllowAny,)
     serializer_class = LoginSerializer
 
     def post(self, request: Request):
@@ -120,7 +121,7 @@ class Login(APIView):
 
 class ForgotPassword(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
-
+    permission_classes = [JWTAuthentication]
     def post(self, request):
         user = request.data
         serializer = self.serializer_class(data=user)
@@ -132,12 +133,14 @@ class ForgotPassword(generics.GenericAPIView):
             host_email = config('EMAIL_HOST_USER')
             app_password = config('EMAIL_HOST_PASSWORD')
 
+            otp = otp_manager.create_otp(user_id=str(request.data.get('id')))
+            
             # Retrieve user email.
             user_obj = User.objects.get(email=user_data['email'])
 
             subject = 'Verify your email'
             email_body = 'Hi '+user_obj.username, + \
-                'use the one time password(OTP) provided to reset your password \n' + OTP
+                'use the one time password(OTP) provided to reset your password \n' + otp
             message = 'Subject: {}\n\n{}'.format(subject, email_body)
 
     
@@ -157,6 +160,7 @@ class ForgotPassword(generics.GenericAPIView):
 
 class ResetPassword(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
+    permission_classes = [JWTAuthentication]
 
     def post(self, request):
         user = request.data

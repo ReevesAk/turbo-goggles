@@ -142,6 +142,9 @@ class TransferSerializer(serializers.Serializer):
     amount = serializers.IntegerField(validators=[is_amount])
     email = serializers.EmailField()
 
+    # class Meta:
+    #     fields
+
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             return value
