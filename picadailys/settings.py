@@ -193,6 +193,7 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
+
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Picadailys Swagger API Documentation',
