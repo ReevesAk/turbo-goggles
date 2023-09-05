@@ -5,6 +5,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In project imports.
@@ -21,7 +22,6 @@ from .models import (
 # Create your views here.
 
 class StartRegisterAdverts(generics.GenericAPIView):
-    permission_classes = [JWTAuthentication]
     serializer_class = AdvertStartSeriailizers
 
     def post(self, request):
@@ -36,7 +36,7 @@ class StartRegisterAdverts(generics.GenericAPIView):
     
 
 class ContdRegisterAdverts(generics.GenericAPIView):
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication]
     serializer_class = AdvertContdSerializers
 
     def post(self, request):
@@ -51,7 +51,8 @@ class ContdRegisterAdverts(generics.GenericAPIView):
     
     
 class Survey(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     serializer_class = BrandAvertSurveySerializers
 
     def post(self, request):
@@ -68,18 +69,22 @@ class Survey(generics.GenericAPIView):
 class SurveyList(generics.RetrieveAPIView):
     queryset = BrandAdSurvey.objects.all()
     serializer_class = BrandAvertSurveySerializers
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
 
 
 class UploadLogo(generics.CreateAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     serializer_class = BrandAvertLogoUploadsSerializers
     parser_classes = (MultiPartParser,)
     queryset = BrandAdlogo.objects.all()
-   
+
 
 class CreateBrandAdvertService(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     serializer_class = AdvertServicecSerializers
 
     def post(self, request):
@@ -94,13 +99,15 @@ class CreateBrandAdvertService(generics.GenericAPIView):
     
 
 class BrandAdServiceListView(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     queryset = BrandAdService.objects.all()
     serializer_class = AdvertServicecSerializers
-    permission_classes = [IsAuthenticated]
     
 
 class BookAnAdvert(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     serializer_class = BookAvertSerializers
 
     def post(self, request):
@@ -119,6 +126,7 @@ class BookAnAdvert(generics.GenericAPIView):
                 
 
 class BookedAdvertListView(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     queryset = BookAnAd.objects.all()
     serializer_class = BookAvertSerializers
-    permission_classes = [IsAuthenticated]

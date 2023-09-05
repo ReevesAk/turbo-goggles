@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
@@ -75,7 +76,8 @@ class RegisterPartner(generics.GenericAPIView):
 
 class PartnerServiceView(generics.GenericAPIView):
     serializer_class = PartnerServiceSerializers
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def post(self, request):
         user = request.data
@@ -91,12 +93,13 @@ class PartnerServiceView(generics.GenericAPIView):
 class PartnerServiceListView(generics.RetrieveAPIView):
     queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializers
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
 
 class ServiceAndChargeView(generics.GenericAPIView):
     serializer_class = ServiceAndChargeSerializers
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         user = request.data
@@ -112,17 +115,20 @@ class ServiceAndChargeView(generics.GenericAPIView):
 class  ServiceAndChargeListView(generics.RetrieveAPIView):
     queryset = ServiceAndCharge.objects.all()
     serializer_class = ServiceAndChargeSerializers
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
 class UploadImage(CreateAPIView):
     serializer_class = PartnerServiceUploadsSerializers
     parser_classes = (MultiPartParser,)
     queryset = PartnerServiceImageUploads.objects.all()
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
 
 class WalletInfo(APIView):
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def get(self, request):
         wallet = Wallet.objects.get(user=request.user)
@@ -131,7 +137,8 @@ class WalletInfo(APIView):
 
 
 class DepositFunds(APIView):
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def post(self, request):
         serializer = DepositSerializer(
@@ -143,7 +150,8 @@ class DepositFunds(APIView):
 
 
 class VerifyDeposit(APIView):
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def get(self, request, reference):
         transaction = WalletTransaction.objects.get(
@@ -167,7 +175,8 @@ class VerifyDeposit(APIView):
 # TransferFunds handles the transaction between
 # two picadailys wallets.
 class TransferFunds(APIView):
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     
     def post(self, request):
         serializer = TransferSerializer(

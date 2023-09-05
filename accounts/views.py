@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from rest_framework.request import Request
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -125,7 +126,8 @@ class Login(APIView):
 
 class ForgotPassword(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
     def post(self, request):
         user = request.data
         serializer = self.serializer_class(data=user)
@@ -164,7 +166,8 @@ class ForgotPassword(generics.GenericAPIView):
 
 class ResetPassword(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
-    permission_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def post(self, request):
         user = request.data
