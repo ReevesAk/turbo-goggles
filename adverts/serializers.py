@@ -41,7 +41,7 @@ class AdvertContdSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = BrandAdvert
-        fields = ['id','facebook', 'twitter', 'instagram', 'youtube', 'website']
+        fields = ['facebook', 'twitter', 'instagram', 'youtube', 'website']
 
 
     def validate(self, attrs):
@@ -69,7 +69,7 @@ class BrandAvertSurveySerializers(serializers.ModelSerializer):
     
     class Meta:
         model = BrandAdSurvey
-        fields = ['id', 'preference', 'age_bracket', 'hobbies', 'phone_use', 
+        fields = ['preference', 'age_bracket', 'hobbies', 'phone_use', 
                   'music_type', 'social_event'
         ]
 

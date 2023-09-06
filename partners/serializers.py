@@ -48,7 +48,7 @@ class PartnerServiceSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = PartnerServices
-        fields = ['id', 'service_offered', "service_category"]
+        fields = ['service_offered', "service_category"]
 
 
     def create(self, validated_data):
@@ -62,7 +62,7 @@ class ServiceAndChargeSerializers(serializers.ModelSerializer):
     
     class Meta:
         model = ServiceAndCharge
-        fields = ['id', 'price', 'service']
+        fields = ['price', 'service']
 
 
     def create(self, validated_data):
@@ -76,7 +76,7 @@ class PartnerServiceUploadsSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = PartnerServiceImageUploads
-        fields = ['user', 'image_url', 'image', 'timestamp']
+        fields = ['image_url', 'image', 'timestamp']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -98,7 +98,7 @@ class WalletSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Wallet
-        fields = ['id', 'currency', 'balance']
+        fields = ['currency', 'balance']
 
 
 def is_amount(value):
