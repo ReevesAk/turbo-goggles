@@ -41,14 +41,25 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
                 'email: email field can not be empty'
             )
         return super().validate(attrs)
-    
+
+
+
+class PartnerProfileSerializer(serializers.ModelSerializer):
+    """ Serailizers for our Partners' profile. """
+
+    model = User
+    fields = ['id', 'first_name', 'last_name', 'email', 'country', 'account_type',
+        'state', 'city',  'phone_number', 'business_name', 'website',
+        'business_category', 'created_at','updated_at',
+    ]
+
 
 class PartnerServiceSerializers(serializers.ModelSerializer):
     """ Serailizers for our Partners' services. """
 
     class Meta:
         model = PartnerServices
-        fields = ['service_offered', "service_category"]
+        fields = ["service_offered", "service_category"]
 
 
     def create(self, validated_data):

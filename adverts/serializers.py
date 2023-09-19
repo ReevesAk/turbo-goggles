@@ -70,7 +70,7 @@ class BrandAvertSurveySerializers(serializers.ModelSerializer):
     class Meta:
         model = BrandAdSurvey
         fields = ['preference', 'age_bracket', 'hobbies', 'phone_use', 
-                  'music_type', 'social_event'
+            'music_type', 'social_event'
         ]
 
 

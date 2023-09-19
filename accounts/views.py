@@ -176,5 +176,5 @@ class ResetPassword(generics.GenericAPIView):
             serializer.save()
             user_data = serializer.data
 
-            return Response(user_data, status=status.HTTP_201_CREATED)
+            return Response(data=user_data, status=status.HTTP_201_CREATED)
         

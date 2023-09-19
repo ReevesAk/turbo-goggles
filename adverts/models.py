@@ -56,14 +56,24 @@ class BrandAdlogo(models.Model):
 
 class BrandAdSurvey(models.Model):
     user = models.ForeignKey(BrandAdvert, on_delete=models.CASCADE)
-    preference = models.CharField(choices=PREFERENCES, null=True)
-    age_bracket = models.CharField(
-        choices=AGE_BRACKET, null=True
+    preference = models.CharField(
+        choices=PREFERENCES, null=True, max_length=255,
     )
-    hobbies = models.CharField(choices=HOBBIES, null=True)
-    phone_use = models.CharField(choices=MOBILE_PHONE_USE, null=True)
-    music_type = models.CharField(choices=MUSIC_CHOICE, null=True)
-    social_event = models.CharField(choices=SOCIAL_EVENT, null=True)
+    age_bracket = models.CharField(
+        choices=AGE_BRACKET, null=True, max_length=255,
+    )
+    hobbies = models.CharField(
+        choices=HOBBIES, null=True, max_length=255,
+    )
+    phone_use = models.CharField(
+        choices=MOBILE_PHONE_USE, null=True, max_length=255,
+    )
+    music_type = models.CharField(
+        choices=MUSIC_CHOICE, null=True, max_length=255,
+    )
+    social_event = models.CharField(
+        choices=SOCIAL_EVENT, null=True, max_length=255,
+    )
 
     
 class BrandAdService(models.Model):

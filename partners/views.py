@@ -7,7 +7,7 @@ import requests
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -20,6 +20,7 @@ from .serializers import (
     RegisterPartnerSerializer, PartnerServiceSerializers,
     ServiceAndChargeSerializers, PartnerServiceUploadsSerializers,
     WalletSerializer, DepositSerializer, TransferSerializer,
+    PartnerProfileSerializer,
 )
 from .models import (
     PartnerServices, ServiceAndCharge, PartnerServiceImageUploads,
@@ -32,7 +33,7 @@ from accounts.otp import otp_manager
 
 # Create your views here.
 # RegisterPartner handles the POST request of registering a user, 
-# It takes in firstnmae, lastname, username, email and password
+# It takes in firstname, lastname, email and password
 #  and resturns a validation email upon success.
 class RegisterPartner(generics.GenericAPIView):
     permission_classes = (AllowAny,)
@@ -90,6 +91,16 @@ class PartnerServiceView(generics.GenericAPIView):
         return Response(data=response, status=status.HTTP_201_CREATED)    
 
 
+# GetPartner decribes returns the profile details of a partner user.
+# It takes in the user_id provided 
+class GetPartnerDetails(generics.RetrieveAPIView):
+    """Partner Detials"""
+    serializer_class = PartnerProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
+    queryset = User.objects.filter(account_type='Partner')
+
+
 class PartnerServiceListView(generics.RetrieveAPIView):
     queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializers
@@ -100,6 +111,7 @@ class PartnerServiceListView(generics.RetrieveAPIView):
 class ServiceAndChargeView(generics.GenericAPIView):
     serializer_class = ServiceAndChargeSerializers
     authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def post(self, request):
         user = request.data
