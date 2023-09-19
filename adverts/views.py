@@ -116,11 +116,10 @@ class BookAnAdvert(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             user_data = serializer.data
-            match BookAnAdvert.booking:  
-                case "confirm":
+            if BookAnAdvert.booking == "confirm":
                     response = {"message": "Ad booked!", "data": user_data}
                     return Response(data=response, status=status.HTTP_200_OK)
-                case "cancel":
+            elif BookAnAdvert.booking =="cancel":
                     response = {"message": "Ad cancelled!", "data": user_data}
                     return Response(data=serializer.errors, status=status.HTTP_200_OK)
                 

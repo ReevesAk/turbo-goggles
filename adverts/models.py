@@ -47,7 +47,7 @@ class BrandAdlogo(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
 
     @property
-    def logo_url(self):
+    def logo_url(self) -> str:
         cloud_name = config('CLOUDINARY_CLOUD_NAME')
         return (
             f"https://res.cloudinary.com/{cloud_name}/{self.logo}"
@@ -78,7 +78,7 @@ class BrandAdSurvey(models.Model):
     
 class BrandAdService(models.Model):
     user = models.ForeignKey(BrandAdvert, on_delete=models.CASCADE)
-    service_name = models.CharField(max_length=155, null=True)
+    service_name = models.CharField(max_length=155, null=True, unique=True)
     price_of_service = models.FloatField()
     duration_of_service = models.DurationField(null=True)
     service_desc = models.TextField()

@@ -1,3 +1,6 @@
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 # Third party imports.
 from rest_framework import serializers
 from rest_framework.validators import ValidationError   
@@ -46,21 +49,17 @@ class AdvertContdSerializers(serializers.ModelSerializer):
 
     def validate(self, attrs):
         
-        valid_urls = []
+        urls = ['facebook', 'twitter', 'instagram', 'youtube', 'website']
+        url_validator = URLValidator()
 
-        facebook = attrs.get('facebook', '')
-        twitter = attrs.get('twitter', '')
-        instagram = attrs.get('instagram', '')
-        youtube = attrs.get('youtube', '')
-        website = attrs.get('website', '')
+        for field_name in urls:
+            url = attrs.get(field_name, '')
 
-        urls = [facebook, twitter, instagram, youtube, website]
-        
-        for url in urls:
-            is_valid = validate_url(url)
-            if is_valid == True:
-                valid_urls.append(url)
-
+            if url:
+                try:
+                    url_validator(url)
+                except DjangoValidationError:
+                    raise serializers.ValidationError(f'{field_name}: Invalid URL format')
         return super().validate(attrs)
     
     
