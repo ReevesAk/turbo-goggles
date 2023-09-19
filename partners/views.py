@@ -7,7 +7,7 @@ import requests
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -19,7 +19,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     RegisterPartnerSerializer, PartnerServiceSerializers,
     ServiceAndChargeSerializers, PartnerServiceUploadsSerializers,
-    WalletSerializer, DepositSerializer, TransferSerializer,
+    PartnerProfileSerializer,
 )
 from .models import (
     PartnerServices, ServiceAndCharge, PartnerServiceImageUploads,
@@ -32,7 +32,7 @@ from accounts.otp import otp_manager
 
 # Create your views here.
 # RegisterPartner handles the POST request of registering a user, 
-# It takes in firstnmae, lastname, username, email and password
+# It takes in firstname, lastname, email and password
 #  and resturns a validation email upon success.
 class RegisterPartner(generics.GenericAPIView):
     permission_classes = (AllowAny,)
@@ -90,6 +90,16 @@ class PartnerServiceView(generics.GenericAPIView):
         return Response(data=response, status=status.HTTP_201_CREATED)    
 
 
+# GetPartner decribes returns the profile details of a partner user.
+# It takes in the user_id provided 
+class GetPartnerDetails(generics.RetrieveAPIView):
+    """Partner Detials"""
+    serializer_class = PartnerProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
+    queryset = User.objects.filter(account_type='Partner')
+
+
 class PartnerServiceListView(generics.RetrieveAPIView):
     queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializers
@@ -100,6 +110,7 @@ class PartnerServiceListView(generics.RetrieveAPIView):
 class ServiceAndChargeView(generics.GenericAPIView):
     serializer_class = ServiceAndChargeSerializers
     authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, )
 
     def post(self, request):
         user = request.data
@@ -126,62 +137,62 @@ class UploadImage(CreateAPIView):
     permission_classes = (IsAuthenticated, )
 
 
-class WalletInfo(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, )
+# class WalletInfo(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated, )
 
-    def get(self, request):
-        wallet = Wallet.objects.get(user=request.user)
-        data = WalletSerializer(wallet).data
-        return Response(data)
-
-
-class DepositFunds(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, )
-
-    def post(self, request):
-        serializer = DepositSerializer(
-            data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-
-        resp = serializer.save()
-        return Response(resp)
+#     def get(self, request):
+#         wallet = Wallet.objects.get(user=request.user)
+#         data = WalletSerializer(wallet).data
+#         return Response(data)
 
 
-class VerifyDeposit(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, )
+# class DepositFunds(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated, )
 
-    def get(self, request, reference):
-        transaction = WalletTransaction.objects.get(
-        paystack_payment_reference=reference, wallet__user=request.user)
-        reference = transaction.paystack_payment_reference
-        url = 'https://api.paystack.co/transaction/verify/{}'.format(reference)
-        headers = {
-            {"authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
-        }    
-        r = requests.get(url, headers=headers)
-        resp = r.json()
-        if resp['data']['status'] == 'success':
-            status = resp['data']['status']
-            amount = resp['data']['amount']
-            WalletTransaction.objects.filter(paystack_payment_reference=reference).update(status=status,
-                                                                                        amount=amount)
-            return Response(resp)
-        return Response(resp)
+#     def post(self, request):
+#         serializer = DepositSerializer(
+#             data=request.data, context={"request": request})
+#         serializer.is_valid(raise_exception=True)
+
+#         resp = serializer.save()
+#         return Response(resp)
 
 
-# TransferFunds handles the transaction between
-# two picadailys wallets.
-class TransferFunds(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, )
+# class VerifyDeposit(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated, )
+
+#     def get(self, request, reference):
+#         transaction = WalletTransaction.objects.get(
+#         paystack_payment_reference=reference, wallet__user=request.user)
+#         reference = transaction.paystack_payment_reference
+#         url = 'https://api.paystack.co/transaction/verify/{}'.format(reference)
+#         headers = {
+#             {"authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+#         }    
+#         r = requests.get(url, headers=headers)
+#         resp = r.json()
+#         if resp['data']['status'] == 'success':
+#             status = resp['data']['status']
+#             amount = resp['data']['amount']
+#             WalletTransaction.objects.filter(paystack_payment_reference=reference).update(status=status,
+#                                                                                         amount=amount)
+#             return Response(resp)
+#         return Response(resp)
+
+
+# # TransferFunds handles the transaction between
+# # two picadailys wallets.
+# class TransferFunds(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated, )
     
-    def post(self, request):
-        serializer = TransferSerializer(
-            data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+#     def post(self, request):
+#         serializer = TransferSerializer(
+#             data=request.data, context={"request": request})
+#         serializer.is_valid(raise_exception=True)
 
-        resp = serializer.save()
-        return Response(resp)
+#         resp = serializer.save()
+#         return Response(resp)

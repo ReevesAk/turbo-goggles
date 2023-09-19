@@ -47,5 +47,5 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
     
     def is_member(self):
-        if self.game_points == 100:
+        if self.game_points == 10:
             return True
