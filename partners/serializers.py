@@ -47,11 +47,12 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
 class PartnerProfileSerializer(serializers.ModelSerializer):
     """ Serailizers for our Partners' profile. """
 
-    model = User
-    fields = ['id', 'first_name', 'last_name', 'email', 'country', 'account_type',
-        'state', 'city',  'phone_number', 'business_name', 'website',
-        'business_category', 'created_at','updated_at',
-    ]
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'country', 'account_type',
+            'state', 'city',  'phone_number', 'business_name', 'website',
+            'business_category', 'created_at','updated_at',
+        ]
 
 
 class PartnerServiceSerializers(serializers.ModelSerializer):
@@ -59,7 +60,7 @@ class PartnerServiceSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = PartnerServices
-        fields = ["service_offered", "service_category"]
+        fields = ["id", "service_offered", "service_category"]
 
 
     def create(self, validated_data):
