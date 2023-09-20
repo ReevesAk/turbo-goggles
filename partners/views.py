@@ -97,7 +97,12 @@ class GetPartnerDetails(generics.RetrieveAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, )
-    queryset = User.objects.filter(account_type='Partner')
+
+    def get_queryset(self):
+
+        id = self.request.query_params.get('id')
+        queryset = User.objects.filter(id=(id))
+        return queryset
 
 
 class PartnerServiceListView(generics.RetrieveAPIView):
