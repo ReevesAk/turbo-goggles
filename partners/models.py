@@ -9,13 +9,16 @@ from accounts.models import User
 # Create your models here.
 
 PARTNERS_SERVICE_CATEGORY_CHOICES = (
-    ("Hotel and Accomodation", "Hotel and Accomodation"),
-    ("Fast food and restaurant", "Fast food and restaurant"),
+    ("Hotels", "Hotels"),
+    ("Cinema", "Cinema"),
+    ("Gyms", "Gyms"),
+    ("Restaurant", "Restaurant"),
+    ("Distribution", "Distribution")
     ("Land Transport", "Land Transport"),
     ("Cooking Gas Service", "Cooking Gas Service"),
-    ("Air Transport", "Air Transport"),
-    ("Dubai Visa", "Dubai Visa"),
-    ("Cinema and Gym", "Cinema and Gym")
+    ("Courier Service", "Courier Service"),
+    ("Air Travel", "Air Travel"),
+    ("Dubai Visa", "Dubai Visa"),   
 )
 
 
