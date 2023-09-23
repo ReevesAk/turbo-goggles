@@ -13,7 +13,7 @@ PARTNERS_SERVICE_CATEGORY_CHOICES = (
     ("Cinema", "Cinema"),
     ("Gyms", "Gyms"),
     ("Restaurant", "Restaurant"),
-    ("Distribution", "Distribution")
+    ("Distribution", "Distribution"),
     ("Land Transport", "Land Transport"),
     ("Cooking Gas Service", "Cooking Gas Service"),
     ("Courier Service", "Courier Service"),
