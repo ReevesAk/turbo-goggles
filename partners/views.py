@@ -68,7 +68,7 @@ class RegisterPartner(generics.GenericAPIView):
             #     recipients=[user_obj.email],
             #     password=app_password
             # )
-            response = {"message": "User Created Successfully. An OTP has been sent to your mail for verification", "data": user_data}
+            response = {"message": "User Created Successfully. An OTP has been sent to your mail for verification", "data": serializer.data}
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
