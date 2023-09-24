@@ -11,9 +11,15 @@ from .views import (
 urlpatterns = [
     path("register_partners/", RegisterPartner.as_view(), name="register-partners"),
     path(
-        "partner_service/", PartnerServiceView.as_view(), name="create_partner_service"
+        "partner_service/",
+        PartnerServiceView.as_view(),
+        name="create_partner_service"
     ),
-    path("partner-profile/", GetPartnerDetails.as_view(), name="get_partner_profile"),
+    path(
+        "partner-profile/",
+        GetPartnerDetails.as_view(),
+        name="get_partner_profile"
+    ),
     path(
         "list-partner-service/<int:id>/",
         PartnerServiceListView.as_view(),

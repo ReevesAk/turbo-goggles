@@ -89,7 +89,6 @@ class EmailVerifyOTP(generics.GenericAPIView):
 # LoginAPIView handles the POST request of logging in
 # a verified user with valid login credentials.
 class Login(APIView):
-    permission_classes = (AllowAny,)
     serializer_class = LoginSerializer
 
     def post(self, request: Request):
@@ -113,7 +112,8 @@ class Login(APIView):
         tokens = create_jwt_pair_for_user(user)
 
         serializer = self.serializer_class(user)
-        response = {
+        serializer.is_valid(raise_exception=True)
+        response = {    
             "message": "Login Successful",
             "user": serializer.data,
             "id": user.id,
@@ -121,6 +121,17 @@ class Login(APIView):
         }
         return Response(data=response, status=status.HTTP_200_OK)
 
+
+class LoginView(APIView):
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        tokens = create_jwt_pair_for_user(user)
+        return Response({"token": tokens, "user_id": user.id}, status=status.HTTP_200_OK)
+    
 
 class ForgotPassword(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
