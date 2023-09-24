@@ -6,7 +6,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -15,32 +14,88 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='PartnerServices',
+            name="PartnerServices",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('service_offered', models.CharField(choices=[('Hotel and Accomodation', 'Hotel and Accomodation'), ('Fast food and restaurant', 'Fast food and restaurant'), ('Land Transport', 'Land Transport'), ('Cooking Gas Service', 'Cooking Gas Service'), ('Air Transport', 'Air Transport'), ('Dubai Visa', 'Dubai Visa'), ('Cinema and Gym', 'Cinema and Gym')], max_length=255)),
-                ('service_category', models.CharField(max_length=255, null=True)),
-                ('users', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "service_offered",
+                    models.CharField(
+                        choices=[
+                            ("Hotel and Accomodation", "Hotel and Accomodation"),
+                            ("Fast food and restaurant", "Fast food and restaurant"),
+                            ("Land Transport", "Land Transport"),
+                            ("Cooking Gas Service", "Cooking Gas Service"),
+                            ("Air Transport", "Air Transport"),
+                            ("Dubai Visa", "Dubai Visa"),
+                            ("Cinema and Gym", "Cinema and Gym"),
+                        ],
+                        max_length=255,
+                    ),
+                ),
+                ("service_category", models.CharField(max_length=255, null=True)),
+                (
+                    "users",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='ServiceAndCharge',
+            name="ServiceAndCharge",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('service', models.CharField(max_length=255, null=True)),
-                ('price', models.FloatField(null=True)),
-                ('partner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='partners.partnerservices')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("service", models.CharField(max_length=255, null=True)),
+                ("price", models.FloatField(null=True)),
+                (
+                    "partner",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="partners.partnerservices",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='PartnerServiceUploads',
+            name="PartnerServiceUploads",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('document_type', models.CharField(max_length=255, null=True)),
-                ('document_data', models.CharField(max_length=255, null=True)),
-                ('location', models.CharField(max_length=255, null=True)),
-                ('object_key', models.CharField(max_length=255, null=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='partners.partnerservices')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("document_type", models.CharField(max_length=255, null=True)),
+                ("document_data", models.CharField(max_length=255, null=True)),
+                ("location", models.CharField(max_length=255, null=True)),
+                ("object_key", models.CharField(max_length=255, null=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="partners.partnerservices",
+                    ),
+                ),
             ],
         ),
     ]

@@ -5,25 +5,41 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('adverts', '0003_rename_service_desctiption_brandadvertregistration_address_and_more'),
+        (
+            "adverts",
+            "0003_rename_service_desctiption_brandadvertregistration_address_and_more",
+        ),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='BrandAdvertRegistration',
-            new_name='BrandAdvert',
+            old_name="BrandAdvertRegistration",
+            new_name="BrandAdvert",
         ),
         migrations.CreateModel(
-            name='BrandAdService',
+            name="BrandAdService",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('service_name', models.CharField(max_length=155, null=True)),
-                ('price_of_service', models.FloatField()),
-                ('duration_of_service', models.CharField(max_length=155, null=True)),
-                ('service_desc', models.TextField()),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='adverts.brandadvert')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("service_name", models.CharField(max_length=155, null=True)),
+                ("price_of_service", models.FloatField()),
+                ("duration_of_service", models.CharField(max_length=155, null=True)),
+                ("service_desc", models.TextField()),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="adverts.brandadvert",
+                    ),
+                ),
             ],
         ),
     ]

@@ -7,32 +7,84 @@ import django.utils.timezone
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('partners', '0002_partnerserviceimageuploads_and_more'),
+        ("partners", "0002_partnerserviceimageuploads_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Wallet',
+            name="Wallet",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('currency', models.CharField(default='NGN', max_length=50)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now, null=True)),
-                ('user', models.OneToOneField(null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("currency", models.CharField(default="NGN", max_length=50)),
+                (
+                    "created_at",
+                    models.DateTimeField(default=django.utils.timezone.now, null=True),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='WalletTransaction',
+            name="WalletTransaction",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('transaction_type', models.CharField(choices=[('deposit', 'deposit'), ('transfer', 'transfer'), ('withdraw', 'withdraw')], max_length=200, null=True)),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=100, null=True)),
-                ('timestamp', models.DateTimeField(default=django.utils.timezone.now, null=True)),
-                ('status', models.CharField(default='pending', max_length=100)),
-                ('paystack_payment_reference', models.CharField(blank=True, default='', max_length=100)),
-                ('wallet', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='partners.wallet')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "transaction_type",
+                    models.CharField(
+                        choices=[
+                            ("deposit", "deposit"),
+                            ("transfer", "transfer"),
+                            ("withdraw", "withdraw"),
+                        ],
+                        max_length=200,
+                        null=True,
+                    ),
+                ),
+                (
+                    "amount",
+                    models.DecimalField(decimal_places=2, max_digits=100, null=True),
+                ),
+                (
+                    "timestamp",
+                    models.DateTimeField(default=django.utils.timezone.now, null=True),
+                ),
+                ("status", models.CharField(default="pending", max_length=100)),
+                (
+                    "paystack_payment_reference",
+                    models.CharField(blank=True, default="", max_length=100),
+                ),
+                (
+                    "wallet",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="partners.wallet",
+                    ),
+                ),
             ],
         ),
     ]

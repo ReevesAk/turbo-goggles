@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('adverts', '0007_auto_20230915_2141'),
+        ("adverts", "0007_auto_20230915_2141"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='brandadservice',
-            name='service_name',
+            model_name="brandadservice",
+            name="service_name",
             field=models.CharField(max_length=155, null=True, unique=True),
         ),
     ]

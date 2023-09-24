@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0003_auto_20230816_0005'),
+        ("accounts", "0003_auto_20230816_0005"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='password2',
+            model_name="user",
+            name="password2",
             field=models.CharField(max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='password',
+            model_name="user",
+            name="password",
             field=models.CharField(max_length=255, null=True),
         ),
     ]

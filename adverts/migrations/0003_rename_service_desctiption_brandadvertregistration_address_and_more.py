@@ -4,27 +4,26 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('adverts', '0002_brandadvertregistration_brand_user_type_and_more'),
+        ("adverts", "0002_brandadvertregistration_brand_user_type_and_more"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='brandadvertregistration',
-            old_name='service_desctiption',
-            new_name='address',
+            model_name="brandadvertregistration",
+            old_name="service_desctiption",
+            new_name="address",
         ),
         migrations.RemoveField(
-            model_name='brandadvertregistration',
-            name='service_duration',
+            model_name="brandadvertregistration",
+            name="service_duration",
         ),
         migrations.RemoveField(
-            model_name='brandadvertregistration',
-            name='service_name',
+            model_name="brandadvertregistration",
+            name="service_name",
         ),
         migrations.RemoveField(
-            model_name='brandadvertregistration',
-            name='service_price',
+            model_name="brandadvertregistration",
+            name="service_price",
         ),
     ]

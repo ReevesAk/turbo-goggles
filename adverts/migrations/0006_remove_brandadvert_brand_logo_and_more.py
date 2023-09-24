@@ -8,50 +8,187 @@ import django.utils.timezone
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('adverts', '0005_alter_brandadservice_duration_of_service'),
+        ("adverts", "0005_alter_brandadservice_duration_of_service"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='brandadvert',
-            name='brand_logo',
+            model_name="brandadvert",
+            name="brand_logo",
         ),
         migrations.AlterField(
-            model_name='brandadvert',
-            name='email',
+            model_name="brandadvert",
+            name="email",
             field=models.CharField(max_length=80, null=True, unique=True),
         ),
         migrations.CreateModel(
-            name='BrandAdSurvey',
+            name="BrandAdSurvey",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('preference', models.CharField(choices=[('Indoor activities', 'Indoor activities'), ('Outdoor activities', 'Outdoor activities')], null=True)),
-                ('age_bracket', models.CharField(choices=[('16-25', '16-25'), ('26-35', '26-35'), ('36-50', '36-50'), ('52-Above', '52-Above')], null=True)),
-                ('hobbies', models.CharField(choices=[('Surfing Internet', 'Surfing Internet'), ('Meeting Friends', 'Meeting Friends'), ('Watching TV, Movies', 'Watching TV, Movies'), ('Health fitness gym', 'Health fitness gym'), ('Reading', 'Reading'), ('Outdoor or Indoor games', 'Outdoor or Indoor games'), ('Not Specified', 'Not Specified')], null=True)),
-                ('phone_use', models.CharField(choices=[('Phone Calls & Surfing Internet', 'Phone Calls & Surfing Internet'), ('Phone Calls Only', 'Phone Calls Only'), ('Phone Calls & playing games', 'Phone Calls & playing games'), ('Phone Calls & surf Social Media', 'Phone Calls & surf Social Media'), ('Not Specified', 'Not Specified')], null=True)),
-                ('music_type', models.CharField(choices=[('Afro-pop', 'Afro-pop'), ('Hip-pop', 'Hip-pop'), ('Classical', 'Classical'), ('Blues', 'Blues'), ('Rap', 'Rap'), ('Pop', 'Pop'), ('Old School', 'Old School'), ('Contemporary', 'Contemporary'), ('Traditional', 'Traditional'), ('Gospel', 'Gospel'), ('Not Specified', 'Not Specified')], null=True)),
-                ('social_event', models.CharField(choices=[('Clubbing', 'Clubbing'), ('Wedding', 'Wedding'), ('Birthday', 'Birthday'), ('Recreational', 'Recreational'), ('Not the Outdoor Type', 'Not the Outdoor Type'), ('Restaurants and Fastfood', 'Restaurants and Fastfood'), ('Shows', 'Shows'), ('Not Specified', 'Not Specified')], null=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='adverts.brandadvert')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "preference",
+                    models.CharField(
+                        choices=[
+                            ("Indoor activities", "Indoor activities"),
+                            ("Outdoor activities", "Outdoor activities"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "age_bracket",
+                    models.CharField(
+                        choices=[
+                            ("16-25", "16-25"),
+                            ("26-35", "26-35"),
+                            ("36-50", "36-50"),
+                            ("52-Above", "52-Above"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "hobbies",
+                    models.CharField(
+                        choices=[
+                            ("Surfing Internet", "Surfing Internet"),
+                            ("Meeting Friends", "Meeting Friends"),
+                            ("Watching TV, Movies", "Watching TV, Movies"),
+                            ("Health fitness gym", "Health fitness gym"),
+                            ("Reading", "Reading"),
+                            ("Outdoor or Indoor games", "Outdoor or Indoor games"),
+                            ("Not Specified", "Not Specified"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "phone_use",
+                    models.CharField(
+                        choices=[
+                            (
+                                "Phone Calls & Surfing Internet",
+                                "Phone Calls & Surfing Internet",
+                            ),
+                            ("Phone Calls Only", "Phone Calls Only"),
+                            (
+                                "Phone Calls & playing games",
+                                "Phone Calls & playing games",
+                            ),
+                            (
+                                "Phone Calls & surf Social Media",
+                                "Phone Calls & surf Social Media",
+                            ),
+                            ("Not Specified", "Not Specified"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "music_type",
+                    models.CharField(
+                        choices=[
+                            ("Afro-pop", "Afro-pop"),
+                            ("Hip-pop", "Hip-pop"),
+                            ("Classical", "Classical"),
+                            ("Blues", "Blues"),
+                            ("Rap", "Rap"),
+                            ("Pop", "Pop"),
+                            ("Old School", "Old School"),
+                            ("Contemporary", "Contemporary"),
+                            ("Traditional", "Traditional"),
+                            ("Gospel", "Gospel"),
+                            ("Not Specified", "Not Specified"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "social_event",
+                    models.CharField(
+                        choices=[
+                            ("Clubbing", "Clubbing"),
+                            ("Wedding", "Wedding"),
+                            ("Birthday", "Birthday"),
+                            ("Recreational", "Recreational"),
+                            ("Not the Outdoor Type", "Not the Outdoor Type"),
+                            ("Restaurants and Fastfood", "Restaurants and Fastfood"),
+                            ("Shows", "Shows"),
+                            ("Not Specified", "Not Specified"),
+                        ],
+                        null=True,
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="adverts.brandadvert",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='BrandAdlogo',
+            name="BrandAdlogo",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('logo', cloudinary.models.CloudinaryField(max_length=255, null=True)),
-                ('timestamp', models.DateTimeField(default=django.utils.timezone.now)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='adverts.brandadvert')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("logo", cloudinary.models.CloudinaryField(max_length=255, null=True)),
+                ("timestamp", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="adverts.brandadvert",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='BookAnAd',
+            name="BookAnAd",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('booking', models.CharField(choices=[('Cancel', 'Cancel'), ('Confirm', 'Confirm')], default='confirm', max_length=155, null=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "booking",
+                    models.CharField(
+                        choices=[("Cancel", "Cancel"), ("Confirm", "Confirm")],
+                        default="confirm",
+                        max_length=155,
+                        null=True,
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

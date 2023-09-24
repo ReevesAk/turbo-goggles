@@ -1,6 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import (
-    AbstractBaseUser, PermissionsMixin)
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
@@ -11,6 +10,7 @@ USER_CATEGORY_CHOICES = (
     ("User", "User"),
     ("Partner", "Partner"),
 )
+
 
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
@@ -24,8 +24,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     city = models.CharField(max_length=155, blank=False)
     game_points = models.IntegerField(null=True)
 
-    #Partner detials.
-    account_type = models.CharField(choices=USER_CATEGORY_CHOICES, max_length=40, null=True)
+    # Partner detials.
+    account_type = models.CharField(
+        choices=USER_CATEGORY_CHOICES, max_length=40, null=True
+    )
     business_name = models.CharField(max_length=500, null=True)
     website = models.CharField(max_length=255, null=True)
     business_category = models.CharField(max_length=255, null=True)
@@ -36,7 +38,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -45,7 +46,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-    
+
     def is_member(self):
         if self.game_points == 10:
             return True

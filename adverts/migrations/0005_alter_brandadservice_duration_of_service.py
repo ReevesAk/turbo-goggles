@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('adverts', '0004_rename_brandadvertregistration_brandadvert_and_more'),
+        ("adverts", "0004_rename_brandadvertregistration_brandadvert_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='brandadservice',
-            name='duration_of_service',
+            model_name="brandadservice",
+            name="duration_of_service",
             field=models.DurationField(null=True),
         ),
     ]

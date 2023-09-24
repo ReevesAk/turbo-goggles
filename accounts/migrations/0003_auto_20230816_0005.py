@@ -4,30 +4,33 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0002_user_first_name_user_last_name'),
+        ("accounts", "0002_user_first_name_user_last_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='account_type',
-            field=models.CharField(choices=[('User', 'User'), ('Partner', 'Partner')], max_length=40, null=True),
+            model_name="user",
+            name="account_type",
+            field=models.CharField(
+                choices=[("User", "User"), ("Partner", "Partner")],
+                max_length=40,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='business_category',
+            model_name="user",
+            name="business_category",
             field=models.CharField(max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='user',
-            name='business_name',
+            model_name="user",
+            name="business_name",
             field=models.CharField(max_length=500, null=True),
         ),
         migrations.AddField(
-            model_name='user',
-            name='website',
+            model_name="user",
+            name="website",
             field=models.CharField(max_length=255, null=True),
         ),
     ]
