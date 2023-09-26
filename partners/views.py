@@ -100,10 +100,14 @@ class GetPartnerDetails(generics.RetrieveAPIView):
 
 
 class PartnerServiceListView(generics.RetrieveAPIView):
-    queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ServiceAndChargeView(generics.GenericAPIView):
@@ -123,10 +127,14 @@ class ServiceAndChargeView(generics.GenericAPIView):
 
 
 class ServiceAndChargeListView(generics.RetrieveAPIView):
-    queryset = ServiceAndCharge.objects.all()
     serializer_class = ServiceAndChargeSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UploadImage(CreateAPIView):
