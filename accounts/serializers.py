@@ -61,12 +61,12 @@ class VerifyOTPSerailizer(serializers.Serializer):
 
 
 class ForgotPasswordSerializer(serializers.ModelSerializer):
-    phonenumber = serializers.EmailField()
+    phone_number = serializers.EmailField()
     otp = serializers.CharField(max_length=50, min_length=6)
 
     class Meta:
         model = User
-        fields = ["email", "otp"]
+        fields = ["phone_number", "otp"]
 
     def validate(self, attrs):
         email = attrs.get("email", "")
