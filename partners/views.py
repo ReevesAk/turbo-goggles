@@ -93,10 +93,10 @@ class GetPartnerDetails(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def get_queryset(self):
-        id = self.request.query_params.get("id")
-        queryset = User.objects.filter(id=(id))
-        return queryset
+    def retrieve(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PartnerServiceListView(generics.RetrieveAPIView):
