@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import IntegrityError
 from decouple import config
 import requests
 
@@ -52,7 +53,10 @@ class RegisterPartner(generics.GenericAPIView):
                     "data": user_data,
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
-            except:
+            except IntegrityError:
+                response = {
+                    "error": "email already used",
+                }
                 return Response(
                     {
                         "status": "fail",

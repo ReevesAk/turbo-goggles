@@ -1,7 +1,3 @@
-import requests
-from django.conf import settings
-from django.db.models import Sum
-
 # Third party imports.
 from rest_framework import serializers
 from rest_framework.validators import ValidationError
@@ -12,8 +8,6 @@ from .models import (
     PartnerServices,
     ServiceAndCharge,
     PartnerServiceImageUploads,
-    Wallet,
-    WalletTransaction,
 )
 
 
@@ -50,24 +44,23 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("email: email field can not be empty")
 
         return super().validate(attrs)
-    
-    
+
     def create(self, validated_data):
         user = User.objects.create(
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            account_type=validated_data['account_type'],
-            country=validated_data['country'],
-            state=validated_data['state'],
-            city=validated_data['city'],
-            phone_number=validated_data['phone_number'],
-            business_name=validated_data['business_name'],
-            website=validated_data['website'],
-            business_category=validated_data['business_category'],
+            email=validated_data["email"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            account_type=validated_data["account_type"],
+            country=validated_data["country"],
+            state=validated_data["state"],
+            city=validated_data["city"],
+            phone_number=validated_data["phone_number"],
+            business_name=validated_data["business_name"],
+            website=validated_data["website"],
+            business_category=validated_data["business_category"],
         )
 
-        user.set_password(validated_data['password'])
+        user.set_password(validated_data["password"])
         user.save()
 
         return user

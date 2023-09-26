@@ -37,20 +37,20 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("email: email field can not be empty")
 
         return super().validate(attrs)
-    
+
     def create(self, validated_data):
         user = User.objects.create(
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            account_type=validated_data['account_type'],
-            country=validated_data['country'],
-            state=validated_data['state'],
-            city=validated_data['city'],
-            phone_number=validated_data['phone_number'],
+            email=validated_data["email"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            account_type=validated_data["account_type"],
+            country=validated_data["country"],
+            state=validated_data["state"],
+            city=validated_data["city"],
+            phone_number=validated_data["phone_number"],
         )
 
-        user.set_password(validated_data['password'])
+        user.set_password(validated_data["password"])
         user.save()
 
         return user
@@ -74,7 +74,7 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
 
         if email is None:
             return serializers.ValidationError("email: email field can not be empty")
-        
+
         if otp is None:
             return serializers.ValidationError("otp: otp must be provided")
         return attrs
