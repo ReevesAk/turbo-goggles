@@ -6,7 +6,6 @@ import requests
 
 # Third party imports.
 from rest_framework import generics
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
@@ -22,15 +21,12 @@ from .serializers import (
     ServiceAndChargeSerializers,
     PartnerServiceUploadsSerializers,
     PartnerProfileSerializer,
+    UpdateProfileSerializer,
 )
 from .models import (
-    PartnerServices,
-    ServiceAndCharge,
     PartnerServiceImageUploads,
 )
 from accounts.models import User
-from accounts.utils import send_email
-from accounts.otp import otp_manager
 
 
 # Create your views here.
@@ -96,6 +92,25 @@ class GetPartnerDetails(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
         serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpdateUserProfile(generics.UpdateAPIView):
+    """Update User Profile"""
+
+    serializer_class = UpdateProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

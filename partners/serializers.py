@@ -89,6 +89,25 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
         ]
 
 
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "country",
+            "state",
+            "city",
+            "phone_number",
+            "business_name",
+            "website",
+            "business_category",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class PartnerServiceSerializers(serializers.ModelSerializer):
     """Serailizers for our Partners' services."""
 
