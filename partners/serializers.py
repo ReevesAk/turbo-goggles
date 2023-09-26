@@ -40,16 +40,37 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, attrs):
-        email_exists = User.objects.filter(email=attrs["email"]).exists()
-
-        if email_exists:
-            raise ValidationError("Email has already been used")
-
         email = attrs.get("email", "")
 
-        if email is None:
+        if email:
+            email_exists = User.objects.filter(email=email).exists()
+            if email_exists:
+                raise serializers.ValidationError("Email has already been used")
+        else:
             raise serializers.ValidationError("email: email field can not be empty")
+
         return super().validate(attrs)
+    
+    
+    def create(self, validated_data):
+        user = User.objects.create(
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            account_type=validated_data['account_type'],
+            country=validated_data['country'],
+            state=validated_data['state'],
+            city=validated_data['city'],
+            phone_number=validated_data['phone_number'],
+            business_name=validated_data['business_name'],
+            website=validated_data['website'],
+            business_category=validated_data['business_category'],
+        )
+
+        user.set_password(validated_data['password'])
+        user.save()
+
+        return user
 
 
 class PartnerProfileSerializer(serializers.ModelSerializer):

@@ -35,9 +35,8 @@ from accounts.otp import otp_manager
 # Create your views here.
 # RegisterPartner handles the POST request of registering a user,
 # It takes in firstname, lastname, email and password
-#  and resturns a validation email upon success.
+#  and returns a validation email upon success.
 class RegisterPartner(generics.GenericAPIView):
-    permission_classes = (AllowAny,)
     serializer_class = RegisterPartnerSerializer
 
     def post(self, request):
@@ -47,7 +46,6 @@ class RegisterPartner(generics.GenericAPIView):
             try:
                 serializer.save()
                 user_data = serializer.data
-
                 response = {
                     "status": "success",
                     "message": "Partner Created Successfully. Check your phone for an OTP",

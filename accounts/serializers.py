@@ -37,39 +37,23 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("email: email field can not be empty")
 
         return super().validate(attrs)
+    
+    def create(self, validated_data):
+        user = User.objects.create(
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            account_type=validated_data['account_type'],
+            country=validated_data['country'],
+            state=validated_data['state'],
+            city=validated_data['city'],
+            phone_number=validated_data['phone_number'],
+        )
 
+        user.set_password(validated_data['password'])
+        user.save()
 
-# LoginSerializer is a  serializer class for login credentials.
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(
-        label="Password",
-        style={"input_type": "password"},
-        trim_whitespace=False,
-    )
-
-    # class Meta:
-    #     model = User
-    #     fields = ["email", "password"]
-
-    def validate(self, attrs):
-        email = attrs.get("email")
-        password = attrs.get("password")
-
-        if email and password:
-            user = authenticate(
-                request=self.context.get("request"), email=email, password=password
-            )
-
-            if not user:
-                msg = "Unable to log in with provided credentials."
-                raise serializers.ValidationError(msg, code="authorization")
-        else:
-            msg = "Must include 'email' and 'password' fields."
-            raise serializers.ValidationError(msg, code="authorization")
-
-        attrs["user"] = user
-        return attrs
+        return user
 
 
 class VerifyOTPSerailizer(serializers.Serializer):
@@ -77,7 +61,8 @@ class VerifyOTPSerailizer(serializers.Serializer):
 
 
 class ForgotPasswordSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(max_length=255, min_length=3)
+    phonenumber = serializers.EmailField()
+    otp = serializers.CharField(max_length=50, min_length=6)
 
     class Meta:
         model = User
@@ -85,19 +70,23 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email", "")
+        otp = attrs.get("otp", "")
 
         if email is None:
             return serializers.ValidationError("email: email field can not be empty")
+        
+        if otp is None:
+            return serializers.ValidationError("otp: otp must be provided")
         return attrs
 
 
-class ResetPasswordSerializer(serializers.ModelSerializer):
+class ChangePasswordSerializer(serializers.ModelSerializer):
+    old_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ["old_password", "password", "password2"]
+        fields = ["old_password", "password"]
 
     def validate(self, attrs):
         password = attrs.get("password", "")

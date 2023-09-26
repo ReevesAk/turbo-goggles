@@ -3,7 +3,6 @@ from decouple import config
 # Third party imports.
 from rest_framework import generics
 from django.contrib.auth import authenticate
-from rest_framework.request import Request
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -14,9 +13,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # In project imports.
 from .serializers import (
     RegisterSerializer,
-    LoginSerializer,
     VerifyOTPSerailizer,
-    ResetPasswordSerializer,
+    ChangePasswordSerializer,
+    ForgotPasswordSerializer,
 )
 from .models import User
 from .otp import otp_manager
@@ -89,52 +88,27 @@ class EmailVerifyOTP(generics.GenericAPIView):
 # LoginAPIView handles the POST request of logging in
 # a verified user with valid login credentials.
 class Login(APIView):
-    serializer_class = LoginSerializer
+    permission_classes = (AllowAny,)
 
-    def post(self, request: Request):
+    def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
 
-        user = authenticate(email=email.lower(), password=password)
+        if email and password:
+            user = authenticate(email=email, password=password)
 
-        if user is None:
-            return Response(
-                {"status": "fail", "message": "Incorrect email or password"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if user:
+            tokens = create_jwt_pair_for_user(user)
 
-        if not user.check_password(password):
-            return Response(
-                {"status": "fail", "message": "Incorrect email or password"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            response = {"message": "Login Successfull", "tokens": tokens}
+            return Response(data=response, status=status.HTTP_200_OK)
 
-        tokens = create_jwt_pair_for_user(user)
+        else:
+            return Response(data={"message": "Invalid email or password"})
 
-        serializer = self.serializer_class(user)
-        serializer.is_valid(raise_exception=True)
-        response = {    
-            "message": "Login Successful",
-            "user": serializer.data,
-            "id": user.id,
-            "tokens": tokens,
-        }
-        return Response(data=response, status=status.HTTP_200_OK)
-
-
-class LoginView(APIView):
-    serializer_class = LoginSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-        tokens = create_jwt_pair_for_user(user)
-        return Response({"token": tokens, "user_id": user.id}, status=status.HTTP_200_OK)
-    
 
 class ForgotPassword(generics.GenericAPIView):
-    serializer_class = ResetPasswordSerializer
+    serializer_class = ForgotPasswordSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -151,7 +125,7 @@ class ForgotPassword(generics.GenericAPIView):
 
 
 class ResetPassword(generics.GenericAPIView):
-    serializer_class = ResetPasswordSerializer
+    serializer_class = ChangePasswordSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
