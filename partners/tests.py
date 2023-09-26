@@ -33,7 +33,4 @@ class TestSetup(APITestCase):
 class TestViews(TestSetup):
     def test_user_can_register(self):
         res = self.client.post(self.register_url, self.user_data, format="json")
-        import pdb
-
-        pdb.set_trace()
         self.assertEqual(res.status_code, 201)
