@@ -66,7 +66,7 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email"]
+        fields = ["email", "otp"]
 
     def validate(self, attrs):
         email = attrs.get("email", "")
