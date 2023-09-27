@@ -1,18 +1,13 @@
-from django.conf import settings
 from django.db import IntegrityError
 from decouple import config
-import requests
-
 
 # Third party imports.
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
-from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
 
 # In project imports.
 from .serializers import (
@@ -26,7 +21,6 @@ from .serializers import (
 from .models import (
     PartnerServiceImageUploads,
 )
-from accounts.models import User
 
 
 # Create your views here.
@@ -152,7 +146,7 @@ class ServiceAndChargeListView(generics.RetrieveAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UploadImage(CreateAPIView):
+class UploadImage(generics.CreateAPIView):
     serializer_class = PartnerServiceUploadsSerializers
     parser_classes = (MultiPartParser,)
     queryset = PartnerServiceImageUploads.objects.all()
