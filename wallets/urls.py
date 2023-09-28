@@ -7,5 +7,5 @@ urlpatterns = [
         VitualAccountRequest.as_view(),
         name="create-virtual-account",
     ),
-    path("get-account-details/", AccountDetails.as_view(), name="get-account-details"),
+    path("get-account-details/<int:acc_id>/", AccountDetails.as_view(), name="get-account-details"),
 ]

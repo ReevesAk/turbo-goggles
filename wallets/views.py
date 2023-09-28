@@ -28,7 +28,7 @@ class VitualAccountRequest(generics.CreateAPIView):
         user["accountType"] = "individual"
         user["channel"] = "providus"
 
-        resource = "/requests"
+        resource = "profile/virtual-accounts/requests"
         payload = {
             "currency": "NGN",
             "channel": "providus",
@@ -76,11 +76,13 @@ class AccountDetails(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
 
+        param_value = kwargs.get('acc_id')
+
         if user:
-            resource = "6514640eb104d50ab9ab7953/"
+            resource = "profile/virtual-accounts/" + param_value
             retrieve_account_headers = {
                 "accept": "application/json",
                 "api-key": api_key,
