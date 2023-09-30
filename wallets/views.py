@@ -81,7 +81,7 @@ class AccountDetails(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
 
-        param_value = kwargs.get('acc_id')
+        param_value = kwargs.get("acc_id")
 
         if user:
             resource = "profile/virtual-accounts/" + param_value
