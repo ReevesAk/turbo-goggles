@@ -40,7 +40,6 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
 
-
 class ListBankSerilizers(serializers.Serializer):
     id = serializers.CharField()
     code = serializers.CharField()
