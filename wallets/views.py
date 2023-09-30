@@ -1,5 +1,6 @@
 import requests
 from decouple import config
+import json
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -8,10 +9,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 # Third party imports.
-from .serializers import CreateWalletSerializer
+from .serializers import CreateWalletSerializer, ListBankSerilizers
 
 
 api_key = config("FINCRA_API_KEY")
+bus_key = config("PICADIALYS_BUSINESS_KEY")
 
 fincra_base_url = config("FINCRA_BASE_URL")
 
@@ -92,6 +94,39 @@ class AccountDetails(generics.RetrieveAPIView):
                     url=fincra_base_url + resource, headers=retrieve_account_headers
                 )
 
+                if response.status_code == 200:
+                    response_data = {
+                        "data": response.json(),
+                    }
+
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(response.json(), status=response.status_code)
+
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class FetchAllBanks(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            resource = "core/banks?"
+            fetch_all_banks_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "content-type": "application/json",
+            }
+            try:
+                response = requests.get(
+                    url=fincra_base_url + resource, headers=fetch_all_banks_headers
+                )
                 if response.status_code == 200:
                     response_data = {
                         "data": response.json(),

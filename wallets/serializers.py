@@ -38,3 +38,10 @@ class CreateWalletSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("bvn is incomplete")
 
         return super().validate(attrs)
+
+
+
+class ListBankSerilizers(serializers.Serializer):
+    id = serializers.CharField()
+    code = serializers.CharField()
+    name = serializers.CharField()
