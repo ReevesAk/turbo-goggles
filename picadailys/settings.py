@@ -87,17 +87,17 @@ TEMPLATES = [
 WSGI_APPLICATION = "picadailys.wsgi.application"
 
 
-# DATABASES = {}
-# if DEBUG == True:
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+DATABASES = {}
+if DEBUG == True:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
-# else:
-#     database_url = config('DATABASE_URL')
-#     DATABASES['default'] = dj_database_url.parse(database_url)
+else:
+    database_url = config('DATABASE_URL')
+    DATABASES['default'] = dj_database_url.parse(database_url)
 
 
 # Password validation
