@@ -2,11 +2,11 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import CreateWallet
+from .models import CreateWallet, Payouts
 
 
 class CreateWalletSerializer(serializers.ModelSerializer):
-    """Serailizers for our Partners' first time registration"""
+    """Serailizers for our Partners' first time registration."""
 
     class Meta:
         model = CreateWallet
@@ -40,7 +40,52 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
 
-class ListBankSerilizers(serializers.Serializer):
-    id = serializers.CharField()
-    code = serializers.CharField()
-    name = serializers.CharField()
+class BankAcccPayoutSerializers(serializers.ModelSerializer):
+    """Serailizers for bank account payouts."""
+
+    class Meta:
+        model = Payouts
+        fields = [
+            "id",
+            "amount",
+            "description",
+            "firstName",
+            "lastName",
+            "customerReference",
+            "accountNumber",
+            "bankCode",
+        ]
+
+    def validate(self, attrs):
+        firstName = attrs.get("firstName", "")
+        lastName = attrs.get("lastName", "")
+        amount = attrs.get("amount", "")
+        description = attrs.get("description", "")
+        customerReference = attrs.get("customerReference", "")
+        accountNumber = attrs.get("accountNumber", "")
+        bankCode = attrs.get("bankCode", "")
+
+        return super().validate(attrs)
+
+
+class FincraPayoutSerializers(serializers.ModelSerializer):
+    """Serailizers for mobile money payouts."""
+
+    class Meta:
+        model = Payouts
+        fields = [
+            "id",
+            "amount",
+            "description",
+            "customerReference",
+            "beneficiaryWalletNumber",
+        ]
+
+    def validate(self, attrs):
+        amount = attrs.get("amount", "")
+        description = attrs.get("description", "")
+        customerReference = attrs.get("customerReference", "")
+        accountNumber = attrs.get("accountNumber", "")
+        beneficiaryWalletNumber = attrs.get("beneficiaryWalletNumber", "")
+
+        return super().validate(attrs)
