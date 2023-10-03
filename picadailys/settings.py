@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "roles",
     "partners",
     "wallets",
+    "vas",
 ]
 
 MIDDLEWARE = [

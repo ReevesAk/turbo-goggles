@@ -47,4 +47,6 @@ urlpatterns = [
     path("api/v1/adverts/", include("adverts.urls")),
     # Wallets endpoints.
     path("api/v1/wallets/", include("wallets.urls")),
+    # VAS endpoints.
+    path("api/v1/vas/", include("vas.urls")),
 ]
