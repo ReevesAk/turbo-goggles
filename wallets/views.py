@@ -12,6 +12,7 @@ from .serializers import (
     CreateWalletSerializer,
     BankAcccPayoutSerializers,
     FincraPayoutSerializers,
+    PicadailysPayoutSerializers,
 )
 
 
@@ -45,16 +46,10 @@ class VitualAccountRequest(generics.CreateAPIView):
         user["accountType"] = "individual"
         user["channel"] = "providus"
 
-        resource = "profile/virtual-accounts/requests"
+        resource = "core/bvn-verification"
         payload = {
-            "currency": "NGN",
-            "channel": "providus",
-            "KYCInformation": {
-                "firstName": user["first_name"],
-                "lastName": user["last_name"],
-                "bvn": user["bvn"],
-            },
-            "accountType": "individual",
+            "bvn": user["bvn"],
+            "business": bus_key,
         }
 
         create_account_headers = {
@@ -63,30 +58,75 @@ class VitualAccountRequest(generics.CreateAPIView):
             "api-key": api_key,
         }
 
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=fincra_base_url + resource,
-                    json=payload,
-                    headers=create_account_headers,
+        try:
+            response = requests.post(
+                url=fincra_base_url + resource,
+                json=payload,
+                headers=create_account_headers,
+            )
+            if response.status_code == 200:
+                resp = response.json()
+
+                bvn_full_name = (
+                    resp["data"]["firstName"] + " " + resp["data"]["lastName"]
                 )
 
-                if response.status_code == 200:
-                    response_data = {
-                        "message": "Virtual account created successfully",
-                        "data": response.json(),
+                full_name = user["first_name"] + " " + user["last_name"]
+
+                if bvn_full_name != full_name:
+                    resource = "profile/virtual-accounts/requests"
+                    payload = {
+                        "currency": "NGN",
+                        "channel": "providus",
+                        "KYCInformation": {
+                            "firstName": user["first_name"],
+                            "lastName": user["last_name"],
+                            "bvn": user["bvn"],
+                        },
+                        "accountType": "individual",
                     }
 
-                    return Response(data=response_data, status=status.HTTP_201_CREATED)
-                else:
-                    return Response(response.json(), status=response.status_code)
+                    serializer = self.serializer_class(data=user)
+                    if serializer.is_valid(raise_exception=True):
+                        serializer.save()
+                        try:
+                            response = requests.post(
+                                url=fincra_base_url + resource,
+                                json=payload,
+                                headers=create_account_headers,
+                            )
 
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                            if response.status_code == 200:
+                                response_data = {
+                                    "message": "Virtual account created successfully",
+                                    "data": response.json(),
+                                }
+
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                            else:
+                                return Response(
+                                    response.json(), status=response.status_code
+                                )
+
+                        except requests.exceptions.RequestException as e:
+                            return Response(
+                                {"error": str(e)},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            )
+                else:
+                    response_data = {
+                        "message": "Full name porvided is not same with the bvn",
+                    }
+                    return Response(
+                        data=response_data, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class AccountDetails(generics.RetrieveAPIView):
@@ -234,7 +274,7 @@ class BankPayouts(generics.GenericAPIView):
                         "data": response.json(),
                     }
 
-                    return Response(data=response_data, status=status.HTTP_201_CREATED)
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
                     return Response(response.json(), status=response.status_code)
 
@@ -315,10 +355,91 @@ class FincraPayouts(generics.GenericAPIView):
                         "data": response.json(),
                     }
 
-                    return Response(data=response_data, status=status.HTTP_201_CREATED)
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
                     return Response(response.json(), status=response.status_code)
 
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class PicadailysTransfers(generics.GenericAPIView):
+    serializer_class = PicadailysPayoutSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        if user:
+            resource = "profile/virtual-accounts/" + user["virtualAccountId"]
+            retrieve_account_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+            }
+            try:
+                response = requests.get(
+                    url=fincra_base_url + resource, headers=retrieve_account_headers
+                )
+
+                if response.status_code == 200:
+                    resp = response.json()["data"]
+
+                    resource = "disbursements/payouts"
+                    picadailys_payouts_headers = {
+                        "accept": "application/json",
+                        "api-key": api_key,
+                        "content-type": "application/json",
+                    }
+                    payload = {
+                        "business": bus_id,
+                        "sourceCurrency": "NGN",
+                        "destinationCurrency": "NGN",
+                        "amount": user["amount"],
+                        "description": user["description"],
+                        "customerReference": user["customerReference"],
+                        "beneficiary": {
+                            "firstName": resp["KYCInformation"]["firstName"],
+                            "lastName": resp["KYCInformation"]["lastName"],
+                            "accountHolderName": resp["KYCInformation"]["firstName"]
+                            + " "
+                            + resp["KYCInformation"]["lastName"],
+                            "accountNumber": resp["accountNumber"],
+                            "type": "individual",
+                            "bankCode": "101",
+                        },
+                        "paymentDestination": "bank_account",
+                    }
+                    serializer = self.serializer_class(data=user)
+                    if serializer.is_valid(raise_exception=True):
+                        serializer.save()
+                        try:
+                            response = requests.post(
+                                url=fincra_base_url + resource,
+                                json=payload,
+                                headers=picadailys_payouts_headers,
+                            )
+
+                            if response.status_code == 200:
+                                response_data = {
+                                    "message": "Transaction successful",
+                                    "data": response.json(),
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                            else:
+                                return Response(
+                                    response.json(), status=response.status_code
+                                )
+
+                        except requests.exceptions.RequestException as e:
+                            return Response(
+                                {"error": str(e)},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            )
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR

@@ -25,17 +25,14 @@ class CreateWalletSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         _id = attrs.get("_id", "")
-        first_name = attrs.get("first_name", "")
-        last_name = attrs.get("last_name", "")
-        currency = attrs.get("currency", "")
-        channel = attrs.get("channel", "")
-        accountInformation = attrs.get("accountInformation", "")
         accountNumber = attrs.get("accountNumber", "")
-        accountType = attrs.get("accountType", "")
         bvn = attrs.get("bvn", "")
 
         if not bvn or bvn == 0:
             raise serializers.ValidationError("bvn is incomplete")
+
+        if not accountNumber or accountNumber == 0:
+            raise serializers.ValidationError("accountNumber is incomplete")
 
         return super().validate(attrs)
 
@@ -57,13 +54,10 @@ class BankAcccPayoutSerializers(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        firstName = attrs.get("firstName", "")
-        lastName = attrs.get("lastName", "")
-        amount = attrs.get("amount", "")
-        description = attrs.get("description", "")
-        customerReference = attrs.get("customerReference", "")
         accountNumber = attrs.get("accountNumber", "")
-        bankCode = attrs.get("bankCode", "")
+
+        if not accountNumber or accountNumber == 0:
+            raise serializers.ValidationError("accountNumber is incomplete")
 
         return super().validate(attrs)
 
@@ -89,3 +83,17 @@ class FincraPayoutSerializers(serializers.ModelSerializer):
         beneficiaryWalletNumber = attrs.get("beneficiaryWalletNumber", "")
 
         return super().validate(attrs)
+
+
+class PicadailysPayoutSerializers(serializers.ModelSerializer):
+    """Serailizers for picadilys users."""
+
+    class Meta:
+        model = Payouts
+        fields = [
+            "id",
+            "virtualAccountId",
+            "amount",
+            "description",
+            "customerReference",
+        ]

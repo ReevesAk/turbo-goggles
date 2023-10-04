@@ -7,6 +7,7 @@ from .views import (
     BankPayouts,
     FincraPayouts,
     FetchAllBalances,
+    PicadailysTransfers,
 )
 
 urlpatterns = [
@@ -29,4 +30,7 @@ urlpatterns = [
     ),
     path("bank-payouts/", BankPayouts.as_view(), name="bank_payouts"),
     path("fincra-payouts/", FincraPayouts.as_view(), name="fincra_payouts"),
+    path(
+        "picadailys-payouts/", PicadailysTransfers.as_view(), name="picadailys_payouts"
+    ),
 ]
