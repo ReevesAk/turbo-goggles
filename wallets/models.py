@@ -25,6 +25,7 @@ class Payouts(models.Model):
     business = models.CharField(max_length=255, null=True)
     sourceCurrency = models.CharField(max_length=50, null=True)
     destinationCurrency = models.CharField(max_length=50, null=True)
+    virtualAccountId = models.CharField(max_length=255, null=True)
     amount = models.CharField(max_length=255, null=True)
     description = models.CharField(max_length=255, null=True)
     firstName = models.CharField(max_length=255, null=True)
