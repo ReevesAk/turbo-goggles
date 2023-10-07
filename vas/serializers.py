@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import AirtimeTopup
+from .models import (
+    AirtimeTopup, DataSubscription
+)
 
 
 class AirtimeTopupSerilizers(serializers.ModelSerializer):
@@ -15,14 +17,17 @@ class AirtimeTopupSerilizers(serializers.ModelSerializer):
             "phone",
         ]
 
-    def validate(self, attrs):
-        amount = attrs.get("amount", "")
-        phone = attrs.get("phone", "")
 
-        if not phone or phone < 10:
-            raise serializers.ValidationError("phone number is incomplete")
+class DataSubscriptionSerilizers(serializers.ModelSerializer):
+    """Serializers for airtime topup."""
 
-        if not amount or amount < 50:
-            raise serializers.ValidationError("amount cannot be less than 50")
-
-        return super().validate(attrs)
+    class Meta:
+        model = DataSubscription
+        fields = [
+            "id",
+            "serviceID",
+            "amount",
+            "phone",
+            "billersCode",
+            "variation_code",
+        ]
