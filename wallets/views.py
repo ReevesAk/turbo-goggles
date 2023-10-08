@@ -6,14 +6,17 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-
-# Third party imports.
+# In-projects imports.
 from .serializers import (
     CreateWalletSerializer,
     BankAcccPayoutSerializers,
     FincraPayoutSerializers,
     PicadailysPayoutSerializers,
 )
+from .helpers import generate_random_string, insert_hyphens
+
+random_string = generate_random_string(20)
+customer_reference = insert_hyphens(random_string, 4)
 
 
 api_key = config("FINCRA_API_KEY")
@@ -247,7 +250,7 @@ class BankPayouts(generics.GenericAPIView):
             "destinationCurrency": "NGN",
             "amount": user["amount"],
             "description": user["description"],
-            "customerReference": user["customerReference"],
+            "customerReference": customer_reference,
             "beneficiary": {
                 "firstName": user["firstName"],
                 "lastName": user["lastName"],
@@ -399,7 +402,7 @@ class PicadailysTransfers(generics.GenericAPIView):
                         "destinationCurrency": "NGN",
                         "amount": user["amount"],
                         "description": user["description"],
-                        "customerReference": user["customerReference"],
+                        "customerReference": customer_reference,
                         "beneficiary": {
                             "firstName": resp["KYCInformation"]["firstName"],
                             "lastName": resp["KYCInformation"]["lastName"],
@@ -444,3 +447,44 @@ class PicadailysTransfers(generics.GenericAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
+
+class Debit:
+    @staticmethod
+    def debit_customer(amount, description):
+        resource = "disbursements/payouts"
+        debit_customer_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+        }
+        payload = {
+            "business": bus_id,
+            "sourceCurrency": "NGN",
+            "destinationCurrency": "NGN",
+            "amount": amount,
+            "description": description,
+            "customerReference": customer_reference,
+            "beneficiary": {
+                "firstName": "Picadailys",
+                "lastName": "Services",
+                "accountHolderName": "Picadailys" + " " + "Services",
+                "accountNumber": "2639239472",
+                "type": "individual",
+                "bankCode": "101",
+            },
+            "paymentDestination": "bank_account",
+        }
+        try:
+            response = requests.post(
+                url=fincra_base_url + resource,
+                json=payload,
+                headers=debit_customer_headers,
+            )
+
+            return response
+
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
