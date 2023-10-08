@@ -1,8 +1,6 @@
 from rest_framework import serializers
 
-from .models import (
-    AirtimeTopup, DataSubscription
-)
+from .models import AirtimeTopup, DataSubscription
 
 
 class AirtimeTopupSerilizers(serializers.ModelSerializer):

@@ -1,7 +1,5 @@
 from django.urls import path
-from .views import (
-    AirTimeTopUp, GetVaritaionCodes, DataSubscription
-)
+from .views import AirTimeTopUp, GetVaritaionCodes, DataSubscription
 
 
 urlpatterns = [

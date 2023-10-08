@@ -8,8 +8,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
-from .serializers import AirtimeTopupSerilizers, DataSubscriptionSerilizers
-
+from .serializers import (
+    AirtimeTopupSerilizers,
+    DataSubscriptionSerilizers,
+)
+from wallets.views import Debit
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -36,31 +39,35 @@ class AirTimeTopUp(generics.GenericAPIView):
             "phone": user["phone"],
         }
 
-        airtime_headers = {"secret-key": x_secret, "api-key": api_key}
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for airtime recharge"
+        )
+        if debit_response == 200:
+            airtime_headers = {"secret-key": x_secret, "api-key": api_key}
 
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=vtpass_url + resource,
-                    json=payload,
-                    headers=airtime_headers,
-                )
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=airtime_headers,
+                    )
 
-                if response.status_code == 200:
-                    response_data = {
-                        "data": response.json(),
-                    }
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(response.json(), status=response.status_code)
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
 
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
 
 class GetVaritaionCodes(generics.RetrieveAPIView):
@@ -117,32 +124,36 @@ class DataSubscription(generics.GenericAPIView):
             "variation_code": user["variation_code"],
         }
 
-        data_headers = {
-            "secret-key": x_secret,
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for data subscription"
+        )
+        if debit_response == 200:
+            data_headers = {
+                "secret-key": x_secret,
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
 
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=vtpass_url + resource,
-                    json=payload,
-                    headers=data_headers,
-                )
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=data_headers,
+                    )
 
-                if response.status_code == 200:
-                    response_data = {
-                        "data": response.json(),
-                    }
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(response.json(), status=response.status_code)
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
 
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
