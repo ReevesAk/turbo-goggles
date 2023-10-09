@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     AirtimeTopupSerilizers,
     DataSubscriptionSerilizers,
+    ElectricityBillSerilizers,
 )
 from wallets.views import Debit
 
@@ -70,7 +71,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     )
 
 
-class GetVaritaionCodes(generics.RetrieveAPIView):
+class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -81,7 +82,7 @@ class GetVaritaionCodes(generics.RetrieveAPIView):
 
         if user:
             resource = "service-variations?serviceID=" + param_value
-            fetch_all_variation_Codes = {
+            fetch_all_variation_codes_headers = {
                 "accept": "application/json",
                 "api-key": api_key,
                 "secret-key": x_secret,
@@ -89,7 +90,7 @@ class GetVaritaionCodes(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=vtpass_url + resource,
-                    headers=fetch_all_variation_Codes,
+                    headers=fetch_all_variation_codes_headers,
                 )
                 if response.status_code == 200:
                     resp = response.json()["content"]["variations"]
@@ -142,6 +143,98 @@ class DataSubscription(generics.GenericAPIView):
                         url=vtpass_url + resource,
                         json=payload,
                         headers=data_headers,
+                    )
+
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
+
+class VerifyMeterNumber(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        resource = "merchant-verify"
+        payload = {
+            "serviceID": user["serviceID"],
+            "type": user["type"],
+            "billersCode": user["billersCode"],
+        }
+
+        verify_meter_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=verify_meter_headers,
+            )
+
+            if response.status_code == 200:
+                response_data = {
+                    "data": response.json(),
+                }
+
+                return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(response.json(), status=response.status_code)
+
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ElectrcityBillPayment(generics.GenericAPIView):
+    serializer_class = ElectricityBillSerilizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "billersCode": user["billersCode"],
+            "amount": user["amount"],
+            "phone": user["phone"],
+            "variation_code": user["variation_code"],
+        }
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for airtime recharge"
+        )
+        if debit_response == 200:
+            electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
+
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=electricty_bill_headers,
                     )
 
                     if response.status_code == 200:
