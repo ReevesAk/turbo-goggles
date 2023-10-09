@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AirtimeTopup, DataSubscription
+from .models import AirtimeTopup, DataSubscription, ElectricityBill
 
 
 class AirtimeTopupSerilizers(serializers.ModelSerializer):
@@ -27,5 +27,21 @@ class DataSubscriptionSerilizers(serializers.ModelSerializer):
             "amount",
             "phone",
             "billersCode",
+            "variation_code",
+        ]
+
+
+class ElectricityBillSerilizers(serializers.ModelSerializer):
+    """Serializers for airtime topup."""
+
+    class Meta:
+        model = ElectricityBill
+        fields = [
+            "id",
+            "serviceID",
+            "amount",
+            "phone",
+            "billersCode",
+            "type",
             "variation_code",
         ]

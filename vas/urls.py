@@ -1,6 +1,11 @@
 from django.urls import path
-from .views import AirTimeTopUp, GetVaritaionCodes, DataSubscription
-
+from .views import (
+    AirTimeTopUp,
+    GetNetworkProvidersVaritaionCodes,
+    DataSubscription,
+    VerifyMeterNumber,
+    ElectrcityBillPayment,
+)
 
 urlpatterns = [
     path(
@@ -10,8 +15,14 @@ urlpatterns = [
     ),
     path(
         "get-variation-codes/<str:service_ID>/",
-        GetVaritaionCodes.as_view(),
+        GetNetworkProvidersVaritaionCodes.as_view(),
         name="variation_codes",
     ),
     path("subscribe-data/", DataSubscription.as_view(), name="data_subscription"),
+    path("verify-meter-no/", VerifyMeterNumber.as_view(), name="verify-meter"),
+    path(
+        "pay-electricity-bill/",
+        ElectrcityBillPayment.as_view(),
+        name="pay_electric_bill",
+    ),
 ]
