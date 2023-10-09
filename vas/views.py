@@ -250,3 +250,76 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
+
+
+class GetTvVaritaionCodes(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
+
+        param_value = kwargs.get("service_ID")
+
+        if user:
+            resource = "service-variations?serviceID=" + param_value
+            fetch_all_variation_codes_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=fetch_all_variation_codes_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["variations"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class VerifySmartCardNumber(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        resource = "merchant-verify"
+        payload = {
+            "serviceID": user["serviceID"],
+            "billersCode": user["billersCode"],
+        }
+
+        verify_smart_card_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=verify_smart_card_headers,
+            )
+
+            if response.status_code == 200:
+                response_data = {
+                    "data": response.json(),
+                }
+
+                return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(response.json(), status=response.status_code)
+
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

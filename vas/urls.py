@@ -5,6 +5,8 @@ from .views import (
     DataSubscription,
     VerifyMeterNumber,
     ElectrcityBillPayment,
+    GetTvVaritaionCodes,
+    VerifySmartCardNumber,
 )
 
 urlpatterns = [
@@ -24,5 +26,15 @@ urlpatterns = [
         "pay-electricity-bill/",
         ElectrcityBillPayment.as_view(),
         name="pay_electric_bill",
+    ),
+    path(
+        "get-tv-variation-codes/<str:service_ID>/",
+        GetTvVaritaionCodes.as_view(),
+        name="tv_variation_codes",
+    ),
+    path(
+        "verify-smart-card-no/",
+        VerifySmartCardNumber.as_view(),
+        name="verify_smart_card",
     ),
 ]
