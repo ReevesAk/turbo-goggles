@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from .models import AirtimeTopup, DataSubscription, ElectricityBill, TvSubscription
+from .models import (
+    AirtimeTopup, DataSubscription, ElectricityBill,
+    TvSubscription, WaecRegistration,
+)
 
 
 class AirtimeTopupSerializer(serializers.ModelSerializer):
@@ -79,4 +82,18 @@ class IntlAirtimeSerializer(serializers.ModelSerializer):
             "country_code",
             "email",
             "product_type_id",
+        ]
+
+
+class WaecRegistrationSerializer(serializers.ModelSerializer):
+    """Serializers for waec registration."""
+
+    class Meta:
+        model = WaecRegistration
+        fields = [
+            "id",
+            "serviceID",
+            "variation_code",
+            "quantity",
+            "phone",        
         ]

@@ -99,3 +99,12 @@ class TvSubscription(models.Model):
     quantity = models.CharField(max_length=150, null=True)
     amount = models.CharField(max_length=150, null=True)
     phone = models.CharField(max_length=150, null=True)
+
+
+class WaecRegistration(models.Model):
+    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    request_id = models.CharField(max_length=150, null=True)
+    serviceID = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
+    quantity = models.CharField(max_length=150, null=True)
+    phone = models.CharField(max_length=150, null=True)

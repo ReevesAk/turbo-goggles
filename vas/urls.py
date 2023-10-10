@@ -15,6 +15,8 @@ from .views import (
     GetIntlAirtimeOperators,
     GetIntlAirtimeVaraitionCodes,
     InternationalAirTimeTopUp,
+    GetWaecVaritaionCodes,
+    WaecRegistration,
 )
 
 urlpatterns = [
@@ -69,4 +71,6 @@ urlpatterns = [
         name="get_intl_ops",
     ),
     path("intl-topup/", InternationalAirTimeTopUp.as_view(), name="intl_topup"),
+    path("waec-variation-codes/<str:service_ID>/", GetWaecVaritaionCodes.as_view(), name="waec_codes"),
+    path("waec-registration/", WaecRegistration.as_view(), name="waec_registration"),
 ]
