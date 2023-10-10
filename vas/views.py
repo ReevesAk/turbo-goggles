@@ -12,6 +12,7 @@ from .serializers import (
     AirtimeTopupSerilizers,
     DataSubscriptionSerilizers,
     ElectricityBillSerilizers,
+    TvSubscriptionSerilizers,
 )
 from wallets.views import Debit
 
@@ -222,7 +223,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             "variation_code": user["variation_code"],
         }
         debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for airtime recharge"
+            amount=user["amount"], description="Debit for electricity bill payment"
         )
         if debit_response == 200:
             electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
@@ -250,6 +251,39 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
+
+
+class ProductStatus(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = self.request.user
+
+        resource = "requery"
+        payload = {
+            "request_id": user["request_id"],
+        }
+
+        status_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.get(
+                url=vtpass_url + resource, headers=status_headers, json=payload
+            )
+            if response.status_code == 200:
+                resp = response.json()
+                response_data = {
+                    "data": resp,
+                }
+                return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class GetTvVaritaionCodes(generics.RetrieveAPIView):
@@ -285,7 +319,7 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
                 )
 
 
-class VerifySmartCardNumber(generics.RetrieveAPIView):
+class VerifySmartCardNumber(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -323,3 +357,105 @@ class VerifySmartCardNumber(generics.RetrieveAPIView):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class NewTvSubscription(generics.GenericAPIView):
+    serializer_class = TvSubscriptionSerilizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "amount": user["amount"],
+            "phone": user["phone"],
+            "billersCode": user["billersCode"],
+            "subscription_type": user["subscription_type"],
+            "quantity": user["quantity"],
+            "variation_code": user["variation_code"],
+        }
+        tv_sub_headers = {
+            "secret-key": x_secret,
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            try:
+                response = requests.post(
+                    url=vtpass_url + resource,
+                    json=payload,
+                    headers=tv_sub_headers,
+                )
+
+                if response.status_code == 200:
+                    response_data = {
+                        "data": response.json(),
+                    }
+
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(response.json(), status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class RenewTvSubscription(generics.GenericAPIView):
+    serializer_class = TvSubscriptionSerilizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "amount": user["amount"],
+            "phone": user["phone"],
+            "billersCode": user["billersCode"],
+            "subscription_type": user["subscription_type"],
+        }
+        renew_tv_sub_headers = {
+            "secret-key": x_secret,
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            try:
+                response = requests.post(
+                    url=vtpass_url + resource,
+                    json=payload,
+                    headers=renew_tv_sub_headers,
+                )
+
+                if response.status_code == 200:
+                    response_data = {
+                        "data": response.json(),
+                    }
+
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(response.json(), status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )

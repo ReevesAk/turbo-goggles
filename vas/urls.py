@@ -7,6 +7,9 @@ from .views import (
     ElectrcityBillPayment,
     GetTvVaritaionCodes,
     VerifySmartCardNumber,
+    ProductStatus,
+    NewTvSubscription,
+    RenewTvSubscription,
 )
 
 urlpatterns = [
@@ -37,4 +40,7 @@ urlpatterns = [
         VerifySmartCardNumber.as_view(),
         name="verify_smart_card",
     ),
+    path("product-status/", ProductStatus.as_view(), name="check_product_status"),
+    path("new-subscription/", NewTvSubscription.as_view(), name="new_subscription"),
+    path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
 ]
