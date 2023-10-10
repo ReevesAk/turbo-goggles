@@ -17,6 +17,9 @@ from .views import (
     InternationalAirTimeTopUp,
     GetWaecVaritaionCodes,
     WaecRegistration,
+    GetInsuranceVaritaionCodes,
+    VehicleInsurance,
+    GetAccidentVaritaionCodes
 )
 
 urlpatterns = [
@@ -71,6 +74,9 @@ urlpatterns = [
         name="get_intl_ops",
     ),
     path("intl-topup/", InternationalAirTimeTopUp.as_view(), name="intl_topup"),
-    path("waec-variation-codes/<str:service_ID>/", GetWaecVaritaionCodes.as_view(), name="waec_codes"),
+    path("waec-variation-codes/", GetWaecVaritaionCodes.as_view(), name="waec_codes"),
     path("waec-registration/", WaecRegistration.as_view(), name="waec_registration"),
+    path("vehicle-insurance-codes/", GetInsuranceVaritaionCodes.as_view(), name="vehicle_insurance_codes"),
+    path("insure-vehicle/", VehicleInsurance.as_view(), name="insure_vehicle"),
+    path("accident-insurance-codes/", GetAccidentVaritaionCodes.as_view(), name="accident_insurance_codes"),
 ]
