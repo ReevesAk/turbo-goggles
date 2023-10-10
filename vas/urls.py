@@ -10,6 +10,11 @@ from .views import (
     ProductStatus,
     NewTvSubscription,
     RenewTvSubscription,
+    GetIntlAirtimeCountryCodes,
+    GetIntlAirtimeProducts,
+    GetIntlAirtimeOperators,
+    GetIntlAirtimeVaraitionCodes,
+    InternationalAirTimeTopUp,
 )
 
 urlpatterns = [
@@ -43,4 +48,25 @@ urlpatterns = [
     path("product-status/", ProductStatus.as_view(), name="check_product_status"),
     path("new-subscription/", NewTvSubscription.as_view(), name="new_subscription"),
     path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
+    path(
+        "get-intl-countries/",
+        GetIntlAirtimeCountryCodes.as_view(),
+        name="get_intl_countries",
+    ),
+    path(
+        "get-intl-products/<str:country_code>/",
+        GetIntlAirtimeProducts.as_view(),
+        name="get_intl_products",
+    ),
+    path(
+        "get-intl-operators/<str:country_code>/<str:product_type_id>/",
+        GetIntlAirtimeOperators.as_view(),
+        name="get_intl_ops",
+    ),
+    path(
+        "get-intl-var-codes/<str:operator_id>/<str:product_type_id>/",
+        GetIntlAirtimeVaraitionCodes.as_view(),
+        name="get_intl_ops",
+    ),
+    path("intl-topup/", InternationalAirTimeTopUp.as_view(), name="intl_topup"),
 ]

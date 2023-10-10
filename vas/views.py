@@ -9,10 +9,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 from .serializers import (
-    AirtimeTopupSerilizers,
-    DataSubscriptionSerilizers,
-    ElectricityBillSerilizers,
-    TvSubscriptionSerilizers,
+    AirtimeTopupSerializer,
+    DataSubscriptionSerializer,
+    ElectricityBillSerializer,
+    TvSubscriptionSerializer,
+    IntlAirtimeSerializer,
 )
 from wallets.views import Debit
 
@@ -23,7 +24,7 @@ x_token = config("VT_PASS_PUBLIC_KEY")
 
 
 class AirTimeTopUp(generics.GenericAPIView):
-    serializer_class = AirtimeTopupSerilizers
+    serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -106,7 +107,7 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
 
 
 class DataSubscription(generics.GenericAPIView):
-    serializer_class = DataSubscriptionSerilizers
+    serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -203,7 +204,7 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
 
 
 class ElectrcityBillPayment(generics.GenericAPIView):
-    serializer_class = ElectricityBillSerilizers
+    serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -360,7 +361,7 @@ class VerifySmartCardNumber(generics.GenericAPIView):
 
 
 class NewTvSubscription(generics.GenericAPIView):
-    serializer_class = TvSubscriptionSerilizers
+    serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -412,7 +413,7 @@ class NewTvSubscription(generics.GenericAPIView):
 
 
 class RenewTvSubscription(generics.GenericAPIView):
-    serializer_class = TvSubscriptionSerilizers
+    serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -459,3 +460,195 @@ class RenewTvSubscription(generics.GenericAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
+
+class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+
+        resource = "get-international-airtime-countries"
+        get_intl_codes_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        try:
+            response = requests.get(
+                url=vtpass_url + resource,
+                headers=get_intl_codes_headers,
+            )
+            if response.status_code == 200:
+                resp = response.json()["content"]["countries"]
+                for _ in range(len(resp)):
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class GetIntlAirtimeProducts(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        param_value = kwargs.get("country_code")
+
+        resource = "get-international-airtime-product-types?code=" + param_value
+        prod_types_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        try:
+            response = requests.get(
+                url=vtpass_url + resource,
+                headers=prod_types_headers,
+            )
+            if response.status_code == 200:
+                resp = response.json()["content"]
+                response_data = {
+                    "data": resp,
+                }
+                return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class GetIntlAirtimeOperators(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        code = kwargs.get("country_code")
+        product_type = kwargs.get("product_type_id")
+
+        prefix = "get-international-airtime-operators?code="
+        resource = prefix + code + "&product_type_id=" + product_type
+        code_and_prod_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        try:
+            response = requests.get(
+                url=vtpass_url + resource,
+                headers=code_and_prod_headers,
+            )
+            if response.status_code == 200:
+                resp = response.json()["content"]
+                response_data = {
+                    "data": resp,
+                }
+                return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        ops_id = kwargs.get("operator_id")
+        product_type = kwargs.get("product_type_id")
+
+        prefix = "service-variations?serviceID=foreign-airtime&operator_id="
+        resource = prefix + ops_id + "&product_type_id=" + product_type
+        code_and_prod_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        try:
+            response = requests.get(
+                url=vtpass_url + resource,
+                headers=code_and_prod_headers,
+            )
+            if response.status_code == 200:
+                resp = response.json()["content"]["variations"]
+                for _ in range(len(resp)):
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class InternationalAirTimeTopUp(generics.GenericAPIView):
+    serializer_class = IntlAirtimeSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "amount": user["amount"],
+            "phone": user["phone"],
+            "billersCode": user["billersCode"],
+            "operator_id": user["operator_id"],
+            "variation_code": user["variation_code"],
+            "country_code": user["country_code"],
+            "email": user["email"],
+            "product_type_id": user["product_type_id"],
+        }
+
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for airtime recharge"
+        )
+        if debit_response == 200:
+            intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
+
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=intl_airtime_headers,
+                    )
+
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )

@@ -8,6 +8,7 @@ AIRTIME_SERVICE_ID_CHOICES = (
     ("Glo", "glo"),
     ("Airtel", "airtel"),
     ("Etisalat", "etisalat"),
+    ("International recharge", "foreign-airtime"),
 )
 
 DATA_SERVICE_ID_CHOICES = (
@@ -50,6 +51,12 @@ class AirtimeTopup(models.Model):
         choices=AIRTIME_SERVICE_ID_CHOICES, max_length=150, null=True
     )
     amount = models.CharField(max_length=150, null=True)
+    billersCode = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
+    operator_id = models.CharField(max_length=150, null=True)
+    country_code = models.CharField(max_length=150, null=True)
+    product_type_id = models.CharField(max_length=150, null=True)
+    email = models.CharField(max_length=150, null=True)
     phone = models.CharField(max_length=150, null=True)
 
 
