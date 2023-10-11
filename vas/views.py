@@ -27,6 +27,11 @@ x_token = config("VT_PASS_PUBLIC_KEY")
 
 
 class AirTimeTopUp(generics.GenericAPIView):
+    """
+    AirTimeTopUp is a POST request handler for purchase airtime for
+    service providers in Nigeria.
+    """
+
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -77,6 +82,12 @@ class AirTimeTopUp(generics.GenericAPIView):
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation
+    codes of different network providers. It takes in the service_ID(mtn, airtel etc)
+    as url param.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -110,6 +121,11 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
 
 
 class DataSubscription(generics.GenericAPIView):
+    """
+    DataSubscription is a POST request handler for data
+    subscription.
+    """
+
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -166,6 +182,11 @@ class DataSubscription(generics.GenericAPIView):
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
+    """
+    VerifySmartCardNumber is a POST request handler for verifying
+    electricity meter number.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -207,6 +228,11 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
 
 
 class ElectrcityBillPayment(generics.GenericAPIView):
+    """
+    ElectrcityBillPayment is a POST request handler for payment of electricity
+    bills for both prepaid and postpaid account types.
+    """
+
     serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -258,6 +284,12 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
 
 class ProductStatus(generics.RetrieveAPIView):
+    """
+    ProductStatus is the POST request handler for checking the status
+    of any Value Added Services product purchased. It takes in the
+    request_id of the request and returns the status.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -291,6 +323,12 @@ class ProductStatus(generics.RetrieveAPIView):
 
 
 class GetTvVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetTvVaritaionCodes is the GET request handler for retrieving
+    the variation codes for tv subscription. Take key note of the
+    variation codes as they are required to chose a tv plan.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -324,6 +362,11 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
 
 
 class VerifySmartCardNumber(generics.GenericAPIView):
+    """
+    VerifySmartCardNumber is a POST request handler for verifying smart
+    card or registration number for tv operators(e.g dstv, gotv).
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -364,6 +407,11 @@ class VerifySmartCardNumber(generics.GenericAPIView):
 
 
 class NewTvSubscription(generics.GenericAPIView):
+    """
+    NewTvSubscription is a POST request handler for new
+    tv plan subscription.
+    """
+
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -416,6 +464,11 @@ class NewTvSubscription(generics.GenericAPIView):
 
 
 class RenewTvSubscription(generics.GenericAPIView):
+    """
+    RenewTvSubscription is a POST request handler for
+    tv plan subscription renewal.
+    """
+
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -466,6 +519,13 @@ class RenewTvSubscription(generics.GenericAPIView):
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
+    """
+    GetIntlAirtimeCountryCodes is a GET request handler for retrieving
+    available counntry codes for airtime services for worldwide.
+    Take note of the country codes as it would be required to
+    get airtime products available in that country.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -498,6 +558,12 @@ class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
 
 
 class GetIntlAirtimeProducts(generics.GenericAPIView):
+    """
+    GetIntlAirtimeProducts is a GET request handler for retrieving
+    airtime products available in the country. The endpoints takes
+    the country_code as url params.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -531,6 +597,14 @@ class GetIntlAirtimeProducts(generics.GenericAPIView):
 
 
 class GetIntlAirtimeOperators(generics.GenericAPIView):
+    """
+    GetIntlAirtimeOperators is a GET request handler for retrieving
+    airtime operators available in the country. The endpoints takes
+    the country_code aas well as product type id as url params.
+    Take note of the operator_id and it will be required to get
+    the variation codes.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -566,6 +640,15 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
 
 
 class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
+    """
+    GetIntlAirtimeVaraitionCodes is the GET request handler for retrieving
+    the variation codes for international airrtime topup.
+    Take key note of the variation codes as they
+    are required to chose a registration plan.
+    The endpoints takes the operator_id as well as product type id
+    as url params.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -602,6 +685,11 @@ class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
 
 
 class InternationalAirTimeTopUp(generics.GenericAPIView):
+    """
+    InternationalAirTimeTopUp is the POST request handler for
+    international airtime topup.
+    """
+
     serializer_class = IntlAirtimeSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -658,6 +746,13 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetWaecVaritaionCodes is the GET request handler for
+    retrieving the variation codes for WAEC registration.
+    Take key note of the variation codes as they
+    are required to chose a registration plan.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -690,6 +785,11 @@ class GetWaecVaritaionCodes(generics.RetrieveAPIView):
 
 
 class WaecRegistration(generics.GenericAPIView):
+    """
+    WaecRegistration is the POST request handler for WAEC
+    registration.
+    """
+
     serializer_class = WaecRegistrationSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -740,7 +840,14 @@ class WaecRegistration(generics.GenericAPIView):
                     )
 
 
-class GetInsuranceVaritaionCodes(generics.RetrieveAPIView):
+class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetVehicleInsuranceVaritaionCodes is the GET request handler for
+    retrieving the variation codes for vehicle insurance.
+    Take key note of the variation codes as they
+    are required to create an accident insurance.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -773,6 +880,11 @@ class GetInsuranceVaritaionCodes(generics.RetrieveAPIView):
 
 
 class VehicleInsurance(generics.GenericAPIView):
+    """
+    VehicleInsurance is the POST request handler for creating
+    an accident insurance.
+    """
+
     serializer_class = VehicleInsuranceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -833,6 +945,12 @@ class VehicleInsurance(generics.GenericAPIView):
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetAccidentVaritaionCodes is the GET request handler for retrieving the variation codes for
+    accident insurance. Take key note of the variation codes as they
+    are required to create an accident insurance.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -865,6 +983,11 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
 
 
 class AccidentInsurance(generics.GenericAPIView):
+    """
+    AccidentInsurance is the POST request handler for creating
+    an accident insurance.
+    """
+
     serializer_class = AccidentInsuranceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -922,6 +1045,13 @@ class AccidentInsurance(generics.GenericAPIView):
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetHomeCoverVaritaionCodes is the GET request handler for
+    retrieving the variation codes fora home cover insurance.
+    Take key note of the variation codes as they
+    are required to create a home cover insurance.
+    """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -954,6 +1084,11 @@ class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
 
 
 class HomeCoverInsurance(generics.GenericAPIView):
+    """
+    HomeCoverInsurance is the POST request handler for creating
+    a home cover insurance.
+    """
+
     serializer_class = HomeCoverInsuranceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
