@@ -7,7 +7,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-
 from .serializers import (
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
@@ -15,7 +14,9 @@ from .serializers import (
     TvSubscriptionSerializer,
     IntlAirtimeSerializer,
     WaecRegistrationSerializer,
-    InsuranceSerializer
+    VehicleInsuranceSerializer,
+    AccidentInsuranceSerializer,
+    HomeCoverInsuranceSerializer,
 )
 from wallets.views import Debit
 
@@ -772,7 +773,7 @@ class GetInsuranceVaritaionCodes(generics.RetrieveAPIView):
 
 
 class VehicleInsurance(generics.GenericAPIView):
-    serializer_class = InsuranceSerializer
+    serializer_class = VehicleInsuranceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -800,7 +801,7 @@ class VehicleInsurance(generics.GenericAPIView):
             "Contact_Address": user["Contact_Address"],
         }
         debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for electricity bill payment"
+            amount=user["amount"], description="Debit for vehicle insurance."
         )
 
         if debit_response == 200:
@@ -861,3 +862,148 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
+
+class AccidentInsurance(generics.GenericAPIView):
+    serializer_class = AccidentInsuranceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "billersCode": user["billersCode"],
+            "variation_code": user["variation_code"],
+            "phone": user["phone"],
+            "full_name": user["full_name"],
+            "address": user["address"],
+            "dob": user["dob"],
+            "next_kin_name": user["next_kin_name"],
+            "next_kin_phone": user["next_kin_phone"],
+            "business_occupation": user["business_occupation"],
+        }
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for accident insurance"
+        )
+
+        if debit_response == 200:
+            insurance_headers = {"secret-key": x_secret, "api-key": api_key}
+
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=insurance_headers,
+                    )
+
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
+
+class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user  # Get the authenticated user.
+
+        if user:
+            resource = "service-variations?serviceID=home-cover-insurance"
+            home_cover_variation_codes_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=home_cover_variation_codes_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["variations"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class HomeCoverInsurance(generics.GenericAPIView):
+    serializer_class = HomeCoverInsuranceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.data
+
+        current_datetime = datetime.now()
+        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+
+        resource = "pay"
+        payload = {
+            "request_id": res_id,
+            "serviceID": user["serviceID"],
+            "billersCode": user["billersCode"],
+            "variation_code": user["variation_code"],
+            "phone": user["phone"],
+            "full_name": user["full_name"],
+            "address": user["address"],
+            "date_of_birth": user["date_of_birth"],
+            "type_building": user["type_building"],
+            "business_occupation": user["business_occupation"],
+        }
+        debit_response = Debit.debit_customer(
+            amount=user["amount"], description="Debit for home cover insurance"
+        )
+
+        if debit_response == 200:
+            insurance_headers = {"secret-key": x_secret, "api-key": api_key}
+
+            serializer = self.serializer_class(data=user)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=vtpass_url + resource,
+                        json=payload,
+                        headers=insurance_headers,
+                    )
+
+                    if response.status_code == 200:
+                        response_data = {
+                            "data": response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )

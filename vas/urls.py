@@ -19,7 +19,10 @@ from .views import (
     WaecRegistration,
     GetInsuranceVaritaionCodes,
     VehicleInsurance,
-    GetAccidentVaritaionCodes
+    GetAccidentVaritaionCodes,
+    AccidentInsurance,
+    GetHomeCoverVaritaionCodes,
+    HomeCoverInsurance,
 )
 
 urlpatterns = [
@@ -76,7 +79,28 @@ urlpatterns = [
     path("intl-topup/", InternationalAirTimeTopUp.as_view(), name="intl_topup"),
     path("waec-variation-codes/", GetWaecVaritaionCodes.as_view(), name="waec_codes"),
     path("waec-registration/", WaecRegistration.as_view(), name="waec_registration"),
-    path("vehicle-insurance-codes/", GetInsuranceVaritaionCodes.as_view(), name="vehicle_insurance_codes"),
+    path(
+        "vehicle-insurance-codes/",
+        GetInsuranceVaritaionCodes.as_view(),
+        name="vehicle_insurance_codes",
+    ),
     path("insure-vehicle/", VehicleInsurance.as_view(), name="insure_vehicle"),
-    path("accident-insurance-codes/", GetAccidentVaritaionCodes.as_view(), name="accident_insurance_codes"),
+    path(
+        "accident-insurance-codes/",
+        GetAccidentVaritaionCodes.as_view(),
+        name="accident_insurance_codes",
+    ),
+    path(
+        "accident-insuracnce/", AccidentInsurance.as_view(), name="accident_insurance"
+    ),
+    path(
+        "home-cover-codes/",
+        GetHomeCoverVaritaionCodes.as_view(),
+        name="home_cover_codes",
+    ),
+    path(
+        "home-cover-insurance/",
+        HomeCoverInsurance.as_view(),
+        name="home_cover_insurance",
+    ),
 ]

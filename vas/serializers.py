@@ -1,8 +1,12 @@
 from rest_framework import serializers
 
 from .models import (
-    AirtimeTopup, DataSubscription, ElectricityBill,
-    TvSubscription, WaecRegistration, Insurance
+    AirtimeTopup,
+    DataSubscription,
+    ElectricityBill,
+    TvSubscription,
+    WaecRegistration,
+    Insurance,
 )
 
 
@@ -95,11 +99,11 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
             "serviceID",
             "variation_code",
             "quantity",
-            "phone",        
+            "phone",
         ]
 
 
-class InsuranceSerializer(serializers.ModelSerializer):
+class VehicleInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for vehicle insurance."""
 
     class Meta:
@@ -119,4 +123,43 @@ class InsuranceSerializer(serializers.ModelSerializer):
             "Vehicle_Model",
             "Year_of_Make",
             "Contact_Address",
+        ]
+
+
+class AccidentInsuranceSerializer(serializers.ModelSerializer):
+    """Serializers for accident insurance."""
+
+    class Meta:
+        model = Insurance
+        fields = [
+            "id",
+            "serviceID",
+            "billersCode",
+            "variation_code",
+            "phone",
+            "full_name",
+            "address",
+            "dob",
+            "next_kin_name",
+            "next_kin_phone",
+            "business_occupation",
+        ]
+
+
+class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
+    """Serializers for home cover insurance."""
+
+    class Meta:
+        model = Insurance
+        fields = [
+            "id",
+            "serviceID",
+            "billersCode",
+            "variation_code",
+            "phone",
+            "full_name",
+            "address",
+            "type_building",
+            "date_of_birth",
+            "business_occupation",
         ]
