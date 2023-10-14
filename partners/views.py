@@ -21,6 +21,8 @@ from .serializers import (
 from .models import (
     PartnerServiceImageUploads,
 )
+from commons import Messsage
+from accounts.otp import otp_manager
 
 
 # Create your views here.
@@ -34,8 +36,18 @@ class RegisterPartner(generics.GenericAPIView):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
+            serializer.save()
+
+            # Create and send OTP.
+            otp = otp_manager.create_otp(
+                user_id=str(serializer.validated_data.get("id"))
+            )
+            message = ("Use this {}, to verify your account".format(otp),)
+            recipient = serializer.data["phone_number"]
+            print(recipient)
+
+            Messsage.send_otp(msg=message, to=recipient)
             try:
-                serializer.save()
                 user_data = serializer.data
                 response = {
                     "status": "success",
