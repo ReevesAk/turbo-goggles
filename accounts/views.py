@@ -20,20 +20,34 @@ from .serializers import (
 from .models import User
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
+from commons import Messsage
 
 
-# Register handles the POST request of registering a user,
-# It takes in firstnmae, lastname, username, email and password
-#  and resturns a validation email upon success.
 class Register(generics.GenericAPIView):
+    """
+    Register handles the POST request of registering a user,
+    It takes in firstnmae, lastname, username, email and password
+    and returns a validation email upon success.
+    """
+
     serializer_class = RegisterSerializer
 
     def post(self, request):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
+            serializer.save()
+
+            # Create and send OTP.
+            otp = otp_manager.create_otp(
+                user_id=str(serializer.validated_data.get("id"))
+            )
+            message = ("Use this {}, to verify your account".format(otp),)
+            recipient = serializer.data["phone_number"]
+            print(recipient)
+
+            Messsage.send_otp(msg=message, to=recipient)
             try:
-                serializer.save()
                 user_data = serializer.data
                 response = {
                     "status": "success",
@@ -81,7 +95,7 @@ class EmailVerifyOTP(generics.GenericAPIView):
             user.save()
 
             return Response(
-                {"Success": "Account is verified"}, status=status.HTTP_201_CREATED
+                {"Success": "Account is verified"}, status=status.HTTP_200_OK
             )
 
 

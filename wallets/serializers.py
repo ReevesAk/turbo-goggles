@@ -28,11 +28,8 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         accountNumber = attrs.get("accountNumber", "")
         bvn = attrs.get("bvn", "")
 
-        if not bvn or bvn == 0:
-            raise serializers.ValidationError("bvn is incomplete")
-
-        if not accountNumber or accountNumber == 0:
-            raise serializers.ValidationError("accountNumber is incomplete")
+        if not bvn:
+            raise serializers.ValidationError("bvn is required")
 
         return super().validate(attrs)
 

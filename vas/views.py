@@ -18,7 +18,7 @@ from .serializers import (
     AccidentInsuranceSerializer,
     HomeCoverInsuranceSerializer,
 )
-from wallets.views import Debit
+from wallets.controllers import Debit, Credit
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -50,6 +50,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             "phone": user["phone"],
         }
 
+        # Inititate a debit on the customer's account.
         debit_response = Debit.debit_customer(
             amount=user["amount"], description="Debit for airtime recharge"
         )
@@ -73,7 +74,20 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -173,7 +187,20 @@ class DataSubscription(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -275,7 +302,20 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -456,7 +496,20 @@ class NewTvSubscription(generics.GenericAPIView):
 
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(response.json(), status=response.status_code)
+                    response_data = {
+                        "data": response.json(),
+                        "messsage": "A refund will be issued.",
+                    }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -511,7 +564,20 @@ class RenewTvSubscription(generics.GenericAPIView):
 
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(response.json(), status=response.status_code)
+                    response_data = {
+                        "data": response.json(),
+                        "messsage": "A refund will be issued.",
+                    }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -737,7 +803,20 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -832,7 +911,20 @@ class WaecRegistration(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -936,7 +1028,20 @@ class VehicleInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1036,7 +1141,20 @@ class AccidentInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1136,7 +1254,20 @@ class HomeCoverInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"],
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(

@@ -14,6 +14,7 @@ from .serializers import (
     PicadailysPayoutSerializers,
 )
 from .helpers import generate_random_string, insert_hyphens
+from .controllers import BVN
 
 random_string = generate_random_string(20)
 customer_reference = insert_hyphens(random_string, 4)
@@ -29,15 +30,15 @@ bus_id = config("PICADIALYS_BUSINESS_ID")
 wallet_no = config("WALLET_NUMBER")
 
 
-class VitualAccountRequest(generics.CreateAPIView):
+class VitualAccountRequest(generics.GenericAPIView):
     serializer_class = CreateWalletSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        acc_type = self.request.user
+        user = self.request.user
 
-        if acc_type.account_type == "User":
+        if user.account_type == "User":
             return Response(
                 data="error: only partners and members can create wallets",
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -49,10 +50,9 @@ class VitualAccountRequest(generics.CreateAPIView):
         user["accountType"] = "individual"
         user["channel"] = "providus"
 
-        resource = "core/bvn-verification"
         payload = {
             "bvn": user["bvn"],
-            "business": bus_key,
+            "business": bus_id,
         }
 
         create_account_headers = {
@@ -61,75 +61,70 @@ class VitualAccountRequest(generics.CreateAPIView):
             "api-key": api_key,
         }
 
-        try:
-            response = requests.post(
-                url=fincra_base_url + resource,
-                json=payload,
-                headers=create_account_headers,
-            )
-            if response.status_code == 200:
-                resp = response.json()
+        
+        bvn_full_name = BVN.verify(
+            bvn=user["bvn"],
+            business_id=bus_id
+        )
 
-                bvn_full_name = (
-                    resp["data"]["firstName"] + " " + resp["data"]["lastName"]
+        full_name = user["first_name"] + " " + user["last_name"]
+
+        if bvn_full_name != full_name:
+            response_data = {
+                "message": "Full name porvided is not same with the bvn",
+            }
+            print(bvn_full_name)
+            print(full_name)
+            return Response(
+                data=response_data, status=status.HTTP_400_BAD_REQUEST
+            )
+    
+        resource = "profile/virtual-accounts/requests"
+        payload = {
+            "currency": "NGN",
+            "channel": "providus",
+            "KYCInformation": {
+                "firstName": user["first_name"],
+                "lastName": user["last_name"],
+                "bvn": user["bvn"],
+            },
+            "accountType": "individual",
+        }
+
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            try:
+                response = requests.post(
+                    url=fincra_base_url + resource,
+                    json=payload,
+                    headers=create_account_headers,
                 )
 
-                full_name = user["first_name"] + " " + user["last_name"]
-
-                if bvn_full_name != full_name:
-                    resource = "profile/virtual-accounts/requests"
-                    payload = {
-                        "currency": "NGN",
-                        "channel": "providus",
-                        "KYCInformation": {
-                            "firstName": user["first_name"],
-                            "lastName": user["last_name"],
-                            "bvn": user["bvn"],
-                        },
-                        "accountType": "individual",
-                    }
-
-                    serializer = self.serializer_class(data=user)
-                    if serializer.is_valid(raise_exception=True):
-                        serializer.save()
-                        try:
-                            response = requests.post(
-                                url=fincra_base_url + resource,
-                                json=payload,
-                                headers=create_account_headers,
-                            )
-
-                            if response.status_code == 200:
-                                response_data = {
-                                    "message": "Virtual account created successfully",
-                                    "data": response.json(),
-                                }
-
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
-                            else:
-                                return Response(
-                                    response.json(), status=response.status_code
-                                )
-
-                        except requests.exceptions.RequestException as e:
-                            return Response(
-                                {"error": str(e)},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            )
-                else:
+                if response.status_code == 200:
+                    user.virtualAccountId = response.json()['data']['_id']
+                    user.firstName = response.json()['data']['KYCInformation']['firstName']
+                    user.lastName = response.json()['data']['KYCInformation']['lastName']
+                    user.accountNumber = response.json()['data']['accountNumber']
+                    user.save()
                     response_data = {
-                        "message": "Full name porvided is not same with the bvn",
+                        "message": "Virtual account created successfully",
+                        "data": response.json(),
                     }
+
                     return Response(
-                        data=response_data, status=status.HTTP_400_BAD_REQUEST
+                        data=response_data, status=status.HTTP_200_OK
+                    )
+                else:
+                    return Response(
+                        response.json(), status=response.status_code
                     )
 
-        except requests.exceptions.RequestException as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
 
 class AccountDetails(generics.RetrieveAPIView):
@@ -156,8 +151,7 @@ class AccountDetails(generics.RetrieveAPIView):
                     response_data = {
                         "data": response.json(),
                     }
-
-                    return Response(data=response_data, status=status.HTTP_200_OK)
+                    return Response(data=response_data, status=status.HTTP_200_OK)  
                 else:
                     return Response(response.json(), status=response.status_code)
 
@@ -447,44 +441,3 @@ class PicadailysTransfers(generics.GenericAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-
-
-class Debit:
-    @staticmethod
-    def debit_customer(amount, description):
-        resource = "disbursements/payouts"
-        debit_customer_headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "content-type": "application/json",
-        }
-        payload = {
-            "business": bus_id,
-            "sourceCurrency": "NGN",
-            "destinationCurrency": "NGN",
-            "amount": amount,
-            "description": description,
-            "customerReference": customer_reference,
-            "beneficiary": {
-                "firstName": "Picadailys",
-                "lastName": "Services",
-                "accountHolderName": "Picadailys" + " " + "Services",
-                "accountNumber": "2639239472",
-                "type": "individual",
-                "bankCode": "101",
-            },
-            "paymentDestination": "bank_account",
-        }
-        try:
-            response = requests.post(
-                url=fincra_base_url + resource,
-                json=payload,
-                headers=debit_customer_headers,
-            )
-
-            return response
-
-        except requests.exceptions.RequestException as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
