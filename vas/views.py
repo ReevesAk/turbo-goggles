@@ -18,7 +18,7 @@ from .serializers import (
     AccidentInsuranceSerializer,
     HomeCoverInsuranceSerializer,
 )
-from wallets.views import Debit
+from wallets.controllers import Debit, Credit
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -28,10 +28,9 @@ x_token = config("VT_PASS_PUBLIC_KEY")
 
 class AirTimeTopUp(generics.GenericAPIView):
     """
-    AirTimeTopUp is a POST request handler for purchase airtime for
+    AirTimeTopUp is a POST request handler for purchase airtime for 
     service providers in Nigeria.
     """
-
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -50,6 +49,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             "phone": user["phone"],
         }
 
+        # Inititate a debit on the customer's account.
         debit_response = Debit.debit_customer(
             amount=user["amount"], description="Debit for airtime recharge"
         )
@@ -73,7 +73,20 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"]
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -83,11 +96,10 @@ class AirTimeTopUp(generics.GenericAPIView):
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
     """
-    GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation
+    GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation 
     codes of different network providers. It takes in the service_ID(mtn, airtel etc)
     as url param.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -125,7 +137,6 @@ class DataSubscription(generics.GenericAPIView):
     DataSubscription is a POST request handler for data
     subscription.
     """
-
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -173,7 +184,20 @@ class DataSubscription(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"]
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -183,10 +207,9 @@ class DataSubscription(generics.GenericAPIView):
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
     """
-    VerifySmartCardNumber is a POST request handler for verifying
+    VerifySmartCardNumber is a POST request handler for verifying 
     electricity meter number.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -232,7 +255,6 @@ class ElectrcityBillPayment(generics.GenericAPIView):
     ElectrcityBillPayment is a POST request handler for payment of electricity
     bills for both prepaid and postpaid account types.
     """
-
     serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -275,7 +297,20 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lasstName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"]
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -285,8 +320,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
 class ProductStatus(generics.RetrieveAPIView):
     """
-    ProductStatus is the POST request handler for checking the status
-    of any Value Added Services product purchased. It takes in the
+    ProductStatus is the POST request handler for checking the status 
+    of any Value Added Services product purchased. It takes in the 
     request_id of the request and returns the status.
     """
 
@@ -325,10 +360,9 @@ class ProductStatus(generics.RetrieveAPIView):
 class GetTvVaritaionCodes(generics.RetrieveAPIView):
     """
     GetTvVaritaionCodes is the GET request handler for retrieving
-    the variation codes for tv subscription. Take key note of the
+    the variation codes for tv subscription. Take key note of the 
     variation codes as they are required to chose a tv plan.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -366,7 +400,6 @@ class VerifySmartCardNumber(generics.GenericAPIView):
     VerifySmartCardNumber is a POST request handler for verifying smart
     card or registration number for tv operators(e.g dstv, gotv).
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -408,10 +441,9 @@ class VerifySmartCardNumber(generics.GenericAPIView):
 
 class NewTvSubscription(generics.GenericAPIView):
     """
-    NewTvSubscription is a POST request handler for new
+    NewTvSubscription is a POST request handler for new 
     tv plan subscription.
     """
-
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -456,7 +488,20 @@ class NewTvSubscription(generics.GenericAPIView):
 
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(response.json(), status=response.status_code)
+                    response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -465,10 +510,9 @@ class NewTvSubscription(generics.GenericAPIView):
 
 class RenewTvSubscription(generics.GenericAPIView):
     """
-    RenewTvSubscription is a POST request handler for
+    RenewTvSubscription is a POST request handler for 
     tv plan subscription renewal.
     """
-
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -511,7 +555,20 @@ class RenewTvSubscription(generics.GenericAPIView):
 
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(response.json(), status=response.status_code)
+                    response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -522,10 +579,9 @@ class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
     """
     GetIntlAirtimeCountryCodes is a GET request handler for retrieving
     available counntry codes for airtime services for worldwide.
-    Take note of the country codes as it would be required to
+    Take note of the country codes as it would be required to 
     get airtime products available in that country.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -563,7 +619,6 @@ class GetIntlAirtimeProducts(generics.GenericAPIView):
     airtime products available in the country. The endpoints takes
     the country_code as url params.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -604,7 +659,6 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
     Take note of the operator_id and it will be required to get
     the variation codes.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -642,13 +696,12 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
 class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
     """
     GetIntlAirtimeVaraitionCodes is the GET request handler for retrieving
-    the variation codes for international airrtime topup.
+    the variation codes for international airrtime topup. 
     Take key note of the variation codes as they
     are required to chose a registration plan.
-    The endpoints takes the operator_id as well as product type id
+    The endpoints takes the operator_id as well as product type id 
     as url params.
     """
-
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -686,10 +739,9 @@ class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
 
 class InternationalAirTimeTopUp(generics.GenericAPIView):
     """
-    InternationalAirTimeTopUp is the POST request handler for
+    InternationalAirTimeTopUp is the POST request handler for 
     international airtime topup.
     """
-
     serializer_class = IntlAirtimeSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -737,7 +789,20 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -747,8 +812,8 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
     """
-    GetWaecVaritaionCodes is the GET request handler for
-    retrieving the variation codes for WAEC registration.
+    GetWaecVaritaionCodes is the GET request handler for 
+    retrieving the variation codes for WAEC registration. 
     Take key note of the variation codes as they
     are required to chose a registration plan.
     """
@@ -786,10 +851,9 @@ class GetWaecVaritaionCodes(generics.RetrieveAPIView):
 
 class WaecRegistration(generics.GenericAPIView):
     """
-    WaecRegistration is the POST request handler for WAEC
+    WaecRegistration is the POST request handler for WAEC 
     registration.
     """
-
     serializer_class = WaecRegistrationSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -832,7 +896,20 @@ class WaecRegistration(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -842,8 +919,8 @@ class WaecRegistration(generics.GenericAPIView):
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
     """
-    GetVehicleInsuranceVaritaionCodes is the GET request handler for
-    retrieving the variation codes for vehicle insurance.
+    GetVehicleInsuranceVaritaionCodes is the GET request handler for 
+    retrieving the variation codes for vehicle insurance. 
     Take key note of the variation codes as they
     are required to create an accident insurance.
     """
@@ -881,7 +958,7 @@ class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
 
 class VehicleInsurance(generics.GenericAPIView):
     """
-    VehicleInsurance is the POST request handler for creating
+    VehicleInsurance is the POST request handler for creating 
     an accident insurance.
     """
 
@@ -936,7 +1013,20 @@ class VehicleInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -984,7 +1074,7 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
 
 class AccidentInsurance(generics.GenericAPIView):
     """
-    AccidentInsurance is the POST request handler for creating
+    AccidentInsurance is the POST request handler for creating 
     an accident insurance.
     """
 
@@ -1036,7 +1126,20 @@ class AccidentInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1046,8 +1149,8 @@ class AccidentInsurance(generics.GenericAPIView):
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
     """
-    GetHomeCoverVaritaionCodes is the GET request handler for
-    retrieving the variation codes fora home cover insurance.
+    GetHomeCoverVaritaionCodes is the GET request handler for 
+    retrieving the variation codes fora home cover insurance. 
     Take key note of the variation codes as they
     are required to create a home cover insurance.
     """
@@ -1085,10 +1188,9 @@ class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
 
 class HomeCoverInsurance(generics.GenericAPIView):
     """
-    HomeCoverInsurance is the POST request handler for creating
+    HomeCoverInsurance is the POST request handler for creating 
     a home cover insurance.
     """
-
     serializer_class = HomeCoverInsuranceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -1136,7 +1238,20 @@ class HomeCoverInsurance(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(response.json(), status=response.status_code)
+                        response_data = {
+                            "data": response.json(),
+                            "messsage": "A refund will be made if payment is not succesful"
+                        }
+
+                    # initiate a credit refund to the customer after failed transaction.
+                    _ = Credit.credit_customer(
+                        first_name=user.firstName,
+                        lastname=user.lasstName,
+                        accNo=user.accountNumber,
+                        bankCode="101",
+                        amount=user["amount"]
+                    )
+                    return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(

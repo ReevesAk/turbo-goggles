@@ -81,7 +81,7 @@ class EmailVerifyOTP(generics.GenericAPIView):
             user.save()
 
             return Response(
-                {"Success": "Account is verified"}, status=status.HTTP_201_CREATED
+                {"Success": "Account is verified"}, status=status.HTTP_200_OK
             )
 
 
