@@ -212,7 +212,11 @@ class VerifyCAC(generics.GenericAPIView):
                             }
                             return Response(data=response_data, status=status.HTTP_200_OK)
                         else:
-                            return Response(data=response.json(), status=status.HTTP_404_NOT_FOUND) 
+                            error_response = {
+                                'status': "fail",
+                                'message': "The business name provided does not match the RC number!",
+                            }
+                            return Response(data=error_response, status=status.HTTP_404_NOT_FOUND) 
                 else:
                     error_response = {
                         'error': "An error occurred!",
