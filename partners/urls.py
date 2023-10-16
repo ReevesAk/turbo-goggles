@@ -6,7 +6,8 @@ from .views import (
     PartnerServiceListView,
     ServiceAndChargeView,
     UploadImage,
-    UpdateUserProfile,
+    UpdatePartnerProfile,
+    VerifyCAC,
 )
 
 urlpatterns = [
@@ -25,6 +26,7 @@ urlpatterns = [
         ServiceAndChargeView.as_view(),
         name="create_service_charge",
     ),
-    path("service-uploads/<int:id>/", UploadImage.as_view(), name="service-uploads"),
-    path("profile_update/", UpdateUserProfile.as_view(), name="update-profile"),
+    path("service-uploads/<int:id>/", UploadImage.as_view(), name="service_uploads"),
+    path("profile-update/", UpdatePartnerProfile.as_view(), name="update_profile"),
+    path("verify-cac/", VerifyCAC.as_view(), name="verify_cac"),
 ]
