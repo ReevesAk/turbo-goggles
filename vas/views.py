@@ -19,6 +19,7 @@ from .serializers import (
     HomeCoverInsuranceSerializer,
 )
 from wallets.controllers import Debit, Credit
+from permissions import UserTypePermission
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -34,7 +35,7 @@ class AirTimeTopUp(generics.GenericAPIView):
 
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -103,7 +104,7 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
@@ -142,7 +143,7 @@ class DataSubscription(generics.GenericAPIView):
 
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -215,7 +216,7 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -262,7 +263,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
     serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -331,7 +332,7 @@ class ProductStatus(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = self.request.user
@@ -370,7 +371,7 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
@@ -408,7 +409,7 @@ class VerifySmartCardNumber(generics.GenericAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -454,7 +455,7 @@ class NewTvSubscription(generics.GenericAPIView):
 
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -524,7 +525,7 @@ class RenewTvSubscription(generics.GenericAPIView):
 
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -593,7 +594,7 @@ class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request):
         user = request.user
@@ -631,7 +632,7 @@ class GetIntlAirtimeProducts(generics.GenericAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -672,7 +673,7 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -716,7 +717,7 @@ class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -758,7 +759,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
     serializer_class = IntlAirtimeSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -833,7 +834,7 @@ class GetWaecVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request):
         user = request.user  # Get the authenticated user.
@@ -871,7 +872,7 @@ class WaecRegistration(generics.GenericAPIView):
 
     serializer_class = WaecRegistrationSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -941,7 +942,7 @@ class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request):
         user = request.user  # Get the authenticated user.
@@ -979,7 +980,7 @@ class VehicleInsurance(generics.GenericAPIView):
 
     serializer_class = VehicleInsuranceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -1057,7 +1058,7 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request):
         user = request.user  # Get the authenticated user.
@@ -1095,7 +1096,7 @@ class AccidentInsurance(generics.GenericAPIView):
 
     serializer_class = AccidentInsuranceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
@@ -1171,7 +1172,7 @@ class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def get(self, request):
         user = request.user  # Get the authenticated user.
@@ -1209,7 +1210,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
 
     serializer_class = HomeCoverInsuranceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserTypePermission)
 
     def post(self, request):
         user = request.data
