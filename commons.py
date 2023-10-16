@@ -10,24 +10,25 @@ from decouple import config
 termii_base_url = config("TERMII_BASE_URL")
 termii_api_key = config("TERMII_API_KEY")
 
-def generateOTP(OTP) :
+
+def generateOTP(OTP):
     digits = "0123456789"
     OTP = ""
-    for i in range(6) :
+    for i in range(6):
         OTP += digits[math.floor(random.random() * 10)]
         return OTP
 
+
 def upload_to(instance, filename):
-    return 'profile/{filename}'.format(filename=filename)
+    return "profile/{filename}".format(filename=filename)
 
 
 class Messsage:
     @staticmethod
     def send_otp(msg, to):
-        
         resource = "/api/sms/send"
         headers = {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
         }
 
         payload = {

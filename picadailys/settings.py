@@ -97,8 +97,8 @@ if DEBUG == True:
         }
     }
 else:
-    database_url = config('DATABASE_URL')
-    DATABASES['default'] = dj_database_url.parse(database_url)
+    database_url = config("DATABASE_URL")
+    DATABASES["default"] = dj_database_url.parse(database_url)
 
 
 # Password validation

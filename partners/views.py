@@ -171,18 +171,17 @@ class UploadImage(generics.CreateAPIView):
 class VerifyCAC(generics.GenericAPIView):
     """
     VerifyCAC is a POST request handler for verifying a
-    registered partner business It takes in the business name and 
+    registered partner business It takes in the business name and
     RC number as payload.
     """
-    
+
     serializer_class = VerifyCacSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    
     def post(self, request):
         user = request.data
-        current_user = request.user 
+        current_user = request.user
 
         user["users"] = current_user.id
 
@@ -206,23 +205,27 @@ class VerifyCAC(generics.GenericAPIView):
                         business_name = user["business_name"].upper()
                         if business_name == name["approvedName"]:
                             response_data = {
-                                'status': "Success",
-                                'message': "Your business is verified!",
-                                "data": response.json()
+                                "status": "Success",
+                                "message": "Your business is verified!",
+                                "data": response.json(),
                             }
-                            return Response(data=response_data, status=status.HTTP_200_OK)
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
                         else:
                             error_response = {
-                                'status': "fail",
-                                'message': "The business name provided does not match the RC number!",
+                                "status": "fail",
+                                "message": "The business name provided does not match the RC number!",
                             }
-                            return Response(data=error_response, status=status.HTTP_404_NOT_FOUND) 
+                            return Response(
+                                data=error_response, status=status.HTTP_404_NOT_FOUND
+                            )
                 else:
                     error_response = {
-                        'error': "An error occurred!",
+                        "error": "An error occurred!",
                     }
                     return Response(data=error_response, status=response.status_code)
             except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
