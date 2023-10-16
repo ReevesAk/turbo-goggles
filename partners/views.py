@@ -1,5 +1,5 @@
+import requests
 from django.db import IntegrityError
-from decouple import config
 
 # Third party imports.
 from rest_framework import generics
@@ -17,12 +17,14 @@ from .serializers import (
     PartnerServiceUploadsSerializers,
     PartnerProfileSerializer,
     UpdateProfileSerializer,
+    VerifyCacSerializers,
 )
 from .models import (
     PartnerServiceImageUploads,
 )
 from commons import Messsage
 from accounts.otp import otp_manager
+from accounts.models import User
 
 
 # Create your views here.
@@ -101,7 +103,7 @@ class GetPartnerDetails(generics.RetrieveAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UpdateUserProfile(generics.UpdateAPIView):
+class UpdatePartnerProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
     serializer_class = UpdateProfileSerializer
@@ -164,3 +166,58 @@ class UploadImage(generics.CreateAPIView):
     queryset = PartnerServiceImageUploads.objects.all()
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
+
+
+class VerifyCAC(generics.GenericAPIView):
+    """
+    VerifyCAC is a POST request handler for verifying a
+    registered partner business It takes in the business name and 
+    RC number as payload.
+    """
+    
+    serializer_class = VerifyCacSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    
+    def post(self, request):
+        user = request.data
+        current_user = request.user 
+
+        user["users"] = current_user.id
+
+        resource = "https://searchapp.cac.gov.ng/searchapp/api/public-search/company-business-name-it"
+        payload = {
+            "searchTerm": user["cac"],
+        }
+
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save(users=current_user)
+            try:
+                response = requests.post(
+                    url=resource,
+                    json=payload,
+                )
+
+                if response.status_code == 200:
+                    resp = response.json()["data"]
+                    for name in resp:
+                        if user["business_name"] == name["approvedName"]:
+                            response_data = {
+                                'status': "Success",
+                                'message': "Your business is verified!",
+                                "data": response.json()
+                            }
+                            return Response(data=response_data, status=status.HTTP_200_OK)
+                        else:
+                            return Response(data=response.json(), status=status.HTTP_404_NOT_FOUND) 
+                else:
+                    error_response = {
+                        'error': "An error occurred!",
+                    }
+                    return Response(data=error_response, status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )

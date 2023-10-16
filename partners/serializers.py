@@ -8,6 +8,7 @@ from .models import (
     PartnerServices,
     ServiceAndCharge,
     PartnerServiceImageUploads,
+    VerifyCAC,
 )
 
 
@@ -144,3 +145,14 @@ class PartnerServiceUploadsSerializers(serializers.ModelSerializer):
         representation.pop("image")
 
         return representation
+
+
+class VerifyCacSerializers(serializers.ModelSerializer):
+    """Serailizers for our Partners' business verification."""
+
+    class Meta:
+        model = VerifyCAC
+        fields = [
+            "cac",
+            "business_name",
+        ]
