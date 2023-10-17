@@ -83,7 +83,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         # initiate a credit refund to the customer after failed transaction.
                         _ = Credit.credit_customer(
                             first_name=user.firstName,
-                            lastname=user.lasstName,
+                            lastname=user.lastName,
                             accNo=user.accountNumber,
                             bankCode="101",
                             amount=user["amount"],
@@ -196,7 +196,7 @@ class DataSubscription(generics.GenericAPIView):
                         # initiate a credit refund to the customer after failed transaction.
                         _ = Credit.credit_customer(
                             first_name=user.firstName,
-                            lastname=user.lasstName,
+                            lastname=user.lastName,
                             accNo=user.accountNumber,
                             bankCode="101",
                             amount=user["amount"],
@@ -311,7 +311,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         # initiate a credit refund to the customer after failed transaction.
                         _ = Credit.credit_customer(
                             first_name=user.firstName,
-                            lastname=user.lasstName,
+                            lastname=user.lastName,
                             accNo=user.accountNumber,
                             bankCode="101",
                             amount=user["amount"],
@@ -505,7 +505,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -573,7 +573,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -812,7 +812,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -920,7 +920,7 @@ class WaecRegistration(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -1037,7 +1037,7 @@ class VehicleInsurance(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -1150,7 +1150,7 @@ class AccidentInsurance(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
@@ -1263,7 +1263,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
                     # initiate a credit refund to the customer after failed transaction.
                     _ = Credit.credit_customer(
                         first_name=user.firstName,
-                        lastname=user.lasstName,
+                        lastname=user.lastName,
                         accNo=user.accountNumber,
                         bankCode="101",
                         amount=user["amount"],
