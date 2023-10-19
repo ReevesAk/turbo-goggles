@@ -16,4 +16,5 @@ urlpatterns = [
     path("resend-otp/", ResendOTP.as_view(), name="resend_otp"),
     path("get-user-profile/", GetUserDetails.as_view(), name="get_user_profile"),
     path("update-user/", UpdateUserProfile.as_view(), name="update_user"),
+    path("upgrade-to-member/", UpgradeToMember.as_view(), name="upgrade_to_member"),
 ]

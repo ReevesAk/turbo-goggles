@@ -228,3 +228,44 @@ class UpdateUserProfile(generics.UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpgradeToMember(generics.UpdateAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def put(self, request):
+        user = request.user
+
+        if user.account_type == "User":
+            try:
+                if user.game_points is not None:
+                    if user.game_points >= 10:
+                        user.account_type = "Member"
+                        resp = {
+                            "status": "Success!",
+                            "data": "Congratulations you have been upgraded to a member. You an now enjoy amazing discounts and offers with us.",
+                        }
+                        return Response(data=resp, status=status.HTTP_200_OK)
+                    else:
+                        resp = {
+                            "status": "fail",
+                            "error": "You do not have enough points. Engage in gamification tasks to gain points.",
+                        }
+                        return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    resp = {
+                        "status": "fail!",
+                        "error": "You have not started earning points. Engage in gamification tasks to gain points",
+                    }
+                    return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
+
+            except Exception as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            return Response(
+                {"detail": "User is already a Member."},
+                status=status.HTTP400_BAD_REQUEST,
+            )
