@@ -14,4 +14,6 @@ urlpatterns = [
     path("forgot-password/", ForgotPassword.as_view(), name="forgot_password"),
     path("password-reset/", ResetPassword.as_view(), name="password_reset"),
     path("resend-otp/", ResendOTP.as_view(), name="resend_otp"),
+    path("get-user-profile/", GetUserDetails.as_view(), name="get_user_profile"),
+    path("update-user/", UpdateUserProfile.as_view(), name="update_user"),
 ]

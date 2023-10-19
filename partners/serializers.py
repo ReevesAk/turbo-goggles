@@ -91,7 +91,7 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
-    """Serailizers for our Partners' profile."""
+    """Serailizers for updating our Partners' profile."""
 
     class Meta:
         model = User

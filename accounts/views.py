@@ -17,6 +17,8 @@ from .serializers import (
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     ResendOTPSerializer,
+    GetUserSerializer,
+    UpdateUserSerializer,
 )
 from .models import User
 from .otp import otp_manager
@@ -123,7 +125,11 @@ class ResendOTP(generics.GenericAPIView):
 
             # Generate otp.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = "Welcome aboard! To protect your account, please enter this {}.".format(otp)
+            msg = (
+                "Welcome aboard! To protect your account, please enter this {}.".format(
+                    otp
+                )
+            )
 
             response = Message.send_otp(msg=str(msg), to=phone_number)
             if response.status_code == 200:
@@ -190,3 +196,35 @@ class ResetPassword(generics.GenericAPIView):
             user_data = serializer.data
 
             return Response(data=user_data, status=status.HTTP_201_CREATED)
+
+
+class GetUserDetails(generics.RetrieveAPIView):
+    """Userer Detials"""
+
+    serializer_class = GetUserSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpdateUserProfile(generics.UpdateAPIView):
+    """Update User Profile"""
+
+    serializer_class = UpdateUserSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data, status=status.HTTP_200_OK)
