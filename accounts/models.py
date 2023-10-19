@@ -9,6 +9,7 @@ from .user_manager import CustomUserManager
 USER_CATEGORY_CHOICES = (
     ("User", "User"),
     ("Partner", "Partner"),
+    ("Member", "Member"),
 )
 
 
