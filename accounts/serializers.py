@@ -56,6 +56,43 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+class GetUserSerializer(serializers.ModelSerializer):
+    """Serailizers for retrieving User profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "account_type",
+            "country",
+            "state",
+            "city",
+            "phone_number",
+            "email",
+            "created_at",
+            "updated_at",
+            "is_verified",
+            "is_member",
+        ]
+
+
+class UpdateUserSerializer(serializers.ModelSerializer):
+    """Serailizers for updating our users' profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "country",
+            "state",
+            "city",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 

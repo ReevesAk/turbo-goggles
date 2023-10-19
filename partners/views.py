@@ -89,10 +89,8 @@ class PartnerServiceView(generics.GenericAPIView):
         return Response(data=response, status=status.HTTP_201_CREATED)
 
 
-# GetPartner decribes returns the profile details of a partner user.
-# It takes in the user_id provided
 class GetPartnerDetails(generics.RetrieveAPIView):
-    """Partner Detials"""
+    """GetPartner decribes returns the profile details of a partner user."""
 
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
