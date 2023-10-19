@@ -22,7 +22,7 @@ from .serializers import (
 from .models import (
     PartnerServiceImageUploads,
 )
-from commons import Messsage
+from commons import Message
 from accounts.otp import otp_manager
 from accounts.models import User
 
@@ -41,33 +41,34 @@ class RegisterPartner(generics.GenericAPIView):
             serializer.save()
 
             # Create and send OTP.
-            otp = otp_manager.create_otp(
-                user_id=str(serializer.validated_data.get("id"))
-            )
-            message = ("Use this {}, to verify your account".format(otp),)
-            recipient = serializer.data["phone_number"]
-            print(recipient)
-
-            Messsage.send_otp(msg=message, to=recipient)
-            try:
-                user_data = serializer.data
-                response = {
-                    "status": "success",
-                    "message": "Partner Created Successfully. Check your phone for an OTP",
-                    "data": user_data,
-                }
-                return Response(data=response, status=status.HTTP_201_CREATED)
-            except IntegrityError:
-                response = {
-                    "error": "email already used",
-                }
-                return Response(
-                    {
-                        "status": "fail",
-                        "message": "Partner with that email already exist",
-                    },
-                    status=status.HTTP_409_CONFLICT,
+            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
+            msg = (
+                "Welcome aboard! To protect your account, please enter this {}.".format(
+                    otp
                 )
+            )
+            recipient = serializer.data["phone_number"]
+
+            response = Message.send_otp(msg=str(msg), to=recipient)
+            if response.status_code == 200:
+                try:
+                    user_data = serializer.data
+                    response = {
+                        "status": "success",
+                        "message": "Partner Created Successfully. Check your phone for an OTP",
+                        "data": user_data,
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+                except IntegrityError:
+                    return Response(
+                        {
+                            "status": "fail",
+                            "message": "Partner with that email already exist",
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+            else:
+                return Response(data=response, status=response.status_code)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

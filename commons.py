@@ -23,7 +23,7 @@ def upload_to(instance, filename):
     return "profile/{filename}".format(filename=filename)
 
 
-class Messsage:
+class Message:
     @staticmethod
     def send_otp(msg, to):
         resource = "/api/sms/send"
@@ -31,8 +31,10 @@ class Messsage:
             "Content-Type": "application/json",
         }
 
+        prefix = "234"
+
         payload = {
-            "to": to,
+            "to": prefix + to,
             "from": "Picadailys",
             "sms": msg,
             "type": "plain",
@@ -46,11 +48,18 @@ class Messsage:
                 headers=headers,
                 json=payload,
             )
+            print(termii_base_url + resource)
+            print(payload)
             if response.status_code == 200:
+                print()
                 return Response(response.json())
             else:
-                return Response("Error from server: " + str(response.json()))
+                error_resp = "Error from server: " + str(response.json())
+                print(error_resp)
+                return Response(error_resp)
         except requests.exceptions.RequestException as e:
+            error_msg = {"error": str(e)}
+            print(error_msg)
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

@@ -56,8 +56,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-class VerifyOTPSerailizer(serializers.Serializer):
+class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    """Serailizers for resending OTP to our users."""
+
+    phone_number = serializers.CharField()
+    id = serializers.IntegerField()
+
+    class Meta:
+        model = User
+        fields = ["id", "phone_number"]
 
 
 class ForgotPasswordSerializer(serializers.ModelSerializer):

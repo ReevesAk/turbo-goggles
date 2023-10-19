@@ -50,3 +50,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_member(self):
         if self.game_points == 10:
             return True
+
+
+class OTP(models.Model):
+    otp = models.CharField(max_length=6, null=True)
+    user_id = models.IntegerField()
+    expires_at = models.DateTimeField(auto_now_add=True)
