@@ -42,10 +42,8 @@ class RegisterPartner(generics.GenericAPIView):
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = (
-                "Welcome aboard! To protect your account, please enter this {}.".format(
-                    otp
-                )
+            msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
+                otp
             )
             recipient = serializer.data["phone_number"]
 

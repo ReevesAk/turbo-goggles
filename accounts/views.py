@@ -43,10 +43,8 @@ class Register(generics.GenericAPIView):
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = (
-                "Welcome aboard! To protect your account, please enter this {}.".format(
-                    otp
-                )
+            msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
+                otp
             )
             recipient = serializer.data["phone_number"]
 
@@ -91,6 +89,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             # Validate otp.
             user_id = otp_manager.validate_user_otp(received_otp)
+            print(user_id)
 
             if not user_id:
                 return Response(

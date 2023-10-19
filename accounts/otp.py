@@ -2,6 +2,7 @@ from datetime import timedelta
 from django.utils import timezone
 import random
 import string
+import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -33,13 +34,18 @@ class OTPManager:
 
     def validate_user_otp(self, otp: str):
         """Check that otp is valid."""
+
         try:
             otp_obj = OTP.objects.get(otp=otp)
-            if timezone.now() <= otp_obj.expires_at:
+            if timezone.now() >= otp_obj.expires_at:
                 user_id = otp_obj.user_id
                 otp_obj.delete()
+                print(f"Valid OTP: {otp}, User ID: {user_id}")
                 return user_id
+            else:
+                print(f"Expired OTP: {otp}")
         except OTP.DoesNotExist:
+            print(f"Invalid OTP: {otp}")
             return None
 
     def delete_user_otp(self, otp: str):
