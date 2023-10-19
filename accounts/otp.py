@@ -1,43 +1,51 @@
+from datetime import timedelta
+from django.utils import timezone
 import random
 import string
 
-import redis
+from django.core.exceptions import ObjectDoesNotExist
 
-from decouple import config
+from .models import OTP
 
 
 class OTPManager:
-    """Manage user OTP."""
-
-    redis_url = "rediss://red-cjfqob7r2b1s73dfjbc0:gYp1HQMNsRhPn35w9lnDuhdfrWg29fzT@oregon-redis.render.com:6379"
-
-    redis = redis.from_url(redis_url)
-
     def generate_token(self, num: int = 6) -> str:
         """Generate random token."""
         characters = string.digits
         return "".join(random.choice(characters) for _ in range(num))
 
-    def create_otp(self, user_id: str, expires: int = 300):
-        """Create OTP"""
+    def create_otp(self, user_id: str, expires=5):
+        try:
+            existing_otp = OTP.objects.get(user_id=user_id)
+            existing_otp.delete()
+        except ObjectDoesNotExist:
+            pass
+
         otp = self.generate_token()
-        while self.redis.exists(otp):
-            otp = self.generate_token()
-        self.redis.set(otp, user_id, ex=expires)
+
+        expires_at = timezone.now() + timedelta(minutes=expires)
+
+        # Create and save the OTP instance with the expiration time
+        otp_instance = OTP(otp=otp, user_id=user_id, expires_at=expires_at)
+        otp_instance.save()
+
         return otp
 
     def validate_user_otp(self, otp: str):
         """Check that otp is valid."""
-        if self.redis.exists(otp):
-            user_id = self.redis.get(otp).decode("utf-8")
-            self.delete_user_otp(otp)
-            return user_id
-        return None
+        try:
+            otp_obj = OTP.objects.get(otp=otp)
+            if timezone.now() <= otp_obj.expires_at:
+                user_id = otp_obj.user_id
+                otp_obj.delete()
+                return user_id
+        except OTP.DoesNotExist:
+            return None
 
     def delete_user_otp(self, otp: str):
         """Delete user OTP."""
-        if self.redis.exists(otp):
-            self.redis.delete(otp)
+        if OTP.objects.filter(otp=otp).exists():
+            OTP.objects.get(otp=otp).delete()
 
 
 otp_manager = OTPManager()
