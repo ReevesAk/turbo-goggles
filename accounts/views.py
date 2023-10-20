@@ -1,8 +1,7 @@
-from decouple import config
-
 # Third party imports.
 from rest_framework import generics
 from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import make_password
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -14,11 +13,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     RegisterSerializer,
     VerifyOTPSerializer,
-    ChangePasswordSerializer,
-    ForgotPasswordSerializer,
     ResendOTPSerializer,
-    GetUserSerializer,
-    UpdateUserSerializer,
+    ResetPasswordSerializer,
 )
 from .models import User
 from .otp import otp_manager
@@ -99,6 +95,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             user = User.objects.get(id=user_id)
             user.is_verified = True
+            user.is_active = True
+            print(user.is_verified)
+            print(user.is_active)
             user.save()
 
             return Response(
@@ -152,119 +151,86 @@ class Login(APIView):
         email = request.data.get("email")
         password = request.data.get("password")
 
-        if email and password:
-            user = authenticate(email=email, password=password)
-
+        user = authenticate(email=email, password=password)
         if user:
+            # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
 
-            response = {"message": "Login Successfull", "tokens": tokens}
+            response = {"message": "Login successful", "tokens": tokens}
             return Response(data=response, status=status.HTTP_200_OK)
-
         else:
-            return Response(data={"message": "Invalid email or password"})
+            print(f"Authentication failed for user {email}.")
+            return Response(
+                data={"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class ForgotPassword(generics.GenericAPIView):
-    serializer_class = ForgotPasswordSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user_data = serializer.data
-
-            return Response(data=user_data, status=status.HTTP_200_OK)
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ResetPassword(generics.GenericAPIView):
-    serializer_class = ChangePasswordSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user_data = serializer.data
-
-            return Response(data=user_data, status=status.HTTP_201_CREATED)
-
-
-class GetUserDetails(generics.RetrieveAPIView):
-    """Userer Detials"""
-
-    serializer_class = GetUserSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def retrieve(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user
-        serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class UpdateUserProfile(generics.UpdateAPIView):
-    """Update User Profile"""
-
-    serializer_class = UpdateUserSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def get_object(self):
-        return self.request.user
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class UpgradeToMember(generics.UpdateAPIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def put(self, request):
-        user = request.user
-
-        if user.account_type == "User":
-            try:
-                if user.game_points is not None:
-                    if user.game_points >= 10:
-                        user.account_type = "Member"
-                        resp = {
-                            "status": "Success!",
-                            "data": "Congratulations you have been upgraded to a member. You an now enjoy amazing discounts and offers with us.",
-                        }
-                        return Response(data=resp, status=status.HTTP_200_OK)
-                    else:
-                        resp = {
-                            "status": "fail",
-                            "error": "You do not have enough points. Engage in gamification tasks to gain points.",
-                        }
-                        return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    resp = {
-                        "status": "fail!",
-                        "error": "You have not started earning points. Engage in gamification tasks to gain points",
-                    }
-                    return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
-
-            except Exception as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-        else:
-            return Response(
-                {"detail": "User is already a Member."},
-                status=status.HTTP400_BAD_REQUEST,
+    def get(self, request):
+        # get currnt user
+        user_data = request.user
+        if user_data:
+            # Create and send OTP.
+            otp = otp_manager.create_otp(user_id=str(user_data.id))
+            msg = "Enter this {} to verify your account and reset your password".format(
+                otp
             )
+            recipient = user_data.phone_number
+
+            response = Message.send_otp(msg=str(msg), to=recipient)
+            if response.status_code == 200:
+                try:
+                    response = {
+                        "status": "success",
+                        "message": "Check your phone for an OTP",
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+                except Exception as err:
+                    return Response(
+                        {
+                            "status": "fail",
+                            "message": err,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+            else:
+                return Response(data=response, status=response.status_code)
+
+
+class ResetPassword(generics.CreateAPIView):
+    serializer_class = ResetPasswordSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request):
+        user = request.user
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_data = serializer.validated_data
+
+        otp = user_data["otp"]
+        user_id = otp_manager.validate_user_otp(otp=otp)
+
+        if not user_id:
+            return Response(
+                data={"error": "Invalid or expired OTP"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user_data["password"] != user_data["password2"]:
+            return Response(
+                data={"error": "Passwords do not match!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data["password"]
+        user.password = make_password(password)
+        user.save()
+
+        response = {"status": "Success!", "message": "Password set successfully"}
+        return Response(data=response, status=status.HTTP_200_OK)

@@ -1,5 +1,3 @@
-from django.contrib.auth import authenticate
-
 # Third party imports.
 from rest_framework import serializers
 
@@ -108,38 +106,11 @@ class ResendOTPSerializer(serializers.Serializer):
         fields = ["id", "phone_number"]
 
 
-class ForgotPasswordSerializer(serializers.ModelSerializer):
-    phone_number = serializers.EmailField()
+class ResetPasswordSerializer(serializers.ModelSerializer):
     otp = serializers.CharField(max_length=50, min_length=6)
-
-    class Meta:
-        model = User
-        fields = ["phone_number", "otp"]
-
-    def validate(self, attrs):
-        email = attrs.get("email", "")
-        otp = attrs.get("otp", "")
-
-        if email is None:
-            return serializers.ValidationError("email: email field can not be empty")
-
-        if otp is None:
-            return serializers.ValidationError("otp: otp must be provided")
-        return attrs
-
-
-class ChangePasswordSerializer(serializers.ModelSerializer):
-    old_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ["old_password", "password"]
-
-    def validate(self, attrs):
-        password = attrs.get("password", "")
-        password2 = attrs.get("password2", "")
-
-        if password != password2:
-            return serializers.ValidationError("password: Passwords do not match")
-        return attrs
+        fields = ("otp", "password", "password2")
