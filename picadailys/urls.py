@@ -49,4 +49,6 @@ urlpatterns = [
     path("api/v1/wallets/", include("wallets.urls")),
     # VAS endpoints.
     path("api/v1/vas/", include("vas.urls")),
+    # User Profile and settings endpoints.
+    path("api/v1/user_profile/", include("user_profile.urls")),
 ]

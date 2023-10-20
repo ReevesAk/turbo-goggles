@@ -31,10 +31,10 @@ class Message:
             "Content-Type": "application/json",
         }
 
-        prefix = "234"
+        phone_number = "234" + to
 
         payload = {
-            "to": prefix + to,
+            "to": phone_number,
             "from": "Picadailys",
             "sms": msg,
             "type": "plain",
