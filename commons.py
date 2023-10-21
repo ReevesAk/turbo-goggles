@@ -25,7 +25,7 @@ def upload_to(instance, filename):
 
 class Message:
     @staticmethod
-    def send_otp(msg, to):
+    def send_msg(msg, to):
         resource = "/api/sms/send"
         headers = {
             "Content-Type": "application/json",
