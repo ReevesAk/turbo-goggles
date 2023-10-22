@@ -6,7 +6,17 @@ from django.utils import timezone
 from cloudinary.models import CloudinaryField
 
 from accounts.models import User
-from .choices import *
+from .choices import (
+    ADS_TYPES,
+    BRAND_TYPE,
+    BOOKING,
+    AGE_BRACKET,
+    PREFERENCES,
+    HOBBIES,
+    MOBILE_PHONE_USE,
+    MUSIC_CHOICE,
+    SOCIAL_EVENT,
+)
 
 
 # Create your models here.

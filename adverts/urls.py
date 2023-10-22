@@ -1,5 +1,14 @@
 from django.urls import path
-from .views import *
+from .views import (
+    StartRegisterAdverts,
+    ContdRegisterAdverts,
+    CreateBrandAdvertService,
+    BrandAdServiceListView,
+    UploadLogo,
+    BookAnAdvert,
+    Survey,
+    SurveyList,
+)
 
 urlpatterns = [
     path(

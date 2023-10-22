@@ -1,4 +1,4 @@
-from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.hashers import check_password
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -10,9 +10,39 @@ from .serializers import (
     ChangePasswordSerializer,
     GetUserSerializer,
     UpdateUserSerializer,
+    ProfileImageSerializer,
 )
+from cloudinary import uploader as cloud
 
-from accounts.otp import otp_manager
+
+class ProfileImage(generics.CreateAPIView):
+    """Upload profile image. This endpoint only
+    accepts multipart/form-data data format.
+    """
+
+    serializer_class = ProfileImageSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request):
+        serializer = ProfileImageSerializer(data=request.data)
+
+        if serializer.is_valid():
+            profile_image = serializer.validated_data["profile_image"]
+
+            # Upload the image to Cloudinary
+            result = cloud.upload(profile_image)
+
+            # Save the Cloudinary URL in your model, for example:
+            request.user.profile_img_url = result["url"]
+            request.user.save()
+
+            return Response(
+                {"message": "Profile picture uploaded successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetUserDetails(generics.RetrieveAPIView):
@@ -93,19 +123,23 @@ class UpgradeToMember(generics.UpdateAPIView):
                         user.save()
                         resp = {
                             "status": "Success!",
-                            "data": "Congratulations you have been upgraded to a member. You can now enjoy amazing discounts and offers with us.",
+                            "data": "Congratulations you have been \
+                                upgraded to a member You can now enjoy\
+                                amazing discounts and offers with us.",
                         }
                         return Response(data=resp, status=status.HTTP_200_OK)
                     else:
                         resp = {
                             "status": "fail",
-                            "error": "You do not have enough points. Engage in gamification tasks to gain points.",
+                            "error": "You do not have enough points. \
+                                Engage in gamification tasks to gain points.",
                         }
                         return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     resp = {
                         "status": "fail!",
-                        "error": "You have not started earning points. Engage in gamification tasks to gain points",
+                        "error": "You have not started earning points. \
+                            Engage in gamification tasks to gain points",
                     }
                     return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
 

@@ -44,13 +44,12 @@ class BVN:
                 full_name = resp["data"]["firstName"] + " " + resp["data"]["lastName"]
 
             return full_name
-            
 
         except requests.exceptions.RequestException as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
+
 
 class Debit:
     @staticmethod
@@ -91,7 +90,7 @@ class Debit:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
+
 
 class Credit:
     @staticmethod

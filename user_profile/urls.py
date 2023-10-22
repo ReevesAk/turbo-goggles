@@ -1,8 +1,15 @@
 from django.urls import path
 
-from .views import GetUserDetails, UpdateUserProfile, UpgradeToMember, ChangePassword
+from .views import (
+    GetUserDetails,
+    UpdateUserProfile,
+    UpgradeToMember,
+    ChangePassword,
+    ProfileImage,
+)
 
 urlpatterns = [
+    path("profile-img/", ProfileImage.as_view(), name="profile_img"),
     path("get-user-profile/", GetUserDetails.as_view(), name="get_user_profile"),
     path("update-user/", UpdateUserProfile.as_view(), name="update_user"),
     path("upgrade-to-member/", UpgradeToMember.as_view(), name="upgrade_to_member"),

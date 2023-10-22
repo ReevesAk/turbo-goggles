@@ -1,6 +1,5 @@
 # Third party imports.
 from rest_framework import serializers
-from rest_framework.validators import ValidationError
 
 # In project imports.
 from accounts.models import User
