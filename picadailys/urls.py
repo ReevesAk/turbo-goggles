@@ -16,7 +16,6 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
 
 # from . import static
 
@@ -37,7 +36,9 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path(
-        "api/v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
+        "api/v1/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc"
     ),
     # Account creation endpoint.
     path("api/v1/accounts/", include("accounts.urls")),

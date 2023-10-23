@@ -2,7 +2,6 @@ from datetime import timedelta
 from django.utils import timezone
 import random
 import string
-import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 

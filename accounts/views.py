@@ -54,11 +54,11 @@ class Register(generics.GenericAPIView):
                         "data": user_data,
                     }
                     return Response(data=response, status=status.HTTP_201_CREATED)
-                except:
+                except Exception as err:
                     return Response(
                         {
                             "status": "fail",
-                            "message": "User with that email already exist",
+                            "message": err,
                         },
                         status=status.HTTP_409_CONFLICT,
                     )
@@ -100,7 +100,6 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
-
                 user.is_verified = True
                 user.is_active = True
                 user.save()

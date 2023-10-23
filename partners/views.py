@@ -24,7 +24,6 @@ from .models import (
 )
 from commons import Message
 from accounts.otp import otp_manager
-from accounts.models import User
 
 
 # Create your views here.

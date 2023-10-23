@@ -5,6 +5,10 @@ from rest_framework import serializers
 from accounts.models import User
 
 
+class ProfileImageSerializer(serializers.Serializer):
+    profile_image = serializers.ImageField()
+
+
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 
@@ -48,7 +52,4 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "old_password",
-            "new_password"
-        ]
+        fields = ["old_password", "new_password"]

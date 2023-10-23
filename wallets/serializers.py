@@ -24,8 +24,6 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        _id = attrs.get("_id", "")
-        accountNumber = attrs.get("accountNumber", "")
         bvn = attrs.get("bvn", "")
 
         if not bvn:
@@ -73,12 +71,6 @@ class FincraPayoutSerializers(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        amount = attrs.get("amount", "")
-        description = attrs.get("description", "")
-        customerReference = attrs.get("customerReference", "")
-        accountNumber = attrs.get("accountNumber", "")
-        beneficiaryWalletNumber = attrs.get("beneficiaryWalletNumber", "")
-
         return super().validate(attrs)
 
 

@@ -1,6 +1,5 @@
 import smtplib
 from email.mime.text import MIMEText
-import smtplib
 from decouple import config
 
 import cloudinary

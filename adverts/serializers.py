@@ -8,7 +8,6 @@ from rest_framework.validators import ValidationError
 # In projects imports.
 from .models import BrandAdvert, BrandAdService, BrandAdlogo, BookAnAd, BrandAdSurvey
 from accounts.models import User
-from accounts.utils import validate_url
 
 
 class AdvertStartSeriailizers(serializers.ModelSerializer):

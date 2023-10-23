@@ -12,9 +12,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
+from decouple import config as conf
 import os
 import dj_database_url
+import cloudinary
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,10 +26,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = conf("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG")
+DEBUG = conf("DEBUG")
 
 ALLOWED_HOSTS = ["*"]
 
@@ -90,7 +92,7 @@ WSGI_APPLICATION = "picadailys.wsgi.application"
 
 
 DATABASES = {}
-if DEBUG == True:
+if DEBUG is True:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -98,7 +100,7 @@ if DEBUG == True:
         }
     }
 else:
-    database_url = config("DATABASE_URL")
+    database_url = conf("DATABASE_URL")
     DATABASES["default"] = dj_database_url.parse(database_url)
 
 
@@ -180,9 +182,15 @@ EMAIL_USE_TLS = False
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True
-EMAIL_HOST_USER = config("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+EMAIL_HOST_USER = conf("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = conf("EMAIL_HOST_PASSWORD")
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
+
+cloudinary.config(
+    cloud_name=conf("CLOUDINARY_CLOUD_NAME"),
+    api_key=conf("CLOUDINARY_API_KEY"),
+    api_secret=conf("CLOUDINARY_API_SECRET"),
+)

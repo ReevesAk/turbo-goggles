@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
-from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 
@@ -24,6 +23,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     game_points = models.IntegerField(null=True)
+    profile_img_url = models.CharField(max_length=255, null=True)
 
     # Partner detials.
     account_type = models.CharField(
@@ -47,10 +47,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-
-    def is_member(self):
-        if self.game_points == 10:
-            return True
 
 
 class OTP(models.Model):

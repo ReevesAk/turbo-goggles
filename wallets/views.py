@@ -61,7 +61,6 @@ class VitualAccountRequest(generics.GenericAPIView):
             "api-key": api_key,
         }
 
-        
         bvn_full_name = BVN.verify(
             bvn=user["bvn"],
             business_id=bus_id
@@ -78,7 +77,7 @@ class VitualAccountRequest(generics.GenericAPIView):
             return Response(
                 data=response_data, status=status.HTTP_400_BAD_REQUEST
             )
-    
+
         resource = "profile/virtual-accounts/requests"
         payload = {
             "currency": "NGN",
@@ -151,7 +150,7 @@ class AccountDetails(generics.RetrieveAPIView):
                     response_data = {
                         "data": response.json(),
                     }
-                    return Response(data=response_data, status=status.HTTP_200_OK)  
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
                     return Response(response.json(), status=response.status_code)
 
@@ -390,6 +389,8 @@ class PicadailysTransfers(generics.GenericAPIView):
                         "api-key": api_key,
                         "content-type": "application/json",
                     }
+                    f_name = resp["KYCInformation"]["firstName"]
+                    l_name = resp["KYCInformation"]["lastName"]
                     payload = {
                         "business": bus_id,
                         "sourceCurrency": "NGN",
@@ -400,9 +401,7 @@ class PicadailysTransfers(generics.GenericAPIView):
                         "beneficiary": {
                             "firstName": resp["KYCInformation"]["firstName"],
                             "lastName": resp["KYCInformation"]["lastName"],
-                            "accountHolderName": resp["KYCInformation"]["firstName"]
-                            + " "
-                            + resp["KYCInformation"]["lastName"],
+                            "accountHolderName": f_name + l_name,
                             "accountNumber": resp["accountNumber"],
                             "type": "individual",
                             "bankCode": "101",
