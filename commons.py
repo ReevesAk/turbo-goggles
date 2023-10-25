@@ -35,10 +35,10 @@ class Message:
 
         payload = {
             "to": phone_number,
-            "from": "Picadailys",
+            "from": "N-Alert",
             "sms": msg,
             "type": "plain",
-            "channel": "generic",
+            "channel": "dnd",
             "api_key": termii_api_key,
         }
         try:

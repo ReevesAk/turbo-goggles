@@ -95,7 +95,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             user = User.objects.get(id=user_id)
             # Send welcome message to user.
-            msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences.Thank you for choosing us!"
+            msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
             recipient = user.phone_number
 
             response = Message.send_msg(msg=str(msg), to=recipient)
