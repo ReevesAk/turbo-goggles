@@ -8,21 +8,23 @@ from .models import User
 class RegisterSerializer(serializers.ModelSerializer):
     """Serailizers for our User first time registration"""
 
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
     class Meta:
         model = User
         fields = [
             "id",
+            "email",
             "first_name",
             "last_name",
             "account_type",
-            "country",
-            "state",
-            "city",
             "phone_number",
-            "email",
             "password",
+            "password2",
         ]
-        extra_kwargs = {"password": {"write_only": True}}
+        extra_kwargs = {
+            "password": {"write_only": True},
+        }
 
     def validate(self, attrs):
         email = attrs.get("email", "")
@@ -42,9 +44,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
             account_type=validated_data["account_type"],
-            country=validated_data["country"],
-            state=validated_data["state"],
-            city=validated_data["city"],
             phone_number=validated_data["phone_number"],
         )
 

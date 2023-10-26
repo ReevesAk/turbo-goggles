@@ -44,7 +44,7 @@ class Register(generics.GenericAPIView):
             )
             recipient = serializer.data["phone_number"]
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
+            response = Message.send_otp(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
                     user_data = serializer.data
@@ -133,7 +133,7 @@ class ResendOTP(generics.GenericAPIView):
                 )
             )
 
-            response = Message.send_msg(msg=str(msg), to=phone_number)
+            response = Message.send_otp(msg=str(msg), to=phone_number)
             if response.status_code == 200:
                 response = {
                     "status": "success",
@@ -185,7 +185,7 @@ class ForgotPassword(generics.GenericAPIView):
             )
             recipient = user_data.phone_number
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
+            response = Message.send_otp(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
                     response = {

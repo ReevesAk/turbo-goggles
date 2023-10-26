@@ -9,7 +9,7 @@ from .models import OTP
 
 
 class OTPManager:
-    def generate_token(self, num: int = 6) -> str:
+    def generate_token(self, num: int = 4) -> str:
         """Generate random token."""
         characters = string.digits
         return "".join(random.choice(characters) for _ in range(num))
