@@ -169,10 +169,9 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Picadailys Swagger API Documentation",
-    "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing"
-    "online intermediary services, under these main categories:"
-    "```Value Added Servies(VAS)```",
+    "TITLE": "Picadailys API Documentation",
+    "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing "
+    "online intermediary services, e.g" "```Value Added Servies(VAS)```", 
     "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }

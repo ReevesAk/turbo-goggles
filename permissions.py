@@ -2,10 +2,10 @@ from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
 
 
-class UserTypePermission(permissions.BasePermission):
+class VasPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         # Define the required user_type for this permission
-        required_user_types = ["User", "Member"]
+        required_user_types = ["User", "Member", "SuperAdmin"]
 
         # Check if the user is authenticated
         if request.user.is_authenticated:

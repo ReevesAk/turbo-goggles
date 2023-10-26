@@ -6,9 +6,18 @@ from django.utils import timezone
 from .user_manager import CustomUserManager
 
 USER_CATEGORY_CHOICES = (
+    ("SuperAdmin", "SuperAdmin"),
     ("User", "User"),
     ("Partner", "Partner"),
     ("Member", "Member"),
+    ("TaskAdmin", "TaskAdmin"),
+    ("AdAdmin", "AdAdmin"),
+    ("MembersAdmin", "MembersAdmin"),
+    ("UserAdmin", "UserAdmin"),
+    ("PartnersAdmin", "PartnersAdmin"),
+    ("ContentAdmin", "ContentAdmin"),
+    ("IntegrationAdmin", "IntegrationAdmin"),
+    ("WalletAdmin", "WalletAdmin"),
 )
 
 

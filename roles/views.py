@@ -100,13 +100,14 @@ class CreateOtherAdmin(generics.CreateAPIView):
     def perform_create(self, serializer):
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
+            user_data = RegisterSuperAdminSerializer(user).data
             resp = {
                 "status": "Success",
                 "message": "{} Created Successfully.".format(user.data["account_type"]),
-                "data": user.data,
+                "data": user_data,
             }
             return Response(
-                data=RegisterSuperAdminSerializer(user).data,
+                data=user_data,
                 status=status.HTTP_201_CREATED,
             )
 
