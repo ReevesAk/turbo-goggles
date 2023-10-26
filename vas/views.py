@@ -809,15 +809,15 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                             "messsage": "A refund will be issued.",
                         }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -917,15 +917,15 @@ class WaecRegistration(generics.GenericAPIView):
                             "messsage": "A refund will be issued.",
                         }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1034,15 +1034,15 @@ class VehicleInsurance(generics.GenericAPIView):
                             "messsage": "A refund will be issued.",
                         }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1147,15 +1147,15 @@ class AccidentInsurance(generics.GenericAPIView):
                             "messsage": "A refund will be issued.",
                         }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -1260,15 +1260,15 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             "messsage": "A refund will be issued.",
                         }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="101",
+                            amount=user["amount"],
+                        )
+                        return Response(response_data, status=response.status_code)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
