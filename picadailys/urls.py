@@ -36,9 +36,7 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path(
-        "api/v1/redoc/",
-        SpectacularRedocView.as_view(url_name="schema"),
-        name="redoc"
+        "api/v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
     ),
     # Account creation endpoint.
     path("api/v1/accounts/", include("accounts.urls")),
@@ -52,4 +50,6 @@ urlpatterns = [
     path("api/v1/vas/", include("vas.urls")),
     # User Profile and settings endpoints.
     path("api/v1/user_profile/", include("user_profile.urls")),
+    # User Profile and settings endpoints.
+    path("api/v1/roles/", include("roles.urls")),
 ]
