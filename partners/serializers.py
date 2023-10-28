@@ -14,6 +14,8 @@ from .models import (
 class RegisterPartnerSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' first time registration"""
 
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -30,6 +32,7 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
             "business_category",
             "email",
             "password",
+            "password2",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 

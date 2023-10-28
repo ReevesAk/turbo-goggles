@@ -37,7 +37,7 @@ class RegisterPartner(generics.GenericAPIView):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            if serializer.data["password"] != serializer.data["password2"]:
+            if user["password"] != user["password2"]:
                 return Response(
                 data={"error": "Passwords do not match!"},
                 status=status.HTTP_400_BAD_REQUEST,
