@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 from .serializers import (
     ChangePasswordSerializer,
@@ -97,6 +99,11 @@ class ChangePassword(generics.UpdateAPIView):
                 )
 
             user.set_password(new_password)
+
+            # Retrieve existing tokens and blacklist them.
+            user_token = request.data.get("refresh_token")
+            token = RefreshToken(user_token)
+            token.blacklist()
             user.save()
 
             return Response(

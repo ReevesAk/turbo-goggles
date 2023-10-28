@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
 
 # In project imports.
 from .serializers import (
@@ -234,7 +235,12 @@ class ResetPassword(generics.CreateAPIView):
 
         password = user_data["password"]
         user.password = make_password(password)
+
+        # Retrieve existing tokens and blacklist them.
+        user_token = request.data.get("refresh_token")
+        token = RefreshToken(user_token)
+        token.blacklist()
         user.save()
 
-        response = {"status": "Success!", "message": "Password set successfully"}
+        response = {"status": "Success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)

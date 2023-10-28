@@ -6,9 +6,18 @@ from django.utils import timezone
 from .user_manager import CustomUserManager
 
 USER_CATEGORY_CHOICES = (
+    ("SuperAdmin", "SuperAdmin"),
     ("User", "User"),
     ("Partner", "Partner"),
     ("Member", "Member"),
+    ("TaskAdmin", "TaskAdmin"),
+    ("AdAdmin", "AdAdmin"),
+    ("MembersAdmin", "MembersAdmin"),
+    ("UserAdmin", "UserAdmin"),
+    ("PartnersAdmin", "PartnersAdmin"),
+    ("ContentAdmin", "ContentAdmin"),
+    ("IntegrationAdmin", "IntegrationAdmin"),
+    ("WalletAdmin", "WalletAdmin"),
 )
 
 
@@ -53,3 +62,4 @@ class OTP(models.Model):
     otp = models.CharField(max_length=6, null=True)
     user_id = models.IntegerField()
     expires_at = models.DateTimeField(auto_now_add=True)
+    
