@@ -1,24 +1,15 @@
-from decouple import config
-
 from django.db import models
-from django.utils import timezone
 from cloudinary.models import CloudinaryField
 
 from accounts.models import User
 
-# Create your models here.
 
-PARTNERS_SERVICE_CATEGORY_CHOICES = (
-    ("Hotels", "Hotels"),
-    ("Cinema", "Cinema"),
-    ("Gyms", "Gyms"),
-    ("Restaurant", "Restaurant"),
-    ("Distribution", "Distribution"),
-    ("Land Transport", "Land Transport"),
-    ("Cooking Gas Service", "Cooking Gas Service"),
-    ("Courier Service", "Courier Service"),
-    ("Air Travel", "Air Travel"),
-    ("Dubai Visa", "Dubai Visa"),
+BUSINESS_CATEGORY = (
+    ("Travel and Leisure", "Travel and Leisure"),
+    ("Food and Drinks", "Food and Drinks"),
+    ("Fitness and Entertainment", "Fitness and Entertainment"),
+    ("Delivery Services", "Delivery Services"),
+    ("Consumable Services", "Consumable Services"),
 )
 
 
@@ -37,33 +28,15 @@ class VerifyCAC(models.Model):
 class PartnerServices(models.Model):
     """Model for partner services."""
 
-    users = models.ForeignKey(User, on_delete=models.CASCADE)
-    service_offered = models.CharField(
-        choices=PARTNERS_SERVICE_CATEGORY_CHOICES, max_length=255
-    )
-    service_category = models.CharField(max_length=255, null=True)
-
-
-class ServiceAndCharge(models.Model):
-    """Model for partner service and charge/price."""
-
-    partner = models.ForeignKey(PartnerServices, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="related_services")
+    business = models.CharField(choices=BUSINESS_CATEGORY, max_length=255, null=True)
     service = models.CharField(max_length=255, null=True)
+    service_star = models.CharField(max_length=50, null=True)
     price = models.FloatField(null=True)
     description = models.TextField(null=True)
-
-    def __str__(self):
-        return f"{self.service}: {self.price}"
-
-
-class PartnerServiceImageUploads(models.Model):
-    """Model for partner service file uploads."""
-
-    user = models.ForeignKey(PartnerServices, on_delete=models.CASCADE)
-    image = CloudinaryField(null=True)
-    timestamp = models.DateTimeField(default=timezone.now)
-
-    @property
-    def image_url(self):
-        cloud_name = config("CLOUDINARY_CLOUD_NAME")
-        return f"https://res.cloudinary.com/{cloud_name}/{self.image}"
+    service_photos = models.CharField(max_length=255, null=True)
+    from_station = models.CharField(max_length=255, null=True)
+    destination = models.CharField(max_length=255, null=True)
+    trainers = models.CharField(max_length=255, null=True)
+    trainer_price = models.CharField(max_length=255, null=True)
+    trainer_photo = models.CharField(max_length=255, null=True)

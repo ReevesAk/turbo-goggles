@@ -57,7 +57,6 @@ INSTALLED_APPS = [
     "wallets",
     "vas",
     "user_profile",
-    "commands",
 ]
 
 MIDDLEWARE = [
@@ -171,7 +170,7 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Picadailys API Documentation",
     "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing "
-    "online intermediary services, e.g" "```Value Added Servies(VAS)```", 
+    "online intermediary services, e.g" "```Value Added Servies(VAS)```",
     "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
@@ -194,3 +193,4 @@ cloudinary.config(
     api_key=conf("CLOUDINARY_API_KEY"),
     api_secret=conf("CLOUDINARY_API_SECRET"),
 )
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

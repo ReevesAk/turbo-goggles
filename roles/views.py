@@ -17,14 +17,14 @@ from .serializers import (
 from accounts.models import User
 from accounts.otp import otp_manager
 from commons import Message
-from permissions import SuperAdminPermission
+from permissions import IsSuperAdmin
 
 
 class RegisterSuperAdmin(generics.GenericAPIView):
     """
     RegisterSuperAdmin handles the POST request of registering a superuser,
-    It takes in firstnmae, lastname, email, phone, password and
-    confirm passwordand returns a validation email upon success.
+    It takes in email, phone, account_type, password and password2.
+    Sends an otp to phone for validation.
     """
 
     serializer_class = RegisterSuperAdminSerializer
@@ -84,7 +84,6 @@ class RegisterSuperAdmin(generics.GenericAPIView):
 
 
 class CreateOtherAdmin(generics.CreateAPIView):
-
     """
     Create a new admin.
     Only superadmins can create new admins.
@@ -95,7 +94,7 @@ class CreateOtherAdmin(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterOtherAdminRoleSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, SuperAdminPermission)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def perform_create(self, serializer):
         if serializer.is_valid(raise_exception=True):
@@ -107,7 +106,7 @@ class CreateOtherAdmin(generics.CreateAPIView):
                 "data": user_data,
             }
             return Response(
-                data=user_data,
+                data=resp,
                 status=status.HTTP_201_CREATED,
             )
 
@@ -120,7 +119,7 @@ class CreateOtherAdmin(generics.CreateAPIView):
 class UpdateAdminRole(generics.RetrieveUpdateAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, SuperAdminPermission)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def get_object(self):
         email = self.request.data.get("email")
@@ -148,13 +147,13 @@ class ListAdmin(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, SuperAdminPermission)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
 
 class DeleteAdmin(generics.DestroyAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, SuperAdminPermission)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request, *args, **kwargs):
         email = self.request.data.get("email")

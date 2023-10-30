@@ -5,8 +5,6 @@ from rest_framework import serializers
 from accounts.models import User
 from .models import (
     PartnerServices,
-    ServiceAndCharge,
-    PartnerServiceImageUploads,
     VerifyCAC,
 )
 
@@ -69,6 +67,27 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
         return user
 
 
+class PartnerServiceSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' service entry."""
+
+    service_photos = serializers.ListField(
+        child=serializers.ImageField(),
+        required=False
+    )
+
+    class Meta:
+        model = PartnerServices
+        fields = [
+            "id",
+            "business",
+            "service",
+            "service_star",
+            "price",
+            "description",
+            "service_photos",
+        ]
+
+
 class PartnerProfileSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' profile."""
 
@@ -109,44 +128,6 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
-
-class PartnerServiceSerializers(serializers.ModelSerializer):
-    """Serailizers for our Partners' services."""
-
-    class Meta:
-        model = PartnerServices
-        fields = ["id", "service_offered", "service_category"]
-
-    def create(self, validated_data):
-        partner = PartnerServices.objects.create_user(**validated_data)
-        return partner
-
-
-class ServiceAndChargeSerializers(serializers.ModelSerializer):
-    """Serailizers for our Partners' service types and prices."""
-
-    class Meta:
-        model = ServiceAndCharge
-        fields = ["price", "service"]
-
-    def create(self, validated_data):
-        partner_service = ServiceAndCharge.objects.create_user(**validated_data)
-        return partner_service
-
-
-class PartnerServiceUploadsSerializers(serializers.ModelSerializer):
-    """Serailizers for our Partners' service uploads."""
-
-    class Meta:
-        model = PartnerServiceImageUploads
-        fields = ["image_url", "image", "timestamp"]
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation.pop("image")
-
-        return representation
 
 
 class VerifyCacSerializers(serializers.ModelSerializer):

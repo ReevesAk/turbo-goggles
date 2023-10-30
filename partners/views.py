@@ -5,25 +5,24 @@ from django.db import IntegrityError
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from cloudinary import uploader as cloud
 
 # In project imports.
 from .serializers import (
     RegisterPartnerSerializer,
-    PartnerServiceSerializers,
-    ServiceAndChargeSerializers,
-    PartnerServiceUploadsSerializers,
+    PartnerServiceSerializer,
     PartnerProfileSerializer,
     UpdateProfileSerializer,
     VerifyCacSerializers,
 )
-from .models import (
-    PartnerServiceImageUploads,
-)
+from accounts.models import User
+from .models import PartnerServices
 from commons import Message
 from accounts.otp import otp_manager
+from permissions import IsPartner, IsPartnerAdmin, IsMember
 
 
 # Create your views here.
@@ -39,9 +38,9 @@ class RegisterPartner(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             if user["password"] != user["password2"]:
                 return Response(
-                data={"error": "Passwords do not match!"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    data={"error": "Passwords do not match!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             serializer.save()
 
@@ -76,20 +75,109 @@ class RegisterPartner(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PartnerServiceView(generics.GenericAPIView):
-    serializer_class = PartnerServiceSerializers
+class ListAllPartners(generics.ListAPIView):
+    serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
-    def post(self, request):
+    def get_queryset(self):
+        partners = User.objects.filter(account_type="Partner")
+        return partners
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CreatePartnerService(generics.CreateAPIView):
+    serializer_class = PartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartner)
+    # parser_classes = (
+    #     MultiPartParser,
+    #     JSONParser,
+    # )
+
+    def create(self, request):
         user = request.data
-        serializer = self.serializer_class(data=user)
+        serializer = PartnerServiceSerializer(data=user)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user_data = serializer.data
+            service_uploads = request.data.getlist("service_photos")
+            image_urls = []
 
-        response = {"message": "Services recorded!", "data": user_data}
-        return Response(data=response, status=status.HTTP_201_CREATED)
+            try:
+                for upload in service_uploads:
+                    upload_result = cloud.upload(upload)
+                    image_urls.append(upload_result['url'])
+                    
+                    request.user.service_photos = image_urls
+                    request.user.save()
+                # return Response({"message": "photos uploaded successfully"})
+            except Exception as err:
+                return Response(
+                    {"error": "An error occurred: {}".format(err)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            response = {
+                "message": "Service recorded!",
+                "Image urls": image_urls,
+                "data": serializer.data
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PartnerServiceList(generics.ListAPIView):
+    """PartnerServiceList lists all the services belonging to
+    an authenticated Partner.
+    """
+
+    serializer_class = PartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsPartner | IsMember | IsPartnerAdmin)]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = PartnerServices.objects.filter(user=user)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AllPartnersServiceList(generics.ListAPIView):
+    """AllPartnersServiceList lists all the services of
+    all authenticated Partners.
+    """
+
+    serializer_class = PartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+
+    def list(self, request, *args, **kwargs):
+        partners = User.objects.filter(account_type="Partner")
+        data = []
+
+        for partner in partners:
+            partner_data = {
+                "name": partner.business_name,
+                "services": PartnerServiceSerializer(
+                    PartnerServices.objects.filter(user=partner), many=True
+                ).data,
+            }
+            data.append(partner_data)
+
+            response = {
+                "status": "All Partners services fetched successfully!",
+                "data": data,
+            }
+
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class GetPartnerDetails(generics.RetrieveAPIView):
@@ -97,7 +185,7 @@ class GetPartnerDetails(generics.RetrieveAPIView):
 
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsPartner)
 
     def retrieve(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
@@ -110,7 +198,7 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
 
     serializer_class = UpdateProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def get_object(self):
         return self.request.user
@@ -124,52 +212,6 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class PartnerServiceListView(generics.RetrieveAPIView):
-    serializer_class = PartnerServiceSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def retrieve(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user
-        serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class ServiceAndChargeView(generics.GenericAPIView):
-    serializer_class = ServiceAndChargeSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user_data = serializer.data
-
-        response = {"message": "Service prices added!", "data": user_data}
-        return Response(data=response, status=status.HTTP_201_CREATED)
-
-
-class ServiceAndChargeListView(generics.RetrieveAPIView):
-    serializer_class = ServiceAndChargeSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def retrieve(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user
-        serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class UploadImage(generics.CreateAPIView):
-    serializer_class = PartnerServiceUploadsSerializers
-    parser_classes = (MultiPartParser,)
-    queryset = PartnerServiceImageUploads.objects.all()
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-
 class VerifyCAC(generics.GenericAPIView):
     """
     VerifyCAC is a POST request handler for verifying a
@@ -179,7 +221,7 @@ class VerifyCAC(generics.GenericAPIView):
 
     serializer_class = VerifyCacSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsPartner)
 
     def post(self, request):
         user = request.data
