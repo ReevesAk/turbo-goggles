@@ -19,6 +19,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "account_type",
+            'profile_img_url',
             "country",
             "state",
             "city",

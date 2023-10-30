@@ -62,4 +62,3 @@ class OTP(models.Model):
     otp = models.CharField(max_length=6, null=True)
     user_id = models.IntegerField()
     expires_at = models.DateTimeField(auto_now_add=True)
-    
