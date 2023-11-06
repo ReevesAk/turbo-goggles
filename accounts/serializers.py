@@ -105,6 +105,14 @@ class ResendOTPSerializer(serializers.Serializer):
         fields = ["id", "phone_number"]
 
 
+class ForgotPasswordSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["phone_number"]
+
+
 class ResetPasswordSerializer(serializers.ModelSerializer):
     otp = serializers.CharField(max_length=50, min_length=6)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
