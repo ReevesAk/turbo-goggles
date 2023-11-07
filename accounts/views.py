@@ -16,11 +16,13 @@ from .serializers import (
     VerifyOTPSerializer,
     ResendOTPSerializer,
     ResetPasswordSerializer,
+    ForgotPasswordSerializer,
 )
 from .models import User
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from commons import Message
+from permissions import IsVerifiedUser
 
 
 class Register(generics.GenericAPIView):
@@ -77,7 +79,7 @@ class Register(generics.GenericAPIView):
 class PhoneVerifyOTP(generics.GenericAPIView):
     """
     PhoneVerifyOTP handles the POST request of verifying a
-    register user/partner with valid phone number.
+    registered user/partner with valid phone number.
     """
 
     permission_classes = (AllowAny,)
@@ -115,6 +117,44 @@ class PhoneVerifyOTP(generics.GenericAPIView):
                 )
 
 
+class PasswordPhoneVerifyOTP(generics.GenericAPIView):
+    """
+    PasswordPhoneVerifyOTP handles the POST request of verifying a
+    user/partner with valid phone number for password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+
+            # Validate otp.
+            user_id = otp_manager.validate_user_otp(received_otp)
+            print(user_id)
+
+            if not user_id:
+                return Response(
+                    data={"error": "Invalid or expired OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = User.objects.get(id=user_id)
+            # Send welcome message to user.
+            msg = "User is verified... You can reset now your password!"
+            recipient = user.phone_number
+
+            response = Message.send_msg(msg=str(msg), to=recipient)
+            if response.status_code == 200:
+
+                return Response(
+                    {"Success": "Account is verified"}, status=status.HTTP_200_OK
+                )
+
+
 class ResendOTP(generics.GenericAPIView):
     """
     ResendOTP handles the POST request of resending an
@@ -128,7 +168,6 @@ class ResendOTP(generics.GenericAPIView):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            print(serializer.data)
             phone_number = serializer.data["phone_number"]
 
             # Generate otp.
@@ -152,10 +191,46 @@ class ResendOTP(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class PasswordResendOTP(generics.GenericAPIView):
+    """
+    PasswordResendOTP handles the POST request of resending an
+    OTP to a user after password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = ResendOTPSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            phone_number = serializer.data["phone_number"]
+
+            # Generate otp.
+            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
+            msg = (
+                "To reset your password, please enter this One Time Password {}.".format(
+                    otp
+                )
+            )
+
+            response = Message.send_otp(msg=str(msg), to=phone_number)
+            if response.status_code == 200:
+                response = {
+                    "status": "success",
+                    "message": "Otp resent Successfully. Check your phone for validation",
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
+            else:
+                return Response(data=response, status=response.status_code)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 # LoginAPIView handles the POST request of logging in
 # a verified user with valid login credentials.
 class Login(APIView):
-    permission_classes = (AllowAny,)
+    permission_classes = (IsVerifiedUser,)
 
     def post(self, request):
         email = request.data.get("email")
@@ -177,21 +252,29 @@ class Login(APIView):
 
 
 class ForgotPassword(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    serializer_class = ForgotPasswordSerializer
 
-    def get(self, request):
-        # get currnt user
-        user_data = request.user
-        if user_data:
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            phone_no = user["phone_number"]
+            try:
+                user = User.objects.get(phone_number=phone_no)
+            except user.DoesNotExist:
+                return Response(
+                    data={"detail": "A user with this email does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            user_id = user.id
             # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(user_data.id))
+            otp = otp_manager.create_otp(user_id=str(user_id))
             msg = "Enter this {} to verify your account and reset your password".format(
                 otp
             )
-            recipient = user_data.phone_number
 
-            response = Message.send_otp(msg=str(msg), to=recipient)
+            response = Message.send_otp(msg=str(msg), to=phone_no)
             if response.status_code == 200:
                 try:
                     response = {
@@ -213,8 +296,6 @@ class ForgotPassword(generics.GenericAPIView):
 
 class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
 
     def create(self, request):
         user = request.user
@@ -249,3 +330,22 @@ class ResetPassword(generics.CreateAPIView):
 
         response = {"status": "Success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)
+
+
+class Logout(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh_token"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response(
+                data={"logout": "Logout suiccessful!"},
+                status=status.HTTP_205_RESET_CONTENT,
+            )
+
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e)})

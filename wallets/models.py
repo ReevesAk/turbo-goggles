@@ -13,7 +13,7 @@ class CreateWallet(models.Model):
     last_name = models.CharField(max_length=255, null=True)
     accountNumber = models.CharField(max_length=255, null=True)
     accountInformation = models.TextField(null=True)
-    bvn = models.CharField(null=True, unique=True)
+    bvn = models.CharField(max_length=155, null=True, unique=True)
     accountType = models.CharField(max_length=255, null=True)
 
     def __str__(self) -> str:

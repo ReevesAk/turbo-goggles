@@ -94,10 +94,10 @@ class CreatePartnerService(generics.CreateAPIView):
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)
-    # parser_classes = (
-    #     MultiPartParser,
-    #     JSONParser,
-    # )
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
 
     def create(self, request):
         user = request.data
@@ -111,18 +111,20 @@ class CreatePartnerService(generics.CreateAPIView):
                     upload_result = cloud.upload(upload)
                     image_urls.append(upload_result['url'])
                     
-                    request.user.service_photos = image_urls
-                    request.user.save()
-                # return Response({"message": "photos uploaded successfully"})
             except Exception as err:
                 return Response(
                     {"error": "An error occurred: {}".format(err)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
+            # save the image urls along with other items in the serilaizer.
+            serializer.service_photos = image_urls
+            user = request.user
+            partner_service = serializer.save(user=user)
+
             response = {
                 "message": "Service recorded!",
-                "Image urls": image_urls,
+                "Image urls": partner_service.service_photos,
                 "data": serializer.data
             }
             return Response(data=response, status=status.HTTP_201_CREATED)

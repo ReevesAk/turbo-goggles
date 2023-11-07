@@ -34,7 +34,7 @@ class PartnerServices(models.Model):
     service_star = models.CharField(max_length=50, null=True)
     price = models.FloatField(null=True)
     description = models.TextField(null=True)
-    service_photos = models.CharField(max_length=255, null=True)
+    service_photos = models.TextField(null=True)
     from_station = models.CharField(max_length=255, null=True)
     destination = models.CharField(max_length=255, null=True)
     trainers = models.CharField(max_length=255, null=True)
