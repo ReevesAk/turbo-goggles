@@ -35,7 +35,6 @@ class ProfileImage(generics.CreateAPIView):
             # Upload the image to Cloudinary
             result = cloud.upload(profile_image)
 
-            # Save the Cloudinary URL in your model, for example:
             request.user.profile_img_url = result["url"]
             request.user.save()
 

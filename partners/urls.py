@@ -8,6 +8,7 @@ from .views import (
     GetPartnerDetails,
     UpdatePartnerProfile,
     VerifyCAC,
+    PartnerServicePhotosList,
 )
 
 urlpatterns = [
@@ -27,4 +28,5 @@ urlpatterns = [
         name="all_partner_service",
     ),
     path("profile-update/", UpdatePartnerProfile.as_view(), name="update_profile"),
+    path("partner-photos/", PartnerServicePhotosList.as_view(), name="partner_photos"),    
 ]

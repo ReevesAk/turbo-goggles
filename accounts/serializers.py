@@ -114,7 +114,7 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
-    otp = serializers.CharField(max_length=50, min_length=6)
+    otp = serializers.CharField(max_length=50, min_length=4)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 

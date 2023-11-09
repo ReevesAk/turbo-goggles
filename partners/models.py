@@ -34,9 +34,26 @@ class PartnerServices(models.Model):
     service_star = models.CharField(max_length=50, null=True)
     price = models.FloatField(null=True)
     description = models.TextField(null=True)
-    service_photos = models.TextField(null=True)
     from_station = models.CharField(max_length=255, null=True)
     destination = models.CharField(max_length=255, null=True)
-    trainers = models.CharField(max_length=255, null=True)
-    trainer_price = models.CharField(max_length=255, null=True)
+
+
+class PartnerServicePhotos(models.Model):
+    """Model for partner service photos."""
+
+    partner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="service_photos", null=True
+    )
+    photo = models.CharField(max_length=255, null=True)
+
+
+class AvailablePartnerGymTrainers(models.Model):
+    """Model for gym partner service photos."""
+
+    partner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="gym_trainers", null=True
+    )
+    trainer_name = models.CharField(max_length=255, null=True)
+    trainer_price = models.FloatField(null=True)
     trainer_photo = models.CharField(max_length=255, null=True)
+    

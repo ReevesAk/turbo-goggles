@@ -17,9 +17,13 @@ from .serializers import (
     PartnerProfileSerializer,
     UpdateProfileSerializer,
     VerifyCacSerializers,
+    PartnerServicePhotosSerializer,
 )
 from accounts.models import User
-from .models import PartnerServices
+from .models import (
+    PartnerServices, PartnerServicePhotos, 
+    AvailablePartnerGymTrainers,
+)
 from commons import Message
 from accounts.otp import otp_manager
 from permissions import IsPartner, IsPartnerAdmin, IsMember
@@ -100,35 +104,54 @@ class CreatePartnerService(generics.CreateAPIView):
     )
 
     def create(self, request):
-        user = request.data
-        serializer = PartnerServiceSerializer(data=user)
+        serializer = PartnerServiceSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             service_uploads = request.data.getlist("service_photos")
+            trainer_uploads = request.data.getlist("trainer_photo")
             image_urls = []
+            gym_trainer_img_urls = []
 
             try:
+                serializer.validated_data['user'] = request.user
+                partner_service = serializer.save()
+
                 for upload in service_uploads:
-                    upload_result = cloud.upload(upload)
-                    image_urls.append(upload_result['url'])
-                    
+                    upload_result = cloud.upload(file=upload)
+                    image_url = upload_result['url']
+                    image_urls.append(image_url)
+
+                    PartnerServicePhotos.objects.create(
+                        partner=partner_service.user,
+                        photo=image_url,
+                    )
+
+                if request.data['service'] == "Gym":
+                    for photo in trainer_uploads:
+                        upload_res = cloud.upload(file=photo)
+                        gym_trainer_img_url = upload_res['url']
+                        gym_trainer_img_urls.append(gym_trainer_img_url)
+
+                        AvailablePartnerGymTrainers.objects.create(
+                            partner=partner_service.user,
+                            trainer_name=request.data['trainer_name'],
+                            trainer_price=request.data['trainer_price'],
+                            trainer_photo=gym_trainer_img_url,
+                        )
+                
+                response = {    
+                    "message": "Service recorded!",
+                    "image urls": image_urls,
+                    "gym trainers": gym_trainer_img_urls,
+                    "data": serializer.data
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+            
             except Exception as err:
                 return Response(
                     {"error": "An error occurred: {}".format(err)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
-            # save the image urls along with other items in the serilaizer.
-            serializer.service_photos = image_urls
-            user = request.user
-            partner_service = serializer.save(user=user)
-
-            response = {
-                "message": "Service recorded!",
-                "Image urls": partner_service.service_photos,
-                "data": serializer.data
-            }
-            return Response(data=response, status=status.HTTP_201_CREATED)
-            
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -211,6 +234,23 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class PartnerServicePhotosList(generics.ListAPIView):
+    """List view to retrieve all partner service photos."""
+
+    serializer_class = PartnerServicePhotosSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+
+    def get_queryset(self):
+        # Filter partner service photos by the authenticated user
+        return PartnerServicePhotos.objects.filter(partner=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        photos = self.get_queryset()
+        serializer = self.serializer_class(photos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
