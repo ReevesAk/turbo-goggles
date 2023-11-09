@@ -15,6 +15,7 @@ from .serializers import (
 )
 from .helpers import generate_random_string, insert_hyphens
 from .controllers import BVN
+from permissions import IsPartnerOrMember
 
 random_string = generate_random_string(20)
 customer_reference = insert_hyphens(random_string, 4)
@@ -33,7 +34,7 @@ wallet_no = config("WALLET_NUMBER")
 class VitualAccountRequest(generics.GenericAPIView):
     serializer_class = CreateWalletSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
 
     def post(self, request):
         user = self.request.user
@@ -61,19 +62,26 @@ class VitualAccountRequest(generics.GenericAPIView):
             "api-key": api_key,
         }
 
-        bvn_full_name = BVN.verify(
+        bvn_date_of_birth, bvn_phone_num, bvn_first_name, bvn_last_name = BVN.verify(
             bvn=user["bvn"],
             business_id=bus_id
         )
 
-        full_name = user["first_name"] + " " + user["last_name"]
+        dob = user["date_of_birth"]
+        phone_no = user["phone_number"]
 
-        if bvn_full_name != full_name:
+        if dob != bvn_date_of_birth:
             response_data = {
-                "message": "Full name porvided is not same with the bvn",
+                "message": "Date of birth provided does not match the one on bvn",
             }
-            print(bvn_full_name)
-            print(full_name)
+            return Response(
+                data=response_data, status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if phone_no != bvn_phone_num:
+            response_data = {
+                "message": "Phone number provided does not match the one on bvn",
+            }
             return Response(
                 data=response_data, status=status.HTTP_400_BAD_REQUEST
             )
@@ -83,8 +91,8 @@ class VitualAccountRequest(generics.GenericAPIView):
             "currency": "NGN",
             "channel": "providus",
             "KYCInformation": {
-                "firstName": user["first_name"],
-                "lastName": user["last_name"],
+                "firstName": bvn_first_name,
+                "lastName": bvn_last_name,
                 "bvn": user["bvn"],
             },
             "accountType": "individual",

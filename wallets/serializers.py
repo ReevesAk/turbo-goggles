@@ -13,14 +13,14 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "_id",
-            "first_name",
-            "last_name",
             "currency",
             "channel",
             "accountType",
             "accountInformation",
             "accountNumber",
             "bvn",
+            "date_of_birth",
+            "phone_number"
         ]
 
     def validate(self, attrs):
