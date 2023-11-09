@@ -41,9 +41,11 @@ class BVN:
             )
             if response.status_code == 200:
                 resp = response.json()
-                full_name = resp["data"]["firstName"] + " " + resp["data"]["lastName"]
-
-            return full_name
+                date_of_birth = resp["data"]["dateOfBirth"]
+                phone_number = resp["data"]["phoneNo"]
+                first_name = resp["data"]["firstName"]
+                last_name = resp["data"]["lastName"]
+            return date_of_birth, phone_number, first_name, last_name
 
         except requests.exceptions.RequestException as e:
             return Response(
