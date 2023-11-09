@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 # In project imports.
 from .serializers import (
     RegisterSerializer,
+    LoginSerializer,
     VerifyOTPSerializer,
     ResendOTPSerializer,
     ResetPasswordSerializer,
@@ -230,25 +231,28 @@ class PasswordResendOTP(generics.GenericAPIView):
 # LoginAPIView handles the POST request of logging in
 # a verified user with valid login credentials.
 class Login(APIView):
+    serializer_class = LoginSerializer
     permission_classes = (IsVerifiedUser,)
 
     def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("password")
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            phone_number = serializer.data["phone_number"]
+            password = serializer.data["password"]
 
-        user = authenticate(email=email, password=password)
-        if user:
-            # Create JWT tokens
-            tokens = create_jwt_pair_for_user(user)
+            user = authenticate(phone_number=phone_number, password=password)
+            if user:
+                # Create JWT tokens
+                tokens = create_jwt_pair_for_user(user)
 
-            response = {"message": "Login successful", "tokens": tokens}
-            return Response(data=response, status=status.HTTP_200_OK)
-        else:
-            print(f"Authentication failed for user {email}.")
-            return Response(
-                data={"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+                response = {"message": "Login successful", "tokens": tokens}
+                return Response(data=response, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    data={"error": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
 
 class ForgotPassword(generics.GenericAPIView):
