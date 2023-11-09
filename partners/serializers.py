@@ -5,6 +5,8 @@ from rest_framework import serializers
 from accounts.models import User
 from .models import (
     PartnerServices,
+    PartnerServicePhotos,
+    AvailablePartnerGymTrainers,
     VerifyCAC,
 )
 
@@ -67,14 +69,24 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
         return user
 
 
+class PartnerServicePhotosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PartnerServicePhotos
+        fields = ('photo',)
+
+
+class PartnerServicePhotosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AvailablePartnerGymTrainers
+        fields = ['trainer_name', 'trainer_price', 'trainer_photo']
+
+
 class PartnerServiceSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' service entry."""
 
-    service_photos = serializers.ListField(
-        child=serializers.ImageField(),
-        required=False
-    )
-
+    trainer_name = serializers.CharField(required=False, read_only=True)
+    trainer_price = serializers.FloatField(required=False, read_only=True)
+    
     class Meta:
         model = PartnerServices
         fields = [
@@ -84,7 +96,8 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
             "service_star",
             "price",
             "description",
-            "service_photos",
+            "trainer_name",
+            "trainer_price",
         ]
 
 
