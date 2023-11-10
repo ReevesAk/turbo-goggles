@@ -8,6 +8,9 @@ from .models import CreateWallet, Payouts
 class CreateWalletSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' first time registration."""
 
+    date_of_birth = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
     class Meta:
         model = CreateWallet
         fields = [
