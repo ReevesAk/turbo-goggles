@@ -5,6 +5,8 @@ from decouple import config
 from rest_framework import status
 from rest_framework.response import Response
 
+from .models import CreateWallet
+
 from .helpers import generate_random_string, insert_hyphens
 
 api_key = config("FINCRA_API_KEY")
@@ -88,7 +90,7 @@ class Debit:
                 "accountHolderName": "Picadailys" + " " + "Services",
                 "accountNumber": "2639239472",
                 "type": "individual",
-                "bankCode": "101",
+                "bankCode": "103",
             },
             "paymentDestination": "bank_account",
         }
@@ -146,3 +148,22 @@ class Credit:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class Pin:
+    @staticmethod
+    def verify_pin(user, pin):
+        try:
+            wallet = CreateWallet.objects.get(user=user)
+        except CreateWallet.DoesNotExist:
+            return Response(
+                data={"message": "Invalid wallet ID"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if wallet.pin != pin:
+            return Response(
+                data={"message": "Invalid PIN"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return None

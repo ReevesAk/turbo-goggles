@@ -57,6 +57,8 @@ class CreateWalletPinSerializer(serializers.ModelSerializer):
 class BankAcccPayoutSerializers(serializers.ModelSerializer):
     """Serailizers for bank account payouts."""
 
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
     class Meta:
         model = Payouts
         fields = [
@@ -68,6 +70,7 @@ class BankAcccPayoutSerializers(serializers.ModelSerializer):
             "customerReference",
             "accountNumber",
             "bankCode",
+            "pin",
         ]
 
     def validate(self, attrs):
@@ -82,6 +85,8 @@ class BankAcccPayoutSerializers(serializers.ModelSerializer):
 class FincraPayoutSerializers(serializers.ModelSerializer):
     """Serailizers for mobile money payouts."""
 
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
     class Meta:
         model = Payouts
         fields = [
@@ -90,6 +95,7 @@ class FincraPayoutSerializers(serializers.ModelSerializer):
             "description",
             "customerReference",
             "beneficiaryWalletNumber",
+            "pin",
         ]
 
     def validate(self, attrs):
@@ -99,6 +105,8 @@ class FincraPayoutSerializers(serializers.ModelSerializer):
 class PicadailysPayoutSerializers(serializers.ModelSerializer):
     """Serailizers for picadilys users."""
 
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
     class Meta:
         model = Payouts
         fields = [
@@ -107,4 +115,5 @@ class PicadailysPayoutSerializers(serializers.ModelSerializer):
             "amount",
             "description",
             "customerReference",
+            "pin",
         ]

@@ -17,7 +17,7 @@ from .serializers import (
 )
 from .models import CreateWallet, BVNData
 from .helpers import generate_random_string, insert_hyphens
-from .controllers import BVN
+from .controllers import BVN, Pin
 from permissions import IsPartnerOrMember
 
 random_string = generate_random_string(20)
@@ -384,28 +384,33 @@ class BankPayouts(generics.GenericAPIView):
         }
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=fincra_base_url + resource,
-                    json=payload,
-                    headers=banks_payouts_headers,
-                )
+            authenticated_user = request.user
+            pin = request.data.get("pin")
 
-                if response.status_code == 200:
-                    response_data = {
-                        "message": "Transaction successful",
-                        "data": response.json(),
-                    }
+            verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+            if verification:
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=fincra_base_url + resource,
+                        json=payload,
+                        headers=banks_payouts_headers,
+                    )
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(response.json(), status=response.status_code)
+                    if response.status_code == 200:
+                        response_data = {
+                            "message": "Transaction successful",
+                            "data": response.json(),
+                        }
 
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
 
 class FetchAllBalances(generics.RetrieveAPIView):
@@ -465,28 +470,33 @@ class FincraPayouts(generics.GenericAPIView):
         }
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=fincra_base_url + resource,
-                    json=payload,
-                    headers=fincra_payouts_headers,
-                )
+            authenticated_user = request.user
+            pin = request.data.get("pin")
 
-                if response.status_code == 200:
-                    response_data = {
-                        "message": "Transaction succesful",
-                        "data": response.json(),
-                    }
+            verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+            if verification:
+                serializer.save()
+                try:
+                    response = requests.post(
+                        url=fincra_base_url + resource,
+                        json=payload,
+                        headers=fincra_payouts_headers,
+                    )
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(response.json(), status=response.status_code)
+                    if response.status_code == 200:
+                        response_data = {
+                            "message": "Transaction succesful",
+                            "data": response.json(),
+                        }
 
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(response.json(), status=response.status_code)
+
+                except requests.exceptions.RequestException as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
 
 class PicadailysTransfers(generics.GenericAPIView):
@@ -538,32 +548,37 @@ class PicadailysTransfers(generics.GenericAPIView):
                     }
                     serializer = self.serializer_class(data=user)
                     if serializer.is_valid(raise_exception=True):
-                        serializer.save()
-                        try:
-                            response = requests.post(
-                                url=fincra_base_url + resource,
-                                json=payload,
-                                headers=picadailys_payouts_headers,
-                            )
+                        authenticated_user = request.user
+                        pin = request.data.get("pin")
 
-                            if response.status_code == 200:
-                                response_data = {
-                                    "message": "Transaction successful",
-                                    "data": response.json(),
-                                }
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
-                            else:
-                                return Response(
-                                    response.json(), status=response.status_code
+                        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+                        if verification:
+                            serializer.save()
+                            try:
+                                response = requests.post(
+                                    url=fincra_base_url + resource,
+                                    json=payload,
+                                    headers=picadailys_payouts_headers,
                                 )
 
-                        except requests.exceptions.RequestException as e:
-                            return Response(
-                                {"error": str(e)},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            )
+                                if response.status_code == 200:
+                                    response_data = {
+                                        "message": "Transaction successful",
+                                        "data": response.json(),
+                                    }
+                                    return Response(
+                                        data=response_data, status=status.HTTP_200_OK
+                                    )
+                                else:
+                                    return Response(
+                                        response.json(), status=response.status_code
+                                    )
+
+                            except requests.exceptions.RequestException as e:
+                                return Response(
+                                    {"error": str(e)},
+                                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                )
             except requests.exceptions.RequestException as e:
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
