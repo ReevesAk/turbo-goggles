@@ -13,18 +13,17 @@ from .models import (
 class AirtimeTopupSerializer(serializers.ModelSerializer):
     """Serializers for airtime topup."""
 
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
     class Meta:
         model = AirtimeTopup
-        fields = [
-            "id",
-            "serviceID",
-            "amount",
-            "phone",
-        ]
+        fields = ["id", "serviceID", "amount", "phone", "pin"]
 
 
 class DataSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for data subscription."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = DataSubscription
@@ -35,11 +34,14 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "phone",
             "billersCode",
             "variation_code",
+            "pin",
         ]
 
 
 class ElectricityBillSerializer(serializers.ModelSerializer):
     """Serializers for electriicty payment."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = ElectricityBill
@@ -51,11 +53,14 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "billersCode",
             "type",
             "variation_code",
+            "pin",
         ]
 
 
 class TvSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for tv subscription."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = TvSubscription
@@ -68,11 +73,14 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
             "subscription_type",
             "quantity",
             "variation_code",
+            "pin",
         ]
 
 
 class IntlAirtimeSerializer(serializers.ModelSerializer):
     """Serializers for international airtime topup."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = AirtimeTopup
@@ -86,25 +94,24 @@ class IntlAirtimeSerializer(serializers.ModelSerializer):
             "country_code",
             "email",
             "product_type_id",
+            "pin",
         ]
 
 
 class WaecRegistrationSerializer(serializers.ModelSerializer):
     """Serializers for waec registration."""
 
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
     class Meta:
         model = WaecRegistration
-        fields = [
-            "id",
-            "serviceID",
-            "variation_code",
-            "quantity",
-            "phone",
-        ]
+        fields = ["id", "serviceID", "variation_code", "quantity", "phone", "pin"]
 
 
 class VehicleInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for vehicle insurance."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = Insurance
@@ -123,11 +130,14 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
             "Vehicle_Model",
             "Year_of_Make",
             "Contact_Address",
+            "pin",
         ]
 
 
 class AccidentInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for accident insurance."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = Insurance
@@ -143,11 +153,14 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
             "next_kin_name",
             "next_kin_phone",
             "business_occupation",
+            "pin",
         ]
 
 
 class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for home cover insurance."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = Insurance
@@ -162,4 +175,5 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
             "type_building",
             "date_of_birth",
             "business_occupation",
+            "pin",
         ]

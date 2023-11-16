@@ -20,6 +20,8 @@ from .serializers import (
 )
 from wallets.controllers import Debit, Credit
 from permissions import VasPermission
+from wallets.controllers import Pin
+
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -51,49 +53,57 @@ class AirTimeTopUp(generics.GenericAPIView):
             "phone": user["phone"],
         }
 
-        # Inititate a debit on the customer's account.
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for airtime recharge"
-        )
-        if debit_response == 200:
-            airtime_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=airtime_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            # Inititate a debit on the customer's account.
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for airtime recharge"
+            )
+            if debit_response == 200:
+                airtime_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=airtime_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -160,53 +170,60 @@ class DataSubscription(generics.GenericAPIView):
             "billersCode": user["billersCode"],
             "variation_code": user["variation_code"],
         }
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for data subscription"
-        )
-        if debit_response == 200:
-            data_headers = {
-                "secret-key": x_secret,
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for data subscription"
+            )
+            if debit_response == 200:
+                data_headers = {
+                    "secret-key": x_secret,
+                    "api-key": api_key,
+                    "secret-key": x_secret,
+                }
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=data_headers,
-                    )
-
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=data_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -280,48 +297,56 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             "phone": user["phone"],
             "variation_code": user["variation_code"],
         }
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for electricity bill payment"
-        )
-        if debit_response == 200:
-            electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=electricty_bill_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for electricity bill payment"
+            )
+            if debit_response == 200:
+                electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=electricty_bill_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -480,41 +505,53 @@ class NewTvSubscription(generics.GenericAPIView):
             "secret-key": x_secret,
         }
 
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=vtpass_url + resource,
-                    json=payload,
-                    headers=tv_sub_headers,
-                )
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-                if response.status_code == 200:
-                    response_data = {
-                        "data": response.json(),
-                    }
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for electricity bill payment"
+            )
+            if debit_response == 200:
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=tv_sub_headers,
+                        )
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    response_data = {
-                        "data": response.json(),
-                        "messsage": "A refund will be issued.",
-                    }
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -547,42 +584,53 @@ class RenewTvSubscription(generics.GenericAPIView):
             "api-key": api_key,
             "secret-key": x_secret,
         }
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            try:
-                response = requests.post(
-                    url=vtpass_url + resource,
-                    json=payload,
-                    headers=renew_tv_sub_headers,
-                )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for electricity bill payment"
+            )
+            if debit_response == 200:
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=renew_tv_sub_headers,
+                        )
 
-                if response.status_code == 200:
-                    response_data = {
-                        "data": response.json(),
-                    }
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    response_data = {
-                        "data": response.json(),
-                        "messsage": "A refund will be issued.",
-                    }
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
 
-                    # initiate a credit refund to the customer after failed transaction.
-                    _ = Credit.credit_customer(
-                        first_name=user.firstName,
-                        lastname=user.lastName,
-                        accNo=user.accountNumber,
-                        bankCode="101",
-                        amount=user["amount"],
-                    )
-                    return Response(response_data, status=response.status_code)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -597,8 +645,6 @@ class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def get(self, request):
-        user = request.user
-
         resource = "get-international-airtime-countries"
         get_intl_codes_headers = {
             "accept": "application/json",
@@ -635,8 +681,6 @@ class GetIntlAirtimeProducts(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-
         param_value = kwargs.get("country_code")
 
         resource = "get-international-airtime-product-types?code=" + param_value
@@ -676,8 +720,6 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-
         code = kwargs.get("country_code")
         product_type = kwargs.get("product_type_id")
 
@@ -720,8 +762,6 @@ class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-
         ops_id = kwargs.get("operator_id")
         product_type = kwargs.get("product_type_id")
 
@@ -781,48 +821,56 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
             "product_type_id": user["product_type_id"],
         }
 
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for airtime recharge"
-        )
-        if debit_response == 200:
-            intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=intl_airtime_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for airtime recharge"
+            )
+            if debit_response == 200:
+                intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=intl_airtime_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
@@ -889,48 +937,56 @@ class WaecRegistration(generics.GenericAPIView):
             "phone": user["phone"],
         }
 
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for waec registration"
-        )
-        if debit_response == 200:
-            waec_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=waec_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for waec registration"
+            )
+            if debit_response == 200:
+                waec_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=waec_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1005,49 +1061,58 @@ class VehicleInsurance(generics.GenericAPIView):
             "Year_of_Make": user["Year_of_Make"],
             "Contact_Address": user["Contact_Address"],
         }
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for vehicle insurance."
-        )
 
-        if debit_response == 200:
-            insurance_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=insurance_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for vehicle insurance."
+            )
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
+            if debit_response == 200:
+                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=insurance_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
@@ -1118,49 +1183,58 @@ class AccidentInsurance(generics.GenericAPIView):
             "next_kin_phone": user["next_kin_phone"],
             "business_occupation": user["business_occupation"],
         }
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for accident insurance"
-        )
 
-        if debit_response == 200:
-            insurance_headers = {"secret-key": x_secret, "api-key": api_key}
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=insurance_headers,
-                    )
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for accident insurance"
+            )
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
+            if debit_response == 200:
+                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=insurance_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
@@ -1231,46 +1305,54 @@ class HomeCoverInsurance(generics.GenericAPIView):
             "type_building": user["type_building"],
             "business_occupation": user["business_occupation"],
         }
-        debit_response = Debit.debit_customer(
-            amount=user["amount"], description="Debit for home cover insurance"
-        )
+        authenticated_user = request.user
+        pin = request.data.get("pin")
 
-        if debit_response == 200:
-            insurance_headers = {"secret-key": x_secret, "api-key": api_key}
+        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        if verification:
+            debit_response = Debit.debit_customer(
+                amount=user["amount"], description="Debit for home cover insurance"
+            )
 
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    response = requests.post(
-                        url=vtpass_url + resource,
-                        json=payload,
-                        headers=insurance_headers,
-                    )
+            if debit_response == 200:
+                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                    if response.status_code == 200:
-                        response_data = {
-                            "data": response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="101",
-                            amount=user["amount"],
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    try:
+                        response = requests.post(
+                            url=vtpass_url + resource,
+                            json=payload,
+                            headers=insurance_headers,
                         )
-                        return Response(response_data, status=response.status_code)
 
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                        if response.status_code == 200:
+                            response_data = {
+                                "data": response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                        else:
+                            response_data = {
+                                "data": response.json(),
+                                "messsage": "A refund will be issued.",
+                            }
+
+                            # initiate a credit refund to the customer after failed transaction.
+                            _ = Credit.credit_customer(
+                                first_name=user.firstName,
+                                lastname=user.lastName,
+                                accNo=user.accountNumber,
+                                bankCode="103",
+                                amount=user["amount"],
+                            )
+                            return Response(response_data, status=response.status_code)
+
+                    except requests.exceptions.RequestException as e:
+                        return Response(
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
