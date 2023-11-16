@@ -194,6 +194,10 @@ class VitualAccountRequest(generics.GenericAPIView):
                     account_detials.bankName = response.json()["data"][
                         "accountInformation"
                     ]["bankName"]
+                    account_detials.accountInformation = response.json()["data"][
+                        "accountInformation"
+                    ]
+                    account_detials.accountType = response.json()["data"]["accountType"]
                     account_detials.save()
                     response_data = {
                         "message": "Virtual account created successfully",
@@ -209,6 +213,45 @@ class VitualAccountRequest(generics.GenericAPIView):
                     {"error": str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
+
+
+class SetWalletPin(generics.CreateAPIView):
+    serializer_class = CreateWalletSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def create(self, request, *args, **kwargs):
+        user_data = request.data
+        authenticated_user = request.user
+
+        try:
+            user = CreateWallet.objects.get(user=authenticated_user)
+        except CreateWallet.DoesNotExist:
+            return Response(
+                data={"error": "Wallet not found for the authenticated user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            pin = user_data.get("pin")
+            pin2 = user_data.get("pin2")
+
+            if pin != pin2:
+                return Response(
+                    data={"error": "Pins do not match!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # set the pin and save it in a 'pin' flag on the db.
+            user.pin = pin
+            user.save()
+
+            response = {
+                "status": "Success!",
+                "message": "Wallet pin created succesfully!",
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
 
 
 class AccountDetails(generics.RetrieveAPIView):
@@ -489,7 +532,7 @@ class PicadailysTransfers(generics.GenericAPIView):
                             "accountHolderName": f_name + l_name,
                             "accountNumber": resp["accountNumber"],
                             "type": "individual",
-                            "bankCode": "101",
+                            "bankCode": "103",
                         },
                         "paymentDestination": "bank_account",
                     }

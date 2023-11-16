@@ -44,6 +44,16 @@ class CreateWalletSerializer(serializers.ModelSerializer):
         ]
 
 
+class CreateWalletPinSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' first time wallet pin creation."""
+
+    pin2 = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
+    class Meta:
+        model = CreateWallet
+        fields = ["id", "pin", "pin2"]
+
+
 class BankAcccPayoutSerializers(serializers.ModelSerializer):
     """Serailizers for bank account payouts."""
 

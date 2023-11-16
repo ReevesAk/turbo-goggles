@@ -15,6 +15,8 @@ class BVNData(models.Model):
 
 class CreateWallet(models.Model):
     user = models.OneToOneField(User, null=True, on_delete=models.CASCADE)
+    pin = models.CharField(max_length=4, null=True)
+    balance = models.CharField(max_length=50, null=True)
     virtualAccountId = models.CharField(max_length=255, null=True)
     currency = models.CharField(max_length=255, null=True)
     bankName = models.CharField(max_length=255, null=True)
