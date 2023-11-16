@@ -13,7 +13,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 # In project imports.
 from .serializers import (
     RegisterSerializer,
-    LoginSerializer,
     VerifyOTPSerializer,
     ResendOTPSerializer,
     ResetPasswordSerializer,
@@ -150,7 +149,6 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
-
                 return Response(
                     {"Success": "Account is verified"}, status=status.HTTP_200_OK
                 )
@@ -209,10 +207,8 @@ class PasswordResendOTP(generics.GenericAPIView):
 
             # Generate otp.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = (
-                "To reset your password, please enter this One Time Password {}.".format(
-                    otp
-                )
+            msg = "To reset your password, please enter this One Time Password {}.".format(
+                otp
             )
 
             response = Message.send_otp(msg=str(msg), to=phone_number)
@@ -228,31 +224,30 @@ class PasswordResendOTP(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# LoginAPIView handles the POST request of logging in
-# a verified user with valid login credentials.
 class Login(APIView):
-    serializer_class = LoginSerializer
+    """# LoginAPIView handles the POST request of logging in
+    a verified user with valid login credentials.
+    {"phone_number": "8129187363", "password": "13092830"}.
+    """
+
     permission_classes = (IsVerifiedUser,)
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
-        if serializer.is_valid(raise_exception=True):
-            phone_number = serializer.data["phone_number"]
-            password = serializer.data["password"]
+        phone_number = request.data.get("phone_number")
+        password = request.data.get("password")
 
-            user = authenticate(phone_number=phone_number, password=password)
-            if user:
-                # Create JWT tokens
-                tokens = create_jwt_pair_for_user(user)
+        user = authenticate(phone_number=phone_number, password=password)
+        if user:
+            # Create JWT tokens
+            tokens = create_jwt_pair_for_user(user)
 
-                response = {"message": "Login successful", "tokens": tokens}
-                return Response(data=response, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    data={"error": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            response = {"message": "Login successful", "tokens": tokens}
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                data={"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class ForgotPassword(generics.GenericAPIView):

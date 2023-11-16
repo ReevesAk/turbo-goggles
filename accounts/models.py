@@ -26,15 +26,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
     password = models.CharField(max_length=255, null=True)
-    phone_number = models.CharField(max_length=20,  unique=True)
+    phone_number = models.CharField(max_length=20, unique=True)
     email = models.CharField(max_length=80, unique=True)
     country = models.CharField(max_length=155, blank=False)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     game_points = models.IntegerField(null=True)
     profile_img_url = models.CharField(max_length=255, null=True)
+    is_bvn_verified = models.BooleanField(default=False)
 
-    # Partner detials.
+    # Partner details.
     account_type = models.CharField(
         choices=USER_CATEGORY_CHOICES, max_length=40, null=True
     )
@@ -49,13 +50,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.email
+        return self.phone_number
 
 
 class OTP(models.Model):

@@ -53,14 +53,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-class LoginSerializer(serializers.ModelSerializer):
-    """Serailizers for user login."""
-
-    class Meta:
-        model = User
-        fields = ['phone_number', 'password']
-
-
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 

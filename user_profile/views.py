@@ -1,4 +1,10 @@
+import hmac
+import hashlib
+import json
+from decouple import config
+
 from django.contrib.auth.hashers import check_password
+from django.http import HttpRequest
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +21,9 @@ from .serializers import (
     ProfileImageSerializer,
 )
 from cloudinary import uploader as cloud
+
+
+fincra_webhook_key = config("WEBHOOK_SECRET_KEY")
 
 
 class ProfileImage(generics.CreateAPIView):
@@ -116,8 +125,11 @@ class UpgradeToMember(generics.UpdateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    def get_object(self):
+        return self.request.user
+
     def put(self, request):
-        user = request.user
+        user = self.get_object()
 
         user.game_points = 15
         if user.account_type == "User":
@@ -130,8 +142,8 @@ class UpgradeToMember(generics.UpdateAPIView):
                         resp = {
                             "status": "Success!",
                             "data": "Congratulations you have been \
-                                upgraded to a member You can now enjoy\
-                                amazing discounts and offers with us.",
+                            upgraded to a member You can now enjoy\
+                            amazing discounts and offers with us.",
                         }
                         return Response(data=resp, status=status.HTTP_200_OK)
                     else:
@@ -156,5 +168,30 @@ class UpgradeToMember(generics.UpdateAPIView):
         else:
             return Response(
                 {"detail": "User is already a Member."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class WebhookView(generics.GenericAPIView):
+    def post(self, request: HttpRequest, *args, **kwargs):
+        webhook_secret_key = fincra_webhook_key
+        payload = request.data
+
+        key = webhook_secret_key.encode("utf-8")
+        message = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        encrypted_data = hmac.new(key, message, hashlib.sha512).hexdigest()
+        signature = request.headers.get("signature")
+
+        if signature == encrypted_data:
+            # Process the webhook data
+            print("Processing webhook data:", payload)
+            return Response(
+                {"detail": "Webhook data processed successfully!"},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            print("Discarding webhook data due to invalid signature.")
+            return Response(
+                {"detail": "Invalid signature, webhook data discarded."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
