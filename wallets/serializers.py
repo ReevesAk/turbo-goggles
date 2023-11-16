@@ -2,28 +2,21 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import CreateWallet, Payouts
+from .models import CreateWallet, Payouts, BVNData
 
 
-class CreateWalletSerializer(serializers.ModelSerializer):
-    """Serailizers for our Partners' first time registration."""
-
-    date_of_birth = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
+class BVNSerializer(serializers.Serializer):
+    """Serailizers for our verify user bvn."""
 
     class Meta:
-        model = CreateWallet
+        model = BVNData
         fields = [
             "id",
-            "_id",
-            "currency",
-            "channel",
-            "accountType",
-            "accountInformation",
-            "accountNumber",
             "bvn",
+            "first_name",
+            "last_name",
             "date_of_birth",
-            "phone_number"
+            "phone_number",
         ]
 
     def validate(self, attrs):
@@ -33,6 +26,22 @@ class CreateWalletSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("bvn is required")
 
         return super().validate(attrs)
+
+
+class CreateWalletSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' first time registration."""
+
+    class Meta:
+        model = CreateWallet
+        fields = [
+            "id",
+            "virtualAccountId",
+            "currency",
+            "bankName",
+            "accountType",
+            "accountInformation",
+            "accountNumber",
+        ]
 
 
 class BankAcccPayoutSerializers(serializers.ModelSerializer):

@@ -4,16 +4,24 @@ from accounts.models import User
 
 
 # Create your models here.
+class BVNData(models.Model):
+    user = models.OneToOneField(to=User, null=True, on_delete=models.CASCADE)
+    number = models.CharField(max_length=155, null=True, unique=True)
+    first_name = models.CharField(max_length=155, null=True)
+    last_name = models.CharField(max_length=155, null=True)
+    date_of_birth = models.CharField(max_length=255, null=True)
+    phone_number = models.CharField(max_length=15, null=True)
+
+
 class CreateWallet(models.Model):
     user = models.OneToOneField(User, null=True, on_delete=models.CASCADE)
-    _id = models.CharField(max_length=255, null=True)
+    virtualAccountId = models.CharField(max_length=255, null=True)
     currency = models.CharField(max_length=255, null=True)
-    channel = models.CharField(max_length=255, null=True)
+    bankName = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
     accountNumber = models.CharField(max_length=255, null=True)
     accountInformation = models.TextField(null=True)
-    bvn = models.CharField(max_length=155, null=True, unique=True)
     accountType = models.CharField(max_length=255, null=True)
 
     def __str__(self) -> str:

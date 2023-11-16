@@ -8,9 +8,11 @@ from .views import (
     FincraPayouts,
     FetchAllBalances,
     PicadailysTransfers,
+    VerifYBVN,
 )
 
 urlpatterns = [
+    path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
     path(
         "create-virtual-account/",
         VitualAccountRequest.as_view(),

@@ -1,5 +1,6 @@
 import requests
 from decouple import config
+import json
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -12,7 +13,9 @@ from .serializers import (
     BankAcccPayoutSerializers,
     FincraPayoutSerializers,
     PicadailysPayoutSerializers,
+    BVNSerializer,
 )
+from .models import CreateWallet, BVNData
 from .helpers import generate_random_string, insert_hyphens
 from .controllers import BVN
 from permissions import IsPartnerOrMember
@@ -22,6 +25,7 @@ customer_reference = insert_hyphens(random_string, 4)
 
 
 api_key = config("FINCRA_API_KEY")
+api_secret_key = config("FINCRA_SECRET_KEY")
 bus_key = config("PICADIALYS_BUSINESS_KEY")
 
 fincra_base_url = config("FINCRA_BASE_URL")
@@ -31,74 +35,129 @@ bus_id = config("PICADIALYS_BUSINESS_ID")
 wallet_no = config("WALLET_NUMBER")
 
 
+class VerifYBVN(generics.CreateAPIView):
+    serializer_class = BVNSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def create(self, request):
+        user_data = request.data
+        authenticated_user = request.user
+
+        if authenticated_user.is_bvn_verified:
+            bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
+            data = {
+                "First Name": bvn_deets.first_name,
+                "Last Name": bvn_deets.last_name,
+                "phone_no": bvn_deets.phone_number,
+                "Date of Birth": bvn_deets.date_of_birth,
+                "bvn": user_data.get("bvn"),
+            }
+            return Response(
+                data={"message": "User has already verified BVN", "Bvn data": data},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            bvn = BVNData.objects.get(user=authenticated_user)
+        except BVNData.DoesNotExist:
+            bvn = BVNData.objects.create(user=authenticated_user)
+
+        # Verify the user's BVN.
+        bvn_data = BVN.verify(bvn=user_data.get("bvn"))
+        if bvn_data is None:
+            return Response(
+                data={"message": "Bvn provided does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if the user's date of birth and phone number match the ones on BVN.
+        if (
+            user_data.get("date_of_birth") != bvn_data["date_of_birth"]
+            or user_data.get("phone_number") != bvn_data["phone_num"]
+        ):
+            return Response(
+                data={
+                    "message": "Date of birth or phone number provided does not match the one on bvn"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Update the user's BVN instance with the new data.
+        bvn.first_name = bvn_data["first_name"]
+        bvn.last_name = bvn_data["last_name"]
+        bvn.date_of_birth = bvn_data["date_of_birth"]
+        bvn.phone_number = bvn_data["phone_num"]
+        bvn.number = user_data.get("bvn")
+        bvn.save()
+
+        authenticated_user.is_bvn_verified = True
+        authenticated_user.save()
+
+        serializer = BVNSerializer(data=user_data)
+
+        response = {
+            "status": "Success",
+            "message": "Bvn verification was successful",
+            "Bvn data": serializer.data,
+        }
+        return Response(data=response, status=status.HTTP_201_CREATED)
+
+
 class VitualAccountRequest(generics.GenericAPIView):
     serializer_class = CreateWalletSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerOrMember)
 
     def post(self, request):
-        user = self.request.user
+        authenticated_user = request.user
 
-        if user.account_type == "User":
+        if authenticated_user.is_bvn_verified is False:
             return Response(
-                data="error: only partners and members can create wallets",
+                data="error: Your bvn is not verified",
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        user = request.data
-
-        user["currency"] = "NGN"
-        user["accountType"] = "individual"
-        user["channel"] = "providus"
-
-        payload = {
-            "bvn": user["bvn"],
-            "business": bus_id,
-        }
+        bvn = BVNData.objects.get(user=authenticated_user)
+        received_user_data = request.data
 
         create_account_headers = {
             "accept": "application/json",
             "content-Type": "application/json",
-            "api-key": api_key,
+            "api-key": api_secret_key,
         }
 
-        bvn_date_of_birth, bvn_phone_num, bvn_first_name, bvn_last_name = BVN.verify(
-            bvn=user["bvn"],
-            business_id=bus_id
-        )
-
-        dob = user["date_of_birth"]
-        phone_no = user["phone_number"]
-
-        if dob != bvn_date_of_birth:
-            response_data = {
-                "message": "Date of birth provided does not match the one on bvn",
+        wallet_exist = CreateWallet.objects.filter(user=authenticated_user).first()
+        if wallet_exist:
+            existing_wallet_data = {
+                "id": wallet_exist.id,
+                "virtualAccountId": wallet_exist.virtualAccountId,
+                "currency": wallet_exist.currency,
+                "channel": wallet_exist.bankName,
+                "accountNumber": wallet_exist.accountNumber,
+                "accountInformation": wallet_exist.accountInformation,
+                "first_name": wallet_exist.first_name,
+                "last_name": wallet_exist.last_name,
+                "accountType": wallet_exist.accountType,
             }
-            return Response(
-                data=response_data, status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if phone_no != bvn_phone_num:
             response_data = {
-                "message": "Phone number provided does not match the one on bvn",
+                "message": "A wallet with this BVN already exists",
+                "data": existing_wallet_data,
             }
-            return Response(
-                data=response_data, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
 
-        resource = "profile/virtual-accounts/requests"
+        resource = "profile/virtual-accounts/requests/"
         payload = {
             "currency": "NGN",
-            "channel": "providus",
+            "channel": "globus",
             "KYCInformation": {
-                "firstName": bvn_first_name,
-                "lastName": bvn_last_name,
-                "bvn": user["bvn"],
+                "firstName": bvn.first_name,
+                "lastName": bvn.last_name,
+                "bvn": bvn.number,
             },
             "accountType": "individual",
         }
 
-        serializer = self.serializer_class(data=user)
+        serializer = self.serializer_class(data=received_user_data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             try:
@@ -107,25 +166,43 @@ class VitualAccountRequest(generics.GenericAPIView):
                     json=payload,
                     headers=create_account_headers,
                 )
+                try:
+                    # Check if the response contains valid JSON
+                    response.json()
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, handle the error as needed
+                    return Response(
+                        {"error": "Invalid JSON response from the external API"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
 
                 if response.status_code == 200:
-                    user.virtualAccountId = response.json()['data']['_id']
-                    user.firstName = response.json()['data']['KYCInformation']['firstName']
-                    user.lastName = response.json()['data']['KYCInformation']['lastName']
-                    user.accountNumber = response.json()['data']['accountNumber']
-                    user.save()
+                    account_detials = CreateWallet.objects.create(
+                        user=authenticated_user
+                    )
+                    account_detials.virtualAccountId = response.json()["data"]["_id"]
+                    account_detials.first_name = response.json()["data"][
+                        "KYCInformation"
+                    ]["firstName"]
+                    account_detials.last_name = response.json()["data"][
+                        "KYCInformation"
+                    ]["lastName"]
+                    account_detials.accountNumber = response.json()["data"][
+                        "accountNumber"
+                    ]
+                    account_detials.currency = response.json()["data"]["currency"]
+                    account_detials.bankName = response.json()["data"][
+                        "accountInformation"
+                    ]["bankName"]
+                    account_detials.save()
                     response_data = {
                         "message": "Virtual account created successfully",
                         "data": response.json(),
                     }
 
-                    return Response(
-                        data=response_data, status=status.HTTP_200_OK
-                    )
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(
-                        response.json(), status=response.status_code
-                    )
+                    return Response(response.json(), status=response.status_code)
 
             except requests.exceptions.RequestException as e:
                 return Response(
