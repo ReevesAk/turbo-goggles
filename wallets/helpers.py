@@ -11,7 +11,7 @@ def generate_random_string(length):
 def insert_hyphens(input_string, hyphen_frequency):
     return "-".join(
         [
-            input_string[i: i + hyphen_frequency]
+            input_string[i : i + hyphen_frequency]
             for i in range(0, len(input_string), hyphen_frequency)
         ]
     )

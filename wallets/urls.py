@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     VitualAccountRequest,
+    SetWalletPin,
     AccountDetails,
     FetchAllBanks,
     GetParentDetails,
@@ -18,6 +19,7 @@ urlpatterns = [
         VitualAccountRequest.as_view(),
         name="create_virtual_account",
     ),
+    path("set-wallet-pin/", SetWalletPin.as_view(), name="set_wallet_pin"),
     path(
         "get-account-details/<str:acc_id>/",
         AccountDetails.as_view(),
