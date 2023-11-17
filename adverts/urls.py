@@ -1,30 +1,16 @@
 from django.urls import path
 from .views import (
-    StartRegisterAdverts,
-    ContdRegisterAdverts,
-    CreateBrandAdvertService,
-    BrandAdServiceListView,
-    UploadLogo,
-    BookAnAdvert,
-    Survey,
-    SurveyList,
+    RegisterBrandAdverts,
+    ListAllBrandAds,
 )
 
 urlpatterns = [
     path(
-        "register-adverts/", StartRegisterAdverts.as_view(), name="register_ads-start"
+        "register-adverts/", RegisterBrandAdverts.as_view(), name="register_ads"
     ),
     path(
-        "register-adverts-contd/",
-        ContdRegisterAdverts.as_view(),
-        name="register_ads-contd",
+        "list-all-ads/",
+        ListAllBrandAds.as_view(),
+        name="list_all_ads",
     ),
-    path("add-service/", CreateBrandAdvertService.as_view(), name="creare-service"),
-    path(
-        "list-service/<int:id>/", BrandAdServiceListView.as_view(), name="list_service"
-    ),
-    path("upload-logo/", UploadLogo.as_view(), name="upload_logo"),
-    path("book-ad/", BookAnAdvert.as_view(), name="book_an_ad"),
-    path("create-survey/", Survey.as_view(), name="create_survey"),
-    path("list-survey/<int:id>/", SurveyList.as_view(), name="list_survey"),
 ]

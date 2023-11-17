@@ -38,6 +38,7 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email", "")
+        phone_number = attrs.get("phone_number", "")
 
         if email:
             email_exists = User.objects.filter(email=email).exists()
@@ -45,6 +46,13 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Email has already been used")
         else:
             raise serializers.ValidationError("email: email field can not be empty")
+        
+        if phone_number:
+            phone_number_exists = User.objects.filter(phone_number=phone_number).exists()
+            if phone_number_exists:
+                raise serializers.ValidationError("phone_number has already been used")
+        else:
+            raise serializers.ValidationError("phone_number: phone_number field can not be empty")
 
         return super().validate(attrs)
 
