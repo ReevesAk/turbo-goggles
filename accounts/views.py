@@ -93,7 +93,6 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             # Validate otp.
             user_id = otp_manager.validate_user_otp(received_otp)
-            print(user_id)
 
             if not user_id:
                 return Response(
@@ -251,6 +250,11 @@ class Login(APIView):
 
 
 class ForgotPassword(generics.GenericAPIView):
+    """
+    ForgotPassword handles the POST request of sending a
+    forgot password request.
+    """
+
     serializer_class = ForgotPasswordSerializer
 
     def post(self, request):
