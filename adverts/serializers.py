@@ -18,12 +18,12 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "account_type"
-            "whoareyou"
-            "name"
+            "account_type",
+            "whoareyou",
+            "name",
             "address",
             "email",
-            "brand_type"
+            "brand_type",
             "phone_number",
             "country",
             "brand_name",
