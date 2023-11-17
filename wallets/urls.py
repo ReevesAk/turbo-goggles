@@ -2,6 +2,10 @@ from django.urls import path
 from .views import (
     VitualAccountRequest,
     SetWalletPin,
+    ForgotWalletPin,
+    PinResendOTP,
+    ResetPin,
+    PinVerifyOTP,
     AccountDetails,
     FetchAllBanks,
     GetParentDetails,
@@ -20,6 +24,10 @@ urlpatterns = [
         name="create_virtual_account",
     ),
     path("set-wallet-pin/", SetWalletPin.as_view(), name="set_wallet_pin"),
+    path("forgot-wallet-pin/", ForgotWalletPin.as_view(), name="forgot_wallet_pin"),
+    path("resend-wallet-otp/", PinResendOTP.as_view(), name="resend_wallet_otp"),
+    path("verify-wallet-otp/", PinVerifyOTP.as_view(), name="verify_wallet_otp"),
+    path("reset-wallet-pin/", ResetPin.as_view(), name="reset_wallet_pin"),
     path(
         "get-account-details/<str:acc_id>/",
         AccountDetails.as_view(),

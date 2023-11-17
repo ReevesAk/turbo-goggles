@@ -14,11 +14,16 @@ from .serializers import (
     FincraPayoutSerializers,
     PicadailysPayoutSerializers,
     BVNSerializer,
+    ResetPinSerializer,
 )
 from .models import CreateWallet, BVNData
 from .helpers import generate_random_string, insert_hyphens
 from .controllers import BVN, Pin
 from permissions import IsPartnerOrMember
+from accounts.otp import otp_manager
+from accounts.serializers import VerifyOTPSerializer
+from commons import Message
+
 
 random_string = generate_random_string(20)
 customer_reference = insert_hyphens(random_string, 4)
@@ -252,6 +257,144 @@ class SetWalletPin(generics.CreateAPIView):
                 "message": "Wallet pin created succesfully!",
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
+
+
+class ForgotWalletPin(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def post(self, request):
+        user = request.user
+        phone_no = user.phone_number
+        # Create and send OTP.
+        otp = otp_manager.create_otp(user_id=str(user.id))
+        msg = "Enter this OTP {} to verify your account and reset your pin".format(otp)
+
+        response = Message.send_otp(msg=str(msg), to=phone_no)
+        if response.status_code == 200:
+            try:
+                response = {
+                    "status": "success",
+                    "message": "Check your phone for an OTP",
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+            except Exception as err:
+                return Response(
+                    {
+                        "status": "fail",
+                        "message": err,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+        else:
+            return Response(data=response, status=response.status_code)
+
+
+class PinResendOTP(generics.GenericAPIView):
+    """
+    PinResendOTP handles the POST request of resending an
+    OTP to a user.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def post(self, request):
+        user = request.user
+        serializer = self.serializer_class(data=user)
+        phone_number = user.phone_number
+
+        # Generate otp.
+        otp = otp_manager.create_otp(user_id=str(user.id))
+        msg = "To reset your pin, please enter this One Time Password {}.".format(otp)
+
+        response = Message.send_otp(msg=str(msg), to=phone_number)
+        if response.status_code == 200:
+            response = {
+                "status": "success",
+                "message": "Otp resent Successfully. Check your phone for validation",
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            return Response(data=response, status=response.status_code)
+
+
+class PinVerifyOTP(generics.GenericAPIView):
+    serializer_class = VerifyOTPSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def post(self, request):
+        user = request.data
+        user_data = request.user
+        serializer = self.serializer_class(data=user)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+
+            # Validate otp.
+            user_id = otp_manager.validate_user_otp(received_otp)
+
+            if not user_id:
+                return Response(
+                    data={"error": "Invalid or expired OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Send welcome message to user.
+            msg = "User is verified... You can reset now your pin!"
+            recipient = user_data.phone_number
+
+            response = Message.send_msg(msg=str(msg), to=recipient)
+            if response.status_code == 200:
+                return Response(
+                    {"Success": "Account is verified"}, status=status.HTTP_200_OK
+                )
+
+
+class ResetPin(generics.CreateAPIView):
+    serializer_class = ResetPinSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def create(self, request):
+        authenticated_user = request.user
+        user_data = request.data
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            user = CreateWallet.objects.get(user=authenticated_user)
+        except CreateWallet.DoesNotExist:
+            return Response(
+                data={"error": "Wallet not found for the authenticated user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if serializer.is_valid(raise_exception=True):
+            otp = user_data["otp"]
+            user_id = otp_manager.validate_user_otp(otp=otp)
+
+            if not user_id:
+                return Response(
+                    data={"error": "Invalid or expired OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            pin = user_data.get("pin")
+            pin2 = user_data.get("pin2")
+
+            if pin != pin2:
+                return Response(
+                    data={"error": "Pins do not match!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.pin = pin
+            user.save()
+
+            response = {"status": "Success!", "message": "Pin reset successfully"}
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AccountDetails(generics.RetrieveAPIView):
