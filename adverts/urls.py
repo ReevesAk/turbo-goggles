@@ -5,9 +5,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path(
-        "register-adverts/", RegisterBrandAdverts.as_view(), name="register_ads"
-    ),
+    path("register-adverts/", RegisterBrandAdverts.as_view(), name="register_ads"),
     path(
         "list-all-ads/",
         ListAllBrandAds.as_view(),

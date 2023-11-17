@@ -3,7 +3,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 # Third party imports.
 from rest_framework import serializers
-from rest_framework.validators import ValidationError
 
 # In projects imports.
 from accounts.models import User
@@ -37,7 +36,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
             "instagram",
             "telegram",
             "password",
-            "password2"
+            "password2",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 
@@ -51,14 +50,18 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
                 raise serializers.ValidationError("Email has already been used")
         else:
             raise serializers.ValidationError("email: email field can not be empty")
-        
+
         if phone_number:
-            phone_number_exists = User.objects.filter(phone_number=phone_number).exists()
+            phone_number_exists = User.objects.filter(
+                phone_number=phone_number
+            ).exists()
             if phone_number_exists:
                 raise serializers.ValidationError("phone_number has already been used")
         else:
-            raise serializers.ValidationError("phone_number: phone_number field can not be empty")
-        
+            raise serializers.ValidationError(
+                "phone_number: phone_number field can not be empty"
+            )
+
         urls = ["facebook", "twitter", "instagram", "telegram", "website"]
         url_validator = URLValidator()
 
@@ -74,7 +77,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
                     )
 
         return super().validate(attrs)
-    
+
     def create(self, validated_data):
         user = User.objects.create(
             email=validated_data["email"],

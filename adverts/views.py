@@ -29,7 +29,7 @@ class RegisterBrandAdverts(generics.GenericAPIView):
                     data={"error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             serializer.save()
 
             # Create and send OTP.
@@ -38,7 +38,7 @@ class RegisterBrandAdverts(generics.GenericAPIView):
                 otp
             )
             recipient = serializer.data["phone_number"]
-            
+
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
