@@ -94,6 +94,36 @@ class IsMember(permissions.BasePermission):
         raise ValidationError("Authentication is required to access this resource.")
 
 
+class IsBrandAd(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["BrandAd"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.account_type in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only BrandAd can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")
+
+
+class IsBrandAdAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["BrandAdAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.account_type in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only BrandAdAdmin can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")
+
+
 class IsPartnerAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.

@@ -10,6 +10,7 @@ USER_CATEGORY_CHOICES = (
     ("User", "User"),
     ("Partner", "Partner"),
     ("Member", "Member"),
+    ("BrandAd", "BrandAd"),
     ("TaskAdmin", "TaskAdmin"),
     ("AdAdmin", "AdAdmin"),
     ("MembersAdmin", "MembersAdmin"),
@@ -18,6 +19,12 @@ USER_CATEGORY_CHOICES = (
     ("ContentAdmin", "ContentAdmin"),
     ("IntegrationAdmin", "IntegrationAdmin"),
     ("WalletAdmin", "WalletAdmin"),
+)
+
+BRAND_TYPE = (
+    ("Individual", "Individual"),
+    ("Company", "Company"),
+    ("Business", "Business")
 )
 
 
@@ -34,6 +41,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     game_points = models.IntegerField(null=True)
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
+
+    # Brand details.
+    address = models.CharField(max_length=155, blank=False, null=True)
+    whoareyou = models.CharField(choices=BRAND_TYPE,max_length=150, null=True)
+    name = models.CharField(max_length=155, blank=False, null=True)
+    brand_type = models.CharField(max_length=155, blank=False, null=True)
+
+    # Brand onboarding.
+    brand_name = models.CharField(max_length=255, null=True)
+    description = models.CharField(max_length=150, null=True)
+    services = models.CharField(max_length=255, null=True)
+    website = models.CharField(max_length=150, null=True)
+    facebook = models.CharField(max_length=150, null=True)
+    twitter = models.CharField(max_length=150, null=True)
+    instagram = models.CharField(max_length=150, null=True)
+    telegram = models.CharField(max_length=150, null=True)
 
     # Partner details.
     account_type = models.CharField(

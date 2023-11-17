@@ -30,10 +30,11 @@ from permissions import IsPartner, IsPartnerAdmin, IsMember
 
 
 # Create your views here.
-# RegisterPartner handles the POST request of registering a user,
-# It takes in firstname, lastname, email and password
-#  and returns a validation email upon success.
 class RegisterPartner(generics.GenericAPIView):
+    """RegisterPartner handles the POST request of registering a user,
+    It takes in firstname, lastname, email and password
+    and returns a validation email upon success."""
+
     serializer_class = RegisterPartnerSerializer
 
     def post(self, request):
@@ -69,7 +70,7 @@ class RegisterPartner(generics.GenericAPIView):
                     return Response(
                         {
                             "status": "fail",
-                            "message": "Partner with that email already exist",
+                            "message": "Partner with that email or phone number already exist",
                         },
                         status=status.HTTP_409_CONFLICT,
                     )
