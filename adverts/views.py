@@ -11,11 +11,13 @@ from .serializers import (
     RegisterBrandAdvertSeriailizers,
     BrandAdProfileSerializers,
     UpdateBrandAdProfileSerializers,
+    BrandSurveySerializers
 )
 from accounts.models import User
 from accounts.otp import otp_manager
 from commons import Message
 from permissions import IsBrandAd, IsBrandAdAdmin
+from .models import BrandSurvey, BrandSurveyLocation
 
 
 class RegisterBrandAdverts(generics.GenericAPIView):
@@ -109,3 +111,35 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BrandSurveyView(generics.CreateAPIView):
+    serializer_class = BrandSurveySerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsBrandAd)
+
+    def create(self, request, *args, **kwargs):
+        serializer = BrandSurveySerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                serializer.validated_data["user"] = request.user
+                brand_survey = serializer.save()
+
+                brand_survey_instance =BrandSurvey.objects.create(
+                    brand_user=brand_survey.user,
+                    online_presence=request.data["online_presence"],
+                    online_preferences=request.data["online_preferences"],
+                    metric_to_increase=request.data["metric_to_increase"],
+                    demography=request.data["demography"],
+                    website=request.data["website"],
+                )
+
+                BrandSurveyLocation.objects.create(
+                    brand=brand_survey_instance,
+                    state=request.data.get("state"),
+                    city=request.data.get("city"),
+                )
+                
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)

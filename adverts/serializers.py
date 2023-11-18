@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
-
+from .models import BrandSurvey, BrandSurveyLocation
 
 class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
@@ -159,3 +159,31 @@ class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class BrandSurveySerializers(serializers.ModelSerializer):
+    """Serializers for creating brand adverts survey."""
+
+    state = serializers.CharField(max_length=150, write_only=True)
+    city = serializers.CharField(max_length=150, write_only=True)
+    
+    class Meta:
+        model = BrandSurvey
+        fields = [
+            "id",
+            "online_presence",
+            "online_preferences",
+            "metric_to_increase",
+            "demography",
+            "website",
+            "state",
+            "city"
+        ]
+
+        def validate(self, attrs):
+            website = attrs.get('website')
+
+            if website and not website.startswith(('http://', 'https://')):
+                raise serializers.ValidationError("Invalid website format. Please include 'http://' or 'https://'.")
+
+            return attrs
