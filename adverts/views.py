@@ -10,6 +10,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     RegisterBrandAdvertSeriailizers,
     BrandAdProfileSerializers,
+    UpdateBrandAdProfileSerializers,
 )
 from accounts.models import User
 from accounts.otp import otp_manager
@@ -45,7 +46,7 @@ class RegisterBrandAdverts(generics.GenericAPIView):
                     user_data = serializer.data
                     response = {
                         "status": "success",
-                        "message": "Partner Created Successfully. Check your phone for an OTP",
+                        "message": "Brand advert account created Successfully. Check your phone for an OTP",
                         "data": user_data,
                     }
                     return Response(data=response, status=status.HTTP_201_CREATED)
@@ -75,4 +76,36 @@ class ListAllBrandAds(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class GetBrandAdDetails(generics.RetrieveAPIView):
+    """GetBrandAdDetails returns the profile details of a brand_Ad user."""
+
+    serializer_class = BrandAdProfileSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpdateBrandAdProfile(generics.UpdateAPIView):
+    """Update brand_Ad Profile"""
+
+    serializer_class = UpdateBrandAdProfileSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)

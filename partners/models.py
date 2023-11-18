@@ -1,5 +1,4 @@
 from django.db import models
-from cloudinary.models import CloudinaryField
 
 from accounts.models import User
 
@@ -28,7 +27,9 @@ class VerifyCAC(models.Model):
 class PartnerServices(models.Model):
     """Model for partner services."""
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="related_services")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="related_services"
+    )
     business = models.CharField(choices=BUSINESS_CATEGORY, max_length=255, null=True)
     service = models.CharField(max_length=255, null=True)
     service_star = models.CharField(max_length=50, null=True)
@@ -56,4 +57,3 @@ class AvailablePartnerGymTrainers(models.Model):
     trainer_name = models.CharField(max_length=255, null=True)
     trainer_price = models.FloatField(null=True)
     trainer_photo = models.CharField(max_length=255, null=True)
-    
