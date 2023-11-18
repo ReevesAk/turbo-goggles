@@ -46,13 +46,17 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Email has already been used")
         else:
             raise serializers.ValidationError("email: email field can not be empty")
-        
+
         if phone_number:
-            phone_number_exists = User.objects.filter(phone_number=phone_number).exists()
+            phone_number_exists = User.objects.filter(
+                phone_number=phone_number
+            ).exists()
             if phone_number_exists:
                 raise serializers.ValidationError("phone_number has already been used")
         else:
-            raise serializers.ValidationError("phone_number: phone_number field can not be empty")
+            raise serializers.ValidationError(
+                "phone_number: phone_number field can not be empty"
+            )
 
         return super().validate(attrs)
 
@@ -80,13 +84,13 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
 class PartnerServicePhotosSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerServicePhotos
-        fields = ('photo',)
+        fields = ("photo",)
 
 
-class PartnerServicePhotosSerializer(serializers.ModelSerializer):
+class PartnerServiceGymPhotosSerializer(serializers.ModelSerializer):
     class Meta:
         model = AvailablePartnerGymTrainers
-        fields = ['trainer_name', 'trainer_price', 'trainer_photo']
+        fields = ["trainer_name", "trainer_price", "trainer_photo"]
 
 
 class PartnerServiceSerializer(serializers.ModelSerializer):
@@ -94,7 +98,7 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
 
     trainer_name = serializers.CharField(required=False, read_only=True)
     trainer_price = serializers.FloatField(required=False, read_only=True)
-    
+
     class Meta:
         model = PartnerServices
         fields = [

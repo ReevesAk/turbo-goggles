@@ -301,7 +301,6 @@ class PinResendOTP(generics.GenericAPIView):
 
     def post(self, request):
         user = request.user
-        serializer = self.serializer_class(data=user)
         phone_number = user.phone_number
 
         # Generate otp.

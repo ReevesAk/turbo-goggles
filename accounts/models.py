@@ -24,7 +24,7 @@ USER_CATEGORY_CHOICES = (
 BRAND_TYPE = (
     ("Individual", "Individual"),
     ("Company", "Company"),
-    ("Business", "Business")
+    ("Business", "Business"),
 )
 
 
@@ -44,7 +44,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)
-    whoareyou = models.CharField(choices=BRAND_TYPE,max_length=150, null=True)
+    whoareyou = models.CharField(choices=BRAND_TYPE, max_length=150, null=True)
     name = models.CharField(max_length=155, blank=False, null=True)
     brand_type = models.CharField(max_length=155, blank=False, null=True)
 

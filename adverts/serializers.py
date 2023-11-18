@@ -81,6 +81,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create(
             email=validated_data["email"],
+            name=validated_data["name"],
             whoareyou=validated_data["whoareyou"],
             address=validated_data["address"],
             brand_type=validated_data["brand_type"],
@@ -92,7 +93,6 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
             state=validated_data["state"],
             city=validated_data["city"],
             phone_number=validated_data["phone_number"],
-            business_name=validated_data["business_name"],
             website=validated_data["website"],
             facebook=validated_data["facebook"],
             twitter=validated_data["twitter"],
@@ -106,7 +106,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
         return user
 
 
-class BrandAdProfileSerializers(serializers.Serializer):
+class BrandAdProfileSerializers(serializers.ModelSerializer):
     """Serailizers for our BrandAds profile."""
 
     class Meta:
@@ -131,4 +131,31 @@ class BrandAdProfileSerializers(serializers.Serializer):
             "twitter",
             "instagram",
             "telegram",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
+    """Serializers for updating brand adverts profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "address",
+            "brand_type",
+            "country",
+            "brand_name",
+            "description",
+            "services",
+            "state",
+            "city",
+            "website",
+            "facebook",
+            "twitter",
+            "instagram",
+            "telegram",
+            "created_at",
+            "updated_at",
         ]
