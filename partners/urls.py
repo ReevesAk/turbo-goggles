@@ -9,7 +9,7 @@ from .views import (
     UpdatePartnerProfile,
     VerifyCAC,
     PartnerServicePhotosList,
-    PartnerServiceGymTrainersPhotosList
+    PartnerServiceGymTrainersPhotosList,
 )
 
 urlpatterns = [
@@ -34,5 +34,9 @@ urlpatterns = [
     ),
     path("profile-update/", UpdatePartnerProfile.as_view(), name="update_profile"),
     path("partner-photos/", PartnerServicePhotosList.as_view(), name="partner_photos"),
-    path("gym-trainer-photos/", PartnerServiceGymTrainersPhotosList.as_view(), name="gym_trainer_photos"),
+    path(
+        "gym-trainer-photos/",
+        PartnerServiceGymTrainersPhotosList.as_view(),
+        name="gym_trainer_photos",
+    ),
 ]

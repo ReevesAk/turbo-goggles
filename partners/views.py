@@ -98,6 +98,28 @@ class ListAllPartners(generics.ListAPIView):
 
 
 class CreatePartnerService(generics.CreateAPIView):
+    """
+    API endpoint to create a PartnerService.
+
+    To create a new service, send a POST request with the following parameters:
+
+    - `service_photos`: List of images representing the service.
+    - `trainer_photo`: Image of the trainer (required if service is "Gym").
+    - `business`: Type of Business.
+    - `service`: Type of service.
+    - `service_star`: Rating of the service.
+    - `price`: Price of the service.
+    - `description`: Description of the service.
+    - `trainer_name`: Name of the trainer (optional).
+    - `trainer_price`: Price of the trainer (optional).
+
+    Example usage:
+
+    ```
+    curl -X POST -H "Authorization: Bearer <your_token>" -F "service_photos=@image1.jpg" -F "service_photos=@image2.jpg" -F "trainer_photo=@trainer_image.jpg" -F "business=XYZ" -F "service=Gym" -F "service_star=5" -F "price=100" -F "description=Great service" -F "trainer_name=John Doe" -F "trainer_price=50" http://your-api-endpoint
+    ```
+    """
+
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)

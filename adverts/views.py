@@ -11,11 +11,15 @@ from .serializers import (
     RegisterBrandAdvertSeriailizers,
     BrandAdProfileSerializers,
     UpdateBrandAdProfileSerializers,
+    BrandSurveySerializers,
+    AdBudgetSerializer,
 )
 from accounts.models import User
 from accounts.otp import otp_manager
 from commons import Message
 from permissions import IsBrandAd, IsBrandAdAdmin
+from .models import CreateAd, AdLocation
+from wallets.controllers import Pin, Debit, Credit
 
 
 class RegisterBrandAdverts(generics.GenericAPIView):
@@ -109,3 +113,94 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BrandSurveyView(generics.CreateAPIView):
+    serializer_class = BrandSurveySerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsBrandAd)
+
+    def create(self, request, *args, **kwargs):
+        serializer = BrandSurveySerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                serializer.validated_data["user"] = request.user
+                brand_survey = serializer.save()
+
+                brand_survey_instance = CreateAd.objects.create(
+                    brand_user=brand_survey.user,
+                    brand_type=request.data["brand_type"],
+                    product_type=request.data["product_type"],
+                    online_presence=request.data["online_presence"],
+                    online_preferences=request.data["online_preferences"],
+                    metric_to_increase=request.data["metric_to_increase"],
+                    demography=request.data["demography"],
+                    website=request.data["website"],
+                    type=request.data["type"],
+                    category=request.data["category"],
+                    address=request.data["address"],
+                    description=request.data["description"],
+                    duration=request.data["duration"],
+                )
+
+                AdLocation.objects.create(
+                    brand=brand_survey_instance,
+                    state=request.data.get("state"),
+                    city=request.data.get("city"),
+                )
+
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BrandPromote(generics.CreateAPIView):
+    serializer_class = AdBudgetSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsBrandAd)
+
+    def create(self, request, *args, **kwargs):
+        serializer = AdBudgetSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                authenticated_user = request.user
+                pin = request.data.get("pin")
+
+                is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
+                if is_verified:
+                    # Inititate a debit on the brand advert's account.
+                    price = request.data.get("price")
+                    debit_response = Debit.debit_customer(
+                        amount=price, description="Debit for airtime recharge"
+                    )
+                    if debit_response == 200:
+                        serializer.save()
+                        response_data = {
+                            "status": "Success!",
+                            "message": "Brand advert promoted successfully",
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        # initiate a credit refund to the customer after failed transaction.
+                        resp = Credit.credit_customer(
+                            first_name=authenticated_user.firstName,
+                            lastname=authenticated_user.lastName,
+                            accNo=authenticated_user.accountNumber,
+                            bankCode="103",
+                            amount=price,
+                        )
+                        response_data = {
+                            "status": "Success!",
+                            "messsage": "A refund will be issued.",
+                            "details": resp,
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
