@@ -4,7 +4,8 @@ from .views import (
     ListAllBrandAds,
     GetBrandAdDetails,
     UpdateBrandAdProfile,
-    BrandSurveyView
+    BrandSurveyView,
+    BrandPromote,
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path("profile/", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile/", UpdateBrandAdProfile.as_view(), name="update_profile"),
     path("survey/", BrandSurveyView.as_view(), name="survey"),
+    path("promote/", BrandPromote.as_view(), name="promote"),
 ]

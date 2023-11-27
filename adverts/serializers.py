@@ -6,7 +6,8 @@ from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
-from .models import BrandSurvey, BrandSurveyLocation
+from .models import CreateAd, AdBudget
+
 
 class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
@@ -166,24 +167,43 @@ class BrandSurveySerializers(serializers.ModelSerializer):
 
     state = serializers.CharField(max_length=150, write_only=True)
     city = serializers.CharField(max_length=150, write_only=True)
-    
+
     class Meta:
-        model = BrandSurvey
+        model = CreateAd
         fields = [
             "id",
+            "brand_type",
+            "product_type",
             "online_presence",
             "online_preferences",
             "metric_to_increase",
             "demography",
             "website",
             "state",
-            "city"
+            "city",
+            "type",
+            "category",
+            "address",
+            "description",
+            "duration",
         ]
 
         def validate(self, attrs):
-            website = attrs.get('website')
+            website = attrs.get("website")
 
-            if website and not website.startswith(('http://', 'https://')):
-                raise serializers.ValidationError("Invalid website format. Please include 'http://' or 'https://'.")
+            if website and not website.startswith(("http://", "https://")):
+                raise serializers.ValidationError(
+                    "Invalid website format. Please include 'http://' or 'https://'."
+                )
 
             return attrs
+
+
+class AdBudgetSerializer(serializers.ModelSerializer):
+    """Serializers for Advert budget."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
+    class Meta:
+        model = AdBudget
+        fields = ["id", "ad_type", "ad", "star", "price_range" "pin"]
