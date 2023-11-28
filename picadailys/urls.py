@@ -53,4 +53,6 @@ urlpatterns = [
     path("api/v1/user_profile/", include("user_profile.urls")),
     # User Profile and settings endpoints.
     path("api/v1/roles/", include("roles.urls")),
+    # Self service endpoints.
+    path("api/v1/self_serve/", include("self_service.urls")),
 ]
