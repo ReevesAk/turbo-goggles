@@ -206,4 +206,4 @@ class AdBudgetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AdBudget
-        fields = ["id", "ad_type", "ad", "star", "price_range" "pin"]
+        fields = ["id", "ad_type", "ad", "star", "price_range", "pin"]
