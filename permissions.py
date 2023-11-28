@@ -21,7 +21,7 @@ class IsVerifiedUser(permissions.BasePermission):
 class VasPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required types.
-        required_user_types = ["User", "Member", "SuperAdmin"]
+        required_user_types = ["User", "Member", "Partner", "SuperAdmin"]
 
         # Check if the user is authenticated
         if request.user.is_authenticated:
@@ -29,7 +29,7 @@ class VasPermission(permissions.BasePermission):
             if request.user.account_type in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Users and Members can use this service.")
+                raise ValidationError("Only Users, Members and Partners can use this service.")
 
         raise ValidationError("Authentication is required to access this resource.")
 

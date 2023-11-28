@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "wallets",
     "vas",
     "user_profile",
+    "self_service",
 ]
 
 MIDDLEWARE = [
