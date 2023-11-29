@@ -6,6 +6,7 @@ from .views import (
     UpgradeToMember,
     ChangePassword,
     ProfileImage,
+    DeleteUser,
     WebhookView,
 )
 
@@ -16,4 +17,5 @@ urlpatterns = [
     path("upgrade-to-member/", UpgradeToMember.as_view(), name="upgrade_to_member"),
     path("change-password/", ChangePassword.as_view(), name="change_password"),
     path("webhook/", WebhookView.as_view(), name="webhook_view"),
+    path("delete/", DeleteUser.as_view(), name="delete"),
 ]
