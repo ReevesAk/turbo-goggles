@@ -301,7 +301,6 @@ class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
 
     def create(self, request):
-        user = request.user
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -316,6 +315,14 @@ class ResetPassword(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                data={"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
         if user_data["password"] != user_data["password2"]:
             return Response(
                 data={"error": "Passwords do not match!"},
@@ -327,8 +334,10 @@ class ResetPassword(generics.CreateAPIView):
 
         # Retrieve existing tokens and blacklist them.
         user_token = request.data.get("refresh_token")
-        token = RefreshToken(user_token)
-        token.blacklist()
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+        
         user.save()
 
         response = {"status": "Success!", "message": "Password reset successfully"}

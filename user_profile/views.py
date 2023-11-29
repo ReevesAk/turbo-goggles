@@ -1,3 +1,4 @@
+from permissions import IsSuperAdmin
 import hmac
 import hashlib
 import json
@@ -5,6 +6,7 @@ from decouple import config
 
 from django.contrib.auth.hashers import check_password
 from django.http import HttpRequest
+from django.db.models import Q
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -19,7 +21,9 @@ from .serializers import (
     GetUserSerializer,
     UpdateUserSerializer,
     ProfileImageSerializer,
+    DeleteUserSerializer,
 )
+from accounts.models import User
 from cloudinary import uploader as cloud
 
 
@@ -194,4 +198,26 @@ class WebhookView(generics.GenericAPIView):
             return Response(
                 {"detail": "Invalid signature, webhook data discarded."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class DeleteUser(generics.DestroyAPIView):
+    serializer_class = DeleteUserSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+
+    def delete(self, request, *args, **kwargs):
+        email = self.request.data.get("email")
+
+        try:
+            user = User.objects.get(Q(id=email) | Q(email=email))
+            user.delete()
+            return Response(
+                f"Account with '{email}' deleted successfully.",
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        except User.DoesNotExist:
+            return Response(
+                f"User with '{email}' does not exist.",
+                status=status.HTTP_404_NOT_FOUND,
             )
