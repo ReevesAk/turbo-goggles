@@ -7,6 +7,7 @@ class RestaurantBookingSerilaizers(serializers.ModelSerializer):
     "serializers for booking a restaurant table."
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    amount = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = RestaurantBooking
@@ -17,6 +18,7 @@ class GymSubcriptionSerilaizers(serializers.ModelSerializer):
     "serializers for subscribing to a gym."
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    amount = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
         model = GymSubcription
