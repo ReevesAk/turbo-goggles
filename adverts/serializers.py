@@ -13,6 +13,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
