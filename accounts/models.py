@@ -82,6 +82,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.phone_number
 
 
+class DeviceId(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    device_id = models.CharField(max_length=250, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class OTP(models.Model):
     otp = models.CharField(max_length=6, null=True)
     user_id = models.IntegerField()
