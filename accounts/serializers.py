@@ -18,6 +18,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "account_type",
+            "device_id",
             "phone_number",
             "password",
             "password2",

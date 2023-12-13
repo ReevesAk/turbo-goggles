@@ -18,7 +18,7 @@ from .serializers import (
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
 )
-from .models import User
+from .models import User, DeviceId
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from commons import Message
@@ -35,15 +35,28 @@ class Register(generics.GenericAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = request.data
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            if user["password"] != user["password2"]:
+            if user_data["password"] != user_data["password2"]:
                 return Response(
                     data={"error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            serializer.save()
+            user = serializer.save()
+
+            # Check if the user already has more than two device IDs
+            existing_device_count = DeviceId.objects.filter(user=user).count()
+            if existing_device_count >= 2:
+                return Response(
+                    data={"error": "User cannot register on more than two devices"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Save the device_id separately using DeviceId model
+            device_id = user_data.get("device_id")
+            if device_id:
+                DeviceId.objects.create(user=user, device_id=device_id)
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
@@ -237,9 +250,37 @@ class Login(APIView):
 
         user = authenticate(phone_number=phone_number, password=password)
         if user:
+
+            # Check if the user already has more than two device IDs.
+            existing_device_count = DeviceId.objects.filter(user=user).count()
+            if existing_device_count >= 2:
+                if existing_device_count == 3:
+                    # Delete the oldest device (based on creation timestamp)
+                    oldest_device = DeviceId.objects.filter(user=user).earliest('created_at')
+                    oldest_device.delete()
+                return Response(
+                    data={"error": "User cannot login on more than two devices, older deviceID deleted."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # check if the user has logged in more than one device.
+            if existing_device_count >= 1:
+                # Create and send OTP.
+                otp = otp_manager.create_otp(user_id=str(user.id))
+                msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
+                    otp
+                )
+                recipient = user.phone_number
+
+                response = Message.send_msg(msg=str(msg), to=recipient)
+                
+                return Response(
+                    data={"detail": "Otp sent to user's new device Id"},
+                    status=status.HTTP_200_OK,
+                )
+
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
-
             response = {"message": "Login successful", "tokens": tokens}
             return Response(data=response, status=status.HTTP_200_OK)
         else:
@@ -258,10 +299,10 @@ class ForgotPassword(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = request.data
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            phone_no = user["phone_number"]
+            phone_no = user_data["phone_number"]
             try:
                 user = User.objects.get(phone_number=phone_no)
             except user.DoesNotExist:
@@ -355,7 +396,7 @@ class Logout(APIView):
             token.blacklist()
 
             return Response(
-                data={"logout": "Logout suiccessful!"},
+                data={"logout": "Logout successful!"},
                 status=status.HTTP_205_RESET_CONTENT,
             )
 
