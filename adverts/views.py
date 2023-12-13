@@ -14,7 +14,7 @@ from .serializers import (
     BrandSurveySerializers,
     AdBudgetSerializer,
 )
-from accounts.models import User
+from accounts.models import User, DeviceId
 from accounts.otp import otp_manager
 from commons import Message
 from permissions import IsBrandAd, IsBrandAdAdmin
@@ -35,7 +35,12 @@ class RegisterBrandAdverts(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            serializer.save()
+            user = serializer.save()
+
+            # Save the device_id separately using DeviceId model
+            device_id = user_data.get("device_id")
+            if device_id:
+                DeviceId.objects.create(user=user, device_id=device_id)
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))

@@ -20,6 +20,7 @@ class RegisterPartnerSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
+            "device_id",
             "first_name",
             "last_name",
             "country",

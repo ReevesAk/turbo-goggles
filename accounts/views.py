@@ -45,14 +45,6 @@ class Register(generics.GenericAPIView):
                 )
             user = serializer.save()
 
-            # Check if the user already has more than two device IDs
-            existing_device_count = DeviceId.objects.filter(user=user).count()
-            if existing_device_count >= 2:
-                return Response(
-                    data={"error": "User cannot register on more than two devices"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             # Save the device_id separately using DeviceId model
             device_id = user_data.get("device_id")
             if device_id:

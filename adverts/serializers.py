@@ -18,6 +18,7 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
+            "device_id",
             "account_type",
             "whoareyou",
             "name",
