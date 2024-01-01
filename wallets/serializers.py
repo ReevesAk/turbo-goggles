@@ -2,14 +2,14 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import CreateWallet, Payouts, BVNData
+from .models import CreateWallet, Payouts, BVND
 
 
 class BVNSerializer(serializers.Serializer):
     """Serailizers for our verify user bvn."""
 
     class Meta:
-        model = BVNData
+        model = BVND
         fields = [
             "id",
             "bvn",

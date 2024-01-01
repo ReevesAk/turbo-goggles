@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "vas",
     "user_profile",
     "self_service",
+    "banking",
 ]
 
 MIDDLEWARE = [

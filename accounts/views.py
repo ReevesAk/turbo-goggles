@@ -21,6 +21,8 @@ from .serializers import (
 from .models import User, DeviceId
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
+from banking.controllers import Customer
+from banking.models import CustomerData
 from commons import Message
 from permissions import IsVerifiedUser
 
@@ -50,6 +52,19 @@ class Register(generics.GenericAPIView):
             if device_id:
                 DeviceId.objects.create(user=user, device_id=device_id)
 
+            try:
+                customer = CustomerData.objects.get(user=request.user)
+            except CustomerData.DoesNotExist:
+                customer = CustomerData.objects.create(user=request.user)
+
+            # Create a customer entry on Maplerad.
+            customer_data = Customer.create(
+                f_name=user_data["first_name"],
+                l_name=user_data["last_name"],
+                email=user_data["email"],
+                country="NG"
+            )
+
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
             msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
@@ -61,6 +76,15 @@ class Register(generics.GenericAPIView):
             if response.status_code == 200:
                 try:
                     user_data = serializer.data
+
+                    # Update the customer instance with the new data.
+                    customer.first_name = customer_data["first_name"]
+                    customer.last_name = customer_data["last_name"]
+                    customer.email = customer_data["email"]
+                    customer.country = customer_data["country"]
+                    customer.customer_id = customer_data["customer_id"]
+                    customer.save()
+
                     response = {
                         "status": "success",
                         "message": "User Created Successfully. Check your phone for an OTP",

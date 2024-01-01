@@ -121,8 +121,7 @@ class CreatePartnerService(generics.CreateAPIView):
     Example usage:
 
     ```
-    curl -X POST -H "Authorization: Bearer <your_token>" -F "service_photos=@image1.jpg" -F "service_photos=@image2.jpg" -F "trainer_photo=@trainer_image.jpg" -F "business=XYZ" -F "service=Gym" -F "service_star=5" -F "price=100" -F "description=Great service" -F "trainer_name=John Doe" -F "trainer_price=50" http://your-api-endpoint
-    ```
+    curl -X POST -H "Authorization: Bearer <your_token>" -F "service_photos=@image1.jpg" -F "service_photos=@image2.jpg" -F "trainer_photo=@trainer_image.jpg" -F "business=XYZ" -F "service=Gym" -F "service_star=5" -F "price=100" -F "description=Great service" -F "trainer_name=John Doe" -F "trainer_price=50"
     """
 
     serializer_class = PartnerServiceSerializer
