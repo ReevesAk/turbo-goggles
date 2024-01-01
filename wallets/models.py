@@ -4,7 +4,7 @@ from accounts.models import User
 
 
 # Create your models here.
-class BVNData(models.Model):
+class BVND(models.Model):
     user = models.OneToOneField(to=User, null=True, on_delete=models.CASCADE)
     number = models.CharField(max_length=155, null=True, unique=True)
     first_name = models.CharField(max_length=155, null=True)

@@ -41,6 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     game_points = models.IntegerField(null=True)
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
+    is_upgraded = models.BooleanField(default=False)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)

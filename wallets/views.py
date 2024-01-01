@@ -16,7 +16,7 @@ from .serializers import (
     BVNSerializer,
     ResetPinSerializer,
 )
-from .models import CreateWallet, BVNData
+from .models import CreateWallet, BVND
 from .helpers import generate_random_string, insert_hyphens
 from .controllers import BVN, Pin
 from permissions import IsPartnerOrMember
@@ -122,7 +122,7 @@ class VitualAccountRequest(generics.GenericAPIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        bvn = BVNData.objects.get(user=authenticated_user)
+        bvn = BVND.objects.get(user=authenticated_user)
         received_user_data = request.data
 
         create_account_headers = {
@@ -182,34 +182,34 @@ class VitualAccountRequest(generics.GenericAPIView):
                     )
 
                 if response.status_code == 200:
-                    account_detials = CreateWallet.objects.create(
+                    account_details = CreateWallet.objects.create(
                         user=authenticated_user
                     )
-                    account_detials.virtualAccountId = response.json()["data"]["_id"]
-                    account_detials.first_name = response.json()["data"][
+                    account_details.virtualAccountId = response.json()["data"]["_id"]
+                    account_details.first_name = response.json()["data"][
                         "KYCInformation"
                     ]["firstName"]
-                    account_detials.last_name = response.json()["data"][
+                    account_details.last_name = response.json()["data"][
                         "KYCInformation"
                     ]["lastName"]
-                    account_detials.accountNumber = response.json()["data"][
+                    account_details.accountNumber = response.json()["data"][
                         "accountNumber"
                     ]
-                    account_detials.currency = response.json()["data"]["currency"]
-                    account_detials.bankName = response.json()["data"][
+                    account_details.currency = response.json()["data"]["currency"]
+                    account_details.bankName = response.json()["data"][
                         "accountInformation"
                     ]["bankName"]
-                    account_detials.accountInformation = response.json()["data"][
+                    account_details.accountInformation = response.json()["data"][
                         "accountInformation"
                     ]
-                    account_detials.accountType = response.json()["data"]["accountType"]
-                    account_detials.save()
+                    account_details.accountType = response.json()["data"]["accountType"]
+                    account_details.save()
                     response_data = {
                         "message": "Virtual account created successfully",
                         "data": response.json(),
                     }
 
-                    return Response(data=response_data, status=status.HTTP_200_OK)
+                    return Response(data=response_data, status=status.HTTP_201_CREATED)
                 else:
                     return Response(response.json(), status=response.status_code)
 
