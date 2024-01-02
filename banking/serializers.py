@@ -50,6 +50,30 @@ class CustomerUpgradeSerializers(serializers.ModelSerializer):
         ]
 
 
+class UpdateCustomerSerializers(serializers.ModelSerializer):
+    """Serailizers for updating customer information.."""
+
+    first_name = serializers.CharField(max_length=150, write_only=True)
+    last_name = serializers.CharField(max_length=150, write_only=True)
+    type = serializers.CharField(max_length=150, write_only=True)
+    image = serializers.CharField(max_length=150, write_only=True)
+    number = serializers.CharField(max_length=100, write_only=True)
+    country = serializers.CharField(max_length=68, write_only=True)
+    phone = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = Address
+        fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "type",
+            "image",
+            "number",
+            "country",
+        ]
+
+
 class CreateUSDAccountSerializers(serializers.ModelSerializer):
     """Serailizers for creating a USD wallet."""
 

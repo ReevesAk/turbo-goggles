@@ -16,6 +16,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
@@ -26,6 +27,7 @@ from .serializers import (
     CreateWalletPinSerializer,
     VerifyOTPSerializer,
     ResetPinSerializer,
+    UpdateCustomerSerializers,
 )
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
 from .controllers import BVN, Customer
@@ -182,6 +184,182 @@ class CreateNGNAccount(generics.GenericAPIView):
             )
 
 
+class GetCustomer(generics.RetrieveAPIView):
+
+    """
+    GetCustomer handles the GET request of retrieving a 
+    customer's wallet information.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        customer = CustomerData.objects.get(user=user)
+        id = customer.customer_id
+        if user:
+            resource = f"customers/{id}"
+
+            try:
+                response = requests.get(
+                    url=base_url + resource,
+                    header=headers,
+                )
+                if response.status_code == 200:
+                    return Response(data=response.json(), status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Fetching customer API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class GetCustomersWallets(generics.RetrieveAPIView):
+
+    """
+    GetCustomersAccounts handles the GET request of retrieving all 
+    the accounts created by a customer.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        customer = CustomerData.objects.get(user=user)
+        id = customer.customer_id
+        if user:
+            resource = f"customers/{id}/accounts"
+
+            try:
+                response = requests.get(
+                    url=base_url + resource,
+                    header=headers,
+                )
+                if response.status_code == 200:
+                    return Response(data=response.json(), status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Fetching customer wallets API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class CustomerTransctionHistory(generics.RetrieveAPIView):
+
+    """
+    CustomerTransctionHistory handles the GET request of retrieving all 
+    transactions a customer has made.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            customer = CustomerData.objects.get(user=user)
+            id = customer.customer_id
+            resource = f"customers/{id}/transactions"
+
+            try:
+                response = requests.get(
+                    url=base_url + resource,
+                    header=headers,
+                )
+                if response.status_code == 200:
+                    return Response(data=response.json(), status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Fetching customer transaction history API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class UpdateCustomer(generics.RetrieveAPIView):
+
+    """
+    UpdateCustomer handles the PATCH request of updating 
+    customer information.
+    """
+    serializer_class = UpdateCustomerSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    parser_classes = (MultiPartParser, JSONParser)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            customer = CustomerData.objects.get(user=user)
+            id = customer.customer_id
+        
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            # Start a separate thread for image upload
+            thread_upload = Thread(
+                target=self.upload_image,
+                args=(payload.get("image"),),
+            )
+            thread_upload.start()
+
+            resource = "customers/update"
+            payload = {
+                "customer_id": id,
+                "identity": {
+                    "type": request.data["type"],
+                    "image": self.uploaded_image_url,
+                    "number": request.data["number"],
+                    "country": "NG"
+                },
+                "phone": {
+                    "phone_country_code": "+234",
+                    "phone_number": request.data["phone_number"]
+                },
+                "first_name": request.data["first_name"],
+                "last_name": request.data["last_name"]
+            }
+
+            customer.first_name = request.data["first_name"]
+            customer.last_name = request.data["last_name"]
+            customer.save()
+
+            identity = Identity.objects.get(user=customer)
+            identity.type = request.data["type"]
+            identity.image = self.uploaded_image_url
+            identity.number = request.data["number"]
+            identity.save()
+
+            phone = Phone.objects.get(user=customer)
+            phone.phone_number = request.data["phone"]
+            phone.save()
+
+            try:
+                response = requests.post(
+                    url=base_url + resource,
+                    json=payload,
+                    header=headers,
+                )
+                return Response(data=response.json(), status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"e customer to Tier 1 API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_image_url = doc_image["url"]
+
+
 class UpgradeAccount(generics.CreateAPIView):
 
     """
@@ -192,6 +370,7 @@ class UpgradeAccount(generics.CreateAPIView):
     serializer_class = CustomerUpgradeSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    parser_classes = (MultiPartParser, JSONParser)
 
     def post(self, request):
         authenticated_user = request.user
@@ -532,3 +711,5 @@ class ResetPin(generics.CreateAPIView):
             return Response(data=response, status=status.HTTP_200_OK)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+

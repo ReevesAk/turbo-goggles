@@ -10,6 +10,10 @@ from .views import (
     PinResendOTP,
     PinVerifyOTP,
     ResetPin,
+    GetCustomer,
+    GetCustomersWallets,
+    CustomerTransctionHistory,
+    UpdateCustomer
 )
 
 
@@ -23,4 +27,9 @@ urlpatterns = [
     path("resend-otp", PinResendOTP.as_view(), name="resend-otp"),
     path("verify-otp", PinVerifyOTP.as_view(), name="verofy_otp"),
     path("reset-wallet-pin", ResetPin.as_view(), name="reset_wallet_pin"),
+    path("get-customer", GetCustomer.as_view(), name="get_customer"),
+    path("get-customers-wallets", GetCustomersWallets.as_view(), name="get_customers_wallets"),
+    path("customers-history", CustomerTransctionHistory.as_view(), name="customers_history"),
+    path("update-customer", UpdateCustomer.as_view(), name="update_customer")
+    
 ]

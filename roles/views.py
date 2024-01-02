@@ -1,3 +1,6 @@
+import requests
+import logging
+from decouple import config
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -18,6 +21,14 @@ from accounts.models import User
 from accounts.otp import otp_manager
 from commons import Message
 from permissions import IsSuperAdmin
+
+base_url = config("MAPLERAD_BASE_URL")
+secret_key = config("MAPLERAD_SECRET_KEY")
+headers = {
+    "accept": "application/json",
+    "content-Type": "application/json",
+    "Authorization": "Bearer " + secret_key,
+}
 
 
 class RegisterSuperAdmin(generics.GenericAPIView):
@@ -141,6 +152,36 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         return Response(
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
         )
+
+class GetAllCustomers(generics.RetrieveAPIView):
+
+    """
+    GetAllCustomers handles the GET request of retrieving all availalble
+    customers wallet information.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            resource = "customers?page=1&page_size=5"
+
+            try:
+                response = requests.get(
+                    url=base_url + resource,
+                    header=headers,
+                )
+                if response.status_code == 200:
+                    return Response(data=response.json(), status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Fetching customers API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )    
 
 
 class ListAdmin(generics.ListAPIView):

@@ -179,3 +179,34 @@ class Customer:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def update(id_type, id_no, id_img, phone, customer_id):
+        resource = "customers/update"
+        payload = {
+            "customer_id": customer_id,
+            "identity": {
+                "type": id_type,
+                "image": id_img,
+                "number": id_no,
+                "country": "NG"
+            },
+            "phone": {
+                "phone_country_code": "+234",
+                "phone_number": phone
+            }
+        }
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response.json()
+        
+        except requests.exceptions.RequestException as e:
+            logging.error(f"e customer to Tier 1 API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
