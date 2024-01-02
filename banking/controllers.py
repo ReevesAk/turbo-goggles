@@ -12,7 +12,7 @@ base_url = config("MAPLERAD_BASE_URL")
 headers = {
     "accept": "application/json",
     "content-Type": "application/json",
-    "Authorization": "Bearer "+ api_secret_key,
+    "Authorization": "Bearer " + api_secret_key,
 }
 
 
@@ -64,7 +64,7 @@ class Customer:
             "f_name": f_name,
             "l_name": l_name,
             "email": email,
-            "country": country
+            "country": country,
         }
 
         try:
@@ -86,7 +86,7 @@ class Customer:
                     "email": email,
                     "first_name": first_name,
                     "last_name": last_name,
-                    "customer_id": customer_id
+                    "customer_id": customer_id,
                 }
             else:
                 logging.error(
@@ -98,27 +98,23 @@ class Customer:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @staticmethod
-    def upgradeTier1(
-        id, dob, phone, street, street2, city, state, postal_code, bvn):
+    def upgradeTier1(id, dob, phone, street, street2, city, state, postal_code, bvn):
         resource = "customers/upgrade/tier1"
         payload = {
-           "dob": dob,
-            "phone": {
-                "phone_country_code": "+234",
-                "phone_number": phone[1:]
-            },
+            "dob": dob,
+            "phone": {"phone_country_code": "+234", "phone_number": phone[1:]},
             "address": {
                 "street": street,
                 "street2": street2,
                 "city": city,
                 "state": state,
                 "country": "NG",
-                "postal_code": postal_code
+                "postal_code": postal_code,
             },
             "customer_id": id,
-            "identification_number": bvn
+            "identification_number": bvn,
         }
 
         try:
@@ -128,12 +124,17 @@ class Customer:
                 header=headers,
             )
             if response.status_code == 200:
-                return Response(data="Tier One upgrade successful!", status=status.HTTP_200_OK)
+                return Response(
+                    data="Tier One upgrade successful!", status=status.HTTP_200_OK
+                )
             else:
                 logging.error(
                     f"Upgrade customer Tier 1 API error: {response.status_code} - {response.text}"
                 )
-                return Response(data=f"Tier1 upgrade failed: - {response.text}", status=response.status_code)
+                return Response(
+                    data=f"Tier1 upgrade failed: - {response.text}",
+                    status=response.status_code,
+                )
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Upgrade customer to Tier 1 API request error: {str(e)}")
@@ -149,9 +150,9 @@ class Customer:
                 "type": id_type,
                 "image": id_img,
                 "number": id_no,
-                "country": "NG"
+                "country": "NG",
             },
-            "customer_id": customer_id
+            "customer_id": customer_id,
         }
 
         try:
@@ -165,16 +166,47 @@ class Customer:
                     "type": id_type,
                     "image": id_img,
                     "number": id_no,
-                    "country": "NG"
+                    "country": "NG",
                 }
             else:
                 logging.error(
                     f"Upgrade customer Tier 1 API error: {response.status_code} - {response.text}"
                 )
                 return None
-            
+
         except requests.exceptions.RequestException as e:
             logging.error(f"Upgrade customer to Tier 1 API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def update(id_type, id_no, id_img, phone, customer_id):
+        resource = "customers/update"
+        payload = {
+            "customer_id": customer_id,
+            "identity": {
+                "type": id_type,
+                "image": id_img,
+                "number": id_no,
+                "country": "NG"
+            },
+            "phone": {
+                "phone_country_code": "+234",
+                "phone_number": phone
+            }
+        }
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response.json()
+        
+        except requests.exceptions.RequestException as e:
+            logging.error(f"e customer to Tier 1 API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

@@ -2,7 +2,6 @@
 from rest_framework import serializers
 
 # In project imports.
-from accounts.models import User
 from .models import BVNData, Address, Wallet
 
 
@@ -14,10 +13,7 @@ class BVNSerializer(serializers.Serializer):
         fields = [
             "id",
             "bvn",
-            "first_name",
-            "last_name",
             "date_of_birth",
-            "phone_number",
         ]
 
     def validate(self, attrs):
@@ -54,6 +50,30 @@ class CustomerUpgradeSerializers(serializers.ModelSerializer):
         ]
 
 
+class UpdateCustomerSerializers(serializers.ModelSerializer):
+    """Serailizers for updating customer information.."""
+
+    first_name = serializers.CharField(max_length=150, write_only=True)
+    last_name = serializers.CharField(max_length=150, write_only=True)
+    type = serializers.CharField(max_length=150, write_only=True)
+    image = serializers.CharField(max_length=150, write_only=True)
+    number = serializers.CharField(max_length=100, write_only=True)
+    country = serializers.CharField(max_length=68, write_only=True)
+    phone = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = Address
+        fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "type",
+            "image",
+            "number",
+            "country",
+        ]
+
+
 class CreateUSDAccountSerializers(serializers.ModelSerializer):
     """Serailizers for creating a USD wallet."""
 
@@ -65,7 +85,7 @@ class CreateUSDAccountSerializers(serializers.ModelSerializer):
             "bank_statement",
             "identity_number",
             "identity_issued_date",
-            "identity_expiration"
+            "identity_expiration",
         ]
 
 
@@ -78,3 +98,15 @@ class CreateWalletPinSerializer(serializers.ModelSerializer):
         model = Wallet
         fields = ["id", "pin", "pin2"]
 
+
+class VerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField()
+
+
+class ResetPinSerializer(serializers.ModelSerializer):
+    otp = serializers.CharField(max_length=50, min_length=4)
+    pin2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Wallet
+        fields = ("otp", "pin", "pin2")
