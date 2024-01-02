@@ -294,7 +294,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
     permission_classes = (IsAuthenticated, IsPartnerOrMember)
     parser_classes = (MultiPartParser, JSONParser)
 
-    def get(self, request):
+    def update(self, request):
         user = self.request.user  # Get the authenticated user.
 
         if user:
@@ -347,10 +347,17 @@ class UpdateCustomer(generics.RetrieveAPIView):
                     json=payload,
                     header=headers,
                 )
-                return Response(data=response.json(), status=status.HTTP_200_OK)
+                if response.status_code == 200:
+                    resp = {
+                        "message": "Update customer request done.",
+                        "data": response.json()
+                    }
+                    return Response(data=resp, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=response.json(), status=response.status_code)
 
             except requests.exceptions.RequestException as e:
-                logging.error(f"e customer to Tier 1 API request error: {str(e)}")
+                logging.error(f"Update customer to Tier 1 API request error: {str(e)}")
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -713,3 +720,35 @@ class ResetPin(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class GetAllBanks(generics.RetrieveAPIView):
+    """
+    GetAllBanks handles the GETT request of listing 
+    all institutions by type, code and country.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            resource = "institutions"
+            try:
+                response = requests.get(
+                    url=base_url + resource, headers=headers
+                )
+                if response.status_code == 200:
+                    response_data = {
+                        "data": response.json(),
+                    }
+
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(response.json(), status=response.status_code)
+            
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Listing all institutions API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
