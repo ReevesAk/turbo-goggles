@@ -7,13 +7,13 @@ NGN_ID_TYPE = (
     ("NIN", "NIN"),
     ("PASSPORT", "PASSPORT"),
     ("VOTERS_CARD", "VOTERS_CARD"),
-    ("DRIVERS_LICENSE", "DRIVERS_LICENSE")
+    ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
 )
 
 USD_ID_TYPE = (
     ("PASSPORT", "PASSPORT"),
     ("VOTERS_CARD", "VOTERS_CARD"),
-    ("DRIVERS_LICENSE", "DRIVERS_LICENSE")
+    ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
 )
 
 
@@ -42,7 +42,9 @@ class Phone(models.Model):
 
 
 class Address(models.Model):
-    user = models.ForeignKey(to=CustomerData, on_delete=models.CASCADE, related_name='banking_address')
+    user = models.ForeignKey(
+        to=CustomerData, on_delete=models.CASCADE, related_name="banking_address"
+    )
     street = models.CharField(max_length=150, null=True)
     street2 = models.CharField(max_length=50, null=True, blank=True)
     city = models.CharField(max_length=100, null=True)
@@ -53,9 +55,11 @@ class Address(models.Model):
 
 class Identity(models.Model):
     user = models.ForeignKey(to=CustomerData, on_delete=models.CASCADE)
-    type = models.CharField(choices=NGN_ID_TYPE,  max_length=150, null=True, default="NIN")
-    image = models.CharField(max_length=150, null=True) # image url of the document.
-    number = models.CharField(max_length=200, null=True) # document number.
+    type = models.CharField(
+        choices=NGN_ID_TYPE, max_length=150, null=True, default="NIN"
+    )
+    image = models.CharField(max_length=150, null=True)  # image url of the document.
+    number = models.CharField(max_length=200, null=True)  # document number.
     country = models.CharField(max_length=150, null=True)
 
 
