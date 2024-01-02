@@ -294,7 +294,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
     permission_classes = (IsAuthenticated, IsPartnerOrMember)
     parser_classes = (MultiPartParser, JSONParser)
 
-    def get(self, request):
+    def update(self, request):
         user = self.request.user  # Get the authenticated user.
 
         if user:
