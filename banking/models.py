@@ -86,7 +86,7 @@ class Wallet(models.Model):
 
 class Cards(models.Model):
     user = models.OneToOneField(to=CustomerData, on_delete=models.CASCADE)
-    id = models.CharField(max_length=255, null=True)
+    card_id = models.CharField(max_length=255, null=True)
     currency = models.CharField(max_length=150, null=True)
     type = models.CharField(max_length=50, null=True)
     auto_approve = models.BooleanField(default=True)
