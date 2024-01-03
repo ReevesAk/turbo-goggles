@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import BVNData, Address, Wallet
+from .models import BVNData, Address, Wallet, Cards
 
 
 class BVNSerializer(serializers.Serializer):
@@ -110,3 +110,23 @@ class ResetPinSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = ("otp", "pin", "pin2")
+
+
+class CreateCardSerializers(serializers.ModelSerializer):
+    """Serailizers for creating an order for USD ."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Cards
+        fields = ("pin", "type")
+
+
+class FundCardSerializers(serializers.ModelSerializer):
+    """Serailizers for funding a card."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Cards
+        fields = ("pin", "amount")

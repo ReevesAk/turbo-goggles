@@ -17,6 +17,12 @@ USD_ID_TYPE = (
 )
 
 
+CARD_BRAND = (
+    ("VISA", "VISA"),
+    ("MASTERCARD", "MASTERCARD"),
+)
+
+
 class CustomerData(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     first_name = models.CharField(max_length=255, null=True)
@@ -76,3 +82,13 @@ class Wallet(models.Model):
     identity_issued_date = models.CharField(max_length=155, null=True)
     identity_expiration = models.CharField(max_length=155, null=True)
     pin = models.CharField(max_length=50, null=True)
+
+
+class Cards(models.Model):
+    user = models.OneToOneField(to=CustomerData, on_delete=models.CASCADE)
+    id = models.CharField(max_length=255, null=True)
+    currency = models.CharField(max_length=150, null=True)
+    type = models.CharField(max_length=50, null=True)
+    auto_approve = models.BooleanField(default=True)
+    brand = models.CharField(choices=CARD_BRAND, max_length=100, null=True)
+    amount = models.FloatField(null=True)

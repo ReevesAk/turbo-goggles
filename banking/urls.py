@@ -13,7 +13,13 @@ from .views import (
     GetCustomer,
     GetCustomersWallets,
     CustomerTransctionHistory,
-    UpdateCustomer
+    UpdateCustomer,
+    GetAllBanks,
+)
+
+from .cards import (
+    CreateCard,
+    FundCard
 )
 
 
@@ -30,6 +36,10 @@ urlpatterns = [
     path("get-customer", GetCustomer.as_view(), name="get_customer"),
     path("get-customers-wallets", GetCustomersWallets.as_view(), name="get_customers_wallets"),
     path("customers-history", CustomerTransctionHistory.as_view(), name="customers_history"),
-    path("update-customer", UpdateCustomer.as_view(), name="update_customer")
-    
+    path("update-customer", UpdateCustomer.as_view(), name="update_customer"),
+    path("all-banks", GetAllBanks.as_view(), name="all_banks"),
+
+    # Card Endpoints.
+    path("card/create",  CreateCard.as_view(), name="create_card"),
+    path("card/fund", FundCard.as_view(), name="func_card"),
 ]
