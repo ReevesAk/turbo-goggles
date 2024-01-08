@@ -5,8 +5,6 @@ from decouple import config
 from rest_framework import status
 from rest_framework.response import Response
 
-from .models import Cards
-
 
 api_secret_key = config("MAPLERAD_SECRET_KEY")
 base_url = config("MAPLERAD_BASE_URL")
@@ -19,26 +17,26 @@ headers = {
 
 
 class BVN:
-        @staticmethod
-        def verify(bvn):
-            resource = "identity/bvn"
+    @staticmethod
+    def verify(bvn):
+        resource = "identity/bvn"
 
-            payload = {
-                "bvn": bvn,
-            }
+        payload = {
+            "bvn": bvn,
+        }
 
-            try:
-                response = requests.post(
-                    url=base_url + resource,
-                    json=payload,
-                    header=headers,
-                )
-                return response
-            except requests.exceptions.RequestException as e:
-                logging.error(f"BVN API request error: {str(e)}")
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"BVN API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class Customer:
