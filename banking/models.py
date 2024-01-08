@@ -16,10 +16,14 @@ USD_ID_TYPE = (
     ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
 )
 
-
 CARD_BRAND = (
     ("VISA", "VISA"),
     ("MASTERCARD", "MASTERCARD"),
+)
+
+CURRENCY = (
+    ("NGN", "NGN"),
+    ("USD", "USD"),
 )
 
 
@@ -92,3 +96,32 @@ class Cards(models.Model):
     auto_approve = models.BooleanField(default=True)
     brand = models.CharField(choices=CARD_BRAND, max_length=100, null=True)
     amount = models.FloatField(null=True)
+
+
+class Transfer(models.Model):
+    user = models.ForeignKey(to=Wallet, on_delete=models.CASCADE)
+    bank_code = models.CharField(max_length=50, null=True)
+    acct_number = models.CharField(max_length=150, null=True)
+    amount = models.FloatField(null=True)
+    reason = models.CharField(max_length=150, null=True, blank=True)
+    currency = models.CharField(choices=CURRENCY, max_length=100, null=True)
+    first_name = models.CharField(max_length=150, null=True)
+    last_name = models.CharField(max_length=150, null=True)
+    phone_number = models.CharField(max_length=150, null=True)
+    address = models.CharField(max_length=150, null=True)
+    country = models.CharField(max_length=50, null=True)
+    dob = models.CharField(max_length=150, null=True)
+    nationality = models.CharField(max_length=150, null=True)
+    state = models.CharField(max_length=150, null=True)
+    city = models.CharField(max_length=150, null=True)
+    postal_code = models.CharField(max_length=150, null=True)
+    id_type = models.CharField(max_length=150, null=True)
+    number = models.CharField(max_length=150, null=True)
+    issued_at = models.CharField(max_length=150, null=True)
+    issued_date = models.CharField(max_length=150, null=True)
+    expiration_date = models.CharField(max_length=150, null=True)
+    receiver_first_name = models.CharField(max_length=150, null=True)
+    receiver_last_name = models.CharField(max_length=150, null=True)
+    receiver_phone_number = models.CharField(max_length=150, null=True)
+    receiver_country = models.CharField(max_length=150, null=True)
+    receiver_address = models.CharField(max_length=150, null=True)
