@@ -72,44 +72,45 @@ class VerifYBVN(generics.CreateAPIView):
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             # Verify the user's BVN.
-            bvn_data = BVN.verify(bvn=user_data.get("bvn"))
-            if bvn_data is None:
-                return Response(
-                    data={"message": "Bvn provided does not exist"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+            bvn_response = BVN.verify(bvn=user_data.get("bvn"))
+            bvn_status_code = bvn_response.status_code
 
-            # Check if the user's date of birth and phone number match the ones on BVN.
-            if (
-                user_data.get("date_of_birth") != bvn_data["date_of_birth"]
-                or user_data.get("phone_number") != bvn_data["phone_num"]
-            ):
-                return Response(
-                    data={
-                        "message": "Date of birth or phone number provided does not match the one on bvn"
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            if bvn_status_code == 200:
+                bvn_data = bvn_response.json()
 
-            # Update the user's BVN instance with the new data.
-            bvn.first_name = bvn_data["first_name"]
-            bvn.last_name = bvn_data["last_name"]
-            bvn.date_of_birth = bvn_data["date_of_birth"]
-            bvn.phone_number = bvn_data["phone_num"]
-            bvn.number = user_data.get("bvn")
-            bvn.save()
+                # Check if the user's date of birth and phone number match the ones on BVN.
+                if (
+                    user_data.get("date_of_birth") != bvn_data["date_of_birth"]
+                    or user_data.get("phone_number") != bvn_data["phone_num"]
+                ):
+                    return Response(
+                        data={
+                            "message": "Date of birth or phone number provided does not match the one on bvn"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-            authenticated_user.is_bvn_verified = True
-            authenticated_user.save()
+                # Update the user's BVN instance with the new data.
+                bvn.first_name = bvn_data["first_name"]
+                bvn.last_name = bvn_data["last_name"]
+                bvn.date_of_birth = bvn_data["date_of_birth"]
+                bvn.phone_number = bvn_data["phone_num"]
+                bvn.number = user_data.get("bvn")
+                bvn.save()
 
-            serializer = BVNSerializer(data=user_data)
+                authenticated_user.is_bvn_verified = True
+                authenticated_user.save()
 
-            response = {
-                "status": "Success",
-                "message": "Bvn verification was successful",
-                "Bvn data": serializer.data,
-            }
-            return Response(data=response, status=status.HTTP_201_CREATED)
+                serializer = BVNSerializer(data=user_data)
+
+                response = {
+                    "status": "Success",
+                    "message": "Bvn verification was successful",
+                    "Bvn data": serializer.data,
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+            else:
+                return Response(data=bvn_response.json(), status=bvn_status_code)
 
 
 class CreateNGNAccount(generics.GenericAPIView):
@@ -407,6 +408,7 @@ class UpgradeAccount(generics.CreateAPIView):
                 city=payload.get("city"),
                 state=payload.get("state"),
                 postal_code=payload.get("postal_code"),
+                bvn=bvn.number,
             )
             if tier1_response.status_code == 200:
                 phone = Phone.objects.create(
@@ -426,13 +428,15 @@ class UpgradeAccount(generics.CreateAPIView):
                 )
                 address.save()
 
-                tier2 = Customer.upgradeTier2(
+                tier2_response = Customer.upgradeTier2(
                     customer_id=customer.customer_id,
                     id_type=payload.get("type"),
                     id_img=self.uploaded_image_url,
                     id_no=payload.get("number"),
                 )
-                if tier2.status_code == 200:
+                tier2_status_code = tier2_response.status_code
+
+                if tier2_status_code == 200:
                     identity = Identity.objects.create(
                         user=customer,
                         type=payload.get("type"),
@@ -442,6 +446,11 @@ class UpgradeAccount(generics.CreateAPIView):
                     )
                     identity.save()
                     return Response(data="User upgraded successfully!")
+
+                else:
+                    return Response(
+                        data=tier2_response.json(), status=tier2_status_code
+                    )
 
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)

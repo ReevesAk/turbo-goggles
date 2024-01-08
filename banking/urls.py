@@ -19,7 +19,7 @@ from .views import (
 
 from .cards import (
     CreateCard,
-    FundCard
+    PayWithCard
 )
 
 
@@ -41,5 +41,5 @@ urlpatterns = [
 
     # Card Endpoints.
     path("card/create",  CreateCard.as_view(), name="create_card"),
-    path("card/fund", FundCard.as_view(), name="func_card"),
+    path("card/pay", PayWithCard.as_view(), name="card_pay"),
 ]

@@ -15,9 +15,12 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     CreateCardSerializers,
     FundCardSerializers,
+    FreezeCardSerializers,
+    UnfreezeCardSerializers
 )
 from .models import Cards, CustomerData, Wallet
 from .helpers import Pin
+from .controllers import VirtualCard
 
 base_url = config("MAPLERAD_BASE_URL")
 secret_key = config("MAPLERAD_SECRET_KEY")
@@ -99,9 +102,11 @@ class CreateCard(generics.CreateAPIView):
             )
 
 
-class FundCard(generics.GenericAPIView):
+class PayWithCard(generics.GenericAPIView):
     """
-    FundCard handles the POST request of funding a USD card from a customers' account.
+    PayWithCard handles the POST request of withdrawing or paying for a 
+    service using a card. These includes funding a USD card from a 
+    customers'account before withdrawing/paying for a service.
     """
     serializer_class = FundCardSerializers
     authentication_classes = [JWTAuthentication]
@@ -117,10 +122,6 @@ class FundCard(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            resource = f"issuing/{id}/fund"
-            payload = {
-                "amount": request.data.get["amount"],
-            }
 
             # Authenticate wallet.
             pin = request.data.get("pin")
@@ -131,31 +132,125 @@ class FundCard(generics.GenericAPIView):
                 hashed_pin=wallet.pin
             )
             if is_pin_correct:
-                try:
-                    response = requests.post(
-                        url=base_url + resource,
-                        json=payload,
-                        header=headers,
-                    )
-                    if response.status_code == 200:
-                        card = Cards.objects.get(user=customer)
-                        card.amount = request.data.get["amount"]
-                        card.save()
-                        resp = {
-                            "message": "Card funded succesfully.",
-                            "data": response.json()
-                        }
-                        return Response(data=resp, status=status.HTTP_200_OK)
-                    else:
-                        return Response(data=response.json(), status=response.status_code)
+                fund_card_response = VirtualCard.fund(
+                    id=id,
+                    amount=request.data.get["amount"]
+                )
+                if fund_card_response.status_code == 200:
+                    card = Cards.objects.get(user=customer)
+                    card.amount = request.data.get["amount"]
+                    card.save()
 
-                except requests.exceptions.RequestException as e:
-                    logging.error(f"Create a USD card API request error: {str(e)}")
+                    resource = f"issuing/{id}/withdraw"
+                    payload = {
+                        "amount": request.data.get["amount"]
+                    }
+                    try:
+                        withdraw_response = requests.post(
+                            url=base_url + resource,
+                            json=payload,
+                            header=headers,
+                        )
+                        if withdraw_response.status_code == 200:
+                            resp = {
+                                "message": "Transaction successful",
+                                "data": withdraw_response.json()
+                            }
+                            return Response(data=resp, status=status.HTTP_200_OK)
+                        else:
+                            return Response(data=withdraw_response.json(), status=status.HTTP_400_BAD_REQUEST)
+
+                    except requests.exceptions.RequestException as e:
+                        logging.error(f"Withdraw from a USD card API request error: {str(e)}")
+                        return Response(
+                            {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                    
+                else:
                     return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        data=fund_card_response.json(),
+                        status=fund_card_response.status_code
                     )
             else:
                 return Response(
                 data={"message": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+
+class FreezeCard(generics.GenericAPIView):
+    """
+    FreezeCard handles the POST request of freezing a card created on
+    the platform. When a card is frozen no transaction 
+    (funding/withdrawal) will be allowed.
+    """
+
+    serializer_class = FreezeCardSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def post(self, request):
+        authenticated_user = request.user
+
+        if authenticated_user:
+            customer = CustomerData.objects.get(user=authenticated_user)
+            card = Cards.objects.get(user=customer)
+            id = card.card_id
+
+            try:
+                freeze_card = VirtualCard.Freeze(id=id)
+                freeze_card_status_code = freeze_card.status_code
+
+                if freeze_card_status_code == 200:
+                    resp = {
+                        "message": "Card frozen successfully.",
+                        "data": freeze_card.json()
+                    }
+                    return Response(data=resp, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=freeze_card.json(), status=freeze_card_status_code)
+            
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Error while freezing a USD card: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class UnfreezeCard(generics.GenericAPIView):
+    """
+    UnfreezeCard handles the POST request of enabling a previously frozen a card 
+    created on the platform. When a card is enabled all transactions 
+    (funding/withdrawal) will be allowed.
+    """
+
+    serializer_class = UnfreezeCardSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+
+    def post(self, request):
+        authenticated_user = request.user
+
+        if authenticated_user:
+            customer = CustomerData.objects.get(user=authenticated_user)
+            card = Cards.objects.get(user=customer)
+            id = card.card_id
+
+            try:
+                unfreeze_card = VirtualCard.Unfreeze(id=id)
+                unfreeze_card_status_code = unfreeze_card.status_code
+
+                if unfreeze_card_status_code == 200:
+                    resp = {
+                        "message": "Card unfrozen successfully.",
+                        "data": unfreeze_card.json()
+                    }
+                    return Response(data=resp, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=unfreeze_card.json(), status=unfreeze_card_status_code)
+            
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Error while unfreezing a USD card: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
