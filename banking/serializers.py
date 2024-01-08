@@ -161,7 +161,7 @@ class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
         model = Transfer
         fields = [
             "pin",
-            "bankcode",
+            "bank_code",
             "acct_number",
             "amount",
             "reason",
