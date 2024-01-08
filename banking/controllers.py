@@ -31,24 +31,7 @@ class BVN:
                 json=payload,
                 header=headers,
             )
-            if response.status_code == 200:
-                resp = response.json()
-                date_of_birth = resp["data"]["dob"]
-                phone_number = resp["data"]["phone_number"]
-                first_name = resp["data"]["first_name"]
-                last_name = resp["data"]["last_name"]
-
-                return {
-                    "date_of_birth": date_of_birth,
-                    "phone_num": phone_number,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                }
-            else:
-                logging.error(
-                    f"BVN API error: {response.status_code} - {response.text}"
-                )
-                return None
+            return response
         except requests.exceptions.RequestException as e:
             logging.error(f"BVN API request error: {str(e)}")
             return Response(
@@ -123,18 +106,7 @@ class Customer:
                 json=payload,
                 header=headers,
             )
-            if response.status_code == 200:
-                return Response(
-                    data="Tier One upgrade successful!", status=status.HTTP_200_OK
-                )
-            else:
-                logging.error(
-                    f"Upgrade customer Tier 1 API error: {response.status_code} - {response.text}"
-                )
-                return Response(
-                    data=f"Tier1 upgrade failed: - {response.text}",
-                    status=response.status_code,
-                )
+            return response
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Upgrade customer to Tier 1 API request error: {str(e)}")
@@ -161,18 +133,7 @@ class Customer:
                 json=payload,
                 header=headers,
             )
-            if response.status_code == 200:
-                return {
-                    "type": id_type,
-                    "image": id_img,
-                    "number": id_no,
-                    "country": "NG",
-                }
-            else:
-                logging.error(
-                    f"Upgrade customer Tier 1 API error: {response.status_code} - {response.text}"
-                )
-                return None
+            return response
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Upgrade customer to Tier 1 API request error: {str(e)}")
@@ -180,33 +141,58 @@ class Customer:
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class VirtualCard:
     @staticmethod
-    def update(id_type, id_no, id_img, phone, customer_id):
-        resource = "customers/update"
+    def fund(id, amount):
+        resource = f"issuing/{id}/fund"
         payload = {
-            "customer_id": customer_id,
-            "identity": {
-                "type": id_type,
-                "image": id_img,
-                "number": id_no,
-                "country": "NG"
-            },
-            "phone": {
-                "phone_country_code": "+234",
-                "phone_number": phone
-            }
+            "amount": amount,
         }
+
         try:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
                 header=headers,
             )
-            return response.json()
-        
+            return response
+
         except requests.exceptions.RequestException as e:
-            logging.error(f"e customer to Tier 1 API request error: {str(e)}")
+            logging.error(f"Fund a USD card API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @staticmethod
+    def Freeze(id):
+        resource = f"issuing/{id}/freeze"
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Freezing a USD card API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def Unfreeze(id):
+        resource = f"issuing/{id}/unfreeze"
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Unfreezing a USD card API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -130,3 +130,39 @@ class FundCardSerializers(serializers.ModelSerializer):
     class Meta:
         model = Cards
         fields = ("pin", "amount")
+
+
+class FreezeCardSerializers(serializers.ModelSerializer):
+    """Serailizers for freezing a card."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Cards
+        fields = ("pin", "amount")
+
+
+class UnfreezeCardSerializers(serializers.ModelSerializer):
+    """Serailizers for unfreezing a card."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Cards
+        fields = ("pin", "amount")
+
+
+class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
+    """Serailizers for making bank transfer within Nigeria from maplerad balance."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Cards
+        fields = [
+            "pin",
+            "bankcode",
+            "acct_number",
+            "amount",
+            "reason",
+        ]
