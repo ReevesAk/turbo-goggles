@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import BVNData, Address, Wallet, Cards
+from .models import BVNData, Address, Wallet, Cards, Transfer
 
 
 class BVNSerializer(serializers.Serializer):
@@ -158,7 +158,7 @@ class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
-        model = Cards
+        model = Transfer
         fields = [
             "pin",
             "bankcode",
