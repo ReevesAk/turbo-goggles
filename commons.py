@@ -51,7 +51,6 @@ class Message:
             print(termii_base_url + resource)
             print(payload)
             if response.status_code == 200:
-                print()
                 return Response(response.json())
             else:
                 error_resp = "Error from server: " + str(response.json())

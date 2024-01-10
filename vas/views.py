@@ -19,6 +19,7 @@ from .serializers import (
     HomeCoverInsuranceSerializer,
 )
 from wallets.controllers import Debit, Credit
+from banking.controllers import Transaction
 from permissions import VasPermission
 from wallets.controllers import Pin
 
@@ -59,8 +60,8 @@ class AirTimeTopUp(generics.GenericAPIView):
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
             # Inititate a debit on the customer's account.
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for airtime recharge"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
                 airtime_headers = {"secret-key": x_secret, "api-key": api_key}
@@ -175,8 +176,8 @@ class DataSubscription(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for data subscription"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
                 data_headers = {
@@ -302,8 +303,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for electricity bill payment"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for electricity bill payment"
             )
             if debit_response == 200:
                 electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
@@ -510,8 +511,8 @@ class NewTvSubscription(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for electricity bill payment"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user)
@@ -589,8 +590,8 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for electricity bill payment"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user)
@@ -826,8 +827,8 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for airtime recharge"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for international airtime recharge"
             )
             if debit_response == 200:
                 intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
@@ -942,8 +943,8 @@ class WaecRegistration(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for waec registration"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for waec registration"
             )
             if debit_response == 200:
                 waec_headers = {"secret-key": x_secret, "api-key": api_key}
@@ -1067,8 +1068,8 @@ class VehicleInsurance(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for vehicle insurance."
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for vehicle insurance"
             )
 
             if debit_response == 200:
@@ -1189,8 +1190,8 @@ class AccidentInsurance(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for accident insurance"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for accident inssurance"
             )
 
             if debit_response == 200:
@@ -1310,11 +1311,11 @@ class HomeCoverInsurance(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=authenticated_user, pin=pin)
         if verification:
-            debit_response = Debit.debit_customer(
-                amount=user["amount"], description="Debit for home cover insurance"
+            debit_response = Transaction.Debit(
+                amount=user["amount"], reason="Debit for home cover insurance registration"
             )
 
-            if debit_response == 200:
+            if debit_response.status_code == 200:
                 insurance_headers = {"secret-key": x_secret, "api-key": api_key}
 
                 serializer = self.serializer_class(data=user)
@@ -1342,15 +1343,19 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             }
 
                             # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
+                            credit_response = Transaction.Credit(
+                                acct_no=user.accountNumber,
                                 amount=user["amount"],
+                                reason="Refund for failed home cover insurance."
                             )
-                            return Response(response_data, status=response.status_code)
-
+                            if credit_response.status_code == 200:
+                                response = {
+                                    "data": response.json(),
+                                    "messsage": "Wallet refunded.",
+                                }
+                                return Response(data=response, status=credit_response.status_code)
+                            else:
+                                return Response(data="A refund will be issued shortly", status=credit_response.status_code)
                     except requests.exceptions.RequestException as e:
                         return Response(
                             {"error": str(e)},

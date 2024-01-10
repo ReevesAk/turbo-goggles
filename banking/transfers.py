@@ -40,7 +40,7 @@ class TransferWithinNG(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            resource = "disbursements/payouts"
+            resource = "transfers"
             payload = {
                 "bank_code": user_data["bankcode"],
                 "account_number": user_data["acct_number"],
