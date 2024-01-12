@@ -102,3 +102,10 @@ class Message:
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class Points:
+    @staticmethod
+    def award(amount):
+        points = (amount / 100) * 0.5
+        return points

@@ -38,7 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     country = models.CharField(max_length=155, blank=False)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
-    game_points = models.IntegerField(null=True)
+    points = models.FloatField(null=True)
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
     is_upgraded = models.BooleanField(default=False)

@@ -1,6 +1,7 @@
 from datetime import datetime
 import requests
 from decouple import config
+from commons import Points
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -18,7 +19,7 @@ from .serializers import (
     AccidentInsuranceSerializer,
     HomeCoverInsuranceSerializer,
 )
-from wallets.controllers import Debit, Credit
+from wallets.controllers import Credit
 from banking.controllers import Transaction
 from permissions import VasPermission
 from wallets.controllers import Pin
@@ -41,7 +42,7 @@ class AirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -49,24 +50,24 @@ class AirTimeTopUp(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
+            "serviceID": user_data["serviceID"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             # Inititate a debit on the customer's account.
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for airtime recharge"
+                amount=user_data["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
                 airtime_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -77,7 +78,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
@@ -157,7 +165,7 @@ class DataSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -165,19 +173,19 @@ class DataSubscription(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
+            "serviceID": user_data["serviceID"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
+            "billersCode": user_data["billersCode"],
+            "variation_code": user_data["variation_code"],
         }
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for airtime recharge"
+                amount=user_data["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
                 data_headers = {
@@ -186,7 +194,7 @@ class DataSubscription(generics.GenericAPIView):
                     "secret-key": x_secret,
                 }
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -197,7 +205,14 @@ class DataSubscription(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
@@ -216,7 +231,7 @@ class DataSubscription(generics.GenericAPIView):
                                 lastname=user.lastName,
                                 accNo=user.accountNumber,
                                 bankCode="103",
-                                amount=user["amount"],
+                                amount=user_data["amount"],
                             )
                             return Response(response_data, status=response.status_code)
 
@@ -284,7 +299,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -292,24 +307,24 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "variation_code": user["variation_code"],
+            "serviceID": user_data["serviceID"],
+            "billersCode": user_data["billersCode"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
+            "variation_code": user_data["variation_code"],
         }
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for electricity bill payment"
+                amount=user_data["amount"], reason="Debit for electricity bill payment"
             )
             if debit_response == 200:
                 electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -320,7 +335,14 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
@@ -484,7 +506,7 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -492,13 +514,13 @@ class NewTvSubscription(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "subscription_type": user["subscription_type"],
-            "quantity": user["quantity"],
-            "variation_code": user["variation_code"],
+            "serviceID": user_data["serviceID"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
+            "billersCode": user_data["billersCode"],
+            "subscription_type": user_data["subscription_type"],
+            "quantity": user_data["quantity"],
+            "variation_code": user_data["variation_code"],
         }
         tv_sub_headers = {
             "secret-key": x_secret,
@@ -506,16 +528,16 @@ class NewTvSubscription(generics.GenericAPIView):
             "secret-key": x_secret,
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for Tv subscription"
+                amount=user_data["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -526,10 +548,16 @@ class NewTvSubscription(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
-
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
@@ -566,7 +594,7 @@ class RenewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -574,27 +602,27 @@ class RenewTvSubscription(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "subscription_type": user["subscription_type"],
+            "serviceID": user_data["serviceID"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
+            "billersCode": user_data["billersCode"],
+            "subscription_type": user_data["subscription_type"],
         }
         renew_tv_sub_headers = {
             "secret-key": x_secret,
             "api-key": api_key,
             "secret-key": x_secret,
         }
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for Tv subscription"
+                amount=user_data["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -605,7 +633,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
@@ -803,7 +838,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -811,29 +846,29 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "operator_id": user["operator_id"],
-            "variation_code": user["variation_code"],
-            "country_code": user["country_code"],
-            "email": user["email"],
-            "product_type_id": user["product_type_id"],
+            "serviceID": user_data["serviceID"],
+            "amount": user_data["amount"],
+            "phone": user_data["phone"],
+            "billersCode": user_data["billersCode"],
+            "operator_id": user_data["operator_id"],
+            "variation_code": user_data["variation_code"],
+            "country_code": user_data["country_code"],
+            "email": user_data["email"],
+            "product_type_id": user_data["product_type_id"],
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for international airtime recharge"
+                amount=user_data["amount"], reason="Debit for international airtime recharge"
             )
             if debit_response == 200:
                 intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -844,6 +879,16 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
+                            response_data = {
+                                "status": "Success",
+                                "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": response.json(),
+                            }
                             response_data = {
                                 "data": response.json(),
                             }
@@ -924,7 +969,7 @@ class WaecRegistration(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -932,24 +977,24 @@ class WaecRegistration(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "variation_code": user["variation_code"],
-            "quantity": user["quantity"],
-            "phone": user["phone"],
+            "serviceID": user_data["serviceID"],
+            "variation_code": user_data["variation_code"],
+            "quantity": user_data["quantity"],
+            "phone": user_data["phone"],
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for waec registration"
+                amount=user_data["amount"], reason="Debit for waec registration"
             )
             if debit_response == 200:
                 waec_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -1040,7 +1085,7 @@ class VehicleInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -1048,34 +1093,34 @@ class VehicleInsurance(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "Insured_Name": user["Insured_Name"],
-            "Engine_Number": user["Engine_Number"],
-            "Chasis_Number": user["Chasis_Number"],
-            "Plate_Number": user["Plate_Number"],
-            "Vehicle_Make": user["Vehicle_Make"],
-            "Vehicle_Color": user["Vehicle_Color"],
-            "Vehicle_Model": user["Vehicle_Model"],
-            "Year_of_Make": user["Year_of_Make"],
-            "Contact_Address": user["Contact_Address"],
+            "serviceID": user_data["serviceID"],
+            "billersCode": user_data["billersCode"],
+            "variation_code": user_data["variation_code"],
+            "phone": user_data["phone"],
+            "Insured_Name": user_data["Insured_Name"],
+            "Engine_Number": user_data["Engine_Number"],
+            "Chasis_Number": user_data["Chasis_Number"],
+            "Plate_Number": user_data["Plate_Number"],
+            "Vehicle_Make": user_data["Vehicle_Make"],
+            "Vehicle_Color": user_data["Vehicle_Color"],
+            "Vehicle_Model": user_data["Vehicle_Model"],
+            "Year_of_Make": user_data["Year_of_Make"],
+            "Contact_Address": user_data["Contact_Address"],
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for vehicle insurance"
+                amount=user_data["amount"], reason="Debit for vehicle insurance"
             )
 
             if debit_response == 200:
                 insurance_headers = {"secret-key": x_secret, "api-key": api_key}
 
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     serializer.save()
                     try:
@@ -1086,7 +1131,14 @@ class VehicleInsurance(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
@@ -1165,7 +1217,7 @@ class AccidentInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -1173,25 +1225,25 @@ class AccidentInsurance(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "full_name": user["full_name"],
-            "address": user["address"],
-            "dob": user["dob"],
-            "next_kin_name": user["next_kin_name"],
-            "next_kin_phone": user["next_kin_phone"],
-            "business_occupation": user["business_occupation"],
+            "serviceID": user_data["serviceID"],
+            "billersCode": user_data["billersCode"],
+            "variation_code": user_data["variation_code"],
+            "phone": user_data["phone"],
+            "full_name": user_data["full_name"],
+            "address": user_data["address"],
+            "dob": user_data["dob"],
+            "next_kin_name": user_data["next_kin_name"],
+            "next_kin_phone": user_data["next_kin_phone"],
+            "business_occupation": user_data["business_occupation"],
         }
 
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for accident inssurance"
+                amount=user_data["amount"], reason="Debit for accident inssurance"
             )
 
             if debit_response == 200:
@@ -1208,10 +1260,16 @@ class AccidentInsurance(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
-
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
@@ -1288,7 +1346,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
 
         current_datetime = datetime.now()
         res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
@@ -1296,20 +1354,20 @@ class HomeCoverInsurance(generics.GenericAPIView):
         resource = "pay"
         payload = {
             "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "full_name": user["full_name"],
-            "address": user["address"],
-            "date_of_birth": user["date_of_birth"],
-            "type_building": user["type_building"],
-            "business_occupation": user["business_occupation"],
+            "serviceID": user_data["serviceID"],
+            "billersCode": user_data["billersCode"],
+            "variation_code": user_data["variation_code"],
+            "phone": user_data["phone"],
+            "full_name": user_data["full_name"],
+            "address": user_data["address"],
+            "date_of_birth": user_data["date_of_birth"],
+            "type_building": user_data["type_building"],
+            "business_occupation": user_data["business_occupation"],
         }
-        authenticated_user = request.user
+        user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Transaction.Debit(
                 amount=user["amount"], reason="Debit for home cover insurance registration"
@@ -1329,7 +1387,14 @@ class HomeCoverInsurance(generics.GenericAPIView):
                         )
 
                         if response.status_code == 200:
+                            amount = user_data["amount"]
+                            if amount >= 100:
+                                new_points = Points.award(amount=amount)
+                                user.points += new_points
+                                user.save()
                             response_data = {
+                                "status": "Success",
+                                "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_points} points",
                                 "data": response.json(),
                             }
 
