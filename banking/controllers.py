@@ -196,3 +196,53 @@ class VirtualCard:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class Transaction:
+    @staticmethod
+    def Debit(amount, reason):
+        resource = "transfers"
+        payload = {
+            "bank_code": "101",
+            "account_number": "",
+            "amount": amount,
+            "reason": reason,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Debiting an account API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def Credit(acct_no, amount, reason):
+        resource = "transfers"
+        payload = {
+            "bank_code": "101",
+            "account_number": acct_no,
+            "amount": amount,
+            "reason": reason,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Crediting a failed transaction account API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
