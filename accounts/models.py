@@ -38,7 +38,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     country = models.CharField(max_length=155, blank=False)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
-    points = models.FloatField(null=True)
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
     is_upgraded = models.BooleanField(default=False)
@@ -93,3 +92,19 @@ class OTP(models.Model):
     otp = models.CharField(max_length=6, null=True)
     user_id = models.IntegerField()
     expires_at = models.DateTimeField(auto_now_add=True)
+
+
+class TxModel(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    tx_id = models.CharField(max_length=255, null=True)
+    amount = models.FloatField(null=True)
+    description = models.CharField(max_length=255, null=True)
+    pts = models.FloatField(null=True)
+    date = models.DateTimeField(auto_now_add=True)
+
+
+class Points(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    transaction = models.ForeignKey(to=TxModel, on_delete=models.CASCADE)
+    balance = models.FloatField(null=True)
+    

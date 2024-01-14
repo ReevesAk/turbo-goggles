@@ -1,7 +1,8 @@
 from datetime import datetime
 import requests
 from decouple import config
-from commons import Points
+from commons import Pts
+from accounts.models import TxModel
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -20,9 +21,10 @@ from .serializers import (
     HomeCoverInsuranceSerializer,
 )
 from wallets.controllers import Credit
-from banking.controllers import Transaction
+from banking.controllers import Account
 from permissions import VasPermission
 from wallets.controllers import Pin
+from .helpers import VAS
 
 
 vtpass_url = config("VT_PASS_BASE_URL")
@@ -43,76 +45,67 @@ class AirTimeTopUp(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-        }
-
         user = request.user
+
         pin = request.data.get("pin")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             # Inititate a debit on the customer's account.
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
-                airtime_headers = {"secret-key": x_secret, "api-key": api_key}
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=airtime_headers,
-                        )
+                    airtime_response = VAS.aritime(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"]
+                    )
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
-                            }
+                    if airtime_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            tx = TxModel.objects.create(
+                                user=user,
+                                tx_id=airtime_response["transactionId"],
+                                amount=user_data["amount"],
+                                description="Debit for airtime recharge",
+                                pts=new_points
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                            pts = Pts.objects.create(user=user)
+                            pts.balance += new_points
+                            pts.transaction = tx
+                            pts.save()
+                            
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
+                            "data": airtime_response.json(),
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
                         return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            data=response_data, status=status.HTTP_200_OK
                         )
+                    else:
+                        response_data = {
+                            "data": airtime_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
+                        )
+                        return Response(data=response_data, status=airtime_response.status_code)
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -166,54 +159,47 @@ class DataSubscription(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-            "billersCode": user_data["billersCode"],
-            "variation_code": user_data["variation_code"],
-        }
         user = request.user
+
         pin = request.data.get("pin")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for airtime recharge"
             )
             if debit_response == 200:
-                data_headers = {
-                    "secret-key": x_secret,
-                    "api-key": api_key,
-                    "secret-key": x_secret,
-                }
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=data_headers,
-                        )
+                    data_response = VAS.data(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"]
+                    )
+                    if data_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            tx = TxModel.objects.create(
+                                user=user,
+                                tx_id=data_response["transactionId"],
+                                amount=user_data["amount"],
+                                description="Debit for data subscription",
+                                pts=new_points
+                            )
+                            pts = Pts.objects.create(user=user)
+                            pts.balance += new_points
+                            pts.transaction = tx
+                            pts.save()
+
                             response_data = {
                                 "status": "Success",
                                 "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "data": data_response.json(),
                             }
 
                             return Response(
@@ -221,7 +207,7 @@ class DataSubscription(generics.GenericAPIView):
                             )
                         else:
                             response_data = {
-                                "data": response.json(),
+                                "data": data_response.json(),
                                 "messsage": "A refund will be issued",
                             }
 
@@ -233,13 +219,7 @@ class DataSubscription(generics.GenericAPIView):
                                 bankCode="103",
                                 amount=user_data["amount"],
                             )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                            return Response(data=response_data, status=data_response.status_code)
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):

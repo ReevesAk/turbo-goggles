@@ -104,7 +104,7 @@ class Message:
             )
 
 
-class Points:
+class Pts:
     @staticmethod
     def award(amount):
         points = (amount / 100) * 0.5

@@ -198,7 +198,7 @@ class VirtualCard:
             )
 
 
-class Transaction:
+class Account:
     @staticmethod
     def Debit(amount, reason):
         resource = "transfers"
