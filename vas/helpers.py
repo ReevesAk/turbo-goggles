@@ -177,3 +177,123 @@ class VAS:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def waec_reg(service_id, phone, variation_code, quantity):
+
+        resource = "pay"
+        payload = {
+            "request_id": req_id,
+            "serviceID":service_id,
+            "variation_code": variation_code,
+            "quantity": quantity,
+            "phone": phone
+        }
+
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Waec registration API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def vehicle_insurance(service_id, billersCode, phone, variation_code, Insured_Name, Engine_Number, Chasis_Number, Plate_Number, Vehicle_Make, Vehicle_Color, Vehicle_Model, Year_of_Make, Contact_Address):
+
+        resource = "pay"
+        payload = {
+            "request_id": req_id,
+            "serviceID":service_id,
+            "billersCode": billersCode,
+            "variation_code": variation_code,
+            "phone": phone,
+            "Insured_Name": Insured_Name,
+            "Engine_Number": Engine_Number,
+            "Chasis_Number": Chasis_Number,
+            "Plate_Number": Plate_Number,
+            "Vehicle_Make": Vehicle_Make,
+            "Vehicle_Color": Vehicle_Color,
+            "Vehicle_Model": Vehicle_Model,
+            "Year_of_Make": Year_of_Make,
+            "Contact_Address": Contact_Address
+        }
+
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Vehicle insurance API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def accident_insurance(service_id, billersCode, phone, variation_code, full_name, address, dob, next_kin_name, next_kin_phone, business_occupation):
+
+        resource = "pay"
+        payload = {
+            "request_id": req_id,
+            "serviceID":service_id,
+            "billersCode": billersCode,
+            "variation_code": variation_code,
+            "phone_no": phone,
+            "full_name": full_name,
+            "address": address,
+            "dob": dob,
+            "next_kin_name": next_kin_name,
+            "next_kin_phone": next_kin_phone,
+            "business_occupation": business_occupation,
+        }
+
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Vehicle insurance API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def home_cover_insurance(service_id, billersCode, phone, variation_code, full_name, address, date_of_birth, type_building, business_occupation):
+
+        resource = "pay"
+        payload = {
+            "request_id": req_id,
+            "serviceID":service_id,
+            "billersCode": billersCode,
+            "variation_code": variation_code,
+            "phone_no": phone,
+            "full_name": full_name,
+            "address": address,
+            "date_of_birth": date_of_birth,
+            "type_building": type_building,
+            "business_occupation": business_occupation,
+        }
+
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Vehicle insurance API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
