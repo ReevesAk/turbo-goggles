@@ -20,7 +20,6 @@ headers = {"secret-key": x_secret, "api-key": api_key}
 class VAS:
     @staticmethod
     def aritime(service_id, amount, phone):
-
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -44,11 +43,10 @@ class VAS:
 
     @staticmethod
     def data(service_id, amount, phone, billersCode, variation_code):
-
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "amount": amount,
             "phone": phone,
             "billersCode": billersCode,
@@ -70,11 +68,10 @@ class VAS:
 
     @staticmethod
     def electricity(service_id, amount, phone, billersCode, variation_code):
-
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "amount": amount,
             "phone": phone,
             "billersCode": billersCode,
@@ -95,18 +92,25 @@ class VAS:
             )
 
     @staticmethod
-    def newTvSub(service_id, amount, phone, billersCode, variation_code, quantity, subscription_type):
-
+    def newTvSub(
+        service_id,
+        amount,
+        phone,
+        billersCode,
+        variation_code,
+        quantity,
+        subscription_type,
+    ):
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "amount": amount,
             "phone": phone,
             "billersCode": billersCode,
             "variation_code": variation_code,
             "subscription_type": subscription_type,
-            "quantity": quantity
+            "quantity": quantity,
         }
 
         try:
@@ -124,11 +128,10 @@ class VAS:
 
     @staticmethod
     def renewTvSub(service_id, amount, phone, billersCode, subscription_type):
-
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "amount": amount,
             "phone": phone,
             "billersCode": billersCode,
@@ -149,12 +152,21 @@ class VAS:
             )
 
     @staticmethod
-    def intl_topup(service_id, amount, phone, billersCode, operator_id, variation_code, country_code, email, product_type_id):
-
+    def intl_topup(
+        service_id,
+        amount,
+        phone,
+        billersCode,
+        operator_id,
+        variation_code,
+        country_code,
+        email,
+        product_type_id,
+    ):
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "amount": amount,
             "phone": phone,
             "billersCode": billersCode,
@@ -162,7 +174,7 @@ class VAS:
             "variation_code": variation_code,
             "country_code": country_code,
             "email": email,
-            "product_type_id": product_type_id
+            "product_type_id": product_type_id,
         }
 
         try:
@@ -180,14 +192,13 @@ class VAS:
 
     @staticmethod
     def waec_reg(service_id, phone, variation_code, quantity):
-
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "variation_code": variation_code,
             "quantity": quantity,
-            "phone": phone
+            "phone": phone,
         }
 
         try:
@@ -204,12 +215,25 @@ class VAS:
             )
 
     @staticmethod
-    def vehicle_insurance(service_id, billersCode, phone, variation_code, Insured_Name, Engine_Number, Chasis_Number, Plate_Number, Vehicle_Make, Vehicle_Color, Vehicle_Model, Year_of_Make, Contact_Address):
-
+    def vehicle_insurance(
+        service_id,
+        billersCode,
+        phone,
+        variation_code,
+        Insured_Name,
+        Engine_Number,
+        Chasis_Number,
+        Plate_Number,
+        Vehicle_Make,
+        Vehicle_Color,
+        Vehicle_Model,
+        Year_of_Make,
+        Contact_Address,
+    ):
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "billersCode": billersCode,
             "variation_code": variation_code,
             "phone": phone,
@@ -221,7 +245,7 @@ class VAS:
             "Vehicle_Color": Vehicle_Color,
             "Vehicle_Model": Vehicle_Model,
             "Year_of_Make": Year_of_Make,
-            "Contact_Address": Contact_Address
+            "Contact_Address": Contact_Address,
         }
 
         try:
@@ -238,15 +262,25 @@ class VAS:
             )
 
     @staticmethod
-    def accident_insurance(service_id, billersCode, phone, variation_code, full_name, address, dob, next_kin_name, next_kin_phone, business_occupation):
-
+    def accident_insurance(
+        service_id,
+        billersCode,
+        phone,
+        variation_code,
+        full_name,
+        address,
+        dob,
+        next_kin_name,
+        next_kin_phone,
+        business_occupation,
+    ):
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "billersCode": billersCode,
             "variation_code": variation_code,
-            "phone_no": phone,
+            "phone": phone,
             "full_name": full_name,
             "address": address,
             "dob": dob,
@@ -269,15 +303,24 @@ class VAS:
             )
 
     @staticmethod
-    def home_cover_insurance(service_id, billersCode, phone, variation_code, full_name, address, date_of_birth, type_building, business_occupation):
-
+    def home_cover_insurance(
+        service_id,
+        billersCode,
+        phone,
+        variation_code,
+        full_name,
+        address,
+        date_of_birth,
+        type_building,
+        business_occupation,
+    ):
         resource = "pay"
         payload = {
             "request_id": req_id,
-            "serviceID":service_id,
+            "serviceID": service_id,
             "billersCode": billersCode,
             "variation_code": variation_code,
-            "phone_no": phone,
+            "phone": phone,
             "full_name": full_name,
             "address": address,
             "date_of_birth": date_of_birth,

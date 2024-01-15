@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 import requests
 from decouple import config
 from commons import Pts
@@ -64,7 +63,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     airtime_response = VAS.aritime(
                         service_id=user_data["serviceID"],
                         amount=user_data["amount"],
-                        phone=user_data["phone"]
+                        phone=user_data["phone"],
                     )
 
                     if airtime_response.status_code == 200:
@@ -77,23 +76,21 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 user=user,
                                 tx_id=airtime_response.json()["transactionId"],
                                 amount=user_data["amount"],
-                                description="Debit for airtime recharge",
-                                pts=new_points
+                                description="Debit for airtime recharge.",
+                                pts=new_points,
                             )
                             pts = Pts.objects.create(user=user)
                             pts.balance += new_points
                             pts.transaction = tx
                             pts.save()
-                            
+
                         response_data = {
                             "status": "Success",
-                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
+                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points.",
                             "data": airtime_response.json(),
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": airtime_response.json(),
@@ -108,11 +105,17 @@ class AirTimeTopUp(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(data=response_data, status=airtime_response.status_code)
+                        return Response(
+                            data=response_data, status=airtime_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -172,7 +175,7 @@ class DataSubscription(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for airtime recharge"
+                amount=user_data["amount"], reason="Debit for airtime recharge."
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
@@ -182,7 +185,7 @@ class DataSubscription(generics.GenericAPIView):
                         amount=user_data["amount"],
                         phone=user_data["phone"],
                         billersCode=user_data["billersCode"],
-                        variation_code=user_data["variation_code"]
+                        variation_code=user_data["variation_code"],
                     )
                     if data_response.status_code == 200:
                         serializer.save()
@@ -194,8 +197,8 @@ class DataSubscription(generics.GenericAPIView):
                                 user=user,
                                 tx_id=data_response.json()["transactionId"],
                                 amount=user_data["amount"],
-                                description="Debit for data subscription",
-                                pts=new_points
+                                description="Debit for data subscription.",
+                                pts=new_points,
                             )
                             pts = Pts.objects.create(user=user)
                             pts.balance += new_points
@@ -204,7 +207,7 @@ class DataSubscription(generics.GenericAPIView):
 
                             response_data = {
                                 "status": "Success",
-                                "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points",
+                                "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points.",
                                 "data": data_response.json(),
                             }
 
@@ -214,7 +217,7 @@ class DataSubscription(generics.GenericAPIView):
                     else:
                         response_data = {
                             "data": data_response.json(),
-                            "messsage": "A refund will be issued",
+                            "messsage": "A refund will be issued.",
                         }
 
                         # initiate a credit refund to the customer after failed transaction.
@@ -225,11 +228,17 @@ class DataSubscription(generics.GenericAPIView):
                             bankCode="103",
                             amount=user_data["amount"],
                         )
-                        return Response(data=response_data, status=data_response.status_code)
+                        return Response(
+                            data=response_data, status=data_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -296,7 +305,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for electricity bill payment"
+                amount=user_data["amount"], reason="Debit for electricity bill payment."
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
@@ -306,20 +315,22 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         amount=user_data["amount"],
                         phone=user_data["phone"],
                         billersCode=user_data["billersCode"],
-                        variation_code=user_data["variation_code"]
+                        variation_code=user_data["variation_code"],
                     )
                     if electricity_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
-                        
+
                         if amount >= 100:
                             new_points = Pts.award(amount=amount)
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = electricity_response.json().get("transactionId", "")
+                                    tx.tx_id = electricity_response.json().get(
+                                        "transactionId", ""
+                                    )
                                     tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for electricity payment"
+                                    tx.description = "Debit for electricity payment."
                                     tx.pts = new_points
                                     tx.save()
 
@@ -333,7 +344,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
                             response_data = {
                                 "status": "Success",
-                                "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points",
+                                "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points.",
                                 "data": electricity_response.json(),
                             }
 
@@ -354,11 +365,17 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(data=response_data, status=electricity_response.status_code)
+                        return Response(
+                            data=response_data, status=electricity_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -503,7 +520,7 @@ class NewTvSubscription(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for Tv subscription"
+                amount=user_data["amount"], reason="Debit for Tv subscription."
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
@@ -515,7 +532,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         billersCode=user_data["billersCode"],
                         variation_code=user_data["variation_code"],
                         subscription_type=user_data["subscription_type"],
-                        quantity=user_data["quantity"]
+                        quantity=user_data["quantity"],
                     )
                     if new_tv_response.status_code == 200:
                         serializer.save()
@@ -526,10 +543,12 @@ class NewTvSubscription(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=new_tv_response.json().get("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = new_tv_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for tv subscription."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -562,11 +581,17 @@ class NewTvSubscription(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(response_data, status=new_tv_response.status_code)
+                        return Response(
+                            response_data, status=new_tv_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -588,7 +613,7 @@ class RenewTvSubscription(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for Tv subscription"
+                amount=user_data["amount"], reason="Debit for Tv subscription."
             )
             if debit_response.status_code == 200:
                 serializer = self.serializer_class(data=user_data)
@@ -609,10 +634,12 @@ class RenewTvSubscription(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=renew_tv_response.json().get("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = renew_tv_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for tv subscription."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -646,11 +673,17 @@ class RenewTvSubscription(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(response_data, status=renew_tv_response.status_code)
+                        return Response(
+                            response_data, status=renew_tv_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -829,7 +862,8 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for international airtime recharge"
+                amount=user_data["amount"],
+                reason="Debit for international airtime recharge.",
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
@@ -848,16 +882,20 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                     if intl_topup_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
-            
+
                         if amount >= 100:
                             new_points = Pts.award(amount=amount)
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=intl_topup_response.json().get("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = intl_topup_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = (
+                                        "Debit for international airtime recharge."
+                                    )
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -891,11 +929,17 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(data=response_data, status=intl_topup_response.status_code)
+                        return Response(
+                            data=response_data, status=intl_topup_response.status_code
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
@@ -955,10 +999,9 @@ class WaecRegistration(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for waec registration"
+                amount=user_data["amount"], reason="Debit for waec registration."
             )
             if debit_response == 200:
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     waec_response = VAS.waec_reg(
@@ -976,10 +1019,12 @@ class WaecRegistration(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=waec_response.json().get["content"]["transactions"]("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = waec_response.json().get["content"][
+                                        "transactions"
+                                    ]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for WAEC registration."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -992,7 +1037,7 @@ class WaecRegistration(generics.GenericAPIView):
 
                             response_data = {
                                 "status": "Success",
-                                "message": f"Waec registration of {amount} was succesful and you have been awarded {new_points} points",
+                                "message": f"Waec registration of {amount} was succesful and you have been awarded {new_points} points.",
                                 "data": waec_response.json(),
                             }
 
@@ -1015,9 +1060,13 @@ class WaecRegistration(generics.GenericAPIView):
                         )
                         return Response(response_data, status=waec_response.status_code)
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1081,7 +1130,6 @@ class VehicleInsurance(generics.GenericAPIView):
             )
 
             if debit_response.status_code == 200:
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
                     vehicle_insurance_response = VAS.vehicle_insurance(
@@ -1108,10 +1156,12 @@ class VehicleInsurance(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=vehicle_insurance_response.json().get["content"]["transactions"]("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = vehicle_insurance_response.json().get[
+                                        "content"
+                                    ]["transactions"]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for vehicle insurance."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -1145,11 +1195,18 @@ class VehicleInsurance(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(data=response_data, status=vehicle_insurance_response.status_code)
+                        return Response(
+                            data=response_data,
+                            status=vehicle_insurance_response.status_code,
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
@@ -1236,10 +1293,12 @@ class AccidentInsurance(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=accident_insurance_response.json().get["content"]["transactions"]("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = accident_insurance_response.json().get[
+                                        "content"
+                                    ]["transactions"]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for accident insurance."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -1272,11 +1331,18 @@ class AccidentInsurance(generics.GenericAPIView):
                             bankCode="103",
                             amount=user["amount"],
                         )
-                        return Response(response_data, status=accident_insurance_response.status_code)
+                        return Response(
+                            response_data,
+                            status=accident_insurance_response.status_code,
+                        )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
@@ -1336,7 +1402,8 @@ class HomeCoverInsurance(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user["amount"], reason="Debit for home cover insurance registration"
+                amount=user["amount"],
+                reason="Debit for home cover insurance registration",
             )
 
             if debit_response.status_code == 200:
@@ -1363,10 +1430,12 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             try:
                                 with transaction.atomic():
                                     tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id=HomeCoverInsurance.json().get["content"]["transactions"]("transactionId")
-                                    tx.amount=user_data.get("amount", 0)
-                                    tx.description="Debit for tv subscription"
-                                    tx.pts=new_points
+                                    tx.tx_id = HomeCoverInsurance.json().get["content"][
+                                        "transactions"
+                                    ]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for home cover insurance."
+                                    tx.pts = new_points
                                     tx.save()
 
                                     pts, _ = Pts.objects.get_or_create(user=user)
@@ -1379,7 +1448,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             response_data = {
                                 "status": "Success",
                                 "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "data": home_cover_insurance_response.json(),
                             }
 
                             return Response(
@@ -1387,7 +1456,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             )
                     else:
                         response_data = {
-                            "data": response.json(),
+                            "data": home_cover_insurance_response.json(),
                             "messsage": "A refund will be issued.",
                         }
 
@@ -1395,18 +1464,26 @@ class HomeCoverInsurance(generics.GenericAPIView):
                         credit_response = Account.Credit(
                             acct_no=user.accountNumber,
                             amount=user["amount"],
-                            reason="Refund for failed home cover insurance."
+                            reason="Refund for failed home cover insurance.",
                         )
                         if credit_response.status_code == 200:
                             response = {
-                                "data": response.json(),
+                                "data": home_cover_insurance_response.json(),
                                 "messsage": "Wallet refunded.",
                             }
-                            return Response(data=response, status=credit_response.status_code)
+                            return Response(
+                                data=response, status=credit_response.status_code
+                            )
                         else:
-                            return Response(data="A refund will be issued shortly", status=credit_response.status_code)
+                            return Response(
+                                data="A refund will be issued shortly",
+                                status=credit_response.status_code,
+                            )
                 else:
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
             else:
-                return Response(data=debit_response.json(), status=debit_response.status_code)
-
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
