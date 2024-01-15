@@ -1,10 +1,12 @@
 import logging
 import requests
+from threading import Thread
 from decouple import config
 from commons import Pts
 from accounts.models import TxModel
 
 from django.db import transaction
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -21,12 +23,15 @@ from .serializers import (
     VehicleInsuranceSerializer,
     AccidentInsuranceSerializer,
     HomeCoverInsuranceSerializer,
+    HealthInsuranceSerializer,
 )
 from wallets.controllers import Credit
 from banking.controllers import Account
 from permissions import VasPermission
 from wallets.controllers import Pin
 from .helpers import VAS
+
+from cloudinary import uploader as cloud
 
 
 vtpass_url = config("VT_PASS_BASE_URL")
@@ -1487,3 +1492,197 @@ class HomeCoverInsurance(generics.GenericAPIView):
                 return Response(
                     data=debit_response.json(), status=debit_response.status_code
                 )
+
+
+class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetHealthInsuranceVaritaionCodes is a GET request handler for retrieving variation
+    codes of different health insurance plans.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            resource = "service-variations?serviceID=health-insurance-rhl"
+            fetch_all_variation_codes_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=fetch_all_variation_codes_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["variations"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=response.json(), status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class GetHealthInsuranceOptions(generics.RetrieveAPIView):
+    """
+    GetHealthInsuranceOptions is a GET request handler for retrieving health insurance
+    options, in this case lit of supported hospitals.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
+
+        if user:
+            resource = "options?serviceID=health-insurance-rhl&name=selected_hospital"
+            insurance_options_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=insurance_options_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["options"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=response.json(), status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class HealthInsurance(generics.GenericAPIView):
+    """
+    HealthInsurance is the POST request handler for creating
+    a home cover insurance.
+    """
+
+    serializer_class = HealthInsuranceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+    parser_classes = (MultiPartParser, JSONParser)
+
+    def post(self, request):
+        user_data = request.data
+        user = request.user
+
+        pin = request.data.get("pin")
+        verification = Pin.verify_pin(user=user, pin=pin)
+        if verification:
+            debit_response = Account.Debit(
+                amount=user["amount"],
+                reason="Debit for health insurance",
+            )
+
+            if debit_response.status_code == 200:
+                serializer = self.serializer_class(data=user)
+                if serializer.is_valid(raise_exception=True):
+                    # Start a separate thread for image upload
+                    thread_upload = Thread(
+                        target=self.upload_image,
+                        args=(user_data.get("Passport_Photo"),),
+                    )
+                    thread_upload.start()
+
+                    health_insurance_response = VAS.health_insurance(
+                        service_id=user_data["serviceID"],
+                        phone=user_data["phone"],
+                        variation_code=user_data["variation_code"],
+                        billersCode=user_data["variation_code"],
+                        phone_no=user_data["phone"],
+                        full_name=user_data["full_name"],
+                        address=user_data["address"],
+                        date_of_birth=user_data["date_of_birth"],
+                        selected_hospital=user_data["selected_hospital"],
+                        Passport_Photo=self.uploaded_passport_url,
+                        extra_info=user_data["extra_info"],
+                    )
+                    if health_insurance_response.status_code == 200:
+                        serializer.save()
+                        amount = health_insurance_response.json()["amount"]
+
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = HomeCoverInsurance.json().get["content"][
+                                        "transactions"
+                                    ]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for health insurance."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
+                            response_data = {
+                                "status": "Success",
+                                "message": f"Health insurance of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": health_insurance_response.json(),
+                            }
+
+                            return Response(
+                                data=response_data, status=status.HTTP_200_OK
+                            )
+                    else:
+                        response_data = {
+                            "data": health_insurance_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        credit_response = Account.Credit(
+                            acct_no=user.accountNumber,
+                            amount=user["amount"],
+                            reason="Refund for failed home cover insurance.",
+                        )
+                        if credit_response.status_code == 200:
+                            response = {
+                                "data": health_insurance_response.json(),
+                                "messsage": "Wallet refunded.",
+                            }
+                            return Response(
+                                data=response, status=credit_response.status_code
+                            )
+                        else:
+                            return Response(
+                                data="A refund will be issued shortly",
+                                status=credit_response.status_code,
+                            )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
+
+    def upload_image(self, image_data):
+        passport = cloud.upload(file=image_data)
+        self.uploaded_passport_url = passport["url"]

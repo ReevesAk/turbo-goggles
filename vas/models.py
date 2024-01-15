@@ -111,22 +111,41 @@ class WaecRegistration(models.Model):
     phone = models.CharField(max_length=150, null=True)
 
 
-class Insurance(models.Model):
+class HomeCoverInsurance(models.Model):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     billersCode = models.CharField(max_length=150, null=True)
     variation_code = models.CharField(max_length=150, null=True)
-    amount = models.CharField(max_length=150, null=True)
+    phone = models.CharField(max_length=150, null=True)
+    full_name = models.CharField(max_length=250, null=True)
+    address = models.CharField(max_length=250, null=True)
+    date_of_birth = models.DateField(max_length=250, null=True)
+    business_occupation = models.CharField(max_length=250, null=True)
+
+
+class AccidentInsurance(models.Model):
+    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    request_id = models.CharField(max_length=150, null=True)
+    serviceID = models.CharField(max_length=150, null=True)
+    billersCode = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
     phone = models.CharField(max_length=150, null=True)
     full_name = models.CharField(max_length=250, null=True)
     address = models.CharField(max_length=250, null=True)
     dob = models.DateField(max_length=250, null=True)
-    date_of_birth = models.DateField(max_length=250, null=True)
     next_kin_name = models.CharField(max_length=250, null=True)
     next_kin_phone = models.CharField(max_length=250, null=True)
     business_occupation = models.CharField(max_length=250, null=True)
-    type_building = models.CharField(max_length=250, null=True)
+
+
+class VehicleInsurance(models.Model):
+    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    request_id = models.CharField(max_length=150, null=True)
+    serviceID = models.CharField(max_length=150, null=True)
+    billersCode = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
+    phone = models.CharField(max_length=150, null=True)
     Insured_Name = models.CharField(max_length=200, null=True)
     Engine_Number = models.CharField(max_length=200, null=True)
     Chasis_Number = models.CharField(max_length=200, null=True)
@@ -136,3 +155,18 @@ class Insurance(models.Model):
     Vehicle_Model = models.CharField(max_length=200, null=True)
     Year_of_Make = models.CharField(max_length=200, null=True)
     Contact_Address = models.CharField(max_length=200, null=True)
+
+
+class HealthInsurance(models.Model):
+    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    request_id = models.CharField(max_length=150, null=True)
+    serviceID = models.CharField(max_length=150, null=True)
+    billersCode = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
+    phone = models.CharField(max_length=150, null=True)
+    full_name = models.CharField(max_length=250, null=True)
+    address = models.CharField(max_length=250, null=True)
+    selected_hospital = models.CharField(max_length=250, null=True)
+    Passport_Photo = models.CharField(max_length=250, null=True)
+    date_of_birth = models.CharField(max_length=250, null=True)
+    extra_info = models.CharField(max_length=255, null=True)

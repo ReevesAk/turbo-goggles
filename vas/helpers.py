@@ -297,7 +297,7 @@ class VAS:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Vehicle insurance API request error: {str(e)}")
+            logging.error(f"Accident insurance API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -336,7 +336,48 @@ class VAS:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Vehicle insurance API request error: {str(e)}")
+            logging.error(f"Home Cover insurance API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def health_insurance(
+        service_id,
+        billersCode,
+        phone,
+        variation_code,
+        full_name,
+        address,
+        date_of_birth,
+        selected_hospital,
+        Passport_Photo,
+        extra_info,
+    ):
+        resource = "pay"
+        payload = {
+            "request_id": req_id,
+            "serviceID": service_id,
+            "billersCode": billersCode,
+            "variation_code": variation_code,
+            "phone": phone,
+            "full_name": full_name,
+            "address": address,
+            "date_of_birth": date_of_birth,
+            "selected_hospital": selected_hospital,
+            "Passport_Photo": Passport_Photo,
+            "extra_info": extra_info,
+        }
+
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Health insurance API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

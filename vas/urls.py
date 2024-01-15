@@ -23,6 +23,9 @@ from .views import (
     AccidentInsurance,
     GetHomeCoverVaritaionCodes,
     HomeCoverInsurance,
+    GetHealthInsuranceVaritaionCodes,
+    GetHealthInsuranceOptions,
+    HealthInsurance,
 )
 
 urlpatterns = [
@@ -103,4 +106,15 @@ urlpatterns = [
         HomeCoverInsurance.as_view(),
         name="home_cover_insurance",
     ),
+    path(
+        "health-insurance-codes",
+        GetHealthInsuranceVaritaionCodes.as_view(),
+        name="health_insurance_codes",
+    ),
+    path(
+        "health-insurance-options",
+        GetHealthInsuranceOptions.as_view(),
+        name="health_insurance_options",
+    ),
+    path("health-insurance", HealthInsurance.as_view(), name="health_insurance"),
 ]
