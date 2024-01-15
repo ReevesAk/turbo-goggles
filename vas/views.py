@@ -1,6 +1,10 @@
-from datetime import datetime
+import logging
 import requests
 from decouple import config
+from commons import Pts
+from accounts.models import TxModel
+
+from django.db import transaction
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -18,10 +22,11 @@ from .serializers import (
     AccidentInsuranceSerializer,
     HomeCoverInsuranceSerializer,
 )
-from wallets.controllers import Debit, Credit
-from banking.controllers import Transaction
+from wallets.controllers import Credit
+from banking.controllers import Account
 from permissions import VasPermission
 from wallets.controllers import Pin
+from .helpers import VAS
 
 
 vtpass_url = config("VT_PASS_BASE_URL")
@@ -41,70 +46,76 @@ class AirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             # Inititate a debit on the customer's account.
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for airtime recharge"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for airtime recharge"
             )
-            if debit_response == 200:
-                airtime_headers = {"secret-key": x_secret, "api-key": api_key}
-
-                serializer = self.serializer_class(data=user)
+            if debit_response.status_code == 200:
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=airtime_headers,
+                    airtime_response = VAS.aritime(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                    )
+
+                    if airtime_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
+
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            tx = TxModel.objects.create(
+                                user=user,
+                                tx_id=airtime_response.json()["transactionId"],
+                                amount=user_data["amount"],
+                                description="Debit for airtime recharge.",
+                                pts=new_points,
+                            )
+                            pts = Pts.objects.create(user=user)
+                            pts.balance += new_points
+                            pts.transaction = tx
+                            pts.save()
+
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points.",
+                            "data": airtime_response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        response_data = {
+                            "data": airtime_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
+
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
-
-                        if response.status_code == 200:
-                            response_data = {
-                                "data": response.json(),
-                            }
-
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
-
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
                         return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            data=response_data, status=airtime_response.status_code
                         )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -157,74 +168,77 @@ class DataSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-        }
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for airtime recharge"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for airtime recharge."
             )
             if debit_response == 200:
-                data_headers = {
-                    "secret-key": x_secret,
-                    "api-key": api_key,
-                    "secret-key": x_secret,
-                }
-
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=data_headers,
-                        )
+                    data_response = VAS.data(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"],
+                    )
+                    if data_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            tx = TxModel.objects.create(
+                                user=user,
+                                tx_id=data_response.json()["transactionId"],
+                                amount=user_data["amount"],
+                                description="Debit for data subscription.",
+                                pts=new_points,
+                            )
+                            pts = Pts.objects.create(user=user)
+                            pts.balance += new_points
+                            pts.transaction = tx
+                            pts.save()
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points.",
+                                "data": data_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued",
-                            }
+                    else:
+                        response_data = {
+                            "data": data_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user_data["amount"],
                         )
+                        return Response(
+                            data=response_data, status=data_response.status_code
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -284,70 +298,84 @@ class ElectrcityBillPayment(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "variation_code": user["variation_code"],
-        }
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for electricity bill payment"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for electricity bill payment."
             )
             if debit_response == 200:
-                electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
-
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=electricty_bill_headers,
-                        )
+                    electricity_response = VAS.electricity(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"],
+                    )
+                    if electricity_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = electricity_response.json().get(
+                                        "transactionId", ""
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for electricity payment."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points.",
+                                "data": electricity_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": electricity_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            data=response_data, status=electricity_response.status_code
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -484,75 +512,86 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "subscription_type": user["subscription_type"],
-            "quantity": user["quantity"],
-            "variation_code": user["variation_code"],
-        }
-        tv_sub_headers = {
-            "secret-key": x_secret,
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for Tv subscription"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for Tv subscription."
             )
             if debit_response == 200:
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=tv_sub_headers,
-                        )
+                    new_tv_response = VAS.newTvSub(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"],
+                        subscription_type=user_data["subscription_type"],
+                        quantity=user_data["quantity"],
+                    )
+                    if new_tv_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = new_tv_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for tv subscription."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": new_tv_response.json(),
                             }
-
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": new_tv_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            response_data, status=new_tv_response.status_code
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -566,72 +605,85 @@ class RenewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "subscription_type": user["subscription_type"],
-        }
-        renew_tv_sub_headers = {
-            "secret-key": x_secret,
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-        authenticated_user = request.user
         pin = request.data.get("pin")
 
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for Tv subscription"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for Tv subscription."
             )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user)
+            if debit_response.status_code == 200:
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=renew_tv_sub_headers,
-                        )
+                    renew_tv_response = VAS.renewTvSub(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        subscription_type=user_data["subscription_type"],
+                    )
+                    if renew_tv_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = renew_tv_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for tv subscription."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": renew_tv_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": renew_tv_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            response_data, status=renew_tv_response.status_code
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -803,75 +855,91 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "amount": user["amount"],
-            "phone": user["phone"],
-            "billersCode": user["billersCode"],
-            "operator_id": user["operator_id"],
-            "variation_code": user["variation_code"],
-            "country_code": user["country_code"],
-            "email": user["email"],
-            "product_type_id": user["product_type_id"],
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for international airtime recharge"
+            debit_response = Account.Debit(
+                amount=user_data["amount"],
+                reason="Debit for international airtime recharge.",
             )
             if debit_response == 200:
-                intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
-
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=intl_airtime_headers,
-                        )
+                    intl_topup_response = VAS.intl_topup(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        operator_id=user_data["operator_id"],
+                        variation_code=user_data["variation_code"],
+                        country_code=user_data["country_code"],
+                        email=user_data["email"],
+                        product_type_id=user_data["product_type_id"],
+                    )
+                    if intl_topup_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = intl_topup_response.json().get(
+                                        "transactionId"
+                                    )
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = (
+                                        "Debit for international airtime recharge."
+                                    )
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Topup of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": intl_topup_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": intl_topup_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            data=response_data, status=intl_topup_response.status_code
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
@@ -924,70 +992,81 @@ class WaecRegistration(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "variation_code": user["variation_code"],
-            "quantity": user["quantity"],
-            "phone": user["phone"],
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for waec registration"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for waec registration."
             )
             if debit_response == 200:
-                waec_headers = {"secret-key": x_secret, "api-key": api_key}
-
-                serializer = self.serializer_class(data=user)
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=waec_headers,
-                        )
+                    waec_response = VAS.waec_reg(
+                        service_id=user_data["serviceID"],
+                        phone=user_data["phone"],
+                        variation_code=user_data["variation_code"],
+                        quantity=user_data["quantity"],
+                    )
+                    if waec_response.status_code == 200:
+                        serializer.save()
+                        amount = waec_response.json()["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = waec_response.json().get["content"][
+                                        "transactions"
+                                    ]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for WAEC registration."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Waec registration of {amount} was succesful and you have been awarded {new_points} points.",
+                                "data": waec_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": waec_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(response_data, status=waec_response.status_code)
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1040,80 +1119,94 @@ class VehicleInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "Insured_Name": user["Insured_Name"],
-            "Engine_Number": user["Engine_Number"],
-            "Chasis_Number": user["Chasis_Number"],
-            "Plate_Number": user["Plate_Number"],
-            "Vehicle_Make": user["Vehicle_Make"],
-            "Vehicle_Color": user["Vehicle_Color"],
-            "Vehicle_Model": user["Vehicle_Model"],
-            "Year_of_Make": user["Year_of_Make"],
-            "Contact_Address": user["Contact_Address"],
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for vehicle insurance"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for vehicle insurance"
             )
 
-            if debit_response == 200:
-                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
-
-                serializer = self.serializer_class(data=user)
+            if debit_response.status_code == 200:
+                serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=insurance_headers,
-                        )
+                    vehicle_insurance_response = VAS.vehicle_insurance(
+                        service_id=user_data["serviceID"],
+                        phone=user_data["phone"],
+                        variation_code=user_data["variation_code"],
+                        billersCode=user_data["variation_code"],
+                        Insured_Name=user_data["Insured_Name"],
+                        Engine_Number=user_data["Engine_Number"],
+                        Chasis_Number=user_data["Chasis_Number"],
+                        Plate_Number=user_data["Plate_Number"],
+                        Vehicle_Make=user_data["Vehicle_Make"],
+                        Vehicle_Color=user_data["Vehicle_Color"],
+                        Vehicle_Model=user_data["Vehicle_Model"],
+                        Year_of_Make=user_data["Year_of_Make"],
+                        Contact_Address=user_data["Contact_Address"],
+                    )
+                    if vehicle_insurance_response.status_code == 200:
+                        serializer.save()
+                        amount = vehicle_insurance_response.json()["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = vehicle_insurance_response.json().get[
+                                        "content"
+                                    ]["transactions"]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for vehicle insurance."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": vehicle_insurance_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": vehicle_insurance_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            data=response_data,
+                            status=vehicle_insurance_response.status_code,
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
@@ -1165,77 +1258,91 @@ class AccidentInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "full_name": user["full_name"],
-            "address": user["address"],
-            "dob": user["dob"],
-            "next_kin_name": user["next_kin_name"],
-            "next_kin_phone": user["next_kin_phone"],
-            "business_occupation": user["business_occupation"],
-        }
-
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for accident inssurance"
+            debit_response = Account.Debit(
+                amount=user_data["amount"], reason="Debit for accident inssurance"
             )
 
-            if debit_response == 200:
-                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
-
+            if debit_response.status_code == 200:
                 serializer = self.serializer_class(data=user)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=insurance_headers,
-                        )
+                    accident_insurance_response = VAS.accident_insurance(
+                        service_id=user_data["serviceID"],
+                        phone=user_data["phone"],
+                        variation_code=user_data["variation_code"],
+                        billersCode=user_data["variation_code"],
+                        phone_no=user_data["phone"],
+                        full_name=user_data["full_name"],
+                        address=user_data["address"],
+                        dob=user_data["dob"],
+                        next_kin_name=user_data["next_kin_name"],
+                        next_kin_phone=user_data["next_kin_phone"],
+                        business_occupation=user_data["business_occupation"],
+                    )
+                    if accident_insurance_response.status_code == 200:
+                        serializer.save()
+                        amount = accident_insurance_response.json()["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = accident_insurance_response.json().get[
+                                        "content"
+                                    ]["transactions"]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for accident insurance."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": accident_insurance_response.json(),
                             }
-
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": accident_insurance_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            _ = Credit.credit_customer(
-                                first_name=user.firstName,
-                                lastname=user.lastName,
-                                accNo=user.accountNumber,
-                                bankCode="103",
-                                amount=user["amount"],
-                            )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Credit.credit_customer(
+                            first_name=user.firstName,
+                            lastname=user.lastName,
+                            accNo=user.accountNumber,
+                            bankCode="103",
+                            amount=user["amount"],
                         )
+                        return Response(
+                            response_data,
+                            status=accident_insurance_response.status_code,
+                        )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
@@ -1288,76 +1395,95 @@ class HomeCoverInsurance(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user = request.data
+        user_data = request.data
+        user = request.user
 
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
-            "variation_code": user["variation_code"],
-            "phone": user["phone"],
-            "full_name": user["full_name"],
-            "address": user["address"],
-            "date_of_birth": user["date_of_birth"],
-            "type_building": user["type_building"],
-            "business_occupation": user["business_occupation"],
-        }
-        authenticated_user = request.user
         pin = request.data.get("pin")
-
-        verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+        verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
-                amount=user["amount"], reason="Debit for home cover insurance registration"
+            debit_response = Account.Debit(
+                amount=user["amount"],
+                reason="Debit for home cover insurance registration",
             )
 
             if debit_response.status_code == 200:
-                insurance_headers = {"secret-key": x_secret, "api-key": api_key}
-
                 serializer = self.serializer_class(data=user)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=insurance_headers,
-                        )
+                    home_cover_insurance_response = VAS.home_cover_insurance(
+                        service_id=user_data["serviceID"],
+                        phone=user_data["phone"],
+                        variation_code=user_data["variation_code"],
+                        billersCode=user_data["variation_code"],
+                        phone_no=user_data["phone"],
+                        full_name=user_data["full_name"],
+                        address=user_data["address"],
+                        dob=user_data["date_of_birth"],
+                        type_building=user_data["type_building"],
+                        business_occupation=user_data["business_occupation"],
+                    )
+                    if home_cover_insurance_response.status_code == 200:
+                        serializer.save()
+                        amount = home_cover_insurance_response.json()["amount"]
 
-                        if response.status_code == 200:
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = HomeCoverInsurance.json().get["content"][
+                                        "transactions"
+                                    ]("transactionId")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for home cover insurance."
+                                    tx.pts = new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
-                                "data": response.json(),
+                                "status": "Success",
+                                "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": home_cover_insurance_response.json(),
                             }
 
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
-                        else:
-                            response_data = {
-                                "data": response.json(),
-                                "messsage": "A refund will be issued.",
-                            }
+                    else:
+                        response_data = {
+                            "data": home_cover_insurance_response.json(),
+                            "messsage": "A refund will be issued.",
+                        }
 
-                            # initiate a credit refund to the customer after failed transaction.
-                            credit_response = Transaction.Credit(
-                                acct_no=user.accountNumber,
-                                amount=user["amount"],
-                                reason="Refund for failed home cover insurance."
-                            )
-                            if credit_response.status_code == 200:
-                                response = {
-                                    "data": response.json(),
-                                    "messsage": "Wallet refunded.",
-                                }
-                                return Response(data=response, status=credit_response.status_code)
-                            else:
-                                return Response(data="A refund will be issued shortly", status=credit_response.status_code)
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        # initiate a credit refund to the customer after failed transaction.
+                        credit_response = Account.Credit(
+                            acct_no=user.accountNumber,
+                            amount=user["amount"],
+                            reason="Refund for failed home cover insurance.",
                         )
+                        if credit_response.status_code == 200:
+                            response = {
+                                "data": home_cover_insurance_response.json(),
+                                "messsage": "Wallet refunded.",
+                            }
+                            return Response(
+                                data=response, status=credit_response.status_code
+                            )
+                        else:
+                            return Response(
+                                data="A refund will be issued shortly",
+                                status=credit_response.status_code,
+                            )
+                else:
+                    return Response(
+                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    data=debit_response.json(), status=debit_response.status_code
+                )
