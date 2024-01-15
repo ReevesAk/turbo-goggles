@@ -6,7 +6,10 @@ from .models import (
     ElectricityBill,
     TvSubscription,
     WaecRegistration,
-    Insurance,
+    HomeCoverInsurance,
+    AccidentInsurance,
+    VehicleInsurance,
+    HealthInsurance,
 )
 
 
@@ -114,7 +117,7 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
-        model = Insurance
+        model = VehicleInsurance
         fields = [
             "id",
             "serviceID",
@@ -140,7 +143,7 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
-        model = Insurance
+        model = AccidentInsurance
         fields = [
             "id",
             "serviceID",
@@ -163,7 +166,7 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
 
     class Meta:
-        model = Insurance
+        model = HomeCoverInsurance
         fields = [
             "id",
             "serviceID",
@@ -172,8 +175,30 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
             "phone",
             "full_name",
             "address",
-            "type_building",
             "date_of_birth",
             "business_occupation",
+            "pin",
+        ]
+
+
+class HealthInsuranceSerializer(serializers.ModelSerializer):
+    """Serializers for home cover insurance."""
+
+    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+
+    class Meta:
+        model = HealthInsurance
+        fields = [
+            "id",
+            "serviceID",
+            "billersCode",
+            "variation_code",
+            "phone",
+            "full_name",
+            "address",
+            "selected_hospital",
+            "Passport_Photo",
+            "date_of_birth",
+            "extra_info",
             "pin",
         ]
