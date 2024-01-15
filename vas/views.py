@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime
 import requests
 from decouple import config
 from commons import Pts
 from accounts.models import TxModel
+
+from django.db import transaction
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -72,7 +75,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             new_points = Pts.award(amount=amount)
                             tx = TxModel.objects.create(
                                 user=user,
-                                tx_id=airtime_response["transactionId"],
+                                tx_id=airtime_response.json()["transactionId"],
                                 amount=user_data["amount"],
                                 description="Debit for airtime recharge",
                                 pts=new_points
@@ -186,7 +189,7 @@ class DataSubscription(generics.GenericAPIView):
                             new_points = Pts.award(amount=amount)
                             tx = TxModel.objects.create(
                                 user=user,
-                                tx_id=data_response["transactionId"],
+                                tx_id=data_response.json()["transactionId"],
                                 amount=user_data["amount"],
                                 description="Debit for data subscription",
                                 pts=new_points
@@ -280,50 +283,51 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "billersCode": user_data["billersCode"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-            "variation_code": user_data["variation_code"],
-        }
         user = request.user
-        pin = request.data.get("pin")
 
+        pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for electricity bill payment"
             )
             if debit_response == 200:
-                electricty_bill_headers = {"secret-key": x_secret, "api-key": api_key}
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=electricty_bill_headers,
-                        )
+                    electricity_response = VAS.electricity(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"]
+                    )
+                    if electricity_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
+                        
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id = electricity_response.json().get("transactionId", "")
+                                    tx.amount = user_data.get("amount", 0)
+                                    tx.description = "Debit for electricity payment"
+                                    tx.pts = new_points
+                                    tx.save()
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
                                 "status": "Success",
                                 "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "data": electricity_response.json(),
                             }
 
                             return Response(
@@ -331,7 +335,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             )
                         else:
                             response_data = {
-                                "data": response.json(),
+                                "data": electricity_response.json(),
                                 "messsage": "A refund will be issued.",
                             }
 
@@ -343,13 +347,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                 bankCode="103",
                                 amount=user["amount"],
                             )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                            return Response(data=response_data, status=electricity_response.status_code)
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -487,63 +485,61 @@ class NewTvSubscription(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-            "billersCode": user_data["billersCode"],
-            "subscription_type": user_data["subscription_type"],
-            "quantity": user_data["quantity"],
-            "variation_code": user_data["variation_code"],
-        }
-        tv_sub_headers = {
-            "secret-key": x_secret,
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-
         user = request.user
+
         pin = request.data.get("pin")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=tv_sub_headers,
-                        )
+                    new_tv_response = VAS.newTvSub(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        variation_code=user_data["variation_code"],
+                        subscription_type=user_data["subscription_type"],
+                        quantity=user_data["quantity"]
+                    )
+                    if new_tv_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id=new_tv_response.json().get("transactionId")
+                                    tx.amount=user_data.get("amount", 0)
+                                    tx.description="Debit for tv subscription"
+                                    tx.pts=new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
                                 "status": "Success",
                                 "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "data": new_tv_response.json(),
                             }
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
-                                "data": response.json(),
+                                "data": new_tv_response.json(),
                                 "messsage": "A refund will be issued.",
                             }
 
@@ -555,12 +551,7 @@ class NewTvSubscription(generics.GenericAPIView):
                                 bankCode="103",
                                 amount=user["amount"],
                             )
-                            return Response(response_data, status=response.status_code)
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                            return Response(response_data, status=new_tv_response.status_code)
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -575,53 +566,52 @@ class RenewTvSubscription(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-            "billersCode": user_data["billersCode"],
-            "subscription_type": user_data["subscription_type"],
-        }
-        renew_tv_sub_headers = {
-            "secret-key": x_secret,
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
         user = request.user
+
         pin = request.data.get("pin")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for Tv subscription"
             )
             if debit_response == 200:
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=renew_tv_sub_headers,
-                        )
+                    renew_tv_response = VAS.renewTvSub(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        subscription_type=user_data["subscription_type"],
+                    )
+                    if renew_tv_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id=renew_tv_response.json().get("transactionId")
+                                    tx.amount=user_data.get("amount", 0)
+                                    tx.description="Debit for tv subscription"
+                                    tx.pts=new_points
+                                    tx.save()
+
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
                                 "status": "Success",
                                 "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "data": renew_tv_response.json(),
                             }
 
                             return Response(
@@ -629,7 +619,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                             )
                         else:
                             response_data = {
-                                "data": response.json(),
+                                "data": renew_tv_response.json(),
                                 "messsage": "A refund will be issued.",
                             }
 
@@ -641,12 +631,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                                 bankCode="103",
                                 amount=user["amount"],
                             )
-                            return Response(response_data, status=response.status_code)
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                            return Response(response_data, status=renew_tv_response.status_code)
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -819,58 +804,58 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
-
-        current_datetime = datetime.now()
-        res_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
-
-        resource = "pay"
-        payload = {
-            "request_id": res_id,
-            "serviceID": user_data["serviceID"],
-            "amount": user_data["amount"],
-            "phone": user_data["phone"],
-            "billersCode": user_data["billersCode"],
-            "operator_id": user_data["operator_id"],
-            "variation_code": user_data["variation_code"],
-            "country_code": user_data["country_code"],
-            "email": user_data["email"],
-            "product_type_id": user_data["product_type_id"],
-        }
-
         user = request.user
-        pin = request.data.get("pin")
 
+        pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Transaction.Debit(
+            debit_response = Account.Debit(
                 amount=user_data["amount"], reason="Debit for international airtime recharge"
             )
             if debit_response == 200:
-                intl_airtime_headers = {"secret-key": x_secret, "api-key": api_key}
-
                 serializer = self.serializer_class(data=user_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
-                    try:
-                        response = requests.post(
-                            url=vtpass_url + resource,
-                            json=payload,
-                            headers=intl_airtime_headers,
-                        )
+                    intl_topup_response = VAS.intl_topup(
+                        service_id=user_data["serviceID"],
+                        amount=user_data["amount"],
+                        phone=user_data["phone"],
+                        billersCode=user_data["billersCode"],
+                        operator_id=user_data["operator_id"],
+                        variation_code=user_data["variation_code"],
+                        country_code=user_data["country_code"],
+                        email=user_data["email"],
+                        product_type_id=user_data["product_type_id"],
+                    )
+                    if intl_topup_response.status_code == 200:
+                        serializer.save()
+                        amount = user_data["amount"]
+            
+                        if amount >= 100:
+                            new_points = Pts.award(amount=amount)
+                            try:
+                                with transaction.atomic():
+                                    tx, _ = TxModel.objects.get_or_create(user=user)
+                                    tx.tx_id=intl_topup_response.json().get("transactionId")
+                                    tx.amount=user_data.get("amount", 0)
+                                    tx.description="Debit for tv subscription"
+                                    tx.pts=new_points
+                                    tx.save()
 
-                        if response.status_code == 200:
-                            amount = user_data["amount"]
-                            if amount >= 100:
-                                new_points = Points.award(amount=amount)
-                                user.points += new_points
-                                user.save()
+                                    pts, _ = Pts.objects.get_or_create(user=user)
+                                    pts.balance += new_points
+                                    pts.transaction = tx
+                                    pts.save()
+
+                            except Exception as e:
+                                logging.error(f"Database query error: {str(e)}")
+
                             response_data = {
                                 "status": "Success",
-                                "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": response.json(),
+                                "message": f"Topup of {amount} was succesful and you have been awarded {new_points} points",
+                                "data": intl_topup_response.json(),
                             }
                             response_data = {
-                                "data": response.json(),
+                                "data": intl_topup_response.json(),
                             }
 
                             return Response(
@@ -878,7 +863,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                             )
                         else:
                             response_data = {
-                                "data": response.json(),
+                                "data": intl_topup_response.json(),
                                 "messsage": "A refund will be issued.",
                             }
 
@@ -890,13 +875,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                                 bankCode="103",
                                 amount=user["amount"],
                             )
-                            return Response(response_data, status=response.status_code)
-
-                    except requests.exceptions.RequestException as e:
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                            return Response(data=response_data, status=intl_topup_response.status_code)
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
