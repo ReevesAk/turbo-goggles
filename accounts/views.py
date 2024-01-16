@@ -38,6 +38,7 @@ class Register(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
+        
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
@@ -75,7 +76,7 @@ class Register(generics.GenericAPIView):
             response = Message.send_otp(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
-                    user_data = serializer.data
+                    data = serializer.data
 
                     # Update the customer instance with the new data.
                     customer.first_name = customer_data["first_name"]
@@ -88,7 +89,7 @@ class Register(generics.GenericAPIView):
                     response = {
                         "status": "success",
                         "message": "User Created Successfully. Check your phone for an OTP",
-                        "data": user_data,
+                        "data": data,
                     }
                     return Response(data=response, status=status.HTTP_201_CREATED)
                 except Exception as err:
@@ -134,15 +135,14 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
             recipient = user.phone_number
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
-            if response.status_code == 200:
-                user.is_verified = True
-                user.is_active = True
-                user.save()
+            Message.send_msg(msg=str(msg), to=recipient)
+            user.is_verified = True
+            user.is_active = True
+            user.save()
 
-                return Response(
-                    {"Success": "Account is verified"}, status=status.HTTP_200_OK
-                )
+            return Response(
+                {"Success": "Account is verified"}, status=status.HTTP_200_OK
+            )
 
 
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
@@ -253,7 +253,7 @@ class PasswordResendOTP(generics.GenericAPIView):
 
 
 class Login(APIView):
-    """# LoginAPIView handles the POST request of logging in
+    """LoginAPIView handles the POST request of logging in
     a verified user with valid login credentials.
     {"phone_number": "8129187363", "password": "13092830"}.
     """

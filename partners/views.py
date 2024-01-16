@@ -40,21 +40,21 @@ class RegisterPartner(generics.GenericAPIView):
     serializer_class = RegisterPartnerSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = request.data
+        
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            if user["password"] != user["password2"]:
+            if user_data["password"] != user_data["password2"]:
                 return Response(
                     data={"error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            user = serializer.save()
-
+            user =  serializer.save()
             # Save the device_id separately using DeviceId model
             device_id = user_data.get("device_id")
             if device_id:
                 DeviceId.objects.create(user=user, device_id=device_id)
+
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
@@ -66,11 +66,11 @@ class RegisterPartner(generics.GenericAPIView):
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
-                    user_data = serializer.data
+                    data = serializer.data
                     response = {
                         "status": "success",
                         "message": "Partner Created Successfully. Check your phone for an OTP",
-                        "data": user_data,
+                        "data": data,
                     }
                     return Response(data=response, status=status.HTTP_201_CREATED)
                 except IntegrityError:
