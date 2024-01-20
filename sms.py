@@ -7,7 +7,7 @@ from twilio.rest import Client
 
 auth_token = config('TWILIO_AUTH_TOKEN')
 account_sid = config('TWILIO_ACCOUNT_SID')
-picadailys = config('PADIMAN_NO')
+picadailys = config('PACADAILYS_NO')
 
 
 class Message:
