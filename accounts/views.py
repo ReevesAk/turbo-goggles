@@ -23,7 +23,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from banking.controllers import Customer
 from banking.models import CustomerData
-from commons import Message
+from sms import Message
 from permissions import IsVerifiedUser
 
 
@@ -71,7 +71,7 @@ class Register(generics.GenericAPIView):
             msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
                 otp
             )
-            recipient = serializer.data["phone_number"]
+            recipient = serializer.data["phone_number"][1:]
 
             response = Message.send_otp(msg=str(msg), to=recipient)
             if response.status_code == 200:
@@ -195,7 +195,7 @@ class ResendOTP(generics.GenericAPIView):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            phone_number = serializer.data["phone_number"]
+            phone_number = serializer.data["phone_number"][1:]
 
             # Generate otp.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
@@ -231,7 +231,7 @@ class PasswordResendOTP(generics.GenericAPIView):
         user = request.data
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            phone_number = serializer.data["phone_number"]
+            phone_number = serializer.data["phone_number"][1:]
 
             # Generate otp.
             otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
@@ -318,7 +318,7 @@ class ForgotPassword(generics.GenericAPIView):
         user_data = request.data
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            phone_no = user_data["phone_number"]
+            phone_no = user_data["phone_number"][1:]
             try:
                 user = User.objects.get(phone_number=phone_no)
             except user.DoesNotExist:
