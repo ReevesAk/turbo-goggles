@@ -32,3 +32,26 @@ class Message:
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class Message:
+    @staticmethod
+    def send_msg(msg, to):
+
+        phone_number = "+234" + to
+
+        try:
+            client = Client(
+                account_sid,
+                auth_token
+            )
+            message = client.messages.create(
+                from_=picadailys,
+                to=phone_number,
+                body=msg
+            )
+            return message
+        except Exception as error_msg:
+            print(error_msg)
+            return Response(
+                data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

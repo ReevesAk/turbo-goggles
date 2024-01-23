@@ -73,7 +73,7 @@ class Register(generics.GenericAPIView):
             )
             recipient = serializer.data["phone_number"][1:]
 
-            response = Message.send_otp(msg=str(msg), to=recipient)
+            response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
                 try:
                     data = serializer.data
@@ -135,7 +135,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
             recipient = user.phone_number
 
-            Message.send_msg(msg=str(msg), to=recipient)
+            Message.se(msg=str(msg), to=recipient)
             user.is_verified = True
             user.is_active = True
             user.save()
