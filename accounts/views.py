@@ -135,7 +135,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
             recipient = user.phone_number
 
-            Message.se(msg=str(msg), to=recipient)
+            Message.send_otp(msg=str(msg), to=recipient)
             user.is_verified = True
             user.is_active = True
             user.save()
