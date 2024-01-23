@@ -237,14 +237,11 @@ class PasswordResendOTP(generics.GenericAPIView):
             )
 
             response = Message.send_otp(msg=str(msg), to=phone_number)
-            if response.status_code == 200:
-                response = {
-                    "status": "success",
-                    "message": "Otp resent Successfully. Check your phone for validation",
-                }
+            response = {
+                "status": "success",
+                "message": "Otp resent Successfully. Check your phone for validation",
+            }
                 return Response(data=response, status=status.HTTP_200_OK)
-            else:
-                return Response(data=response, status=response.status_code)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -276,21 +273,22 @@ class Login(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # check if the user has logged in more than one device.
-            if existing_device_count >= 1:
-                # Create and send OTP.
-                otp = otp_manager.create_otp(user_id=str(user.id))
-                msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
-                    otp
-                )
-                recipient = user.phone_number
+            # # check if the user has logged in more than one device.
+            # for device in existing_device_count:
+            #     if not device:
+            #     # Create and send OTP.
+            #     otp = otp_manager.create_otp(user_id=str(user.id))
+            #     msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
+            #         otp
+            #     )
+            #     recipient = user.phone_number
 
-                response = Message.send_msg(msg=str(msg), to=recipient)
+            #     response = Message.send_msg(msg=str(msg), to=recipient)
                 
-                return Response(
-                    data={"detail": "Otp sent to user's new device Id"},
-                    status=status.HTTP_200_OK,
-                )
+            #     return Response(
+            #         data={"detail": "Otp sent to user's new device Id"},
+            #         status=status.HTTP_200_OK,
+            #     )
 
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
