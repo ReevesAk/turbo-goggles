@@ -33,7 +33,6 @@ class Message:
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-class Message:
     @staticmethod
     def send_msg(msg, to):
 
