@@ -205,15 +205,12 @@ class ResendOTP(generics.GenericAPIView):
                 )
             )
 
-            response = Message.send_otp(msg=str(msg), to=phone_number)
-            if response.status_code == 200:
-                response = {
-                    "status": "success",
-                    "message": "Otp resent Successfully. Check your phone for validation",
-                }
-                return Response(data=response, status=status.HTTP_200_OK)
-            else:
-                return Response(data=response, status=response.status_code)
+            Message.send_otp(msg=str(msg), to=phone_number)
+            response = {
+                "status": "success",
+                "message": "Otp resent Successfully. Check your phone for validation",
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
