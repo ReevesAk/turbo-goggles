@@ -246,3 +246,114 @@ class Account:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class Transfer:
+    @staticmethod
+    def picadailys(amount, reason, currency, account_number):
+        resource = "transfers"
+        payload = {
+            "bank_code": "101",
+            "account_number": account_number,
+            "currency":currency,
+            "amount": amount,
+            "reason": reason,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Picadailys transfer API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def local(amount, bank_code, reason, account_number):
+        resource = "transfers"
+        payload = {
+            "bank_code": bank_code,
+            "account_number": account_number,
+            "currency":"NGN",
+            "amount": amount,
+            "reason": reason,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Local transfer API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def internatonal(
+        sfirst_name, slast_name, dob, nationality,amount,
+        bank_code, reason, account_number, id_number,issued_date,
+        expiration_date, phone_number, address, city, state, postal_code,
+        cpfirst_name, cplast_name, cpphone_number, cpaddress
+    ):
+        resource = "transfers"
+        payload = {
+            "currency": "USD",
+            "meta": {
+                "scheme": "CASHPICKUP",
+                "sender": {
+                "first_name": sfirst_name,
+                "last_name": slast_name,
+                "country": "NG",
+                "dob": dob,
+                "nationality": nationality,
+                "id": {
+                    "type": "NationalID",
+                    "number": id_number,
+                    "issued_at": "Nigeria",
+                    "issued_date": issued_date,
+                    "expiration_date": expiration_date
+                },
+                "phone_number": phone_number,
+                "address": address,
+                "state": state,
+                "city": city,
+                "postal_code": postal_code
+                },
+                "counterparty": {
+                "country": "NG",
+                "first_name": cpfirst_name,
+                "last_name": cplast_name,
+                "phone_number": cpphone_number,
+                "address": cpaddress
+                }
+            },
+            "bank_code": bank_code,
+            "account_number": account_number,
+            "amount": amount,
+            "reason": reason
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"International transfer API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

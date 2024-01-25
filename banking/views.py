@@ -104,7 +104,7 @@ class VerifYBVN(generics.CreateAPIView):
                 serializer = BVNSerializer(data=user_data)
 
                 response = {
-                    "status": "Success",
+                    "status": "success",
                     "message": "Bvn verification was successful",
                     "Bvn data": serializer.data,
                 }
@@ -170,6 +170,7 @@ class CreateNGNAccount(generics.GenericAPIView):
                 account_details.save()
 
                 response_data = {
+                    "status": "success",
                     "message": "Customer wallet created successfully",
                     "data": response.json(),
                 }
@@ -209,7 +210,11 @@ class GetCustomer(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    return Response(data=response.json(), status=status.HTTP_200_OK)
+                    response_data = {
+                        "status": "success",
+                        "data": response.json()
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
                 logging.error(f"Fetching customer API request error: {str(e)}")
@@ -242,7 +247,11 @@ class GetCustomersWallets(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    return Response(data=response.json(), status=status.HTTP_200_OK)
+                    response_data = {
+                        "status": "success",
+                        "data": response.json()
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
                 logging.error(f"Fetching customer wallets API request error: {str(e)}")
@@ -275,7 +284,11 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    return Response(data=response.json(), status=status.HTTP_200_OK)
+                    response_data = {
+                        "status": "success",
+                        "data": response.json()
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
                 logging.error(f"Fetching customer transaction history API request error: {str(e)}")
@@ -350,6 +363,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
                 )
                 if response.status_code == 200:
                     resp = {
+                        "status": "success",
                         "message": "Update customer request done.",
                         "data": response.json()
                     }
@@ -445,7 +459,12 @@ class UpgradeAccount(generics.CreateAPIView):
                         country="NG",
                     )
                     identity.save()
-                    return Response(data="User upgraded successfully!")
+                    response = {
+                        "status": "success",
+                        "message": "User upgraded successfully!",
+                        "data": tier2_response.json()
+                    }
+                    return Response(data=response, status=status.HTTP_200_OK)
 
                 else:
                     return Response(
@@ -479,6 +498,7 @@ class CreateUSDAccount(generics.CreateAPIView):
                 "currency": wallet.currency,
             }
             response_data = {
+                "status": "fail",
                 "message": "User already has a dollar wallet!",
                 "data": existing_wallet,
             }
@@ -531,6 +551,7 @@ class CreateUSDAccount(generics.CreateAPIView):
                     wallet.save()
 
                     response_data = {
+                        "status": "success",
                         "message": "Creation of dollar wallet API request",
                         "data": response.json(),
                     }
@@ -586,7 +607,7 @@ class SetWalletPin(generics.CreateAPIView):
             user.save()
 
             response = {
-                "status": "Success!",
+                "status": "success",
                 "message": "Wallet pin created succesfully!",
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
@@ -678,8 +699,12 @@ class PinVerifyOTP(generics.GenericAPIView):
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
+                data = {
+                    "status": "success",
+                    "message": "Account is verified"
+                }
                 return Response(
-                    {"Success": "Account is verified"}, status=status.HTTP_200_OK
+                    data=data, status=status.HTTP_200_OK
                 )
 
 
@@ -723,7 +748,7 @@ class ResetPin(generics.CreateAPIView):
             user.pin = pin
             user.save()
 
-            response = {"status": "Success!", "message": "Pin reset successfully"}
+            response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=response, status=status.HTTP_200_OK)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -749,6 +774,7 @@ class GetAllBanks(generics.RetrieveAPIView):
                 )
                 if response.status_code == 200:
                     response_data = {
+                        "status": "success",
                         "data": response.json(),
                     }
 
