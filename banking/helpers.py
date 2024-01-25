@@ -17,10 +17,11 @@ class Pin:
                 data={"message": "Invalid wallet ID"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        is_pin_correct = check_password(pin, hashed_pin)
+        if wallet:
+            is_pin_correct = check_password(pin, hashed_pin)
 
-        if is_pin_correct:
-            return True
-        else:
-            return False
+            if is_pin_correct:
+                return True
+            else:
+                return False
 

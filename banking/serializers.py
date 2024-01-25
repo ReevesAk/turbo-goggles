@@ -166,3 +166,44 @@ class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
             "amount",
             "reason",
         ]
+
+
+class TransferWithinPicadailysSerializers(serializers.ModelSerializer):
+    """Serailizers for making picadailys transfers."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Transfer
+        fields = [
+            "pin",
+            "acct_number",
+            "amount",
+            "reason",
+        ]
+
+
+class InternationalTransfersSerializers(serializers.ModelSerializer):
+    """Serailizers for making international transfers."""
+
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = Transfer
+        fields = [
+            "pin",
+            "acct_number",
+            "amount",
+            "reason",
+            "postal_code",
+            "id_type",
+            "number",
+            "issued_at",
+            "issued_date",
+            "expiration_date",
+            "receiver_first_name",
+            "receiver_last_name",
+            "receiver_phone_number",
+            "receiver_country",
+            "receiver_address",
+        ]

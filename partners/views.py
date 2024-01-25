@@ -168,6 +168,7 @@ class CreatePartnerService(generics.CreateAPIView):
                         )
 
                 response = {
+                    "status": "success",
                     "message": "Service recorded!",
                     "image urls": image_urls,
                     "gym trainers": gym_trainer_img_urls,
@@ -227,6 +228,7 @@ class AllPartnersServiceList(generics.ListAPIView):
             data.append(partner_data)
 
             response = {
+                "status": "success",
                 "status": "All Partners services fetched successfully!",
                 "data": data,
             }
@@ -263,7 +265,7 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
 class PartnerServicePhotosList(generics.ListAPIView):
@@ -280,7 +282,7 @@ class PartnerServicePhotosList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         photos = self.get_queryset()
         serializer = self.serializer_class(photos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
 class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
@@ -297,7 +299,7 @@ class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         photos = self.get_queryset()
         serializer = self.serializer_class(photos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
 class VerifyCAC(generics.GenericAPIView):
@@ -337,7 +339,7 @@ class VerifyCAC(generics.GenericAPIView):
                         business_name = user["business_name"].upper()
                         if business_name == name["approvedName"]:
                             response_data = {
-                                "status": "Success",
+                                "status": "success",
                                 "message": "Your business is verified!",
                                 "data": response.json(),
                             }

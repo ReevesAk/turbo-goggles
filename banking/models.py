@@ -26,6 +26,13 @@ CURRENCY = (
     ("USD", "USD"),
 )
 
+INTERNATIONAL_TRANSFER_SCHEME = (
+    ("DOM", "DOM"),
+    ("CASHPICKUP", "CASHPICKUP"),
+    ("BANKACCOUNT", "BANKACCOUNT"),
+    ("MOBILEMONEY", "MOBILEMONEY"),
+)
+
 
 class CustomerData(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)

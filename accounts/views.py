@@ -73,35 +73,32 @@ class Register(generics.GenericAPIView):
             )
             recipient = serializer.data["phone_number"][1:]
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
-            if response.status_code == 200:
-                try:
-                    data = serializer.data
+            Message.send_msg(msg=str(msg), to=recipient)
+            try:
+                data = serializer.data
 
-                    # Update the customer instance with the new data.
-                    customer.first_name = customer_data["first_name"]
-                    customer.last_name = customer_data["last_name"]
-                    customer.email = customer_data["email"]
-                    customer.country = customer_data["country"]
-                    customer.customer_id = customer_data["customer_id"]
-                    customer.save()
+                # Update the customer instance with the new data.
+                customer.first_name = customer_data["first_name"]
+                customer.last_name = customer_data["last_name"]
+                customer.email = customer_data["email"]
+                customer.country = customer_data["country"]
+                customer.customer_id = customer_data["customer_id"]
+                customer.save()
 
-                    response = {
-                        "status": "success",
-                        "message": "User Created Successfully. Check your phone for an OTP",
-                        "data": data,
-                    }
-                    return Response(data=response, status=status.HTTP_201_CREATED)
-                except Exception as err:
-                    return Response(
-                        {
-                            "status": "fail",
-                            "message": err,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-            else:
-                return Response(data=response, status=response.status_code)
+                response = {
+                    "status": "success",
+                    "message": "User Created Successfully. Check your phone for an OTP",
+                    "data": data,
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+            except Exception as err:
+                return Response(
+                    {
+                        "status": "fail",
+                        "message": err,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -318,7 +315,7 @@ class ForgotPassword(generics.GenericAPIView):
                 user = User.objects.get(phone_number=phone_no)
             except user.DoesNotExist:
                 return Response(
-                    data={"detail": "A user with this email does not exist"},
+                    data={"detail": "A user with this phone number does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
