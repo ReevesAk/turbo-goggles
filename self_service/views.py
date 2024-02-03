@@ -1,4 +1,4 @@
-from permissions import IsMember, IsSuperAdmin
+from permissions import IsUserOrMember, IsSuperAdmin
 
 # Third party imports
 from rest_framework import generics, status
@@ -14,7 +14,7 @@ from wallets.controllers import Pin, Debit, Credit
 class TableBooking(generics.CreateAPIView):
     serializer_class = RestaurantBookingSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = RestaurantBookingSerilaizers(data=request.data)
@@ -66,7 +66,7 @@ class TableBookingList(generics.ListAPIView):
 
     serializer_class = RestaurantBookingSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_queryset(self):
         user = self.request.user
@@ -82,7 +82,7 @@ class TableBookingList(generics.ListAPIView):
 class GymBooking(generics.CreateAPIView):
     serializer_class = GymSubcriptionSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = GymSubcriptionSerilaizers(data=request.data)
@@ -134,7 +134,7 @@ class GymBookingList(generics.ListAPIView):
 
     serializer_class = GymSubcriptionSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_queryset(self):
         user = self.request.user

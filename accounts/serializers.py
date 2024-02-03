@@ -91,6 +91,12 @@ class UpdateUserSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+class LoginSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ["phone_number", "password"]
+
 
 class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
@@ -123,3 +129,7 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("otp", "password", "password2")
+
+
+class AcccountStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

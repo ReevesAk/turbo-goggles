@@ -202,3 +202,7 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
             "extra_info",
             "pin",
         ]
+
+
+class VasStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

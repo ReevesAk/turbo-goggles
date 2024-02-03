@@ -7,19 +7,23 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 # In-projects imports.
 from .serializers import (
+    WalletStatusSerializer,
     CreateWalletSerializer,
     BankAcccPayoutSerializers,
     FincraPayoutSerializers,
     PicadailysPayoutSerializers,
     BVNSerializer,
-    ResetPinSerializer,
+    WalletResetPinSerializer,
+
 )
 from .models import CreateWallet, BVND
 from .helpers import generate_random_string, insert_hyphens
 from .controllers import BVN, Pin
-from permissions import IsPartnerOrMember
+from permissions import IsPartnerUserOrMember
 from accounts.otp import otp_manager
 from accounts.serializers import VerifyOTPSerializer
 from commons import Message
@@ -43,14 +47,14 @@ wallet_no = config("WALLET_NUMBER")
 class VerifYBVN(generics.CreateAPIView):
     serializer_class = BVNSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request):
         user_data = request.data
         authenticated_user = request.user
 
         if authenticated_user.is_bvn_verified:
-            bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
+            bvn_deets = BVND.objects.filter(user=authenticated_user).first()
             data = {
                 "First Name": bvn_deets.first_name,
                 "Last Name": bvn_deets.last_name,
@@ -63,9 +67,9 @@ class VerifYBVN(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            bvn = BVNData.objects.get(user=authenticated_user)
-        except BVNData.DoesNotExist:
-            bvn = BVNData.objects.create(user=authenticated_user)
+            bvn = BVND.objects.get(user=authenticated_user)
+        except BVND.DoesNotExist:
+            bvn = BVND.objects.create(user=authenticated_user)
 
         # Verify the user's BVN.
         bvn_data = BVN.verify(bvn=user_data.get("bvn"))
@@ -111,7 +115,7 @@ class VerifYBVN(generics.CreateAPIView):
 class VitualAccountRequest(generics.GenericAPIView):
     serializer_class = CreateWalletSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user
@@ -223,7 +227,7 @@ class VitualAccountRequest(generics.GenericAPIView):
 class SetWalletPin(generics.CreateAPIView):
     serializer_class = CreateWalletSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request, *args, **kwargs):
         user_data = request.data
@@ -260,9 +264,14 @@ class SetWalletPin(generics.CreateAPIView):
 
 
 class ForgotWalletPin(generics.GenericAPIView):
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Pin",
+        responses={200: {"description": "Forgot wallet pin"}},
+    )
     def post(self, request):
         user = request.user
         phone_no = user.phone_number
@@ -296,9 +305,14 @@ class PinResendOTP(generics.GenericAPIView):
     OTP to a user.
     """
 
+    serializer_class = WalletStatusSerializer    
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Pin",
+        responses={200: {"description": "Pin resend Otp"}},
+    )
     def post(self, request):
         user = request.user
         phone_number = user.phone_number
@@ -321,7 +335,7 @@ class PinResendOTP(generics.GenericAPIView):
 class PinVerifyOTP(generics.GenericAPIView):
     serializer_class = VerifyOTPSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         user = request.data
@@ -351,9 +365,9 @@ class PinVerifyOTP(generics.GenericAPIView):
 
 
 class ResetPin(generics.CreateAPIView):
-    serializer_class = ResetPinSerializer
+    serializer_class = WalletResetPinSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request):
         authenticated_user = request.user
@@ -397,9 +411,14 @@ class ResetPin(generics.CreateAPIView):
 
 
 class AccountDetails(generics.RetrieveAPIView):
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Detials",
+        responses={200: {"description": "User Account details"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
 
@@ -431,9 +450,14 @@ class AccountDetails(generics.RetrieveAPIView):
 
 
 class FetchAllBanks(generics.RetrieveAPIView):
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Banks",
+        responses={200: {"description": "Fetch all banks and codes on Fincra"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 
@@ -464,9 +488,14 @@ class FetchAllBanks(generics.RetrieveAPIView):
 
 
 class GetParentDetails(generics.RetrieveAPIView):
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Parent detials",
+        responses={200: {"description": "Get parent business details on Fincra"}},
+    )
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
@@ -556,9 +585,14 @@ class BankPayouts(generics.GenericAPIView):
 
 
 class FetchAllBalances(generics.RetrieveAPIView):
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Balances",
+        responses={200: {"description": "Fetch all balances"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 

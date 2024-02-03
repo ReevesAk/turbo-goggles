@@ -5,7 +5,7 @@ from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 from decouple import config
 from accounts.otp import otp_manager
-from permissions import IsPartnerOrMember
+from permissions import IsPartnerUserOrMember
 from cloudinary import uploader as cloud
 from commons import Message
 
@@ -19,13 +19,16 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 # In-projects imports.
 from .serializers import (
+    BankingStatusSerializer,
     BVNSerializer,
     CustomerUpgradeSerializers,
     CreateUSDAccountSerializers,
     CreateWalletPinSerializer,
-    VerifyOTPSerializer,
+    VerifyPinOTPSerializer,
     ResetPinSerializer,
     UpdateCustomerSerializers,
 )
@@ -45,7 +48,7 @@ headers = {
 class VerifYBVN(generics.CreateAPIView):
     serializer_class = BVNSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request):
         user_data = request.data
@@ -119,9 +122,14 @@ class CreateNGNAccount(generics.GenericAPIView):
     CreateNGNAccount handles the POST request of creating a customer wallet in Naira.
     """
 
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Create account view",
+        responses={200: {"description": "Create a Nigerian account"}},
+    )
     def post(self, request):
         authenticated_user = request.user
 
@@ -193,9 +201,14 @@ class GetCustomer(generics.RetrieveAPIView):
     customer's wallet information.
     """
 
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Get Customer view",
+        responses={200: {"description": "Get Customer details"}},
+    )
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
@@ -230,9 +243,14 @@ class GetCustomersWallets(generics.RetrieveAPIView):
     the accounts created by a customer.
     """
 
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Get customer wallet view",
+        responses={200: {"description": "Get customer wallet details"}},
+    )
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
@@ -267,9 +285,14 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
     transactions a customer has made.
     """
 
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Transaction history view",
+        responses={200: {"description": "Customer transaction histroy."}},
+    )
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
@@ -305,7 +328,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
     """
     serializer_class = UpdateCustomerSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
     parser_classes = (MultiPartParser, JSONParser)
 
     def update(self, request):
@@ -391,7 +414,7 @@ class UpgradeAccount(generics.CreateAPIView):
 
     serializer_class = CustomerUpgradeSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
     parser_classes = (MultiPartParser, JSONParser)
 
     def post(self, request):
@@ -483,7 +506,7 @@ class CreateUSDAccount(generics.CreateAPIView):
 
     serializer_class = CreateUSDAccountSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user
@@ -572,9 +595,14 @@ class CreateUSDAccount(generics.CreateAPIView):
 
 
 class SetWalletPin(generics.CreateAPIView):
+    """
+    SetWalletPin handles the POST request of creating a pin for a
+    customer wallet.
+    """
+
     serializer_class = CreateWalletPinSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request, *args, **kwargs):
         user_data = request.data
@@ -614,9 +642,18 @@ class SetWalletPin(generics.CreateAPIView):
 
 
 class ForgotWalletPin(generics.GenericAPIView):
+    """
+    ForgotWalletPin handles the POST request of sending a requeest to
+    reset a pin for a customer's wallet.
+    """
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Forgot pin view",
+        responses={200: {"description": "Forgot wallet pin"}},
+    )
     def post(self, request):
         user = request.user
         phone_no = user.phone_number
@@ -650,9 +687,14 @@ class PinResendOTP(generics.GenericAPIView):
     OTP to a user.
     """
 
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Resend Otp",
+        responses={200: {"description": "Resend otp"}},
+    )
     def post(self, request):
         user = request.user
         phone_number = user.phone_number
@@ -673,9 +715,13 @@ class PinResendOTP(generics.GenericAPIView):
 
 
 class PinVerifyOTP(generics.GenericAPIView):
-    serializer_class = VerifyOTPSerializer
+    """
+    PinVerifyOTP handles the POST request of verifying an
+    OTP after wallet pin change request.
+    """
+    serializer_class = VerifyPinOTPSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         user = request.data
@@ -711,7 +757,7 @@ class PinVerifyOTP(generics.GenericAPIView):
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request):
         authenticated_user = request.user
@@ -759,10 +805,14 @@ class GetAllBanks(generics.RetrieveAPIView):
     GetAllBanks handles the GETT request of listing 
     all institutions by type, code and country.
     """
-
+    serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
+    @extend_schema(
+        description="Get all banks view",
+        responses={200: {"description": "All financial institutions and bank codes"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 

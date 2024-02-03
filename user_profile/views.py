@@ -15,8 +15,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from drf_spectacular.utils import extend_schema
+
 
 from .serializers import (
+    ProfileStatusSerializer,
     ChangePasswordSerializer,
     GetUserSerializer,
     UpdateUserSerializer,
@@ -125,10 +128,15 @@ class ChangePassword(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UpgradeToMember(generics.UpdateAPIView):
+class MemberUserSwitch(generics.UpdateAPIView):
+    serializer_class = ProfileStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Member-User switch",
+        responses={200: {"description": "User and member switch."}},
+    )
     def get_object(self):
         return self.request.user
 
@@ -144,24 +152,23 @@ class UpgradeToMember(generics.UpdateAPIView):
                         user.game_points -= 10
                         user.save()
                         resp = {
-                            "status": "Success!",
+                            "status": "success!",
                             "data": "Congratulations you have been \
-                            upgraded to a member You can now enjoy\
-                            amazing discounts and offers with us.",
+                            upgraded to a member You can now enagage in\
+                            gamifications and enjoy amazing discounts and\
+                            offers with us.",
                         }
                         return Response(data=resp, status=status.HTTP_200_OK)
                     else:
                         resp = {
                             "status": "fail",
-                            "error": "You do not have enough points. \
-                                Engage in gamification tasks to gain points.",
+                            "error": "You do not have enough points."
                         }
                         return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     resp = {
                         "status": "fail!",
-                        "error": "You have not started earning points. \
-                            Engage in gamification tasks to gain points",
+                        "error": "You have not started earning points."
                     }
                     return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
 
@@ -169,14 +176,23 @@ class UpgradeToMember(generics.UpdateAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        else:
+        elif user.account_type == "Member":
+            user.account_type = "User"
+            user.game_points -= 20
+            user.save()
             return Response(
-                {"detail": "User is already a Member."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"status": "success", "detail": "Member has been switched to a User."},
+                status=status.HTTP_200_OK,
             )
 
 
 class WebhookView(generics.GenericAPIView):
+    serializer_class = ProfileStatusSerializer
+
+    @extend_schema(
+        description="Wenhook view",
+        responses={200: {"description": "Webhook responses"}},
+    )
     def post(self, request: HttpRequest, *args, **kwargs):
         webhook_secret_key = fincra_webhook_key
         payload = request.data

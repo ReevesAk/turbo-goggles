@@ -2,7 +2,7 @@ import requests
 import logging
 from decouple import config
 
-from permissions import IsPartnerOrMember
+from permissions import IsPartnerUserOrMember
 
 # Third party imports.
 from rest_framework import generics
@@ -37,7 +37,7 @@ class TransferWithinPicadailys(generics.GenericAPIView):
 
     serializer_class = TransferWithinPicadailysSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         user_data = request.data
@@ -86,7 +86,7 @@ class TransferWithinNG(generics.GenericAPIView):
 
     serializer_class = TransferWithinNigeriaSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         user_data = request.data
@@ -136,7 +136,7 @@ class InternationalTransfer(generics.GenericAPIView):
 
     serializer_class = InternationalTransfersSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         user_data = request.data
