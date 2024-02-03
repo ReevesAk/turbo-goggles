@@ -106,3 +106,6 @@ class ListAdminSerializer(serializers.Serializer):
             "email",
             "account_type",
         ]
+
+class StatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

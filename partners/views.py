@@ -28,7 +28,7 @@ from .models import (
 )
 from commons import Message
 from accounts.otp import otp_manager
-from permissions import IsPartner, IsPartnerAdmin, IsMember
+from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember
 
 
 # Create your views here.
@@ -192,7 +192,7 @@ class PartnerServiceList(generics.ListAPIView):
 
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartner | IsMember | IsPartnerAdmin)]
+    permission_classes = [IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)]
 
     def get_queryset(self):
         user = self.request.user

@@ -119,7 +119,7 @@ class PicadailysPayoutSerializers(serializers.ModelSerializer):
         ]
 
 
-class ResetPinSerializer(serializers.ModelSerializer):
+class WalletResetPinSerializer(serializers.ModelSerializer):
     otp = serializers.CharField(max_length=50, min_length=4)
     pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
     pin2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
@@ -127,3 +127,7 @@ class ResetPinSerializer(serializers.ModelSerializer):
     class Meta:
         model = CreateWallet
         fields = ("otp", "pin", "pin2")
+
+
+class WalletStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

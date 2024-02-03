@@ -64,32 +64,32 @@ class IsPartner(permissions.BasePermission):
         raise ValidationError("Authentication is required to access this resource.")
 
 
-class IsPartnerOrMember(permissions.BasePermission):
+class IsPartnerUserOrMember(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["Partner", "Member"]
+        required_user_types = ["Partner", "User", "Member"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
             if request.user.account_type in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Partners and Members can perform this action.")
+                raise ValidationError("Only Partners, Users and Members can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
 
 
-class IsMember(permissions.BasePermission):
+class IsUserOrMember(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["Member"]
+        required_user_types = ["User", "Member"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
             if request.user.account_type in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Members can perform this action.")
+                raise ValidationError("Only Users and Members can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
 

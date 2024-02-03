@@ -99,7 +99,7 @@ class CreateWalletPinSerializer(serializers.ModelSerializer):
         fields = ["id", "pin", "pin2"]
 
 
-class VerifyOTPSerializer(serializers.Serializer):
+class VerifyPinOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
 
@@ -207,3 +207,7 @@ class InternationalTransfersSerializers(serializers.ModelSerializer):
             "receiver_country",
             "receiver_address",
         ]
+
+
+class BankingStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

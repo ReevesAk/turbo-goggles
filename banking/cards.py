@@ -2,7 +2,7 @@ import requests
 import logging
 from decouple import config
 
-from permissions import IsPartnerOrMember
+from permissions import IsPartnerUserOrMember
 
 # Third party imports.
 from rest_framework import generics
@@ -39,7 +39,7 @@ class CreateCard(generics.CreateAPIView):
 
     serializer_class = CreateCardSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user
@@ -111,7 +111,7 @@ class PayWithCard(generics.GenericAPIView):
 
     serializer_class = FundCardSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user
@@ -188,7 +188,7 @@ class FreezeCard(generics.GenericAPIView):
 
     serializer_class = FreezeCardSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user
@@ -229,7 +229,7 @@ class UnfreezeCard(generics.GenericAPIView):
 
     serializer_class = UnfreezeCardSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
         authenticated_user = request.user

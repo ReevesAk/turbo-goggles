@@ -60,3 +60,7 @@ class DeleteUserSerializer(serializers.Serializer):
     class Meta:
         model = User
         fields = ["email"]
+
+
+class ProfileStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

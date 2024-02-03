@@ -10,13 +10,17 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from drf_spectacular.utils import extend_schema
+
 # In project imports.
 from .serializers import (
+    LoginSerializers,
     RegisterSerializer,
     VerifyOTPSerializer,
     ResendOTPSerializer,
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
+    AcccountStatusSerializer,
 )
 from .models import User, DeviceId
 from .otp import otp_manager
@@ -30,7 +34,7 @@ from permissions import IsVerifiedUser
 class Register(generics.GenericAPIView):
     """
     Register handles the POST request of registering a user,
-    It takes in firstnmae, lastname, username, email and password
+    It takes in firstname, lastname, username, email and password
     and returns a validation email upon success.
     """
 
@@ -137,8 +141,12 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             user.is_active = True
             user.save()
 
+            verified_resonse = {
+                "status": "success",
+                "message":  "Account is verified"
+            }
             return Response(
-                {"Success": "Account is verified"}, status=status.HTTP_200_OK
+                data=verified_resonse, status=status.HTTP_200_OK
             )
 
 
@@ -172,11 +180,14 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             msg = "User is verified... You can reset now your password!"
             recipient = user.phone_number
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
-            if response.status_code == 200:
-                return Response(
-                    {"Success": "Account is verified"}, status=status.HTTP_200_OK
-                )
+            Message.send_msg(msg=str(msg), to=recipient)
+            verified_resonse = {
+                "status": "success",
+                "message":  "Account is verified"
+            }
+            return Response(
+                data=verified_resonse, status=status.HTTP_200_OK
+            )
 
 
 class ResendOTP(generics.GenericAPIView):
@@ -249,6 +260,7 @@ class Login(APIView):
     {"phone_number": "8129187363", "password": "13092830"}.
     """
 
+    serializer_class = LoginSerializers
     permission_classes = (IsVerifiedUser,)
 
     def post(self, request):
@@ -289,7 +301,11 @@ class Login(APIView):
 
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
-            response = {"message": "Login successful", "tokens": tokens}
+            response = {
+                "status": "success",
+                "message": "Login successful",
+                "tokens": tokens
+            }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
             return Response(
@@ -389,14 +405,19 @@ class ResetPassword(generics.CreateAPIView):
         
         user.save()
 
-        response = {"status": "Success!", "message": "Password reset successfully"}
+        response = {"status": "success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)
 
 
 class Logout(APIView):
+    serializer_class = AcccountStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(
+        description="Logout view",
+        responses={200: {"description": "Logout message"}},
+    )
     def post(self, request):
         try:
             refresh_token = request.data["refresh_token"]
@@ -404,7 +425,10 @@ class Logout(APIView):
             token.blacklist()
 
             return Response(
-                data={"logout": "Logout successful!"},
+                data={
+                    "status": "success",
+                    "logout": "Logout successful!"
+                },
                 status=status.HTTP_205_RESET_CONTENT,
             )
 

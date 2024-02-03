@@ -13,7 +13,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 from .serializers import (
+    VasStatusSerializer,
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
     ElectricityBillSerializer,
@@ -130,9 +133,14 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
     as url param.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Network Providers Varitaion Codes"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 
@@ -252,9 +260,14 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
     electricity meter number.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Meter number",
+        responses={200: {"description": "Verify meter number"}},
+    )
     def post(self, request):
         user = request.data
 
@@ -390,9 +403,14 @@ class ProductStatus(generics.RetrieveAPIView):
     request_id of the request and returns the status.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Product status",
+        responses={200: {"description": "Get product purchase status"}},
+    )
     def post(self, request):
         user = self.request.user
 
@@ -429,9 +447,14 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
     variation codes as they are required to chose a tv plan.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "TV Varitaion Codes"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 
@@ -467,9 +490,14 @@ class VerifySmartCardNumber(generics.GenericAPIView):
     card or registration number for tv operators(e.g dstv, gotv).
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Smart card",
+        responses={200: {"description": "Verify smart cards"}},
+    )
     def post(self, request):
         user = request.data
 
@@ -699,9 +727,14 @@ class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
     get airtime products available in that country.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Get international airtime country codes"}},
+    )
     def get(self, request):
         resource = "get-international-airtime-countries"
         get_intl_codes_headers = {
@@ -735,9 +768,14 @@ class GetIntlAirtimeProducts(generics.GenericAPIView):
     the country_code as url params.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="International airtime products",
+        responses={200: {"description": "Get International airtime products"}},
+    )
     def get(self, request, *args, **kwargs):
         param_value = kwargs.get("country_code")
 
@@ -774,9 +812,14 @@ class GetIntlAirtimeOperators(generics.GenericAPIView):
     the variation codes.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Airtime operators.",
+        responses={200: {"description": "Get international airtime operators"}},
+    )
     def get(self, request, *args, **kwargs):
         code = kwargs.get("country_code")
         product_type = kwargs.get("product_type_id")
@@ -816,9 +859,14 @@ class GetIntlAirtimeVaraitionCodes(generics.GenericAPIView):
     as url params.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "International airtime Varitaion Codes"}},
+    )
     def get(self, request, *args, **kwargs):
         ops_id = kwargs.get("operator_id")
         product_type = kwargs.get("product_type_id")
@@ -955,9 +1003,14 @@ class GetWaecVaritaionCodes(generics.RetrieveAPIView):
     are required to chose a registration plan.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Waec Varitaion Codes"}},
+    )
     def get(self, request):
         user = request.user  # Get the authenticated user.
 
@@ -1082,9 +1135,14 @@ class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
     are required to create an accident insurance.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Vehicle insurance Varitaion Codes"}},
+    )
     def get(self, request):
         user = request.user  # Get the authenticated user.
 
@@ -1221,9 +1279,14 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
     are required to create an accident insurance.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Accident Varitaion Codes"}},
+    )
     def get(self, request):
         user = request.user  # Get the authenticated user.
 
@@ -1358,9 +1421,14 @@ class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
     are required to create a home cover insurance.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Home Cover Varitaion Codes"}},
+    )
     def get(self, request):
         user = request.user  # Get the authenticated user.
 
@@ -1500,9 +1568,14 @@ class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
     codes of different health insurance plans.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Health insurance Varitaion Codes"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 
@@ -1538,9 +1611,14 @@ class GetHealthInsuranceOptions(generics.RetrieveAPIView):
     options, in this case lit of supported hospitals.
     """
 
+    serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    @extend_schema(
+        description="Options",
+        responses={200: {"description": "Health insurance options"}},
+    )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
 

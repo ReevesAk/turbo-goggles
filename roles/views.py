@@ -10,8 +10,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 # In project imports.
 from .serializers import (
+    StatusSerializer,
     RegisterSuperAdminSerializer,
     RegisterOtherAdminRoleSerializer,
     AdminDeletionSerializer,
@@ -160,9 +163,14 @@ class GetAllCustomers(generics.RetrieveAPIView):
     customers wallet information.
     """
 
+    serializer_class = StatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
+    @extend_schema(
+        description="Get all customers",
+        responses={200: {"description": "Get all customers"}},
+    )
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
