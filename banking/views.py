@@ -32,6 +32,7 @@ from .serializers import (
     ResetPinSerializer,
     UpdateCustomerSerializers,
 )
+from accounts.models import User
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
 from .controllers import BVN, Customer
 
@@ -512,7 +513,7 @@ class CreateUSDAccount(generics.CreateAPIView):
         authenticated_user = request.user
         user_data = request.data
 
-        wallet = Wallet.objects.get(user=authenticated_user.occupation).exists()
+        wallet = Wallet.objects.get(user=authenticated_user).exists()
         if wallet.currency == "USD":
             existing_wallet = {
                 "customer_id": wallet.customer_id,
@@ -524,6 +525,17 @@ class CreateUSDAccount(generics.CreateAPIView):
                 "status": "fail",
                 "message": "User already has a dollar wallet!",
                 "data": existing_wallet,
+            }
+            return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
+        
+
+        # Check if the user has an NGN wallet
+        has_ngn_wallet = Wallet.objects.filter(user=authenticated_user, currency='NGN').exists()
+
+        if not has_ngn_wallet:
+            response_data = {
+                "status": "fail",
+                "message": "User must have an NGN wallet before creating a USD wallet!",
             }
             return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
 
