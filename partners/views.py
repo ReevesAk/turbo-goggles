@@ -26,6 +26,8 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
+from banking.controllers import Customer
+from banking.models import CustomerData
 from commons import Message
 from accounts.otp import otp_manager
 from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember
@@ -49,11 +51,25 @@ class RegisterPartner(generics.GenericAPIView):
                     data={"error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            user =  serializer.save()
-            # Save the device_id separately using DeviceId model
-            device_id = user_data.get("device_id")
-            if device_id:
-                DeviceId.objects.create(user=user, device_id=device_id)
+            # user =  serializer.save()
+            # # Save the device_id separately using DeviceId model
+            # device_id = user_data.get("device_id")
+            # if device_id:
+            #     DeviceId.objects.create(user=user, device_id=device_id)
+
+            serializer.save()
+            try:
+                customer = CustomerData.objects.get(user=request.user)
+            except CustomerData.DoesNotExist:
+                customer = CustomerData.objects.create(user=request.user)
+
+            # Create a customer entry on Maplerad.
+            customer_data = Customer.create(
+                f_name=user_data["first_name"],
+                l_name=user_data["last_name"],
+                email=user_data["email"],
+                country="NG"
+            )
 
 
             # Create and send OTP.
@@ -67,6 +83,15 @@ class RegisterPartner(generics.GenericAPIView):
             if response.status_code == 200:
                 try:
                     data = serializer.data
+
+                     # Update the customer instance with the new data.
+                    customer.first_name = customer_data["first_name"]
+                    customer.last_name = customer_data["last_name"]
+                    customer.email = customer_data["email"]
+                    customer.country = customer_data["country"]
+                    customer.customer_id = customer_data["customer_id"]
+                    customer.save()
+                    
                     response = {
                         "status": "success",
                         "message": "Partner Created Successfully. Check your phone for an OTP",

@@ -35,7 +35,7 @@ INTERNATIONAL_TRANSFER_SCHEME = (
 
 
 class CustomerData(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
     country = models.CharField(max_length=255, null=True)
@@ -44,7 +44,7 @@ class CustomerData(models.Model):
 
 
 class BVNData(models.Model):
-    user = models.OneToOneField(to=User, null=True, on_delete=models.CASCADE)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     number = models.CharField(max_length=155, null=True, unique=True)
     first_name = models.CharField(max_length=155, null=True)
     last_name = models.CharField(max_length=155, null=True)

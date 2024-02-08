@@ -54,7 +54,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 

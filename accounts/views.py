@@ -50,59 +50,60 @@ class Register(generics.GenericAPIView):
                     data={"error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            # # Save the device_id separately using DeviceId model
+            # device_id = user_data.get("device_id")
+            # if device_id:
+            #     DeviceId.objects.create(user=user, device_id=device_id)
+
             user = serializer.save()
 
-            # Save the device_id separately using DeviceId model
-            device_id = user_data.get("device_id")
-            if device_id:
-                DeviceId.objects.create(user=user, device_id=device_id)
-
-            try:
-                customer = CustomerData.objects.get(user=request.user)
-            except CustomerData.DoesNotExist:
-                customer = CustomerData.objects.create(user=request.user)
-
-            # Create a customer entry on Maplerad.
-            customer_data = Customer.create(
-                f_name=user_data["first_name"],
-                l_name=user_data["last_name"],
-                email=user_data["email"],
-                country="NG"
-            )
-
             # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
+            otp = otp_manager.create_otp(user_id=str(user.id))
             msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
                 otp
             )
             recipient = serializer.data["phone_number"][1:]
 
             Message.send_msg(msg=str(msg), to=recipient)
-            try:
-                data = serializer.data
+            # try:
+            #     data = serializer.data
 
-                # Update the customer instance with the new data.
-                customer.first_name = customer_data["first_name"]
-                customer.last_name = customer_data["last_name"]
-                customer.email = customer_data["email"]
-                customer.country = customer_data["country"]
-                customer.customer_id = customer_data["customer_id"]
-                customer.save()
+            #     try:
+            #         customer = CustomerData.objects.get(email=request.data.get("email"))
+            #     except CustomerData.DoesNotExist:
+            #         customer = CustomerData.objects.create(user=user)
 
-                response = {
-                    "status": "success",
-                    "message": "User Created Successfully. Check your phone for an OTP",
-                    "data": data,
-                }
-                return Response(data=response, status=status.HTTP_201_CREATED)
-            except Exception as err:
-                return Response(
-                    {
-                        "status": "fail",
-                        "message": err,
-                    },
-                    status=status.HTTP_409_CONFLICT,
-                )
+            #     # Create a customer entry on Maplerad.
+            #     customer_data = Customer.create(
+            #         f_name=user_data["first_name"],
+            #         l_name=user_data["last_name"],
+            #         email=user_data["email"],
+            #         country="NG"
+            #     )
+
+            #     # Update the customer instance with the new data.
+            #     customer.first_name = customer_data["first_name"]
+            #     customer.last_name = customer_data["last_name"]
+            #     customer.email = customer_data["email"]
+            #     customer.country = customer_data["country"]
+            #     customer.customer_id = customer_data["customer_id"]
+            #     customer.save()
+
+            response = {
+                "status": "success",
+                "message": "User Created Successfully. Check your phone for an OTP",
+                "data": serializer.data,
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
+            # except Exception as err:
+            #     return Response(
+            #         {
+            #             "status": "fail",
+            #             "message": err,
+            #         },
+            #         status=status.HTTP_409_CONFLICT,
+            #     )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
