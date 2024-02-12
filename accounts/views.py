@@ -22,11 +22,9 @@ from .serializers import (
     ForgotPasswordSerializer,
     AcccountStatusSerializer,
 )
-from .models import User, DeviceId
+from .models import User, DeviceId, AccountType
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
-from banking.controllers import Customer
-from banking.models import CustomerData
 from sms import Message
 from permissions import IsVerifiedUser
 
@@ -57,6 +55,10 @@ class Register(generics.GenericAPIView):
             #     DeviceId.objects.create(user=user, device_id=device_id)
 
             user = serializer.save()
+            AccountType.objects.create(
+                user=user,
+                user_type="User"
+            )
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))

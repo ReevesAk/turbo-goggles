@@ -82,6 +82,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.phone_number
 
 
+class AccountType(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user_type = models.CharField(
+        choices=USER_CATEGORY_CHOICES, max_length=40, null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class DeviceId(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     device_id = models.CharField(max_length=250, null=True)
