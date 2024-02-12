@@ -9,7 +9,7 @@ from accounts.models import User
 from .models import CreateAd, AdBudget
 
 
-class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
+class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
@@ -20,13 +20,11 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
         fields = [
             "id",
             "device_id",
-            "account_type",
             "whoareyou",
             "name",
             "address",
             "email",
             "brand_type",
-            "phone_number",
             "country",
             "brand_name",
             "description",
@@ -38,31 +36,25 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
             "twitter",
             "instagram",
             "telegram",
-            "password",
-            "password2",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, attrs):
-        email = attrs.get("email", "")
-        phone_number = attrs.get("phone_number", "")
+        whoareyou = attrs.get("whoareyou", "")
+        brand_type = attrs.get("brand_type", "")
 
-        if email:
-            email_exists = User.objects.filter(email=email).exists()
-            if email_exists:
-                raise serializers.ValidationError("Email has already been used")
+        if whoareyou:
+            whoareyou_exists = User.objects.filter(whoareyou=whoareyou).exists()
+            if whoareyou_exists:
+                raise serializers.ValidationError(f"whoareyou: {whoareyou} has already been used")
         else:
-            raise serializers.ValidationError("email: email field can not be empty")
+            raise serializers.ValidationError("whoareyou: whoareyou field can not be empty")
 
-        if phone_number:
-            phone_number_exists = User.objects.filter(
-                phone_number=phone_number
-            ).exists()
-            if phone_number_exists:
-                raise serializers.ValidationError("phone_number has already been used")
+        if brand_type:
+           pass
         else:
             raise serializers.ValidationError(
-                "phone_number: phone_number field can not be empty"
+                "brand_type: brand_type field can not be empty"
             )
 
         urls = ["facebook", "twitter", "instagram", "telegram", "website"]
@@ -83,7 +75,6 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create(
-            email=validated_data["email"],
             name=validated_data["name"],
             whoareyou=validated_data["whoareyou"],
             address=validated_data["address"],
@@ -91,11 +82,9 @@ class RegisterBrandAdvertSeriailizers(serializers.ModelSerializer):
             brand_name=validated_data["brand_name"],
             description=validated_data["description"],
             services=validated_data["services"],
-            account_type=validated_data["account_type"],
             country=validated_data["country"],
             state=validated_data["state"],
             city=validated_data["city"],
-            phone_number=validated_data["phone_number"],
             website=validated_data["website"],
             facebook=validated_data["facebook"],
             twitter=validated_data["twitter"],

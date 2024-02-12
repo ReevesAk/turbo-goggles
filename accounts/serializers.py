@@ -52,6 +52,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
+
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 
@@ -87,6 +88,7 @@ class UpdateUserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
 
 class LoginSerializers(serializers.ModelSerializer):
 

@@ -12,7 +12,7 @@ from cloudinary import uploader as cloud
 
 # In project imports.
 from .serializers import (
-    RegisterPartnerSerializer,
+    BecomePartnerSerializer,
     PartnerServiceSerializer,
     PartnerProfileSerializer,
     UpdateProfileSerializer,
@@ -20,94 +20,42 @@ from .serializers import (
     PartnerServicePhotosSerializer,
     PartnerServiceGymPhotosSerializer,
 )
-from accounts.models import User, DeviceId
+from accounts.models import User, AccountType
 from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
-from banking.controllers import Customer
-from banking.models import CustomerData
-from commons import Message
-from accounts.otp import otp_manager
 from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember
 
 
 # Create your views here.
-class RegisterPartner(generics.GenericAPIView):
-    """RegisterPartner handles the POST request of registering a user,
-    It takes in firstname, lastname, email and password
-    and returns a validation email upon success."""
+class CreatePartner(generics.GenericAPIView):
+    """CreatePartner handles the POST request of creating a partner
+    account.
+    """
 
-    serializer_class = RegisterPartnerSerializer
+    serializer_class = BecomePartnerSerializer
 
     def post(self, request):
         user_data = request.data
+        authenticated_user = request.user
         
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            if user_data["password"] != user_data["password2"]:
-                return Response(
-                    data={"error": "Passwords do not match!"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # user =  serializer.save()
-            # # Save the device_id separately using DeviceId model
-            # device_id = user_data.get("device_id")
-            # if device_id:
-            #     DeviceId.objects.create(user=user, device_id=device_id)
 
             serializer.save()
-            try:
-                customer = CustomerData.objects.get(user=request.user)
-            except CustomerData.DoesNotExist:
-                customer = CustomerData.objects.create(user=request.user)
-
-            # Create a customer entry on Maplerad.
-            customer_data = Customer.create(
-                f_name=user_data["first_name"],
-                l_name=user_data["last_name"],
-                email=user_data["email"],
-                country="NG"
+            user_type = AccountType.objects.create(
+                user_type="Partners",
             )
+            authenticated_user.account_type.add(user_type)
 
-
-            # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
-                otp
-            )
-            recipient = serializer.data["phone_number"]
-
-            response = Message.send_msg(msg=str(msg), to=recipient)
-            if response.status_code == 200:
-                try:
-                    data = serializer.data
-
-                     # Update the customer instance with the new data.
-                    customer.first_name = customer_data["first_name"]
-                    customer.last_name = customer_data["last_name"]
-                    customer.email = customer_data["email"]
-                    customer.country = customer_data["country"]
-                    customer.customer_id = customer_data["customer_id"]
-                    customer.save()
-                    
-                    response = {
-                        "status": "success",
-                        "message": "Partner Created Successfully. Check your phone for an OTP",
-                        "data": data,
-                    }
-                    return Response(data=response, status=status.HTTP_201_CREATED)
-                except IntegrityError:
-                    return Response(
-                        {
-                            "status": "fail",
-                            "message": "Partner with that email or phone number already exist",
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-            else:
-                return Response(data=response, status=response.status_code)
+            response = {
+                "status": "success",
+                "message": "Partner account created successfully.",
+                "data": serializer.data,
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

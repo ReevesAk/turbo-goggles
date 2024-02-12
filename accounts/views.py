@@ -40,6 +40,7 @@ class Register(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
+        authenticated_user = request.user
         
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -55,10 +56,10 @@ class Register(generics.GenericAPIView):
             #     DeviceId.objects.create(user=user, device_id=device_id)
 
             user = serializer.save()
-            AccountType.objects.create(
-                user=user,
+            user_type = AccountType.objects.create(
                 user_type="User"
             )
+            authenticated_user.account_type.add(user_type)
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))

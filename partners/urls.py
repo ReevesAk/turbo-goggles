@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    RegisterPartner,
+    CreatePartner,
     ListAllPartners,
     CreatePartnerService,
     PartnerServiceList,
@@ -13,7 +13,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("register-partners/", RegisterPartner.as_view(), name="register-partners"),
+    path("create-partners/", CreatePartner.as_view(), name="create_partners"),
     path("partner-profile/", GetPartnerDetails.as_view(), name="get_partner_profile"),
     path("verify-cac/", VerifyCAC.as_view(), name="verify_cac"),
     path("list-all-partners/", ListAllPartners.as_view(), name="all_partners"),
