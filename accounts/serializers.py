@@ -18,7 +18,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
-            "account_type",
             "device_id",
             "phone_number",
             "password",
@@ -45,7 +44,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data["email"],
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
-            account_type=validated_data["account_type"],
             phone_number=validated_data["phone_number"],
         )
 
@@ -53,6 +51,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
+
 
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
@@ -89,6 +88,7 @@ class UpdateUserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
 
 class LoginSerializers(serializers.ModelSerializer):
 

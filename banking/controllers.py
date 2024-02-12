@@ -64,13 +64,7 @@ class Customer:
                 last_name = resp["data"]["last_name"]
                 customer_id = resp["data"]["id"]
 
-                return {
-                    "country": country,
-                    "email": email,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "customer_id": customer_id,
-                }
+                return response
             else:
                 logging.error(
                     f"Enroll customer API error: {response.status_code} - {response.text}"

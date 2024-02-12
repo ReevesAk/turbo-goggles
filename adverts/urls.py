@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    RegisterBrandAdverts,
+    CreateBrandAdvertsAccount,
     ListAllBrandAds,
     GetBrandAdDetails,
     UpdateBrandAdProfile,
@@ -9,7 +9,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("register/", RegisterBrandAdverts.as_view(), name="register_ads"),
+    path("create-ad/", CreateBrandAdvertsAccount.as_view(), name="create_ad"),
     path(
         "list-all-ads/",
         ListAllBrandAds.as_view(),
