@@ -134,6 +134,32 @@ class CreateNGNAccount(generics.GenericAPIView):
     def post(self, request):
         authenticated_user = request.user
 
+        user_data = User.objects.get(user=authenticated_user)
+
+        try:
+            customer = CustomerData.objects.get(email=request.data.get("email"))
+        except CustomerData.DoesNotExist:
+            customer = CustomerData.objects.create(user=authenticated_user)
+
+        # Create a customer entry on Maplerad.
+        customer_data_resp = Customer.create(
+            f_name=user_data.first_name,
+            l_name=user_data.last_name,
+            email=user_data.email,
+            country="NG"
+        )
+
+        if customer_data_resp.status_code == 200:
+            resp = response.json()
+
+            # Update the customer instance with the new data.
+            customer.first_name = resp["data"]["first_name"]
+            customer.last_name = resp["data"]["last_name"]
+            customer.email = resp["data"]["email"]
+            customer.country = resp["data"]["country"]
+            customer.customer_id = resp["data"]["id"]
+            customer.save()
+
         user_exist = Wallet.objects.get(user=authenticated_user).exists()
         if user_exist:
             existing_wallet = {

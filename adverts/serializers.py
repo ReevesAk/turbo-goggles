@@ -12,7 +12,6 @@ from .models import CreateAd, AdBudget
 class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
 
-    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
@@ -37,7 +36,6 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
             "instagram",
             "telegram",
         ]
-        extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, attrs):
         whoareyou = attrs.get("whoareyou", "")

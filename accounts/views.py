@@ -50,11 +50,6 @@ class Register(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # # Save the device_id separately using DeviceId model
-            # device_id = user_data.get("device_id")
-            # if device_id:
-            #     DeviceId.objects.create(user=user, device_id=device_id)
-
             user = serializer.save()
             user_type = AccountType.objects.create(
                 user_type="User"
@@ -69,29 +64,6 @@ class Register(generics.GenericAPIView):
             recipient = serializer.data["phone_number"][1:]
 
             Message.send_msg(msg=str(msg), to=recipient)
-            # try:
-            #     data = serializer.data
-
-            #     try:
-            #         customer = CustomerData.objects.get(email=request.data.get("email"))
-            #     except CustomerData.DoesNotExist:
-            #         customer = CustomerData.objects.create(user=user)
-
-            #     # Create a customer entry on Maplerad.
-            #     customer_data = Customer.create(
-            #         f_name=user_data["first_name"],
-            #         l_name=user_data["last_name"],
-            #         email=user_data["email"],
-            #         country="NG"
-            #     )
-
-            #     # Update the customer instance with the new data.
-            #     customer.first_name = customer_data["first_name"]
-            #     customer.last_name = customer_data["last_name"]
-            #     customer.email = customer_data["email"]
-            #     customer.country = customer_data["country"]
-            #     customer.customer_id = customer_data["customer_id"]
-            #     customer.save()
 
             response = {
                 "status": "success",
@@ -99,14 +71,6 @@ class Register(generics.GenericAPIView):
                 "data": serializer.data,
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
-            # except Exception as err:
-            #     return Response(
-            #         {
-            #             "status": "fail",
-            #             "message": err,
-            #         },
-            #         status=status.HTTP_409_CONFLICT,
-            #     )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
