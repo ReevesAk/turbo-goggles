@@ -351,3 +351,21 @@ class Transfer:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+    @staticmethod
+    def verify(transfer_id):
+        resource = f"transfers/{transfer_id}"
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                header=headers,
+            )
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Transfer details API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    

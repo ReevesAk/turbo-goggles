@@ -211,3 +211,7 @@ class InternationalTransfersSerializers(serializers.ModelSerializer):
 
 class BankingStatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class VerifyTransferSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

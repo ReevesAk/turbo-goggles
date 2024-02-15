@@ -18,7 +18,7 @@ from .views import (
 )
 
 from .cards import CreateCard, PayWithCard, FreezeCard, UnfreezeCard
-from .transfers import TransferWithinNG, TransferWithinPicadailys, InternationalTransfer
+from .transfers import TransferWithinNG, TransferWithinPicadailys, InternationalTransfer, VerifyTransfer
 
 
 urlpatterns = [
@@ -52,5 +52,6 @@ urlpatterns = [
     # Transfer Endpoints.
     path("transfer/local", TransferWithinNG.as_view(), name="transfer_local"),
     path("transfer/picadailys", TransferWithinPicadailys.as_view(), name="transfer_picadailys"),
-    path("transfer/international", InternationalTransfer.as_view(), name="transfer_international")
+    path("transfer/international", InternationalTransfer.as_view(), name="transfer_international"),
+    path("transfer/verify-tx/<int:transfer_id>/", VerifyTransfer.as_view(), name="verify_transfer")
 ]
