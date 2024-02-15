@@ -2,6 +2,7 @@ import requests
 import logging
 from decouple import config
 
+from exceptions import Customexceptions
 from permissions import IsPartnerUserOrMember
 
 # Third party imports.
@@ -10,12 +11,15 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from drf_spectacular.utils import extend_schema
+
 
 # In-projects imports.
 from .serializers import (
     TransferWithinNigeriaSerializers,
     TransferWithinPicadailysSerializers,
     InternationalTransfersSerializers,
+    VerifyTransferSerializer,
 )
 from .helpers import Pin
 from .controllers import Transfer
@@ -191,3 +195,48 @@ class InternationalTransfer(generics.GenericAPIView):
                     )
         else:
             return Response(data=serializer.error, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyTransfer(generics.GenericAPIView):
+    """
+    VerifyTransfer handles the GET request of checking transaction details.
+    """
+
+    serializer_class = VerifyTransferSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+
+    @extend_schema(
+        description="Get transfer details",
+        responses={200: {"description": "Get trnasaction detail of a transfer"}},
+    )
+    def get(self, request, *args, **kwargs):
+        user_data = request.data
+        authenticated_user = request.user
+
+        tx_id = kwargs.get('transfer_id')
+
+        if tx_id:
+            pin = request.data.get("pin")
+
+            verification = Pin.verify(user=authenticated_user, pin=pin)
+            if verification:
+                try:
+                    verify_transfer_response = Transfer.verify(transfer_id=tx_id)
+                    if verify_transfer_response.status_code == 200:
+                        resp = {
+                            "status": "success",
+                            "message": "Transaction was successful",
+                            "data": verify_transfer_response.json()
+                        }
+                        return Response(data=resp, status=status.HTTP_200_OK)
+                    else:
+                        return Response(
+                            data=verify_transfer_response.json(),
+                            status=verify_transfer_response.status_code
+                        )
+                except requests.exceptions.RequestException as e:
+                    logging.error(f"Verify transfer API request error: {str(e)}")
+                    raise Customexceptions.server_error(item_error=tx_id)
+        else:
+            raise Customexceptions.not_found(item_not_found=tx_id)
