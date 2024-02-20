@@ -2,8 +2,8 @@ import logging
 import requests
 from threading import Thread
 from decouple import config
-from commons import Pts
-from accounts.models import TxModel
+from commons import Allocate
+from accounts.models import TxModel, Rewards
 
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, JSONParser
@@ -78,23 +78,34 @@ class AirTimeTopUp(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            tx = TxModel.objects.create(
-                                user=user,
-                                tx_id=airtime_response.json()["transactionId"],
-                                amount=user_data["amount"],
-                                description="Debit for airtime recharge.",
-                                pts=new_points,
-                            )
-                            pts = Pts.objects.create(user=user)
-                            pts.balance += new_points
-                            pts.transaction = tx
-                            pts.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = airtime_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = "Debit for airtime purchase."
+                                        tx.rwd = new_rewards
+                                        tx.save()
+
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
+
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
                         response_data = {
                             "status": "Success",
-                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_points} points.",
+                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_rewards} rewards.",
                             "data": airtime_response.json(),
                         }
 
@@ -204,29 +215,38 @@ class DataSubscription(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            tx = TxModel.objects.create(
-                                user=user,
-                                tx_id=data_response.json()["transactionId"],
-                                amount=user_data["amount"],
-                                description="Debit for data subscription.",
-                                pts=new_points,
-                            )
-                            pts = Pts.objects.create(user=user)
-                            pts.balance += new_points
-                            pts.transaction = tx
-                            pts.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = data_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = "Debit for data subscription."
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Subscription of {amount} was succesful and you have been awarded {new_points} points.",
-                                "data": data_response.json(),
-                            }
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
+
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": data_response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": data_response.json(),
@@ -339,36 +359,40 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = electricity_response.json().get(
-                                        "transactionId", ""
-                                    )
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for electricity payment."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = electricity_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for electricity payment."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Payment of {amount} was succesful and you have been awarded {new_points} points.",
-                                "data": electricity_response.json(),
-                            }
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Payment of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": electricity_response.json(),
+                        }
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": electricity_response.json(),
@@ -571,35 +595,39 @@ class NewTvSubscription(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = new_tv_response.json().get(
-                                        "transactionId"
-                                    )
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for tv subscription."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = new_tv_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for new tv subscription payment."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": new_tv_response.json(),
-                            }
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": new_tv_response.json(),
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": new_tv_response.json(),
@@ -662,36 +690,40 @@ class RenewTvSubscription(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = renew_tv_response.json().get(
-                                        "transactionId"
-                                    )
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for tv subscription."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = renew_tv_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for tv subscription renewal."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": renew_tv_response.json(),
-                            }
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": renew_tv_response.json(),
+                        }
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": renew_tv_response.json(),
@@ -936,38 +968,40 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = intl_topup_response.json().get(
-                                        "transactionId"
-                                    )
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = (
-                                        "Debit for international airtime recharge."
-                                    )
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = intl_topup_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for international airtime recharge."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Topup of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": intl_topup_response.json(),
-                            }
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Topup of {amount} was succesful and you have been awarded {new_rewards} rewards",
+                            "data": intl_topup_response.json(),
+                        }
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": intl_topup_response.json(),
@@ -1072,36 +1106,38 @@ class WaecRegistration(generics.GenericAPIView):
                         serializer.save()
                         amount = waec_response.json()["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = waec_response.json().get["content"][
-                                        "transactions"
-                                    ]("transactionId")
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for WAEC registration."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = waec_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = "Debit for waec registration."
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Waec registration of {amount} was succesful and you have been awarded {new_points} points.",
-                                "data": waec_response.json(),
-                            }
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Waec registration of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": waec_response.json(),
+                        }
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": waec_response.json(),
@@ -1214,36 +1250,42 @@ class VehicleInsurance(generics.GenericAPIView):
                         serializer.save()
                         amount = vehicle_insurance_response.json()["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = vehicle_insurance_response.json().get[
-                                        "content"
-                                    ]["transactions"]("transactionId")
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for vehicle insurance."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = (
+                                            vehicle_insurance_response.json().get(
+                                                "transactionId", ""
+                                            )
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for vehicular insurance."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": vehicle_insurance_response.json(),
-                            }
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": vehicle_insurance_response.json(),
+                        }
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": vehicle_insurance_response.json(),
@@ -1356,35 +1398,39 @@ class AccidentInsurance(generics.GenericAPIView):
                         serializer.save()
                         amount = accident_insurance_response.json()["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = accident_insurance_response.json().get[
-                                        "content"
-                                    ]["transactions"]("transactionId")
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for accident insurance."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = (
+                                            accident_insurance_response.json().get(
+                                                "transactionId", ""
+                                            )
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = "Debit for accident insurance."
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": accident_insurance_response.json(),
-                            }
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": accident_insurance_response.json(),
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": accident_insurance_response.json(),
@@ -1498,35 +1544,42 @@ class HomeCoverInsurance(generics.GenericAPIView):
                         serializer.save()
                         amount = home_cover_insurance_response.json()["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = HomeCoverInsurance.json().get["content"][
-                                        "transactions"
-                                    ]("transactionId")
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for home cover insurance."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = (
+                                            home_cover_insurance_response.json().get(
+                                                "transactionId", ""
+                                            )
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = (
+                                            "Debit for home cover insurance."
+                                        )
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": home_cover_insurance_response.json(),
-                            }
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": home_cover_insurance_response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": home_cover_insurance_response.json(),
@@ -1698,35 +1751,38 @@ class HealthInsurance(generics.GenericAPIView):
                         serializer.save()
                         amount = health_insurance_response.json()["amount"]
 
-                        if amount >= 100:
-                            new_points = Pts.award(amount=amount)
-                            try:
-                                with transaction.atomic():
-                                    tx, _ = TxModel.objects.get_or_create(user=user)
-                                    tx.tx_id = HomeCoverInsurance.json().get["content"][
-                                        "transactions"
-                                    ]("transactionId")
-                                    tx.amount = user_data.get("amount", 0)
-                                    tx.description = "Debit for health insurance."
-                                    tx.pts = new_points
-                                    tx.save()
+                        # Check is user is a memeber then assign rewards.
+                        if user.is_member is True:
+                            if amount >= 100:
+                                new_rewards = Allocate.reward(amount=amount)
+                                try:
+                                    with transaction.atomic():
+                                        tx, _ = TxModel.objects.get_or_create(user=user)
+                                        tx.tx_id = health_insurance_response.json().get(
+                                            "transactionId", ""
+                                        )
+                                        tx.amount = user_data.get("amount", 0)
+                                        tx.description = "Debit for health insurance."
+                                        tx.rwd = new_rewards
+                                        tx.save()
 
-                                    pts, _ = Pts.objects.get_or_create(user=user)
-                                    pts.balance += new_points
-                                    pts.transaction = tx
-                                    pts.save()
-                            except Exception as e:
-                                logging.error(f"Database query error: {str(e)}")
+                                        rwd, _ = Rewards.objects.get_or_create(
+                                            user=user
+                                        )
+                                        rwd.balance += new_rewards
+                                        rwd.transaction = tx
+                                        rwd.save()
 
-                            response_data = {
-                                "status": "Success",
-                                "message": f"Health insurance of {amount} was succesful and you have been awarded {new_points} points",
-                                "data": health_insurance_response.json(),
-                            }
+                                except Exception as e:
+                                    logging.error(f"Database query error: {str(e)}")
 
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Health insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+                            "data": health_insurance_response.json(),
+                        }
+
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         response_data = {
                             "data": health_insurance_response.json(),

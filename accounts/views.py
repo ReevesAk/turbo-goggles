@@ -41,7 +41,7 @@ class Register(generics.GenericAPIView):
     def post(self, request):
         user_data = request.data
         authenticated_user = request.user
-        
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
@@ -51,9 +51,7 @@ class Register(generics.GenericAPIView):
                 )
 
             user = serializer.save()
-            user_type = AccountType.objects.create(
-                user_type="User"
-            )
+            user_type = AccountType.objects.create(user_type="User")
             authenticated_user.account_type.add(user_type)
 
             # Create and send OTP.
@@ -109,13 +107,8 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             user.is_active = True
             user.save()
 
-            verified_resonse = {
-                "status": "success",
-                "message":  "Account is verified"
-            }
-            return Response(
-                data=verified_resonse, status=status.HTTP_200_OK
-            )
+            verified_resonse = {"status": "success", "message": "Account is verified"}
+            return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
 
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
@@ -149,13 +142,8 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             recipient = user.phone_number
 
             Message.send_msg(msg=str(msg), to=recipient)
-            verified_resonse = {
-                "status": "success",
-                "message":  "Account is verified"
-            }
-            return Response(
-                data=verified_resonse, status=status.HTTP_200_OK
-            )
+            verified_resonse = {"status": "success", "message": "Account is verified"}
+            return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
 
 class ResendOTP(generics.GenericAPIView):
@@ -237,16 +225,19 @@ class Login(APIView):
 
         user = authenticate(phone_number=phone_number, password=password)
         if user:
-
             # Check if the user already has more than two device IDs.
             existing_device_count = DeviceId.objects.filter(user=user).count()
             if existing_device_count >= 2:
                 if existing_device_count == 3:
                     # Delete the oldest device (based on creation timestamp)
-                    oldest_device = DeviceId.objects.filter(user=user).earliest('created_at')
+                    oldest_device = DeviceId.objects.filter(user=user).earliest(
+                        "created_at"
+                    )
                     oldest_device.delete()
                 return Response(
-                    data={"error": "User cannot login on more than two devices, older deviceID deleted."},
+                    data={
+                        "error": "User cannot login on more than two devices, older deviceID deleted."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -261,7 +252,7 @@ class Login(APIView):
             #     recipient = user.phone_number
 
             #     response = Message.send_msg(msg=str(msg), to=recipient)
-                
+
             #     return Response(
             #         data={"detail": "Otp sent to user's new device Id"},
             #         status=status.HTTP_200_OK,
@@ -272,7 +263,7 @@ class Login(APIView):
             response = {
                 "status": "success",
                 "message": "Login successful",
-                "tokens": tokens
+                "tokens": tokens,
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
@@ -355,7 +346,7 @@ class ResetPassword(generics.CreateAPIView):
                 data={"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        
+
         if user_data["password"] != user_data["password2"]:
             return Response(
                 data={"error": "Passwords do not match!"},
@@ -370,7 +361,7 @@ class ResetPassword(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-        
+
         user.save()
 
         response = {"status": "success!", "message": "Password reset successfully"}
@@ -393,10 +384,7 @@ class Logout(APIView):
             token.blacklist()
 
             return Response(
-                data={
-                    "status": "success",
-                    "logout": "Logout successful!"
-                },
+                data={"status": "success", "logout": "Logout successful!"},
                 status=status.HTTP_205_RESET_CONTENT,
             )
 

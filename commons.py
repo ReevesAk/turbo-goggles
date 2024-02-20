@@ -104,8 +104,8 @@ class Message:
             )
 
 
-class Pts:
+class Allocate:
     @staticmethod
-    def award(amount):
-        points = (amount / 100) * 0.5
-        return points
+    def reward(amount):
+        rewards = (amount / 100) * 0.5
+        return rewards
