@@ -91,7 +91,6 @@ class UpdateUserSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = User
         fields = ["phone_number", "password"]

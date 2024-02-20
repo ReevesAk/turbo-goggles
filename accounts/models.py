@@ -27,6 +27,7 @@ BRAND_TYPE = (
     ("Business", "Business"),
 )
 
+
 class AccountType(models.Model):
     user_type = models.CharField(
         choices=USER_CATEGORY_CHOICES, max_length=40, null=True
@@ -47,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
+    is_member = models.BooleanField(default=False)
     is_upgraded = models.BooleanField(default=False)
 
     # Brand details.
@@ -66,8 +68,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     telegram = models.CharField(max_length=150, null=True)
 
     # Partner details.
-    account_type = models.ManyToManyField(
-        to=AccountType, related_name='users')
+    account_type = models.ManyToManyField(to=AccountType, related_name="users")
 
     business_name = models.CharField(max_length=500, null=True)
     website = models.CharField(max_length=255, null=True)
@@ -106,11 +107,11 @@ class TxModel(models.Model):
     tx_id = models.CharField(max_length=255, null=True)
     amount = models.FloatField(null=True)
     description = models.CharField(max_length=255, null=True)
-    pts = models.FloatField(null=True)
+    rwd = models.FloatField(null=True)
     date = models.DateTimeField(auto_now_add=True)
 
 
-class Points(models.Model):
+class Rewards(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     transaction = models.ForeignKey(to=TxModel, on_delete=models.CASCADE)
     balance = models.FloatField(null=True)
