@@ -225,6 +225,7 @@ class ReviewTask(generics.CreateAPIView):
                 with transaction.atomic():
                     game = GamificationModel.objects.get(user=user)
                     game.pts = new_pts
+                    game.is_done = True
                     game.save()
 
                     pts = Points.objects.get(user=user)
