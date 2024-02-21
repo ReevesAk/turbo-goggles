@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from .models import User
+from roles.models import GamificationModel
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -131,3 +132,9 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
 
 class AcccountStatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class SubmitGamificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GamificationModel
+        fields = ["task_id", "task_url"]

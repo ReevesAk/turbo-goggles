@@ -134,3 +134,21 @@ class GetAllTaskSerializer(serializers.Serializer):
 
 class GetSingleTaskSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class GetAllSubittedTasksSerializer(serializers.Serializer):
+    class Meta:
+        model = GamificationModel
+        fields = [
+            "task_url",
+        ]
+
+
+class GetSingleSubmittedTaskSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class ReviewTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GamificationModel
+        fields = ["user_id", "remarks", "pts"]

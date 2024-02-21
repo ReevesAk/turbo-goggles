@@ -8,7 +8,15 @@ from .views import (
     DeleteAdmin,
 )
 
-from tasks import AssignTask, GetAllTasks, GetSingleTask, UpdateUserTask
+from .tasks import (
+    AssignTask,
+    GetAllTasks,
+    GetSingleTask,
+    UpdateUserTask,
+    GetAllSubmittedTasks,
+    GetSingleSubmittedTask,
+    ReviewTask,
+)
 
 
 urlpatterns = [
@@ -21,10 +29,21 @@ urlpatterns = [
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(
-        "task/get-single-task/<int:task_id>/",
+        "task/get-single-task/<uuid:task_id>/",
         GetSingleTask.as_view(),
         name="get_single_task",
     ),
     path("task/get-all-tasks/", GetAllTasks.as_view(), name="get_all_tasks"),
     path("task/update/", UpdateUserTask.as_view(), name="update_task"),
+    path(
+        "task/get-all-submitted/",
+        GetAllSubmittedTasks.as_view(),
+        name="get_all_submitted",
+    ),
+    path(
+        "task/get-single-submitted/<uuid:task_id>/",
+        GetSingleSubmittedTask.as_view(),
+        name="single_submited_tasks",
+    ),
+    path("task/review-task", ReviewTask.as_view(), name="review_task"),
 ]
