@@ -1,3 +1,5 @@
+from exceptions import Customexceptions
+
 # Third party imports.
 from rest_framework import generics
 from django.contrib.auth import authenticate
@@ -21,12 +23,14 @@ from .serializers import (
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
     AcccountStatusSerializer,
+    SubmitGamificationSerializer,
 )
 from .models import User, DeviceId, AccountType
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
+from roles.models import GamificationModel
 from sms import Message
-from permissions import IsVerifiedUser
+from permissions import IsVerifiedUser, IsUserOrMember
 
 
 class Register(generics.GenericAPIView):
@@ -366,6 +370,43 @@ class ResetPassword(generics.CreateAPIView):
 
         response = {"status": "success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)
+
+
+class SubmitGamification(generics.CreateAPIView):
+    """
+    SubmitGamification is the GET request handler that allows a User/Memeber
+    to submit a gamification task result.
+    """
+
+    serializer_class = SubmitGamificationSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsUserOrMember)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            task_id = serializer.validated_data["task_id"]
+
+            try:
+                task = GamificationModel.objects.get(task_id=task_id)
+            except User.DoesNotExist:
+                raise Customexceptions.not_found(item_not_found=task_id)
+
+            # Retrieve and save the url of done task.
+            task.url = serializer.validated_data["task_url"]
+            task.save()
+
+            response_data = {
+                "status": "Success",
+                "message": "Task submitted successfully, please wait patiently as our agent reviews your work.",
+                "data": {
+                    "task_id": task.task_id,
+                    "title": task.title,
+                    "description": task.description,
+                },
+            }
+
+            return Response(data=response_data, status=status.HTTP_200_OK)
 
 
 class Logout(APIView):

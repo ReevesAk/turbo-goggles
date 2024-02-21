@@ -137,3 +137,18 @@ class IsPartnerAdmin(permissions.BasePermission):
                 raise ValidationError("Only PartnersAdmin can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
+
+
+class IsTaskAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["TaskAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.account_type in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only TaskAdmin Users can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")

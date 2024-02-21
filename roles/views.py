@@ -50,7 +50,7 @@ class RegisterSuperAdmin(generics.GenericAPIView):
             # Super admin exists, block user registration
             return Response(
                 data="User registration is not allowed. Super admin already exists.",
-                status=status.HTTP_FORBIDDEN,
+                status=status.HTTP_403_FORBIDDEN,
             )
         else:
             user = request.data
@@ -156,6 +156,7 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
         )
 
+
 class GetAllCustomers(generics.RetrieveAPIView):
 
     """
@@ -189,7 +190,7 @@ class GetAllCustomers(generics.RetrieveAPIView):
                 logging.error(f"Fetching customers API request error: {str(e)}")
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )    
+                )
 
 
 class ListAdmin(generics.ListAPIView):

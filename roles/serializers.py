@@ -4,6 +4,8 @@ from rest_framework import serializers
 # In project imports.
 from accounts.models import User
 
+from .models import GamificationModel
+
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
     """Serailizers for our super admin first time registration"""
@@ -86,19 +88,19 @@ class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
         return user
 
 
-class AdminDeletionSerializer(serializers.Serializer):
+class AdminDeletionSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email"]
 
 
-class UpdateAdminRoleSerializer(serializers.Serializer):
+class UpdateAdminRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email", "account_type"]
 
 
-class ListAdminSerializer(serializers.Serializer):
+class ListAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
@@ -107,5 +109,46 @@ class ListAdminSerializer(serializers.Serializer):
             "account_type",
         ]
 
+
 class StatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class AssignTaskSerializers(serializers.ModelSerializer):
+    user_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = GamificationModel
+        fields = ["user_id", "title", "task_id", "description", "assigned_to"]
+
+
+class UpdateTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GamificationModel
+        fields = ["user_id", "title", "task_id", "description", "assigned_to"]
+
+
+class GetAllTaskSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class GetSingleTaskSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class GetAllSubittedTasksSerializer(serializers.Serializer):
+    class Meta:
+        model = GamificationModel
+        fields = [
+            "task_url",
+        ]
+
+
+class GetSingleSubmittedTaskSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class ReviewTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GamificationModel
+        fields = ["user_id", "remarks", "pts"]
