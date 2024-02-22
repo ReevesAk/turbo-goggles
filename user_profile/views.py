@@ -1,4 +1,4 @@
-from permissions import IsSuperAdmin
+from permissions import IsSuperAdmin, IsUserOrMember
 import hmac
 import hashlib
 import json
@@ -8,7 +8,7 @@ from django.contrib.auth.hashers import check_password
 from django.http import HttpRequest
 from django.db.models import Q
 
-from rest_framework import generics
+from rest_framework import generics, exceptions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -25,8 +25,13 @@ from .serializers import (
     UpdateUserSerializer,
     ProfileImageSerializer,
     DeleteUserSerializer,
+    OpenRewardBoxSerializers,
+    ClaimRewardSerializers
 )
-from accounts.models import User
+from .helpers import MysteryBox
+from accounts.models import User, Rewards
+from roles.models import Points
+from vas.helpers import VAS
 from cloudinary import uploader as cloud
 
 
@@ -143,13 +148,14 @@ class MemberUserSwitch(generics.UpdateAPIView):
     def put(self, request):
         user = self.get_object()
 
-        user.game_points = 15
+        game_point = Points.objects.get(user=user)
         if user.account_type == "User":
             try:
-                if user.game_points is not None:
-                    if user.game_points >= 10:
+                if game_point.balance is not None:
+                    if game_point.balance >= 10.0:
                         user.account_type = "Member"
-                        user.game_points -= 10
+
+                        game_point.balance -= 10.0
                         user.save()
                         resp = {
                             "status": "success!",
@@ -178,7 +184,6 @@ class MemberUserSwitch(generics.UpdateAPIView):
                 )
         elif user.account_type == "Member":
             user.account_type = "User"
-            user.game_points -= 20
             user.save()
             return Response(
                 {"status": "success", "detail": "Member has been switched to a User."},
@@ -237,3 +242,76 @@ class DeleteUser(generics.DestroyAPIView):
                 f"User with '{email}' does not exist.",
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class OpenRewardBox(generics.GenericAPIView):
+    """
+    OpenRewardBox is the GET request handler for opening the reward box.
+    """
+
+    serializer_class = OpenRewardBoxSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsUserOrMember)
+
+    @extend_schema(
+        description="Open Reward view",
+        responses={200: {"description": "Open reward box view"}},
+    )
+    def get(self, request):
+        user = request.user
+        user_reward = Rewards.objects.get(user=user)
+
+        if user_reward.balance >= 100:
+            item = MysteryBox.open()
+            user_reward.mystery_box = item
+            user_reward.save()
+
+            response_data = {
+                "status": "success",
+                "message": "Wow, you have have an item in your box, click to claim reward!"
+            }
+            return Response(data=response_data, status=status.HTTP_200_OK)
+        
+        elif user_reward.balance < 100:
+            raise exceptions.ValidationError(
+                detail="Not enough rewards to access the mystery box.",
+                code=status.HTTP_400_BAD_REQUEST)
+    
+        else:
+            error_response = {
+                "status": "fail",
+                "message": "Sorry, you do not have any item in the your mystery box."
+            }
+            return Response(data=error_response, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ClaimMysteryBoxGift(generics.GenericAPIView):
+    """
+    ClaimMysteryBoxGift is the GET request handler for allowing a
+    user to claim their reward.
+    """
+
+    serializer_class = ClaimRewardSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsUserOrMember)
+
+    def get(self, request):
+        authenticated_user = request.user
+        user_data = request.data
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            amount = Rewards.objects.get(user=authenticated_user)
+            airtime_response = VAS.aritime(
+                service_id=user_data["serviceID"],
+                amount=amount.mystery_box,
+                phone=user_data["phone"],
+            )
+            if airtime_response.status_code == 200:
+                response_data = {
+                    "status": "Success",
+                    "message": f"Recharge of {amount} was succesful.\
+                          continue to purchase items to get rewards.",
+                    "data": airtime_response.json(),
+                }
+
+                return Response(data=response_data, status=status.HTTP_200_OK)

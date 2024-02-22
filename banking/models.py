@@ -33,6 +33,11 @@ INTERNATIONAL_TRANSFER_SCHEME = (
     ("MOBILEMONEY", "MOBILEMONEY"),
 )
 
+PAYMENT_OPTIONS = (
+    ("WALLET", "WALLET"),
+    ("CARD", "CARD"),
+)
+
 
 class CustomerData(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
@@ -132,3 +137,15 @@ class Transfer(models.Model):
     receiver_phone_number = models.CharField(max_length=150, null=True)
     receiver_country = models.CharField(max_length=150, null=True)
     receiver_address = models.CharField(max_length=150, null=True)
+
+
+# class AddCard(models.Model):
+#     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+#     number = models.CharField(max_length=100, null=True)
+#     expiry = models.CharField(max_length=50, null=True)
+#     cvv = models.CharField(max_length=50, null=True)
+
+# class Payment(models.Model):
+#     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+#     option = models.CharField(choices=PAYMENT_OPTIONS, max_length=100, null=True)
+#     date = models.DateTimeField(auto_now_add=True)
