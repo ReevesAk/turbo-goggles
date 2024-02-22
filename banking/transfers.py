@@ -21,6 +21,7 @@ from .serializers import (
     InternationalTransfersSerializers,
     VerifyTransferSerializer,
 )
+from accounts.models import UserNotification
 from .helpers import Pin
 from .controllers import Transfer
 
@@ -62,6 +63,14 @@ class TransferWithinPicadailys(generics.GenericAPIView):
                     )
 
                     if picadailys_transfer_response.status_code == 200:
+                        amount=request.data.get("amount")
+                        account_number=request.data.get("acct_number")
+
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Transfer.",
+                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                        )
                         response_data = {
                             "status": "success",
                             "message": "Transfer succesful",
@@ -112,6 +121,14 @@ class TransferWithinNG(generics.GenericAPIView):
                     )
 
                     if local_transfer_response.status_code == 200:
+                        amount=request.data.get("amount")
+                        account_number=request.data.get("acct_number")
+
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Transfer.",
+                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                        )
                         response_data = {
                             "status": "success",
                             "message": "Transfer succesful",
@@ -179,6 +196,15 @@ class InternationalTransfer(generics.GenericAPIView):
                     )
 
                     if intl_transfer_response.status_code == 200:
+
+                        amount=request.data.get("amount")
+                        account_number=request.data.get("acct_number")
+
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Transfer.",
+                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                        )
                         response_data = {
                             "status": "success",
                             "message": "Transfer succesful",

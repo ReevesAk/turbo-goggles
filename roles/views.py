@@ -20,7 +20,7 @@ from .serializers import (
     AdminDeletionSerializer,
     ListAdminSerializer,
 )
-from accounts.models import User
+from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message
 from permissions import IsSuperAdmin
@@ -72,25 +72,29 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 recipient = serializer.data["phone_number"]
 
                 response = Message.send_otp(msg=str(msg), to=recipient)
-                if response.status_code == 200:
-                    try:
-                        user_data = serializer.data
-                        response = {
-                            "status": "success",
-                            "message": "SuperUser Created Successfully. Check your phone for an OTP",
-                            "data": user_data,
-                        }
-                        return Response(data=response, status=status.HTTP_201_CREATED)
-                    except Exception as err:
-                        return Response(
-                            {
-                                "status": "fail",
-                                "message": err,
-                            },
-                            status=status.HTTP_409_CONFLICT,
-                        )
-                else:
-                    return Response(data=response, status=response.status_code)
+            
+                try:
+                    user_data = serializer.data
+
+                    UserNotification.objects.create(
+                        user=str(serializer.data["id"]),
+                        title="Create SuperUser.",
+                        messsage="SuperUser Created Successfully."
+                    )
+                    response = {
+                        "status": "success",
+                        "message": "SuperUser Created Successfully. Check your phone for an OTP",
+                        "data": user_data,
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+                except Exception as err:
+                    return Response(
+                        {
+                            "status": "fail",
+                            "message": err,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
             else:
                 return Response(
                     data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
@@ -152,6 +156,12 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         # Update the user's role
         instance.account_type = new_role
         instance.save()
+
+        UserNotification.objects.create(
+            user=user,
+            title="Update Admin Role.",
+            messsage=f"Admin's role updated to '{new_role}."
+        )
         return Response(
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
         )
@@ -211,6 +221,12 @@ class DeleteAdmin(generics.DestroyAPIView):
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
             user.delete()
+
+            UserNotification.objects.create(
+                user=user,
+                title="Delete Admin.",
+                messsage=f"Admin with '{email}' deleted successfully."
+            )
             return Response(
                 f"Admin with '{email}' deleted successfully.",
                 status=status.HTTP_204_NO_CONTENT,

@@ -25,7 +25,7 @@ from .serializers import (
     AcccountStatusSerializer,
     SubmitGamificationSerializer,
 )
-from .models import User, DeviceId, AccountType
+from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import GamificationModel
@@ -262,6 +262,12 @@ class Login(APIView):
             #         status=status.HTTP_200_OK,
             #     )
 
+            UserNotification.objects.create(
+                user=request.user,
+                title="Login.",
+                messsage="Login successful."
+            )
+
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
             response = {
@@ -368,6 +374,12 @@ class ResetPassword(generics.CreateAPIView):
 
         user.save()
 
+        UserNotification.objects.create(
+            user=user,
+            title="Password Reset.",
+            messsage="This is to inform you that your password reset is successful."
+        )
+
         response = {"status": "success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)
 
@@ -396,6 +408,12 @@ class SubmitGamification(generics.CreateAPIView):
             task.url = serializer.validated_data["task_url"]
             task.save()
 
+            UserNotification.objects.create(
+                user=request.user,
+                title="Submit Gamification.",
+                messsage="You have successfully submitted your gamification task."
+            )
+
             response_data = {
                 "status": "Success",
                 "message": "Task submitted successfully, please wait patiently as our agent reviews your work.",
@@ -423,6 +441,12 @@ class Logout(APIView):
             refresh_token = request.data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Logout.",
+                messsage="You have successfully logged out."
+            )
 
             return Response(
                 data={"status": "success", "logout": "Logout successful!"},

@@ -8,6 +8,8 @@ from .views import (
     ProfileImage,
     DeleteUser,
     WebhookView,
+    ClaimMysteryBoxGift,
+    OpenRewardBox
 )
 
 urlpatterns = [
@@ -16,6 +18,8 @@ urlpatterns = [
     path("update-user/", UpdateUserProfile.as_view(), name="update_user"),
     path("upgrade-to-member/", MemberUserSwitch.as_view(), name="upgrade_to_member"),
     path("change-password/", ChangePassword.as_view(), name="change_password"),
+    path("open-box/", OpenRewardBox.as_view(), name="open_box"),
+    path("claim-gift/", ClaimMysteryBoxGift.as_view(), name="claim_gift"),
     path("webhook/", WebhookView.as_view(), name="webhook_view"),
     path("delete/", DeleteUser.as_view(), name="delete"),
 ]

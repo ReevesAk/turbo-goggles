@@ -32,7 +32,7 @@ from .serializers import (
     ResetPinSerializer,
     UpdateCustomerSerializers,
 )
-from accounts.models import User
+from accounts.models import User, UserNotification
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
 from .controllers import BVN, Customer
 
@@ -106,6 +106,12 @@ class VerifYBVN(generics.CreateAPIView):
                 authenticated_user.save()
 
                 serializer = BVNSerializer(data=user_data)
+
+                UserNotification.objects.create(
+                    user=request.user,
+                    title="BVN Verification.",
+                    messsage="Your BVN Verifiction is successful."
+                )
 
                 response = {
                     "status": "success",
@@ -204,6 +210,11 @@ class CreateNGNAccount(generics.GenericAPIView):
                 )
                 account_details.save()
 
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Wallet Creation.",
+                    messsage="Your NGN wallet creation is successful."
+                )
                 response_data = {
                     "status": "success",
                     "message": "Customer wallet created successfully",
@@ -412,9 +423,14 @@ class UpdateCustomer(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
+                    UserNotification.objects.create(
+                        user=request.user,
+                        title="Update Customer.",
+                        messsage="Your customer update request is successful."
+                    )
                     resp = {
                         "status": "success",
-                        "message": "Update customer request done.",
+                        "message": "Update customer request successful.",
                         "data": response.json()
                     }
                     return Response(data=resp, status=status.HTTP_200_OK)
@@ -509,6 +525,12 @@ class UpgradeAccount(generics.CreateAPIView):
                         country="NG",
                     )
                     identity.save()
+
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Account Upgrade.",
+                        messsage="This is to inform you that your account upgrade is successful."
+                    )
                     response = {
                         "status": "success",
                         "message": "User upgraded successfully!",
@@ -611,9 +633,15 @@ class CreateUSDAccount(generics.CreateAPIView):
                     wallet.identity_expiration = user_data.get("identity_expiration")
                     wallet.save()
 
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Wallet Creation.",
+                        messsage="Your dollar account was created successfully."
+                    )
+
                     response_data = {
                         "status": "success",
-                        "message": "Creation of dollar wallet API request",
+                        "message": "Creation of dollar wallet successful",
                         "data": response.json(),
                     }
                     return Response(data=response_data, status=status.HTTP_200_OK)
@@ -672,6 +700,11 @@ class SetWalletPin(generics.CreateAPIView):
             user.pin = hashed_pin
             user.save()
 
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="Wallet Pin.",
+                messsage="Wallet pin created successfully."
+            )
             response = {
                 "status": "success",
                 "message": "Wallet pin created succesfully!",
@@ -831,6 +864,12 @@ class ResetPin(generics.CreateAPIView):
 
             user.pin = pin
             user.save()
+
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="Reset Wallet Pin.",
+                messsage="Wallet pin reset was successful."
+            )
 
             response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=response, status=status.HTTP_200_OK)

@@ -28,8 +28,8 @@ from .serializers import (
     OpenRewardBoxSerializers,
     ClaimRewardSerializers
 )
-from .helpers import MysteryBox
-from accounts.models import User, Rewards
+from .helpers import MysteryBox, VariationCodes
+from accounts.models import User, Rewards, UserNotification
 from roles.models import Points
 from vas.helpers import VAS
 from cloudinary import uploader as cloud
@@ -59,6 +59,11 @@ class ProfileImage(generics.CreateAPIView):
             request.user.profile_img_url = result["url"]
             request.user.save()
 
+            UserNotification.objects.create(
+                user=request.user,
+                title="Profile Image.",
+                messsage="You have been successfully uploaded your profile image."
+            )
             return Response(
                 {"message": "Profile picture uploaded successfully"},
                 status=status.HTTP_200_OK,
@@ -96,6 +101,13 @@ class UpdateUserProfile(generics.UpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        UserNotification.objects.create(
+            user=request.user,
+            title="Update Profile.",
+            messsage="You have been successfully updated your profile."
+        )
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -125,6 +137,12 @@ class ChangePassword(generics.UpdateAPIView):
             token = RefreshToken(user_token)
             token.blacklist()
             user.save()
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Change Password.",
+                messsage="You have successfully changed your password."
+            )
 
             return Response(
                 {"detail": "Password updated successfully."}, status=status.HTTP_200_OK
@@ -157,6 +175,16 @@ class MemberUserSwitch(generics.UpdateAPIView):
 
                         game_point.balance -= 10.0
                         user.save()
+
+                        UserNotification.objects.create(
+                            user=request.user,
+                            title="Member Switch.",
+                            messsage="Congratulations you have been \
+                                upgraded to a member You can now enagage in\
+                                gamifications and enjoy amazing discounts and\
+                                offers with us."
+                        )
+
                         resp = {
                             "status": "success!",
                             "data": "Congratulations you have been \
@@ -233,6 +261,12 @@ class DeleteUser(generics.DestroyAPIView):
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
             user.delete()
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Delete Account.",
+                messsage="You have deleted your account."
+            )
             return Response(
                 f"Account with '{email}' deleted successfully.",
                 status=status.HTTP_204_NO_CONTENT,
@@ -262,8 +296,9 @@ class OpenRewardBox(generics.GenericAPIView):
         user_reward = Rewards.objects.get(user=user)
 
         if user_reward.balance >= 100:
-            item = MysteryBox.open()
+            item, form= MysteryBox.open()
             user_reward.mystery_box = item
+            user_reward.form_of_gift = form
             user_reward.save()
 
             response_data = {
@@ -300,18 +335,51 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
         user_data = request.data
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            amount = Rewards.objects.get(user=authenticated_user)
-            airtime_response = VAS.aritime(
-                service_id=user_data["serviceID"],
-                amount=amount.mystery_box,
-                phone=user_data["phone"],
-            )
-            if airtime_response.status_code == 200:
-                response_data = {
-                    "status": "Success",
-                    "message": f"Recharge of {amount} was succesful.\
-                          continue to purchase items to get rewards.",
-                    "data": airtime_response.json(),
-                }
+            user_reward = Rewards.objects.get(user=authenticated_user)
 
-                return Response(data=response_data, status=status.HTTP_200_OK)
+            match user_reward.form_of_gift:
+                case "airtime":
+                    amount = Rewards.objects.get(user=authenticated_user)
+                    airtime_response = VAS.aritime(
+                        service_id=user_data["  "],
+                        amount=amount.mystery_box,
+                        phone=user_data["phone"],
+                    )
+                    if airtime_response.status_code == 200:
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Claim Gift box reward.",
+                            messsage="You have successfully claime your mystery box item."
+                        )
+
+                        response_data = {
+                            "status": "Success",
+                            "message": f"Recharge of {amount} was succesful.\
+                                continue to purchase items to get rewards.",
+                            "data": airtime_response.json(),
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                case "data":
+                    amount = Rewards.objects.get(user=authenticated_user)
+                    variation_code = VariationCodes.get(service_id=user_data["serviceID"], amount=amount.mystery_box)
+                    data_response = VAS.data(
+                        service_id=user_data["serviceID"],
+                        amount=amount.mystery_box,
+                        phone=user_data["phone"],
+                        billersCode=user_data["phone"],
+                        variation_code=variation_code,
+                    )
+                    if data_response.status_code == 200:
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Claim Gift box reward.",
+                            messsage="You have successfully claime your mystery box item."
+                        )
+
+                        response = {
+                            "status": "Success",
+                            "message": f"Data subscription of {amount} was succesful.\
+                                continue to purchase items to get rewards.",
+                            "data": data_response.json(),
+                        }
+                        return Response(data=response, status=status.HTTP_200_OK)

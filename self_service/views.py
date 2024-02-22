@@ -8,6 +8,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .serializers import RestaurantBookingSerilaizers, GymSubcriptionSerilaizers
 from .models import GymSubcription, RestaurantBooking
+from accounts.models import UserNotification
 from wallets.controllers import Pin, Debit, Credit
 
 
@@ -31,6 +32,12 @@ class TableBooking(generics.CreateAPIView):
                         amount=amount, description="Debit restaurant table booking"
                     )
                     if debit_response == 200:
+                        UserNotification.objects.create(
+                            user=request.user,
+                            title="Brand Account.",
+                            messsage=f"Payment of {amount} for restaurant table booking\
+                                was successful."
+                        )
                         serializer.save()
                         response_data = {
                             "status": "Success!",
@@ -99,6 +106,12 @@ class GymBooking(generics.CreateAPIView):
                         amount=amount, description="Debit gym booking"
                     )
                     if debit_response == 200:
+                        UserNotification.objects.create(
+                            user=request.user,
+                            title="Brand Account.",
+                            messsage=f"Payment of {amount} for gym booking\
+                                was successful."
+                        )
                         serializer.save()
                         response_data = {
                             "status": "Success!",

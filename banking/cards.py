@@ -18,6 +18,7 @@ from .serializers import (
     FreezeCardSerializers,
     UnfreezeCardSerializers,
 )
+from accounts.models import  UserNotification
 from .models import Cards, CustomerData, Wallet
 from .helpers import Pin
 from .controllers import VirtualCard
@@ -80,6 +81,12 @@ class CreateCard(generics.CreateAPIView):
                             brand=request.data.get("brand"),
                         )
                         new_card.save()
+
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Card Creation.",
+                            messsage="You have successfully created a virtual dollar card."
+                        )
                         resp = {
                             "message": "Card creation request in progress, you will be notified when it is approved.",
                             "data": response.json(),
@@ -203,6 +210,11 @@ class FreezeCard(generics.GenericAPIView):
                 freeze_card_status_code = freeze_card.status_code
 
                 if freeze_card_status_code == 200:
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Freeze Card.",
+                        messsage="Your request to freeze your virtual card is successful."
+                    )
                     resp = {
                         "message": "Card frozen successfully.",
                         "data": freeze_card.json(),
@@ -244,6 +256,12 @@ class UnfreezeCard(generics.GenericAPIView):
                 unfreeze_card_status_code = unfreeze_card.status_code
 
                 if unfreeze_card_status_code == 200:
+
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Unfreeze Creation.",
+                        messsage="Your NGN wallet creation is successful."
+                    )
                     resp = {
                         "message": "Card unfrozen successfully.",
                         "data": unfreeze_card.json(),

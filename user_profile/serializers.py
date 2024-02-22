@@ -57,7 +57,7 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         fields = ["old_password", "new_password"]
 
 
-class DeleteUserSerializer(serializers.Serializer):
+class DeleteUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email"]
@@ -72,7 +72,10 @@ class OpenRewardBoxSerializers(serializers.Serializer):
 
 
 class ClaimRewardSerializers(serializers.Serializer):
+    serviceID = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    form_of_gift = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
-        model = AirtimeTopup
-        fields = ["id", "serviceID", "phone"]
+        model = None
+        fields = ['service_id', 'phone_number', 'form_of_gift']
