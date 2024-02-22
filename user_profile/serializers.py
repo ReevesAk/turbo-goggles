@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
+from vas.models import AirtimeTopup
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -64,3 +65,14 @@ class DeleteUserSerializer(serializers.Serializer):
 
 class ProfileStatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class OpenRewardBoxSerializers(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class ClaimRewardSerializers(serializers.Serializer):
+
+    class Meta:
+        model = AirtimeTopup
+        fields = ["id", "serviceID", "phone"]

@@ -114,4 +114,5 @@ class TxModel(models.Model):
 class Rewards(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     transaction = models.ForeignKey(to=TxModel, on_delete=models.CASCADE)
+    mystery_box = models.CharField(max_length=255, null=True)
     balance = models.FloatField(null=True)
