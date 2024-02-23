@@ -1,5 +1,3 @@
-from django.db import IntegrityError
-
 # Third party imports
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -14,9 +12,7 @@ from .serializers import (
     BrandSurveySerializers,
     AdBudgetSerializer,
 )
-from accounts.models import User, DeviceId
-from accounts.otp import otp_manager
-from commons import Message
+from accounts.models import User, UserNotification
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
 from wallets.controllers import Pin, Debit, Credit
@@ -35,6 +31,12 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             # device_id = user_data.get("device_id")
             # if device_id:
             #     DeviceId.objects.create(user=user, device_id=device_id)
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Brand Account.",
+                messsage="Brand advert account created Successfully."
+            )
 
             user_data = serializer.data
             response = {
@@ -152,10 +154,16 @@ class BrandPromote(generics.CreateAPIView):
                     # Inititate a debit on the brand advert's account.
                     price = request.data.get("price")
                     debit_response = Debit.debit_customer(
-                        amount=price, description="Debit for airtime recharge"
+                        amount=price, description="Debit for brand promotion"
                     )
                     if debit_response == 200:
                         serializer.save()
+                        UserNotification.objects.create(
+                            user=request.user,
+                            title="Brand Promotion.",
+                            messsage=f"This is to inform you that your payment of {price} \
+                                for brand promotion is successful."
+                        )
                         response_data = {
                             "status": "Success!",
                             "message": "Brand advert promoted successfully",

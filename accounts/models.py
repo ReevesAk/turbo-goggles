@@ -115,4 +115,15 @@ class Rewards(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     transaction = models.ForeignKey(to=TxModel, on_delete=models.CASCADE)
     mystery_box = models.CharField(max_length=255, null=True)
+    form_of_gift = models.CharField(max_length=100, null=True)
     balance = models.FloatField(null=True)
+
+
+class UserNotification(models.Model):
+    user = models.ForeignKey(
+        to=User, related_name="notification", on_delete=models.CASCADE
+    )
+    title = models.CharField(max_length=100, blank=True, null=True)
+    message = models.CharField(max_length=255, null=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)

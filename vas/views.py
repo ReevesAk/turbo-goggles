@@ -3,7 +3,7 @@ import requests
 from threading import Thread
 from decouple import config
 from commons import Allocate
-from accounts.models import TxModel, Rewards
+from accounts.models import TxModel, Rewards, UserNotification
 
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, JSONParser
@@ -77,6 +77,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                     if airtime_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Airtime purchase.",
+                            messsage=f"This is to inform you that you have made a purchase of {amount} naira airtime"
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -214,6 +220,13 @@ class DataSubscription(generics.GenericAPIView):
                     if data_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Data subscription.",
+                            messsage=f"This is to inform you that you have made a \
+                                purchase of {amount} data subscription"
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -358,6 +371,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     if electricity_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Electricity payment.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for electricity is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -595,6 +615,13 @@ class NewTvSubscription(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
+                        UserNotification.objects.create(
+                            user=user,
+                            title="New Tv subscription.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for Tv subscription is successful."
+                        )
+
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
                             if amount >= 100:
@@ -689,6 +716,13 @@ class RenewTvSubscription(generics.GenericAPIView):
                     if renew_tv_response.status_code == 200:
                         serializer.save()
                         amount = user_data["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Renew Tv subscription.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                to renew tv subscription is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -968,6 +1002,13 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                         serializer.save()
                         amount = user_data["amount"]
 
+                        UserNotification.objects.create(
+                            user=user,
+                            title="International airtime recharge.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for international airtime topup is successful."
+                        )
+
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
                             if amount >= 100:
@@ -1105,6 +1146,13 @@ class WaecRegistration(generics.GenericAPIView):
                     if waec_response.status_code == 200:
                         serializer.save()
                         amount = waec_response.json()["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Waec registration.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for WAEC registration is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -1375,7 +1423,7 @@ class AccidentInsurance(generics.GenericAPIView):
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for accident inssurance"
+                amount=user_data["amount"], reason="Debit for accident inssurance."
             )
 
             if debit_response.status_code == 200:
@@ -1397,6 +1445,13 @@ class AccidentInsurance(generics.GenericAPIView):
                     if accident_insurance_response.status_code == 200:
                         serializer.save()
                         amount = accident_insurance_response.json()["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Accident inssurance.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for accident inssurance is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -1543,6 +1598,13 @@ class HomeCoverInsurance(generics.GenericAPIView):
                     if home_cover_insurance_response.status_code == 200:
                         serializer.save()
                         amount = home_cover_insurance_response.json()["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Home cover insurance registration.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for home cover insurance is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
@@ -1750,6 +1812,13 @@ class HealthInsurance(generics.GenericAPIView):
                     if health_insurance_response.status_code == 200:
                         serializer.save()
                         amount = health_insurance_response.json()["amount"]
+
+                        UserNotification.objects.create(
+                            user=user,
+                            title="Health insurance.",
+                            messsage=f"This is to inform you that your payment of {amount} \
+                                for health insurance is successful."
+                        )
 
                         # Check is user is a memeber then assign rewards.
                         if user.is_member is True:
