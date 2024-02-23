@@ -33,11 +33,6 @@ INTERNATIONAL_TRANSFER_SCHEME = (
     ("MOBILEMONEY", "MOBILEMONEY"),
 )
 
-PAYMENT_OPTIONS = (
-    ("WALLET", "WALLET"),
-    ("CARD", "CARD"),
-)
-
 
 class CustomerData(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
@@ -139,13 +134,15 @@ class Transfer(models.Model):
     receiver_address = models.CharField(max_length=150, null=True)
 
 
-# class AddCard(models.Model):
-#     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-#     number = models.CharField(max_length=100, null=True)
-#     expiry = models.CharField(max_length=50, null=True)
-#     cvv = models.CharField(max_length=50, null=True)
-
-# class Payment(models.Model):
-#     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-#     option = models.CharField(choices=PAYMENT_OPTIONS, max_length=100, null=True)
-#     date = models.DateTimeField(auto_now_add=True)
+class PayWithCard(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    transactionReference = models.CharField(max_length=155, null=True)
+    paymentReference = models.CharField(max_length=155, null=True)
+    customerName = models.CharField(max_length=155, null=True)
+    customerEmail = models.CharField(max_length=155, null=True)
+    redirectUrl = models.CharField(max_length=255, null=True)
+    number = models.CharField(max_length=100, null=True)
+    expiry_month = models.CharField(max_length=50, null=True)
+    expiry_year = models.CharField(max_length=50, null=True)
+    card_pin = models.CharField(max_length=50, null=True)
+    cvv = models.CharField(max_length=50, null=True)

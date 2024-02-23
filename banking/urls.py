@@ -17,7 +17,7 @@ from .views import (
     GetAllBanks,
 )
 
-from .cards import CreateCard, PayWithCard, FreezeCard, UnfreezeCard
+from .virtual_cards import CreateCard, PayWithCard, FreezeCard, UnfreezeCard
 from .transfers import TransferWithinNG, TransferWithinPicadailys, InternationalTransfer, VerifyTransfer
 
 
