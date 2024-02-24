@@ -1,10 +1,10 @@
 from django.db import models
 
-# Create your models here.
+from basemodel import ItemPurchaseBaseModel
 from accounts.models import User
 
 
-class RestaurantBooking(models.Model):
+class RestaurantBooking(ItemPurchaseBaseModel):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="restaurant"
     )
@@ -14,10 +14,19 @@ class RestaurantBooking(models.Model):
     amount_per_seat = models.FloatField(null=True)
 
 
-class GymSubcription(models.Model):
+class GymSubcription(ItemPurchaseBaseModel):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="gym_subcription"
     )
     name = models.CharField(max_length=155, null=True)
     personal_trainer = models.CharField(max_length=155, blank=True, null=True)
     number_of_persons = models.CharField(max_length=150, null=True)
+
+
+class CinemaBooking(ItemPurchaseBaseModel):
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="cinema_booking"
+    )
+    name = models.CharField(max_length=155, null=True)
+    available_seats = models.CharField(max_length=100, null=True)
+    number_of_persons = models.CharField(max_length=100, null=True)

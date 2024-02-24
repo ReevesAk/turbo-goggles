@@ -1,6 +1,6 @@
 from django.db import models
 
-from basemodel import VasBaseModel
+from basemodel import ItemPurchaseBaseModel
 from accounts.models import User
 
 
@@ -45,7 +45,7 @@ ELECTRICITY_SERVICE_ID_CHOICES = (
 )
 
 
-class AirtimeTopup(VasBaseModel):
+class AirtimeTopup(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -61,7 +61,7 @@ class AirtimeTopup(VasBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class DataSubscription(VasBaseModel):
+class DataSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -73,7 +73,7 @@ class DataSubscription(VasBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class ElectricityBill(VasBaseModel):
+class ElectricityBill(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -88,7 +88,7 @@ class ElectricityBill(VasBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class TvSubscription(VasBaseModel):
+class TvSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -102,7 +102,7 @@ class TvSubscription(VasBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class WaecRegistration(VasBaseModel):
+class WaecRegistration(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
@@ -112,7 +112,7 @@ class WaecRegistration(VasBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class HomeCoverInsurance(VasBaseModel):
+class HomeCoverInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
@@ -125,7 +125,7 @@ class HomeCoverInsurance(VasBaseModel):
     business_occupation = models.CharField(max_length=250, null=True)
 
 
-class AccidentInsurance(VasBaseModel):
+class AccidentInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
@@ -140,7 +140,7 @@ class AccidentInsurance(VasBaseModel):
     business_occupation = models.CharField(max_length=250, null=True)
 
 
-class VehicleInsurance(VasBaseModel):
+class VehicleInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
@@ -158,7 +158,7 @@ class VehicleInsurance(VasBaseModel):
     Contact_Address = models.CharField(max_length=200, null=True)
 
 
-class HealthInsurance(VasBaseModel):
+class HealthInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)

@@ -1,11 +1,7 @@
-import logging
 import requests
 from threading import Thread
 from decouple import config
-from commons import Allocate
-from accounts.models import TxModel, Rewards, UserNotification
 
-from django.db import transaction
 from rest_framework.parsers import MultiPartParser, JSONParser
 
 from rest_framework import generics, status
@@ -28,13 +24,11 @@ from .serializers import (
     HomeCoverInsuranceSerializer,
     HealthInsuranceSerializer,
 )
-from wallets.controllers import Credit
 from banking.controllers import Account
 from banking.payments import UseCard
 from banking.models import PayWithCard
 from permissions import VasPermission
 from wallets.controllers import Pin
-from .helpers import VAS
 from .controllers import (
     airtime,
     data,
@@ -96,7 +90,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                         return Response(
                             data=debit_response.json(), status=debit_response.status_code
                         )
-
 
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
