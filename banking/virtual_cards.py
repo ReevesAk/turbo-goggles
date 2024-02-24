@@ -2,6 +2,7 @@ import requests
 import logging
 from decouple import config
 
+from sms import Message
 from permissions import IsPartnerUserOrMember
 from mail import send_email
 
@@ -98,6 +99,11 @@ class CreateCard(generics.CreateAPIView):
                             sender=picadailys_email,
                             recipients=authenticated_user.email,
                             password=app_password,
+                        )
+                        recipient = authenticated_user.phone_number[1:]
+                        Message.send_msg(
+                            msg="Congratulations, you have successfully created a virtual dollar card.",
+                            to=recipient
                         )
                         resp = {
                             "message": "Card creation request in progress, you will be notified when it is approved.",
@@ -234,6 +240,12 @@ class FreezeCard(generics.GenericAPIView):
                         recipients=authenticated_user.email,
                         password=app_password,
                     )
+                    recipient = authenticated_user.phone_number[1:]
+                    Message.send_msg(
+                        msg="This is to inform you that your request to freeze your virtual card is successful.\
+                            You can unfreeze it at anytime. ",
+                        to=recipient
+                    )
                     resp = {
                         "message": "Card frozen successfully.",
                         "data": freeze_card.json(),
@@ -287,6 +299,11 @@ class UnfreezeCard(generics.GenericAPIView):
                         sender=picadailys_email,
                         recipients=authenticated_user.email,
                         password=app_password,
+                    )
+                    recipient = authenticated_user.phone_number[1:]
+                    Message.send_msg(
+                        msg="This is to inform you that your request to unfreeze your virtual card is successful.",
+                        to=recipient
                     )
                     resp = {
                         "message": "Card unfrozen successfully.",

@@ -79,18 +79,19 @@ class TableBooking(generics.CreateAPIView):
                                     bankCode="103",
                                     amount=amount,
                                 )
-                                UserNotification.objects.create(
-                                    user=request.user,
-                                    title="Brand Account.",
-                                    messsage=f"Acccount credited with {amount} for restaurant table booking."
-                                )
-                                send_email(
-                                    subject="Credit Transaction.",
-                                    body=f"Acccount credited with {amount} for restaurant table booking.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                if resp.status_code == 200:
+                                    UserNotification.objects.create(
+                                        user=request.user,
+                                        title="Brand Account.",
+                                        messsage=f"Acccount credited with {amount} for restaurant table booking."
+                                    )
+                                    send_email(
+                                        subject="Credit Transaction.",
+                                        body=f"Acccount credited with {amount} for restaurant table booking.",
+                                        sender=picadailys_email,
+                                        recipients=authenticated_user.email,
+                                        password=app_password,
+                                    )
                                 response_data = {
                                     "status": "Success!",
                                     "messsage": "A refund will be issued.",
@@ -445,6 +446,19 @@ class CinemaBooking(generics.CreateAPIView):
                                     bankCode="103",
                                     amount=amount,
                                 )
+                                if resp.status_code == 200:
+                                    UserNotification.objects.create(
+                                        user=request.user,
+                                        title="Credit Transaction.",
+                                        messsage=f"Acccount credited as with {amount} for restaurant table booking."
+                                    )
+                                    send_email(
+                                        subject="Credit Transaction.",
+                                        body=f"Acccount credited as with {amount} for restaurant table booking.",
+                                        sender=picadailys_email,
+                                        recipients=authenticated_user.email,
+                                        password=app_password,
+                                    )
                                 response_data = {
                                     "status": "Success!",
                                     "messsage": "A refund will be issued.",
@@ -489,12 +503,12 @@ class CinemaBooking(generics.CreateAPIView):
                                         if serializer.is_valid(raise_exception=True):
                                             UserNotification.objects.create(
                                                 user=request.user,
-                                                title="Brand Account.",
+                                                title="Debit Transaction.",
                                                 messsage=f"Payment of {amount} for cinema seats booking\
                                                     was successful."
                                             )
                                             send_email(
-                                                subject="Credit Transaction.",
+                                                subject="Debit Transaction.",
                                                 body=f"Payment of {amount} for cinema seats booking\
                                                     was successful.",
                                                 sender=picadailys_email,
