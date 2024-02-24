@@ -1,5 +1,3 @@
-import smtplib
-from email.mime.text import MIMEText
 from decouple import config
 
 import cloudinary
@@ -8,17 +6,6 @@ import cloudinary.api
 
 from django.core.validators import URLValidator
 from rest_framework.validators import ValidationError
-
-
-# send_email handles the sending of emails to user.
-def send_email(subject, body, sender, recipients, password):
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = ", ".join(recipients)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp_server:
-        smtp_server.login(sender, password)
-        smtp_server.sendmail(sender, recipients, msg.as_string())
 
 
 # file_uploader handles the uploads of media files

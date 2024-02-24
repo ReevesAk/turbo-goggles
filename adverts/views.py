@@ -1,3 +1,5 @@
+from decouple import config
+
 # Third party imports
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -12,10 +14,15 @@ from .serializers import (
     BrandSurveySerializers,
     AdBudgetSerializer,
 )
+from mail import send_email
 from accounts.models import User, UserNotification
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
 from wallets.controllers import Pin, Debit, Credit
+
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class CreateBrandAdvertsAccount(generics.GenericAPIView):
@@ -163,6 +170,14 @@ class BrandPromote(generics.CreateAPIView):
                             title="Brand Promotion.",
                             messsage=f"This is to inform you that your payment of {price} \
                                 for brand promotion is successful."
+                        )
+                        send_email(
+                            subject="Debit Transaction.",
+                            body=f"This is to inform you that your payment of {price} \
+                                for brand promotion is successful.",
+                            sender=picadailys_email,
+                            recipients=authenticated_user.email,
+                            password=app_password,
                         )
                         response_data = {
                             "status": "Success!",

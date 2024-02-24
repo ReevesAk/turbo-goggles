@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import IsPartnerUserOrMember
+from mail import send_email
 from cloudinary import uploader as cloud
 from commons import Message
 
@@ -44,6 +45,9 @@ headers = {
     "content-Type": "application/json",
     "Authorization": "Bearer " + secret_key,
 }
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class VerifYBVN(generics.CreateAPIView):
@@ -111,6 +115,13 @@ class VerifYBVN(generics.CreateAPIView):
                     user=request.user,
                     title="BVN Verification.",
                     messsage="Your BVN Verifiction is successful."
+                )
+                send_email(
+                    subject="BVN Verifiction.",
+                    body="This is to inform you that your BVN verifiction was successful.",
+                    sender=picadailys_email,
+                    recipients=authenticated_user.email,
+                    password=app_password,
                 )
 
                 response = {
@@ -214,6 +225,13 @@ class CreateNGNAccount(generics.GenericAPIView):
                     user=authenticated_user,
                     title="Wallet Creation.",
                     messsage="Your NGN wallet creation is successful."
+                )
+                send_email(
+                    subject="Wallet Creation.",
+                    body="This is to inform you that your Wallet creation was successful.",
+                    sender=picadailys_email,
+                    recipients=authenticated_user.email,
+                    password=app_password,
                 )
                 response_data = {
                     "status": "success",
@@ -428,6 +446,13 @@ class UpdateCustomer(generics.RetrieveAPIView):
                         title="Update Customer.",
                         messsage="Your customer update request is successful."
                     )
+                    send_email(
+                        subject="Update",
+                        body="This is to inform you that your account update request was successful.",
+                        sender=picadailys_email,
+                        recipients=user.email,
+                        password=app_password,
+                    )
                     resp = {
                         "status": "success",
                         "message": "Update customer request successful.",
@@ -530,6 +555,13 @@ class UpgradeAccount(generics.CreateAPIView):
                         user=authenticated_user,
                         title="Account Upgrade.",
                         messsage="This is to inform you that your account upgrade is successful."
+                    )
+                    send_email(
+                        subject="Account Upgrade.",
+                        body="This is to inform you that your account upgrade was successful.",
+                        sender=picadailys_email,
+                        recipients=authenticated_user.email,
+                        password=app_password,
                     )
                     response = {
                         "status": "success",
@@ -638,6 +670,13 @@ class CreateUSDAccount(generics.CreateAPIView):
                         title="Wallet Creation.",
                         messsage="Your dollar account was created successfully."
                     )
+                    send_email(
+                        subject="Wallet Creation.",
+                        body="This is to inform you that your dollar account was successfully.",
+                        sender=picadailys_email,
+                        recipients=authenticated_user.email,
+                        password=app_password,
+                    )
 
                     response_data = {
                         "status": "success",
@@ -704,6 +743,13 @@ class SetWalletPin(generics.CreateAPIView):
                 user=authenticated_user,
                 title="Wallet Pin.",
                 messsage="Wallet pin created successfully."
+            )
+            send_email(
+                subject="Wallet Pin.",
+                body="This is to inform you that your Wallet pin was created successful.",
+                sender=picadailys_email,
+                recipients=authenticated_user.email,
+                password=app_password,
             )
             response = {
                 "status": "success",
@@ -869,6 +915,13 @@ class ResetPin(generics.CreateAPIView):
                 user=authenticated_user,
                 title="Reset Wallet Pin.",
                 messsage="Wallet pin reset was successful."
+            )
+            send_email(
+                subject="Reset Wallet Pin.",
+                body="This is to inform you that your Wallet pin reset was successful.",
+                sender=picadailys_email,
+                recipients=authenticated_user.email,
+                password=app_password,
             )
 
             response = {"status": "success", "message": "Pin reset successfully"}
