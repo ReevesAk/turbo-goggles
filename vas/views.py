@@ -30,9 +30,24 @@ from .serializers import (
 )
 from wallets.controllers import Credit
 from banking.controllers import Account
+from banking.payments import UseCard
+from banking.models import PayWithCard
 from permissions import VasPermission
 from wallets.controllers import Pin
 from .helpers import VAS
+from .controllers import (
+    airtime,
+    data,
+    electricity,
+    NewTvSub,
+    RenewTvSub,
+    international_topup,
+    waec_reg,
+    AccidentInsurance,
+    VehicleInsurance,
+    HomeCoverInsurance, 
+    HealthInsurance
+)
 
 from cloudinary import uploader as cloud
 
@@ -58,89 +73,76 @@ class AirTimeTopUp(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        payment_option = request.data.get("payment_option")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            # Inititate a debit on the customer's account.
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for airtime recharge"
-            )
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    airtime_response = VAS.aritime(
-                        service_id=user_data["serviceID"],
-                        amount=user_data["amount"],
-                        phone=user_data["phone"],
+            match payment_option:
+                case "WALLET":
+                    # Inititate a debit on the customer's account.
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for airtime recharge."
                     )
 
-                    if airtime_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Airtime purchase.",
-                            messsage=f"This is to inform you that you have made a purchase of {amount} naira airtime"
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = airtime_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = "Debit for airtime purchase."
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Recharge of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": airtime_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            airtime(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": airtime_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            data=response_data, status=airtime_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+
+
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for airtime recharge."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    airtime(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
+
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -204,87 +206,70 @@ class DataSubscription(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for airtime recharge."
-            )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    data_response = VAS.data(
-                        service_id=user_data["serviceID"],
-                        amount=user_data["amount"],
-                        phone=user_data["phone"],
-                        billersCode=user_data["billersCode"],
-                        variation_code=user_data["variation_code"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    # Inititate a debit on the customer's account.
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for data subscription."
                     )
-                    if data_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
 
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Data subscription.",
-                            messsage=f"This is to inform you that you have made a \
-                                purchase of {amount} data subscription"
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = data_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = "Debit for data subscription."
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": data_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            data(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": data_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user_data["amount"],
-                        )
                         return Response(
-                            data=response_data, status=data_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for data subscription"
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    data(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -355,89 +340,69 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for electricity bill payment."
-            )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    electricity_response = VAS.electricity(
-                        service_id=user_data["serviceID"],
-                        amount=user_data["amount"],
-                        phone=user_data["phone"],
-                        billersCode=user_data["billersCode"],
-                        variation_code=user_data["variation_code"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for electricity bill payment."
                     )
-                    if electricity_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Electricity payment.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for electricity is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = electricity_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for electricity payment."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Payment of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": electricity_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            electricity(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": electricity_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            data=response_data, status=electricity_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for electricity bill payment."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    electricity(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -596,90 +561,69 @@ class NewTvSubscription(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for Tv subscription."
-            )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    new_tv_response = VAS.newTvSub(
-                        service_id=user_data["serviceID"],
-                        amount=user_data["amount"],
-                        phone=user_data["phone"],
-                        billersCode=user_data["billersCode"],
-                        variation_code=user_data["variation_code"],
-                        subscription_type=user_data["subscription_type"],
-                        quantity=user_data["quantity"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for Tv subscription."
                     )
-                    if new_tv_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="New Tv subscription.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for Tv subscription is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = new_tv_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for new tv subscription payment."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": new_tv_response.json(),
-                        }
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            NewTvSub(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": new_tv_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            response_data, status=new_tv_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for Tv subscription."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    NewTvSub(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
+
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -700,89 +644,68 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for Tv subscription."
-            )
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    renew_tv_response = VAS.renewTvSub(
-                        service_id=user_data["serviceID"],
-                        amount=user_data["amount"],
-                        phone=user_data["phone"],
-                        billersCode=user_data["billersCode"],
-                        subscription_type=user_data["subscription_type"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for tv subscription renewal."
                     )
-                    if renew_tv_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Renew Tv subscription.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                to renew tv subscription is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = renew_tv_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for tv subscription renewal."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": renew_tv_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            RenewTvSub(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": renew_tv_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            response_data, status=renew_tv_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for tv subscription renewal."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    RenewTvSub(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -980,94 +903,69 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"],
-                reason="Debit for international airtime recharge.",
-            )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    intl_topup_response = VAS.intl_topup(
-                        service_id=user_data["serviceID"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
                         amount=user_data["amount"],
-                        phone=user_data["phone"],
-                        billersCode=user_data["billersCode"],
-                        operator_id=user_data["operator_id"],
-                        variation_code=user_data["variation_code"],
-                        country_code=user_data["country_code"],
-                        email=user_data["email"],
-                        product_type_id=user_data["product_type_id"],
+                        reason="Debit for international airtime recharge.",
                     )
-                    if intl_topup_response.status_code == 200:
-                        serializer.save()
-                        amount = user_data["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="International airtime recharge.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for international airtime topup is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = intl_topup_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for international airtime recharge."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Topup of {amount} was succesful and you have been awarded {new_rewards} rewards",
-                            "data": intl_topup_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            international_topup(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": intl_topup_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            data=response_data, status=intl_topup_response.status_code
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for international airtime recharge."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    international_topup(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
@@ -1131,84 +1029,68 @@ class WaecRegistration(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for waec registration."
-            )
-            if debit_response == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    waec_response = VAS.waec_reg(
-                        service_id=user_data["serviceID"],
-                        phone=user_data["phone"],
-                        variation_code=user_data["variation_code"],
-                        quantity=user_data["quantity"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for waec registration."
                     )
-                    if waec_response.status_code == 200:
-                        serializer.save()
-                        amount = waec_response.json()["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Waec registration.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for WAEC registration is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = waec_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = "Debit for waec registration."
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Waec registration of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": waec_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            waec_reg(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": waec_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
+                        return Response(
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                        return Response(response_data, status=waec_response.status_code)
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for waec registration."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    waec_reg(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1272,94 +1154,69 @@ class VehicleInsurance(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for vehicle insurance"
-            )
-
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user_data)
-                if serializer.is_valid(raise_exception=True):
-                    vehicle_insurance_response = VAS.vehicle_insurance(
-                        service_id=user_data["serviceID"],
-                        phone=user_data["phone"],
-                        variation_code=user_data["variation_code"],
-                        billersCode=user_data["variation_code"],
-                        Insured_Name=user_data["Insured_Name"],
-                        Engine_Number=user_data["Engine_Number"],
-                        Chasis_Number=user_data["Chasis_Number"],
-                        Plate_Number=user_data["Plate_Number"],
-                        Vehicle_Make=user_data["Vehicle_Make"],
-                        Vehicle_Color=user_data["Vehicle_Color"],
-                        Vehicle_Model=user_data["Vehicle_Model"],
-                        Year_of_Make=user_data["Year_of_Make"],
-                        Contact_Address=user_data["Contact_Address"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for vehicle insurance."
                     )
-                    if vehicle_insurance_response.status_code == 200:
-                        serializer.save()
-                        amount = vehicle_insurance_response.json()["amount"]
 
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = (
-                                            vehicle_insurance_response.json().get(
-                                                "transactionId", ""
-                                            )
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for vehicular insurance."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": vehicle_insurance_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            VehicleInsurance(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": vehicle_insurance_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            data=response_data,
-                            status=vehicle_insurance_response.status_code,
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for vehicle insurance."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    VehicleInsurance(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
@@ -1422,96 +1279,70 @@ class AccidentInsurance(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user_data["amount"], reason="Debit for accident inssurance."
-            )
-
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user)
-                if serializer.is_valid(raise_exception=True):
-                    accident_insurance_response = VAS.accident_insurance(
-                        service_id=user_data["serviceID"],
-                        phone=user_data["phone"],
-                        variation_code=user_data["variation_code"],
-                        billersCode=user_data["variation_code"],
-                        phone_no=user_data["phone"],
-                        full_name=user_data["full_name"],
-                        address=user_data["address"],
-                        dob=user_data["dob"],
-                        next_kin_name=user_data["next_kin_name"],
-                        next_kin_phone=user_data["next_kin_phone"],
-                        business_occupation=user_data["business_occupation"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user_data["amount"], reason="Debit for accident inssurance."
                     )
-                    if accident_insurance_response.status_code == 200:
-                        serializer.save()
-                        amount = accident_insurance_response.json()["amount"]
 
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Accident inssurance.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for accident inssurance is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = (
-                                            accident_insurance_response.json().get(
-                                                "transactionId", ""
-                                            )
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = "Debit for accident insurance."
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": accident_insurance_response.json(),
-                        }
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user)
+                        if serializer.is_valid(raise_exception=True):
+                            AccidentInsurance(user=user, serializer=serializer, user_data=user_data)
+                        else:
+                            return Response(
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                            )
                     else:
-                        response_data = {
-                            "data": accident_insurance_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        _ = Credit.credit_customer(
-                            first_name=user.firstName,
-                            lastname=user.lastName,
-                            accNo=user.accountNumber,
-                            bankCode="103",
-                            amount=user["amount"],
-                        )
                         return Response(
-                            response_data,
-                            status=accident_insurance_response.status_code,
+                            data=debit_response.json(), status=debit_response.status_code
                         )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for accident inssurance."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    AccidentInsurance(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
@@ -1575,106 +1406,70 @@ class HomeCoverInsurance(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user["amount"],
-                reason="Debit for home cover insurance registration",
-            )
-
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user)
-                if serializer.is_valid(raise_exception=True):
-                    home_cover_insurance_response = VAS.home_cover_insurance(
-                        service_id=user_data["serviceID"],
-                        phone=user_data["phone"],
-                        variation_code=user_data["variation_code"],
-                        billersCode=user_data["variation_code"],
-                        phone_no=user_data["phone"],
-                        full_name=user_data["full_name"],
-                        address=user_data["address"],
-                        dob=user_data["date_of_birth"],
-                        type_building=user_data["type_building"],
-                        business_occupation=user_data["business_occupation"],
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user["amount"],
+                        reason="Debit for home cover insurance registration.",
                     )
-                    if home_cover_insurance_response.status_code == 200:
-                        serializer.save()
-                        amount = home_cover_insurance_response.json()["amount"]
 
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Home cover insurance registration.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for home cover insurance is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = (
-                                            home_cover_insurance_response.json().get(
-                                                "transactionId", ""
-                                            )
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = (
-                                            "Debit for home cover insurance."
-                                        )
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": home_cover_insurance_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": home_cover_insurance_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        credit_response = Account.Credit(
-                            acct_no=user.accountNumber,
-                            amount=user["amount"],
-                            reason="Refund for failed home cover insurance.",
-                        )
-                        if credit_response.status_code == 200:
-                            response = {
-                                "data": home_cover_insurance_response.json(),
-                                "messsage": "Wallet refunded.",
-                            }
-                            return Response(
-                                data=response, status=credit_response.status_code
-                            )
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user)
+                        if serializer.is_valid(raise_exception=True):
+                            HomeCoverInsurance(user=user, serializer=serializer, user_data=user_data)
                         else:
                             return Response(
-                                data="A refund will be issued shortly",
-                                status=credit_response.status_code,
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
                             )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    else:
+                        return Response(
+                            data=debit_response.json(), status=debit_response.status_code
+                        )
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for home cover insurance registration."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    HomeCoverInsurance(user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
 
 class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1781,110 +1576,77 @@ class HealthInsurance(generics.GenericAPIView):
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            debit_response = Account.Debit(
-                amount=user["amount"],
-                reason="Debit for health insurance",
-            )
-
-            if debit_response.status_code == 200:
-                serializer = self.serializer_class(data=user)
-                if serializer.is_valid(raise_exception=True):
-                    # Start a separate thread for image upload
-                    thread_upload = Thread(
-                        target=self.upload_image,
-                        args=(user_data.get("Passport_Photo"),),
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        amount=user["amount"],
+                        reason="Debit for health insurance.",
                     )
-                    thread_upload.start()
 
-                    health_insurance_response = VAS.health_insurance(
-                        service_id=user_data["serviceID"],
-                        phone=user_data["phone"],
-                        variation_code=user_data["variation_code"],
-                        billersCode=user_data["variation_code"],
-                        phone_no=user_data["phone"],
-                        full_name=user_data["full_name"],
-                        address=user_data["address"],
-                        date_of_birth=user_data["date_of_birth"],
-                        selected_hospital=user_data["selected_hospital"],
-                        Passport_Photo=self.uploaded_passport_url,
-                        extra_info=user_data["extra_info"],
-                    )
-                    if health_insurance_response.status_code == 200:
-                        serializer.save()
-                        amount = health_insurance_response.json()["amount"]
-
-                        UserNotification.objects.create(
-                            user=user,
-                            title="Health insurance.",
-                            messsage=f"This is to inform you that your payment of {amount} \
-                                for health insurance is successful."
-                        )
-
-                        # Check is user is a memeber then assign rewards.
-                        if user.is_member is True:
-                            if amount >= 100:
-                                new_rewards = Allocate.reward(amount=amount)
-                                try:
-                                    with transaction.atomic():
-                                        tx, _ = TxModel.objects.get_or_create(user=user)
-                                        tx.tx_id = health_insurance_response.json().get(
-                                            "transactionId", ""
-                                        )
-                                        tx.amount = user_data.get("amount", 0)
-                                        tx.description = "Debit for health insurance."
-                                        tx.rwd = new_rewards
-                                        tx.save()
-
-                                        rwd, _ = Rewards.objects.get_or_create(
-                                            user=user
-                                        )
-                                        rwd.balance += new_rewards
-                                        rwd.transaction = tx
-                                        rwd.save()
-
-                                except Exception as e:
-                                    logging.error(f"Database query error: {str(e)}")
-
-                        response_data = {
-                            "status": "Success",
-                            "message": f"Health insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-                            "data": health_insurance_response.json(),
-                        }
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        response_data = {
-                            "data": health_insurance_response.json(),
-                            "messsage": "A refund will be issued.",
-                        }
-
-                        # initiate a credit refund to the customer after failed transaction.
-                        credit_response = Account.Credit(
-                            acct_no=user.accountNumber,
-                            amount=user["amount"],
-                            reason="Refund for failed home cover insurance.",
-                        )
-                        if credit_response.status_code == 200:
-                            response = {
-                                "data": health_insurance_response.json(),
-                                "messsage": "Wallet refunded.",
-                            }
-                            return Response(
-                                data=response, status=credit_response.status_code
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user)
+                        if serializer.is_valid(raise_exception=True):
+                            HealthInsurance(self.uploaded_passport_url, user=user, serializer=serializer, user_data=user_data)
+                            # Start a separate thread for image upload
+                            thread_upload = Thread(
+                                target=self.upload_image,
+                                args=(user_data.get("Passport_Photo"),),
                             )
+                            thread_upload.start() 
                         else:
                             return Response(
-                                data="A refund will be issued shortly",
-                                status=credit_response.status_code,
+                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
                             )
-                else:
-                    return Response(
-                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    else:
+                        return Response(
+                            data=debit_response.json(), status=debit_response.status_code
+                        )
+
+                case "CARD":
+                    initialize_response = UseCard.initialize_payment(
+                        amount=request.data.get("amount"),
+                        customerName=user.firstname + user.last_name,
+                        customerEmail=user.email,
+                        paymentDescription="Debit for health insurance."
                     )
-            else:
-                return Response(
-                    data=debit_response.json(), status=debit_response.status_code
-                )
+                    if initialize_response.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        init_pay = PayWithCard.objects.create(
+                            user=user,
+                            transactionReference=resp["transactionReference"],
+                            paymentReference=resp["paymentReference"],
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            redirectUrl=resp["checkoutUrl"]
+                        )
+                        charge_from_card_resp = UseCard.charge(
+                            transactionReference=init_pay.transactionReference,
+                            number=request.data.get("number"),
+                            expiryMonth=request.data.get("expiryMonth"),
+                            expiryYear=request.data.get("expiryYear"),
+                            pin=request.data.get("card_pin"),
+                            cvv=request.data.get("cvv")
+                        )
+                        if charge_from_card_resp.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            validate_card = UseCard.validate_otp(
+                                init_pay.transactionReference,
+                                tokenId=request.data.get("tokenId"),
+                                token=request.data.get("token")
+                            )
+                            if validate_card.status_code == 200:
+                                serializer = self.serializer_class(data=user_data)
+                                if serializer.is_valid(raise_exception=True):
+                                    HealthInsurance(self.uploaded_passport_url, user=user, serializer=serializer, user_data=user_data)
+                                else:
+                                    return Response(
+                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                    )
+                            else:
+                                return Response(
+                                    data=debit_response.json(), status=debit_response.status_code
+                                )
 
     def upload_image(self, image_data):
         passport = cloud.upload(file=image_data)
