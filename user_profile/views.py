@@ -1,3 +1,4 @@
+from sms import Message
 from permissions import IsSuperAdmin, IsUserOrMember
 import hmac
 import hashlib
@@ -266,6 +267,12 @@ class DeleteUser(generics.DestroyAPIView):
                 user=request.user,
                 title="Delete Account.",
                 messsage="You have deleted your account."
+            )
+            recipient = user.phone_number[1:]
+            Message.send_msg(
+                msg="This is to inform you that your account Picadailys has been deleted.\
+                    We regret to lose you, we hope to see you again soon.",
+                to=recipient
             )
             return Response(
                 f"Account with '{email}' deleted successfully.",

@@ -1,5 +1,5 @@
 import requests
-from django.db import IntegrityError
+from decouple import config
 
 # Third party imports.
 from rest_framework import generics
@@ -20,13 +20,18 @@ from .serializers import (
     PartnerServicePhotosSerializer,
     PartnerServiceGymPhotosSerializer,
 )
-from accounts.models import User, AccountType
+from accounts.models import User, AccountType, UserNotification
 from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
 from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember
+from mail import send_email
+
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
 
 
 # Create your views here.
@@ -316,6 +321,18 @@ class VerifyCAC(generics.GenericAPIView):
                                 "message": "Your business is verified!",
                                 "data": response.json(),
                             }
+                            UserNotification.objects.create(
+                                user=request.user,
+                                title="Business Verification.",
+                                messsage="This is to inform you that the verification of your is successful."
+                            )
+                            send_email(
+                                subject="Debit Transaction.",
+                                body="This is to inform you that the verification of your is successful.",
+                                sender=picadailys_email,
+                                recipients=current_user.email,
+                                password=app_password,
+                            )
                             return Response(
                                 data=response_data, status=status.HTTP_200_OK
                             )

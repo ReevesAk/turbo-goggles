@@ -1,3 +1,5 @@
+from decouple import config
+
 # Third party imports
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -12,10 +14,16 @@ from .serializers import (
     BrandSurveySerializers,
     AdBudgetSerializer,
 )
+from mail import send_email
 from accounts.models import User, UserNotification
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
 from wallets.controllers import Pin, Debit, Credit
+from banking.controllers import Account
+
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class CreateBrandAdvertsAccount(generics.GenericAPIView):
@@ -164,6 +172,14 @@ class BrandPromote(generics.CreateAPIView):
                             messsage=f"This is to inform you that your payment of {price} \
                                 for brand promotion is successful."
                         )
+                        send_email(
+                            subject="Debit Transaction.",
+                            body=f"This is to inform you that your payment of {price} \
+                                for brand promotion is successful.",
+                            sender=picadailys_email,
+                            recipients=authenticated_user.email,
+                            password=app_password,
+                        )
                         response_data = {
                             "status": "Success!",
                             "message": "Brand advert promoted successfully",
@@ -172,15 +188,30 @@ class BrandPromote(generics.CreateAPIView):
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         # initiate a credit refund to the customer after failed transaction.
-                        resp = Credit.credit_customer(
+                        resp = Account.credit(
                             first_name=authenticated_user.firstName,
                             lastname=authenticated_user.lastName,
                             accNo=authenticated_user.accountNumber,
                             bankCode="103",
                             amount=price,
                         )
+                        if resp.status_code == 200:
+                            UserNotification.objects.create(
+                                user=request.user,
+                                title="Brand Promotion.",
+                                messsage=f"This is to inform you that a refund {price} \
+                                    for brand promotion has been issued.",
+                            )
+                            send_email(
+                                subject="Creit Transaction.",
+                                body=f"This is to inform you that a refund {price} \
+                                    for brand promotion has been issued.",
+                                sender=picadailys_email,
+                                recipients=authenticated_user.email,
+                                password=app_password,
+                            )
                         response_data = {
-                            "status": "Success!",
+                            "status": "fail!",
                             "messsage": "A refund will be issued.",
                             "details": resp,
                         }

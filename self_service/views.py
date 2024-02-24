@@ -1,4 +1,6 @@
 from permissions import IsUserOrMember, IsSuperAdmin
+from decouple import config
+from mail import send_email
 
 # Third party imports
 from rest_framework import generics, status
@@ -17,6 +19,9 @@ from wallets.controllers import Pin
 from banking.controllers import Account
 from banking.payments import UseCard
 from banking.models import PayWithCard
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class TableBooking(generics.CreateAPIView):
@@ -49,6 +54,14 @@ class TableBooking(generics.CreateAPIView):
                                     messsage=f"Payment of {amount} for restaurant table booking\
                                         was successful."
                                 )
+                                send_email(
+                                    subject="Debit Transaction.",
+                                    body=f"Payment of {amount} for restaurant table booking\
+                                        was successful.",
+                                    sender=picadailys_email,
+                                    recipients=authenticated_user.email,
+                                    password=app_password,
+                                )
                                 serializer.save()
                                 response_data = {
                                     "status": "Success!",
@@ -66,11 +79,25 @@ class TableBooking(generics.CreateAPIView):
                                     bankCode="103",
                                     amount=amount,
                                 )
+                                if resp.status_code == 200:
+                                    UserNotification.objects.create(
+                                        user=request.user,
+                                        title="Brand Account.",
+                                        messsage=f"Acccount credited with {amount} for restaurant table booking."
+                                    )
+                                    send_email(
+                                        subject="Credit Transaction.",
+                                        body=f"Acccount credited with {amount} for restaurant table booking.",
+                                        sender=picadailys_email,
+                                        recipients=authenticated_user.email,
+                                        password=app_password,
+                                    )
                                 response_data = {
                                     "status": "Success!",
                                     "messsage": "A refund will be issued.",
                                     "details": resp,
                                 }
+                                
 
                                 return Response(data=response_data, status=status.HTTP_200_OK)
                         case "CARD":
@@ -214,6 +241,14 @@ class GymBooking(generics.CreateAPIView):
                                     messsage=f"Payment of {amount} for gym booking\
                                         was successful."
                                 )
+                                send_email(
+                                    subject="Credit Transaction.",
+                                    body=f"Payment of {amount} for gym booking\
+                                        was successful.",
+                                    sender=picadailys_email,
+                                    recipients=authenticated_user.email,
+                                    password=app_password,
+                                )
                                 serializer.save()
                                 response_data = {
                                     "status": "Success!",
@@ -277,6 +312,14 @@ class GymBooking(generics.CreateAPIView):
                                                 title="Brand Account.",
                                                 messsage=f"Payment of {amount} for gym booking\
                                                     was successful."
+                                            )
+                                            send_email(
+                                                subject="Credit Transaction.",
+                                                body=f"Payment of {amount} for gym booking\
+                                                    was successful.",
+                                                sender=picadailys_email,
+                                                recipients=authenticated_user.email,
+                                                password=app_password,
                                             )
                                             serializer.save()
                                             response_data = {
@@ -378,6 +421,14 @@ class CinemaBooking(generics.CreateAPIView):
                                     messsage=f"Payment of {amount} for cinema seats booking\
                                         was successful."
                                 )
+                                send_email(
+                                    subject="Credit Transaction.",
+                                    body=f"Payment of {amount} for cinema seats booking\
+                                        was successful.",
+                                    sender=picadailys_email,
+                                    recipients=authenticated_user.email,
+                                    password=app_password,
+                                )
                                 serializer.save()
                                 response_data = {
                                     "status": "Success!",
@@ -395,6 +446,19 @@ class CinemaBooking(generics.CreateAPIView):
                                     bankCode="103",
                                     amount=amount,
                                 )
+                                if resp.status_code == 200:
+                                    UserNotification.objects.create(
+                                        user=request.user,
+                                        title="Credit Transaction.",
+                                        messsage=f"Acccount credited as with {amount} for restaurant table booking."
+                                    )
+                                    send_email(
+                                        subject="Credit Transaction.",
+                                        body=f"Acccount credited as with {amount} for restaurant table booking.",
+                                        sender=picadailys_email,
+                                        recipients=authenticated_user.email,
+                                        password=app_password,
+                                    )
                                 response_data = {
                                     "status": "Success!",
                                     "messsage": "A refund will be issued.",
@@ -439,9 +503,17 @@ class CinemaBooking(generics.CreateAPIView):
                                         if serializer.is_valid(raise_exception=True):
                                             UserNotification.objects.create(
                                                 user=request.user,
-                                                title="Brand Account.",
-                                                messsage=f"Payment of {amount} for restaurant table booking\
+                                                title="Debit Transaction.",
+                                                messsage=f"Payment of {amount} for cinema seats booking\
                                                     was successful."
+                                            )
+                                            send_email(
+                                                subject="Debit Transaction.",
+                                                body=f"Payment of {amount} for cinema seats booking\
+                                                    was successful.",
+                                                sender=picadailys_email,
+                                                recipients=authenticated_user.email,
+                                                password=app_password,
                                             )
                                             serializer.save()
                                             response_data = {

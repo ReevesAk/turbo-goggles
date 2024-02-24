@@ -2,7 +2,9 @@ import requests
 import logging
 from decouple import config
 
+from sms import Message
 from permissions import IsPartnerUserOrMember
+from mail import send_email
 
 # Third party imports.
 from rest_framework import generics
@@ -30,6 +32,10 @@ headers = {
     "content-Type": "application/json",
     "Authorization": "Bearer " + secret_key,
 }
+
+picadailys_email = config("EMAIL_HOST_USER")
+app_password = config("EMAIL_HOST_PASSWORD")
+
 
 
 class CreateCard(generics.CreateAPIView):
@@ -86,6 +92,18 @@ class CreateCard(generics.CreateAPIView):
                             user=authenticated_user,
                             title="Card Creation.",
                             messsage="You have successfully created a virtual dollar card."
+                        )
+                        send_email(
+                            subject="Card Creation.",
+                            body="You have successfully created a virtual dollar card.",
+                            sender=picadailys_email,
+                            recipients=authenticated_user.email,
+                            password=app_password,
+                        )
+                        recipient = authenticated_user.phone_number[1:]
+                        Message.send_msg(
+                            msg="Congratulations, you have successfully created a virtual dollar card.",
+                            to=recipient
                         )
                         resp = {
                             "message": "Card creation request in progress, you will be notified when it is approved.",
@@ -215,6 +233,19 @@ class FreezeCard(generics.GenericAPIView):
                         title="Freeze Card.",
                         messsage="Your request to freeze your virtual card is successful."
                     )
+                    send_email(
+                        subject="Freeze Card.",
+                        body="Your request to freeze your virtual card is successful.",
+                        sender=picadailys_email,
+                        recipients=authenticated_user.email,
+                        password=app_password,
+                    )
+                    recipient = authenticated_user.phone_number[1:]
+                    Message.send_msg(
+                        msg="This is to inform you that your request to freeze your virtual card is successful.\
+                            You can unfreeze it at anytime. ",
+                        to=recipient
+                    )
                     resp = {
                         "message": "Card frozen successfully.",
                         "data": freeze_card.json(),
@@ -260,7 +291,19 @@ class UnfreezeCard(generics.GenericAPIView):
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Unfreeze Creation.",
-                        messsage="Your NGN wallet creation is successful."
+                        messsage="Your request to unfreeze your virtual card is successful."
+                    )
+                    send_email(
+                        subject="Unfreeze Card.",
+                        body="Your request to unfreeze your virtual card is successful.",
+                        sender=picadailys_email,
+                        recipients=authenticated_user.email,
+                        password=app_password,
+                    )
+                    recipient = authenticated_user.phone_number[1:]
+                    Message.send_msg(
+                        msg="This is to inform you that your request to unfreeze your virtual card is successful.",
+                        to=recipient
                     )
                     resp = {
                         "message": "Card unfrozen successfully.",
