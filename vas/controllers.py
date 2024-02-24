@@ -1,7 +1,5 @@
 import logging
-import requests
 from threading import Thread
-from decouple import config
 from commons import Allocate
 from accounts.models import TxModel, Rewards, UserNotification
 

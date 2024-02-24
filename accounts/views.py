@@ -49,7 +49,7 @@ class Register(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
                 return Response(
-                    data={"error": "Passwords do not match!"},
+                    data={"status": "fail", "error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

@@ -18,7 +18,7 @@ class BaseModel(models.Model):
         abstract = True
 
 
-class VasBaseModel(models.Model):
+class ItemPurchaseBaseModel(models.Model):
     """Define abstract base model for payments."""
 
     payment_option = models.CharField(choices=PAYMENT_OPTIONS, max_length=100, null=True)
