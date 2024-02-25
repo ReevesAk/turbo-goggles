@@ -262,7 +262,7 @@ class Login(APIView):
             #     )
 
             UserNotification.objects.create(
-                user=request.user,
+                user=user,
                 title="Login.",
                 messsage="Login successful."
             )
@@ -297,7 +297,7 @@ class ForgotPassword(generics.GenericAPIView):
             phone_no = user_data["phone_number"][1:]
             try:
                 user = User.objects.get(phone_number=phone_no)
-            except user.DoesNotExist:
+            except User.DoesNotExist:
                 return Response(
                     data={"detail": "A user with this phone number does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
@@ -310,24 +310,21 @@ class ForgotPassword(generics.GenericAPIView):
                 otp
             )
 
-            response = Message.send_otp(msg=str(msg), to=phone_no)
-            if response.status_code == 200:
-                try:
-                    response = {
-                        "status": "success",
-                        "message": "Check your phone for an OTP",
-                    }
-                    return Response(data=response, status=status.HTTP_201_CREATED)
-                except Exception as err:
-                    return Response(
-                        {
-                            "status": "fail",
-                            "message": err,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-            else:
-                return Response(data=response, status=response.status_code)
+            Message.send_otp(msg=str(msg), to=phone_no)
+
+            UserNotification.objects.create(
+                user=user,
+                title="Forgot Password Request.",
+                messsage="This is to inform you that your forgot password request is successful\
+                    check your phone for an OTP."
+            )
+
+
+            response = {
+                "status": "success",
+                "message": "Check your phone for an OTP",
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
 
 
 class ResetPassword(generics.CreateAPIView):
