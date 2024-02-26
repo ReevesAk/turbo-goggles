@@ -10,7 +10,7 @@ from .views import (
     PasswordResendOTP,
     ResetPassword,
     Logout,
-    SubmitGamification
+    SubmitGamification,
 )
 
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
@@ -34,6 +34,8 @@ urlpatterns = [
     path(
         "password-resend-otp/", PasswordResendOTP.as_view(), name="password-resend_otp"
     ),
-    path("submit-gamification/", SubmitGamification.as_view(), name="submit_gamification"),
+    path(
+        "submit-gamification/", SubmitGamification.as_view(), name="submit_gamification"
+    ),
     path("logout/", Logout.as_view(), name="logout"),
 ]

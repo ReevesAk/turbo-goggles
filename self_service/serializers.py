@@ -32,7 +32,7 @@ class RestaurantBookingSerilaizers(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -65,7 +65,7 @@ class GymSubcriptionSerilaizers(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -98,5 +98,5 @@ class CinemaBookingSerilaizers(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]

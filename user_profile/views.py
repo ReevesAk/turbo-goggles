@@ -27,7 +27,7 @@ from .serializers import (
     ProfileImageSerializer,
     DeleteUserSerializer,
     OpenRewardBoxSerializers,
-    ClaimRewardSerializers
+    ClaimRewardSerializers,
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification
@@ -63,7 +63,7 @@ class ProfileImage(generics.CreateAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Profile Image.",
-                messsage="You have been successfully uploaded your profile image."
+                message="You have been successfully uploaded your profile image.",
             )
             return Response(
                 {"message": "Profile picture uploaded successfully"},
@@ -106,7 +106,7 @@ class UpdateUserProfile(generics.UpdateAPIView):
         UserNotification.objects.create(
             user=request.user,
             title="Update Profile.",
-            messsage="You have been successfully updated your profile."
+            message="You have been successfully updated your profile.",
         )
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -142,7 +142,7 @@ class ChangePassword(generics.UpdateAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Change Password.",
-                messsage="You have successfully changed your password."
+                message="You have successfully changed your password.",
             )
 
             return Response(
@@ -180,10 +180,10 @@ class MemberUserSwitch(generics.UpdateAPIView):
                         UserNotification.objects.create(
                             user=request.user,
                             title="Member Switch.",
-                            messsage="Congratulations you have been \
+                            message="Congratulations you have been \
                                 upgraded to a member You can now enagage in\
                                 gamifications and enjoy amazing discounts and\
-                                offers with us."
+                                offers with us.",
                         )
 
                         resp = {
@@ -197,13 +197,13 @@ class MemberUserSwitch(generics.UpdateAPIView):
                     else:
                         resp = {
                             "status": "fail",
-                            "error": "You do not have enough points."
+                            "error": "You do not have enough points.",
                         }
                         return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     resp = {
                         "status": "fail!",
-                        "error": "You have not started earning points."
+                        "error": "You have not started earning points.",
                     }
                     return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
 
@@ -266,13 +266,13 @@ class DeleteUser(generics.DestroyAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Delete Account.",
-                messsage="You have deleted your account."
+                message="You have deleted your account.",
             )
             recipient = user.phone_number[1:]
             Message.send_msg(
                 msg="This is to inform you that your account Picadailys has been deleted.\
                     We regret to lose you, we hope to see you again soon.",
-                to=recipient
+                to=recipient,
             )
             return Response(
                 f"Account with '{email}' deleted successfully.",
@@ -303,26 +303,27 @@ class OpenRewardBox(generics.GenericAPIView):
         user_reward = Rewards.objects.get(user=user)
 
         if user_reward.balance >= 100:
-            item, form= MysteryBox.open()
+            item, form = MysteryBox.open()
             user_reward.mystery_box = item
             user_reward.form_of_gift = form
             user_reward.save()
 
             response_data = {
                 "status": "success",
-                "message": "Wow, you have have an item in your box, click to claim reward!"
+                "message": "Wow, you have have an item in your box, click to claim reward!",
             }
             return Response(data=response_data, status=status.HTTP_200_OK)
-        
+
         elif user_reward.balance < 100:
             raise exceptions.ValidationError(
                 detail="Not enough rewards to access the mystery box.",
-                code=status.HTTP_400_BAD_REQUEST)
-    
+                code=status.HTTP_400_BAD_REQUEST,
+            )
+
         else:
             error_response = {
                 "status": "fail",
-                "message": "Sorry, you do not have any item in the your mystery box."
+                "message": "Sorry, you do not have any item in the your mystery box.",
             }
             return Response(data=error_response, status=status.HTTP_400_BAD_REQUEST)
 
@@ -356,7 +357,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            messsage="You have successfully claime your mystery box item."
+                            message="You have successfully claime your mystery box item.",
                         )
 
                         response_data = {
@@ -368,7 +369,9 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         return Response(data=response_data, status=status.HTTP_200_OK)
                 case "data":
                     amount = Rewards.objects.get(user=authenticated_user)
-                    variation_code = VariationCodes.get(service_id=user_data["serviceID"], amount=amount.mystery_box)
+                    variation_code = VariationCodes.get(
+                        service_id=user_data["serviceID"], amount=amount.mystery_box
+                    )
                     data_response = VAS.data(
                         service_id=user_data["serviceID"],
                         amount=amount.mystery_box,
@@ -380,7 +383,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            messsage="You have successfully claime your mystery box item."
+                            message="You have successfully claime your mystery box item.",
                         )
 
                         response = {

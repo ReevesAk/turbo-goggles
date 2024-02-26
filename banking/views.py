@@ -114,7 +114,7 @@ class VerifYBVN(generics.CreateAPIView):
                 UserNotification.objects.create(
                     user=request.user,
                     title="BVN Verification.",
-                    messsage="Your BVN Verifiction is successful."
+                    message="Your BVN Verifiction is successful.",
                 )
                 send_email(
                     subject="BVN Verifiction.",
@@ -163,11 +163,11 @@ class CreateNGNAccount(generics.GenericAPIView):
             f_name=user_data.first_name,
             l_name=user_data.last_name,
             email=user_data.email,
-            country="NG"
+            country="NG",
         )
 
         if customer_data_resp.status_code == 200:
-            resp = response.json()
+            resp = customer_data_resp.json()
 
             # Update the customer instance with the new data.
             customer.first_name = resp["data"]["first_name"]
@@ -224,7 +224,7 @@ class CreateNGNAccount(generics.GenericAPIView):
                 UserNotification.objects.create(
                     user=authenticated_user,
                     title="Wallet Creation.",
-                    messsage="Your NGN wallet creation is successful."
+                    message="Your NGN wallet creation is successful.",
                 )
                 send_email(
                     subject="Wallet Creation.",
@@ -253,7 +253,7 @@ class CreateNGNAccount(generics.GenericAPIView):
 class GetCustomer(generics.RetrieveAPIView):
 
     """
-    GetCustomer handles the GET request of retrieving a 
+    GetCustomer handles the GET request of retrieving a
     customer's wallet information.
     """
 
@@ -279,10 +279,7 @@ class GetCustomer(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    response_data = {
-                        "status": "success",
-                        "data": response.json()
-                    }
+                    response_data = {"status": "success", "data": response.json()}
                     return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
@@ -295,7 +292,7 @@ class GetCustomer(generics.RetrieveAPIView):
 class GetCustomersWallets(generics.RetrieveAPIView):
 
     """
-    GetCustomersAccounts handles the GET request of retrieving all 
+    GetCustomersAccounts handles the GET request of retrieving all
     the accounts created by a customer.
     """
 
@@ -321,10 +318,7 @@ class GetCustomersWallets(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    response_data = {
-                        "status": "success",
-                        "data": response.json()
-                    }
+                    response_data = {"status": "success", "data": response.json()}
                     return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
@@ -337,7 +331,7 @@ class GetCustomersWallets(generics.RetrieveAPIView):
 class CustomerTransctionHistory(generics.RetrieveAPIView):
 
     """
-    CustomerTransctionHistory handles the GET request of retrieving all 
+    CustomerTransctionHistory handles the GET request of retrieving all
     transactions a customer has made.
     """
 
@@ -363,14 +357,13 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    response_data = {
-                        "status": "success",
-                        "data": response.json()
-                    }
+                    response_data = {"status": "success", "data": response.json()}
                     return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
-                logging.error(f"Fetching customer transaction history API request error: {str(e)}")
+                logging.error(
+                    f"Fetching customer transaction history API request error: {str(e)}"
+                )
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -379,9 +372,10 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
 class UpdateCustomer(generics.RetrieveAPIView):
 
     """
-    UpdateCustomer handles the PATCH request of updating 
+    UpdateCustomer handles the PATCH request of updating
     customer information.
     """
+
     serializer_class = UpdateCustomerSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
@@ -389,11 +383,12 @@ class UpdateCustomer(generics.RetrieveAPIView):
 
     def update(self, request):
         user = self.request.user  # Get the authenticated user.
+        payload = request.data
 
         if user:
             customer = CustomerData.objects.get(user=user)
             id = customer.customer_id
-        
+
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             # Start a separate thread for image upload
@@ -410,14 +405,14 @@ class UpdateCustomer(generics.RetrieveAPIView):
                     "type": request.data["type"],
                     "image": self.uploaded_image_url,
                     "number": request.data["number"],
-                    "country": "NG"
+                    "country": "NG",
                 },
                 "phone": {
                     "phone_country_code": "+234",
-                    "phone_number": request.data["phone_number"]
+                    "phone_number": request.data["phone_number"],
                 },
                 "first_name": request.data["first_name"],
-                "last_name": request.data["last_name"]
+                "last_name": request.data["last_name"],
             }
 
             customer.first_name = request.data["first_name"]
@@ -444,7 +439,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
                     UserNotification.objects.create(
                         user=request.user,
                         title="Update Customer.",
-                        messsage="Your customer update request is successful."
+                        message="Your customer update request is successful.",
                     )
                     send_email(
                         subject="Update",
@@ -456,7 +451,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
                     resp = {
                         "status": "success",
                         "message": "Update customer request successful.",
-                        "data": response.json()
+                        "data": response.json(),
                     }
                     return Response(data=resp, status=status.HTTP_200_OK)
                 else:
@@ -554,7 +549,7 @@ class UpgradeAccount(generics.CreateAPIView):
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Account Upgrade.",
-                        messsage="This is to inform you that your account upgrade is successful."
+                        message="This is to inform you that your account upgrade is successful.",
                     )
                     send_email(
                         subject="Account Upgrade.",
@@ -566,7 +561,7 @@ class UpgradeAccount(generics.CreateAPIView):
                     response = {
                         "status": "success",
                         "message": "User upgraded successfully!",
-                        "data": tier2_response.json()
+                        "data": tier2_response.json(),
                     }
                     return Response(data=response, status=status.HTTP_200_OK)
 
@@ -607,10 +602,11 @@ class CreateUSDAccount(generics.CreateAPIView):
                 "data": existing_wallet,
             }
             return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
-        
 
         # Check if the user has an NGN wallet
-        has_ngn_wallet = Wallet.objects.filter(user=authenticated_user, currency='NGN').exists()
+        has_ngn_wallet = Wallet.objects.filter(
+            user=authenticated_user, currency="NGN"
+        ).exists()
 
         if not has_ngn_wallet:
             response_data = {
@@ -668,7 +664,7 @@ class CreateUSDAccount(generics.CreateAPIView):
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Wallet Creation.",
-                        messsage="Your dollar account was created successfully."
+                        message="Your dollar account was created successfully.",
                     )
                     send_email(
                         subject="Wallet Creation.",
@@ -742,7 +738,7 @@ class SetWalletPin(generics.CreateAPIView):
             UserNotification.objects.create(
                 user=authenticated_user,
                 title="Wallet Pin.",
-                messsage="Wallet pin created successfully."
+                message="Wallet pin created successfully.",
             )
             send_email(
                 subject="Wallet Pin.",
@@ -763,6 +759,7 @@ class ForgotWalletPin(generics.GenericAPIView):
     ForgotWalletPin handles the POST request of sending a requeest to
     reset a pin for a customer's wallet.
     """
+
     serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
@@ -836,6 +833,7 @@ class PinVerifyOTP(generics.GenericAPIView):
     PinVerifyOTP handles the POST request of verifying an
     OTP after wallet pin change request.
     """
+
     serializer_class = VerifyPinOTPSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
@@ -862,13 +860,8 @@ class PinVerifyOTP(generics.GenericAPIView):
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
-                data = {
-                    "status": "success",
-                    "message": "Account is verified"
-                }
-                return Response(
-                    data=data, status=status.HTTP_200_OK
-                )
+                data = {"status": "success", "message": "Account is verified"}
+                return Response(data=data, status=status.HTTP_200_OK)
 
 
 class ResetPin(generics.CreateAPIView):
@@ -914,7 +907,7 @@ class ResetPin(generics.CreateAPIView):
             UserNotification.objects.create(
                 user=authenticated_user,
                 title="Reset Wallet Pin.",
-                messsage="Wallet pin reset was successful."
+                message="Wallet pin reset was successful.",
             )
             send_email(
                 subject="Reset Wallet Pin.",
@@ -932,9 +925,10 @@ class ResetPin(generics.CreateAPIView):
 
 class GetAllBanks(generics.RetrieveAPIView):
     """
-    GetAllBanks handles the GETT request of listing 
+    GetAllBanks handles the GETT request of listing
     all institutions by type, code and country.
     """
+
     serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
@@ -949,9 +943,7 @@ class GetAllBanks(generics.RetrieveAPIView):
         if user:
             resource = "institutions"
             try:
-                response = requests.get(
-                    url=base_url + resource, headers=headers
-                )
+                response = requests.get(url=base_url + resource, headers=headers)
                 if response.status_code == 200:
                     response_data = {
                         "status": "success",
@@ -961,7 +953,7 @@ class GetAllBanks(generics.RetrieveAPIView):
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
                     return Response(response.json(), status=response.status_code)
-            
+
             except requests.exceptions.RequestException as e:
                 logging.error(f"Listing all institutions API request error: {str(e)}")
                 return Response(

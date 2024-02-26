@@ -24,4 +24,3 @@ class Pin:
                 return True
             else:
                 return False
-

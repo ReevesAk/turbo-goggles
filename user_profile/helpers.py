@@ -2,7 +2,8 @@ import random
 
 from accounts.models import Rewards
 
-class MysteryBox():
+
+class MysteryBox:
     @staticmethod
     def open(user):
         current_user = Rewards.objects.get(user=user)
@@ -16,7 +17,8 @@ class MysteryBox():
         assign_form_randomly = random.choice(form)
         return assign_gift_randomly, assign_form_randomly
 
-class VariationCodes():
+
+class VariationCodes:
     @staticmethod
     def get(service_id, amount):
         mapping = None
@@ -26,7 +28,7 @@ class VariationCodes():
                 mtn_mapping = {
                     "100": "mtn-10mb-100",
                     "200": "mtn-50mb-200",
-                    "500": "mtn-xtra-500"
+                    "500": "mtn-xtra-500",
                 }
                 mapping = mtn_mapping
 
@@ -34,23 +36,19 @@ class VariationCodes():
                 airtel_mapping = {
                     "100": "airt-100",
                     "200": "airt-200",
-                    "500": "airt-500"
+                    "500": "airt-500",
                 }
                 mapping = airtel_mapping
-            
+
             case "glo-data":
-                glo_mapping = {
-                    "100": "glo100",
-                    "200": "glo200",
-                    "500": "glo500"
-                }
+                glo_mapping = {"100": "glo100", "200": "glo200", "500": "glo500"}
                 mapping = glo_mapping
 
             case "etisalat-data":
                 nine_mobile_mapping = {
                     "100": "eti-100",
                     "200": "eti-200",
-                    "500": "eti-500"
+                    "500": "eti-500",
                 }
                 mapping = nine_mobile_mapping
 

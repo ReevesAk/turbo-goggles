@@ -3,7 +3,6 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
-from vas.models import AirtimeTopup
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -78,4 +77,4 @@ class ClaimRewardSerializers(serializers.Serializer):
 
     class Meta:
         model = None
-        fields = ['service_id', 'phone_number', 'form_of_gift']
+        fields = ["service_id", "phone_number", "form_of_gift"]

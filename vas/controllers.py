@@ -1,5 +1,4 @@
 import logging
-from threading import Thread
 from commons import Allocate
 from accounts.models import TxModel, Rewards, UserNotification
 
@@ -27,7 +26,7 @@ def airtime(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Airtime purchase.",
-            messsage=f"This is to inform you that you have made a purchase of {amount} naira airtime"
+            message=f"This is to inform you that you have made a purchase of {amount} naira airtime",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -37,17 +36,13 @@ def airtime(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = airtime_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = airtime_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
                         tx.description = "Debit for airtime purchase."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -76,9 +71,7 @@ def airtime(user, serializer, user_data):
             bankCode="103",
             amount=user["amount"],
         )
-        return Response(
-            data=response_data, status=airtime_response.status_code
-        )
+        return Response(data=response_data, status=airtime_response.status_code)
 
 
 def data(user, serializer, user_data):
@@ -96,8 +89,8 @@ def data(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Data subscription.",
-            messsage=f"This is to inform you that you have made a \
-                purchase of {amount} data subscription"
+            message=f"This is to inform you that you have made a \
+                purchase of {amount} data subscription",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -107,17 +100,13 @@ def data(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = data_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = data_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
                         tx.description = "Debit for data subscription."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -146,9 +135,7 @@ def data(user, serializer, user_data):
             bankCode="103",
             amount=user_data["amount"],
         )
-        return Response(
-            data=response_data, status=data_response.status_code
-        )
+        return Response(data=response_data, status=data_response.status_code)
 
 
 def electricity(user, serializer, user_data):
@@ -166,8 +153,8 @@ def electricity(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Electricity payment.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for electricity is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for electricity is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -177,19 +164,13 @@ def electricity(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = electricity_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = electricity_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for electricity payment."
-                        )
+                        tx.description = "Debit for electricity payment."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -218,9 +199,7 @@ def electricity(user, serializer, user_data):
             bankCode="103",
             amount=user["amount"],
         )
-        return Response(
-            data=response_data, status=electricity_response.status_code
-        )
+        return Response(data=response_data, status=electricity_response.status_code)
 
 
 def NewTvSub(user, serializer, user_data):
@@ -240,8 +219,8 @@ def NewTvSub(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="New Tv subscription.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for Tv subscription is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for Tv subscription is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -251,19 +230,13 @@ def NewTvSub(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = new_tv_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = new_tv_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for new tv subscription payment."
-                        )
+                        tx.description = "Debit for new tv subscription payment."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -291,9 +264,7 @@ def NewTvSub(user, serializer, user_data):
             bankCode="103",
             amount=user["amount"],
         )
-        return Response(
-            response_data, status=new_tv_response.status_code
-        )
+        return Response(response_data, status=new_tv_response.status_code)
 
 
 def RenewTvSub(user, serializer, user_data):
@@ -311,8 +282,8 @@ def RenewTvSub(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Renew Tv subscription.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                to renew tv subscription is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                to renew tv subscription is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -322,19 +293,13 @@ def RenewTvSub(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = renew_tv_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = renew_tv_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for tv subscription renewal."
-                        )
+                        tx.description = "Debit for tv subscription renewal."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -363,9 +328,7 @@ def RenewTvSub(user, serializer, user_data):
             bankCode="103",
             amount=user["amount"],
         )
-        return Response(
-            response_data, status=renew_tv_response.status_code
-        )
+        return Response(response_data, status=renew_tv_response.status_code)
 
 
 def international_topup(user, serializer, user_data):
@@ -387,8 +350,8 @@ def international_topup(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="International airtime recharge.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for international airtime topup is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for international airtime topup is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -398,19 +361,13 @@ def international_topup(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = intl_topup_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = intl_topup_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for international airtime recharge."
-                        )
+                        tx.description = "Debit for international airtime recharge."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -439,9 +396,7 @@ def international_topup(user, serializer, user_data):
             bankCode="103",
             amount=user["amount"],
         )
-        return Response(
-            data=response_data, status=intl_topup_response.status_code
-        )
+        return Response(data=response_data, status=intl_topup_response.status_code)
 
 
 def waec_reg(user, serializer, user_data):
@@ -458,8 +413,8 @@ def waec_reg(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Waec registration.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for WAEC registration is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for WAEC registration is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -469,17 +424,13 @@ def waec_reg(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = waec_response.json().get(
-                            "transactionId", ""
-                        )
+                        tx.tx_id = waec_response.json().get("transactionId", "")
                         tx.amount = user_data.get("amount", 0)
                         tx.description = "Debit for waec registration."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -538,21 +489,15 @@ def VehicleInsurance(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = (
-                            vehicle_insurance_response.json().get(
-                                "transactionId", ""
-                            )
+                        tx.tx_id = vehicle_insurance_response.json().get(
+                            "transactionId", ""
                         )
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for vehicular insurance."
-                        )
+                        tx.description = "Debit for vehicular insurance."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -608,8 +553,8 @@ def AccidentInsurance(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Accident inssurance.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for accident inssurance is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for accident inssurance is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -619,19 +564,15 @@ def AccidentInsurance(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = (
-                            accident_insurance_response.json().get(
-                                "transactionId", ""
-                            )
+                        tx.tx_id = accident_insurance_response.json().get(
+                            "transactionId", ""
                         )
                         tx.amount = user_data.get("amount", 0)
                         tx.description = "Debit for accident insurance."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -685,8 +626,8 @@ def HomeCoverInsurance(user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Home cover insurance registration.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for home cover insurance is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for home cover insurance is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -696,21 +637,15 @@ def HomeCoverInsurance(user, serializer, user_data):
                 try:
                     with transaction.atomic():
                         tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = (
-                            home_cover_insurance_response.json().get(
-                                "transactionId", ""
-                            )
+                        tx.tx_id = home_cover_insurance_response.json().get(
+                            "transactionId", ""
                         )
                         tx.amount = user_data.get("amount", 0)
-                        tx.description = (
-                            "Debit for home cover insurance."
-                        )
+                        tx.description = "Debit for home cover insurance."
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -742,9 +677,7 @@ def HomeCoverInsurance(user, serializer, user_data):
                 "data": home_cover_insurance_response.json(),
                 "messsage": "Wallet refunded.",
             }
-            return Response(
-                data=response, status=credit_response.status_code
-            )
+            return Response(data=response, status=credit_response.status_code)
         else:
             return Response(
                 data="A refund will be issued shortly",
@@ -773,8 +706,8 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         UserNotification.objects.create(
             user=user,
             title="Health insurance.",
-            messsage=f"This is to inform you that your payment of {amount} \
-                for health insurance is successful."
+            message=f"This is to inform you that your payment of {amount} \
+                for health insurance is successful.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -792,9 +725,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
                         tx.rwd = new_rewards
                         tx.save()
 
-                        rwd, _ = Rewards.objects.get_or_create(
-                            user=user
-                        )
+                        rwd, _ = Rewards.objects.get_or_create(user=user)
                         rwd.balance += new_rewards
                         rwd.transaction = tx
                         rwd.save()
@@ -826,9 +757,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
                 "data": health_insurance_response.json(),
                 "messsage": "Wallet refunded.",
             }
-            return Response(
-                data=response, status=credit_response.status_code
-            )
+            return Response(data=response, status=credit_response.status_code)
         else:
             return Response(
                 data="A refund will be issued shortly",

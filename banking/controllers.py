@@ -60,9 +60,6 @@ class Customer:
                 resp = response.json()
                 country = resp["data"]["country"]
                 email = resp["data"]["email"]
-                first_name = resp["data"]["first_name"]
-                last_name = resp["data"]["last_name"]
-                customer_id = resp["data"]["id"]
 
                 return response
             else:
@@ -236,7 +233,9 @@ class Account:
             return response
 
         except requests.exceptions.RequestException as e:
-            logging.error(f"Crediting a failed transaction account API request error: {str(e)}")
+            logging.error(
+                f"Crediting a failed transaction account API request error: {str(e)}"
+            )
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -249,7 +248,7 @@ class Transfer:
         payload = {
             "bank_code": "101",
             "account_number": account_number,
-            "currency":currency,
+            "currency": currency,
             "amount": amount,
             "reason": reason,
         }
@@ -274,7 +273,7 @@ class Transfer:
         payload = {
             "bank_code": bank_code,
             "account_number": account_number,
-            "currency":"NGN",
+            "currency": "NGN",
             "amount": amount,
             "reason": reason,
         }
@@ -295,10 +294,26 @@ class Transfer:
 
     @staticmethod
     def internatonal(
-        sfirst_name, slast_name, dob, nationality,amount,
-        bank_code, reason, account_number, id_number,issued_date,
-        expiration_date, phone_number, address, city, state, postal_code,
-        cpfirst_name, cplast_name, cpphone_number, cpaddress
+        sfirst_name,
+        slast_name,
+        dob,
+        nationality,
+        amount,
+        bank_code,
+        reason,
+        account_number,
+        id_number,
+        issued_date,
+        expiration_date,
+        phone_number,
+        address,
+        city,
+        state,
+        postal_code,
+        cpfirst_name,
+        cplast_name,
+        cpphone_number,
+        cpaddress,
     ):
         resource = "transfers"
         payload = {
@@ -306,36 +321,36 @@ class Transfer:
             "meta": {
                 "scheme": "CASHPICKUP",
                 "sender": {
-                "first_name": sfirst_name,
-                "last_name": slast_name,
-                "country": "NG",
-                "dob": dob,
-                "nationality": nationality,
-                "id": {
-                    "type": "NationalID",
-                    "number": id_number,
-                    "issued_at": "Nigeria",
-                    "issued_date": issued_date,
-                    "expiration_date": expiration_date
-                },
-                "phone_number": phone_number,
-                "address": address,
-                "state": state,
-                "city": city,
-                "postal_code": postal_code
+                    "first_name": sfirst_name,
+                    "last_name": slast_name,
+                    "country": "NG",
+                    "dob": dob,
+                    "nationality": nationality,
+                    "id": {
+                        "type": "NationalID",
+                        "number": id_number,
+                        "issued_at": "Nigeria",
+                        "issued_date": issued_date,
+                        "expiration_date": expiration_date,
+                    },
+                    "phone_number": phone_number,
+                    "address": address,
+                    "state": state,
+                    "city": city,
+                    "postal_code": postal_code,
                 },
                 "counterparty": {
-                "country": "NG",
-                "first_name": cpfirst_name,
-                "last_name": cplast_name,
-                "phone_number": cpphone_number,
-                "address": cpaddress
-                }
+                    "country": "NG",
+                    "first_name": cpfirst_name,
+                    "last_name": cplast_name,
+                    "phone_number": cpphone_number,
+                    "address": cpaddress,
+                },
             },
             "bank_code": bank_code,
             "account_number": account_number,
             "amount": amount,
-            "reason": reason
+            "reason": reason,
         }
 
         try:
@@ -351,7 +366,7 @@ class Transfer:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
+
     @staticmethod
     def verify(transfer_id):
         resource = f"transfers/{transfer_id}"

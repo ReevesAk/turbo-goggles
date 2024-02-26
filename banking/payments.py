@@ -25,7 +25,10 @@ def generate_timestamp_code(prefix="TX"):
 class UseCard:
     @staticmethod
     def initialize_payment(
-        amount, customerName, customerEmail, paymentDescription,
+        amount,
+        customerName,
+        customerEmail,
+        paymentDescription,
     ):
         payment_ref = generate_timestamp_code()
 
@@ -38,7 +41,9 @@ class UseCard:
             if response.status_code == 200:
                 token = response.json()["responseBody"]["accessToken"]
                 try:
-                    initialize_payament_resource = "api/v1/merchant/transactions/init-transaction"
+                    initialize_payament_resource = (
+                        "api/v1/merchant/transactions/init-transaction"
+                    )
                     payload = {
                         "amount": amount,
                         "customerName": customerName,
@@ -48,7 +53,7 @@ class UseCard:
                         "currencyCode": "NGN",
                         "contractCode": contractCode,
                         "redirectUrl": "",
-                        "paymentMethods":["CARD"]
+                        "paymentMethods": ["CARD"],
                     }
 
                     payment_headers = {
@@ -57,18 +62,22 @@ class UseCard:
                     payment_response = requests.post(
                         url=base_url + initialize_payament_resource,
                         headers=payment_headers,
-                        json=payload
+                        json=payload,
                     )
                     return payment_response
                 except requests.exceptions.RequestException as e:
-                    logging.error(f"Initialize card payment API request error: {str(e)}")
+                    logging.error(
+                        f"Initialize card payment API request error: {str(e)}"
+                    )
                     return Response(
                         {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
 
             else:
-                raise ValidationError("Sorry, error while initializing payment, try again later.")
-            
+                raise ValidationError(
+                    "Sorry, error while initializing payment, try again later."
+                )
+
         except requests.exceptions.RequestException as e:
             logging.error(f"Merchant login API request error: {str(e)}")
             return Response(
@@ -76,9 +85,7 @@ class UseCard:
             )
 
     @staticmethod
-    def charge(
-        transactionReference, number, expiryMonth, expiryYear, pin, cvv
-    ):
+    def charge(transactionReference, number, expiryMonth, expiryYear, pin, cvv):
         login_resource = "api/v1/auth/login"
 
         try:
@@ -102,14 +109,12 @@ class UseCard:
                             "expiryMonth": expiryMonth,
                             "expiryYear": expiryYear,
                             "pin": pin,
-                            "cvv": cvv
-                        }
+                            "cvv": cvv,
+                        },
                     }
 
                     response = requests.post(
-                        url=base_url + resource,
-                        header=headers,
-                        json=payload
+                        url=base_url + resource, header=headers, json=payload
                     )
                     return response
                 except requests.exceptions.RequestException as e:
@@ -144,13 +149,11 @@ class UseCard:
                         "transactionReference": transactionReference,
                         "collectionChannel": "API_NOTIFICATION",
                         "tokenId": tokenId,
-                        "token": token
+                        "token": token,
                     }
 
                     response = requests.post(
-                        url=base_url + resource,
-                        header=headers,
-                        json=payload
+                        url=base_url + resource, header=headers, json=payload
                     )
                     return response
                 except requests.exceptions.RequestException as e:

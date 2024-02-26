@@ -20,7 +20,7 @@ from .serializers import (
     FreezeCardSerializers,
     UnfreezeCardSerializers,
 )
-from accounts.models import  UserNotification
+from accounts.models import UserNotification
 from .models import Cards, CustomerData, Wallet
 from .helpers import Pin
 from .controllers import VirtualCard
@@ -35,7 +35,6 @@ headers = {
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
-
 
 
 class CreateCard(generics.CreateAPIView):
@@ -91,7 +90,7 @@ class CreateCard(generics.CreateAPIView):
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Card Creation.",
-                            messsage="You have successfully created a virtual dollar card."
+                            message="You have successfully created a virtual dollar card.",
                         )
                         send_email(
                             subject="Card Creation.",
@@ -103,7 +102,7 @@ class CreateCard(generics.CreateAPIView):
                         recipient = authenticated_user.phone_number[1:]
                         Message.send_msg(
                             msg="Congratulations, you have successfully created a virtual dollar card.",
-                            to=recipient
+                            to=recipient,
                         )
                         resp = {
                             "message": "Card creation request in progress, you will be notified when it is approved.",
@@ -231,7 +230,7 @@ class FreezeCard(generics.GenericAPIView):
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Freeze Card.",
-                        messsage="Your request to freeze your virtual card is successful."
+                        message="Your request to freeze your virtual card is successful.",
                     )
                     send_email(
                         subject="Freeze Card.",
@@ -244,7 +243,7 @@ class FreezeCard(generics.GenericAPIView):
                     Message.send_msg(
                         msg="This is to inform you that your request to freeze your virtual card is successful.\
                             You can unfreeze it at anytime. ",
-                        to=recipient
+                        to=recipient,
                     )
                     resp = {
                         "message": "Card frozen successfully.",
@@ -287,11 +286,10 @@ class UnfreezeCard(generics.GenericAPIView):
                 unfreeze_card_status_code = unfreeze_card.status_code
 
                 if unfreeze_card_status_code == 200:
-
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Unfreeze Creation.",
-                        messsage="Your request to unfreeze your virtual card is successful."
+                        message="Your request to unfreeze your virtual card is successful.",
                     )
                     send_email(
                         subject="Unfreeze Card.",
@@ -303,7 +301,7 @@ class UnfreezeCard(generics.GenericAPIView):
                     recipient = authenticated_user.phone_number[1:]
                     Message.send_msg(
                         msg="This is to inform you that your request to unfreeze your virtual card is successful.",
-                        to=recipient
+                        to=recipient,
                     )
                     resp = {
                         "message": "Card unfrozen successfully.",

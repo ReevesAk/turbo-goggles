@@ -72,14 +72,14 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 recipient = serializer.data["phone_number"]
 
                 response = Message.send_otp(msg=str(msg), to=recipient)
-            
+
                 try:
                     user_data = serializer.data
 
                     UserNotification.objects.create(
                         user=str(serializer.data["id"]),
                         title="Create SuperUser.",
-                        messsage="SuperUser Created Successfully."
+                        message="SuperUser Created Successfully.",
                     )
                     response = {
                         "status": "success",
@@ -158,9 +158,9 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         instance.save()
 
         UserNotification.objects.create(
-            user=user,
+            user=request.user,
             title="Update Admin Role.",
-            messsage=f"Admin's role updated to '{new_role}."
+            message=f"Admin's role updated to '{new_role}.",
         )
         return Response(
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
@@ -225,7 +225,7 @@ class DeleteAdmin(generics.DestroyAPIView):
             UserNotification.objects.create(
                 user=user,
                 title="Delete Admin.",
-                messsage=f"Admin with '{email}' deleted successfully."
+                message=f"Admin with '{email}' deleted successfully.",
             )
             return Response(
                 f"Admin with '{email}' deleted successfully.",

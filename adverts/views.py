@@ -18,7 +18,7 @@ from mail import send_email
 from accounts.models import User, UserNotification
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
-from wallets.controllers import Pin, Debit, Credit
+from wallets.controllers import Pin, Debit
 from banking.controllers import Account
 
 
@@ -43,7 +43,7 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Brand Account.",
-                messsage="Brand advert account created Successfully."
+                message="Brand advert account created Successfully.",
             )
 
             user_data = serializer.data
@@ -169,8 +169,8 @@ class BrandPromote(generics.CreateAPIView):
                         UserNotification.objects.create(
                             user=request.user,
                             title="Brand Promotion.",
-                            messsage=f"This is to inform you that your payment of {price} \
-                                for brand promotion is successful."
+                            message=f"This is to inform you that your payment of {price} \
+                                for brand promotion is successful.",
                         )
                         send_email(
                             subject="Debit Transaction.",
@@ -199,7 +199,7 @@ class BrandPromote(generics.CreateAPIView):
                             UserNotification.objects.create(
                                 user=request.user,
                                 title="Brand Promotion.",
-                                messsage=f"This is to inform you that a refund {price} \
+                                message=f"This is to inform you that a refund {price} \
                                     for brand promotion has been issued.",
                             )
                             send_email(

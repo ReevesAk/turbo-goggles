@@ -45,10 +45,9 @@ class CreatePartner(generics.GenericAPIView):
     def post(self, request):
         user_data = request.data
         authenticated_user = request.user
-        
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-
             serializer.save()
             user_type = AccountType.objects.create(
                 user_type="Partners",
@@ -170,7 +169,9 @@ class PartnerServiceList(generics.ListAPIView):
 
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)]
+    permission_classes = [
+        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
+    ]
 
     def get_queryset(self):
         user = self.request.user
@@ -207,7 +208,7 @@ class AllPartnersServiceList(generics.ListAPIView):
 
             response = {
                 "status": "success",
-                "status": "All Partners services fetched successfully!",
+                "message": "All Partners services fetched successfully!",
                 "data": data,
             }
 
@@ -324,7 +325,7 @@ class VerifyCAC(generics.GenericAPIView):
                             UserNotification.objects.create(
                                 user=request.user,
                                 title="Business Verification.",
-                                messsage="This is to inform you that the verification of your is successful."
+                                message="This is to inform you that the verification of your is successful.",
                             )
                             send_email(
                                 subject="Debit Transaction.",

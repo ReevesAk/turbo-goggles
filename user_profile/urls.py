@@ -9,7 +9,7 @@ from .views import (
     DeleteUser,
     WebhookView,
     ClaimMysteryBoxGift,
-    OpenRewardBox
+    OpenRewardBox,
 )
 
 urlpatterns = [

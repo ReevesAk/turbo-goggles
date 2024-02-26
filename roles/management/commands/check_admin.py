@@ -9,7 +9,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         account_type = "SuperAdmin"
         try:
-            user = User.objects.get(account_type=account_type)
+            User.objects.get(account_type=account_type)
             self.stdout.write(
                 self.style.SUCCESS(f'A user with account type "{account_type}" exists.')
             )

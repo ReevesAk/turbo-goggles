@@ -37,9 +37,13 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
         if business_name:
             email_exists = User.objects.filter(email=business_name).exists()
             if email_exists:
-                raise serializers.ValidationError("business_name: Business name has already been used")
+                raise serializers.ValidationError(
+                    "business_name: Business name has already been used"
+                )
         else:
-            raise serializers.ValidationError("business_name: business_name field can not be empty")
+            raise serializers.ValidationError(
+                "business_name: business_name field can not be empty"
+            )
 
         if business_category:
             pass

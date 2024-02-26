@@ -11,7 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import (
     RestaurantBookingSerilaizers,
     GymSubcriptionSerilaizers,
-    CinemaBookingSerilaizers
+    CinemaBookingSerilaizers,
 )
 from .models import GymSubcription, RestaurantBooking, CinemaBooking
 from accounts.models import UserNotification
@@ -45,14 +45,15 @@ class TableBooking(generics.CreateAPIView):
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
-                                amount=amount, description="Debit restaurant table booking."
+                                amount=amount,
+                                description="Debit restaurant table booking.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
                                     user=request.user,
                                     title="Brand Account.",
-                                    messsage=f"Payment of {amount} for restaurant table booking\
-                                        was successful."
+                                    message=f"Payment of {amount} for restaurant table booking\
+                                        was successful.",
                                 )
                                 send_email(
                                     subject="Debit Transaction.",
@@ -66,10 +67,12 @@ class TableBooking(generics.CreateAPIView):
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Restaurant booking paid successfully.",
-                                    "data": serializer.data
+                                    "data": serializer.data,
                                 }
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                             else:
                                 # initiate a credit refund to the customer after failed transaction.
                                 resp = Account.Credit(
@@ -83,7 +86,7 @@ class TableBooking(generics.CreateAPIView):
                                     UserNotification.objects.create(
                                         user=request.user,
                                         title="Brand Account.",
-                                        messsage=f"Acccount credited with {amount} for restaurant table booking."
+                                        message=f"Acccount credited with {amount} for restaurant table booking.",
                                     )
                                     send_email(
                                         subject="Credit Transaction.",
@@ -97,15 +100,17 @@ class TableBooking(generics.CreateAPIView):
                                     "messsage": "A refund will be issued.",
                                     "details": resp,
                                 }
-                                
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                customerName=authenticated_user.firstname
+                                + authenticated_user.last_name,
                                 customerEmail=authenticated_user.email,
-                                paymentDescription="Debit restaurant table booking"
+                                paymentDescription="Debit restaurant table booking",
                             )
                             if initialize_response.status_code == 200:
                                 resp = initialize_response.json()["responseBody"]
@@ -113,9 +118,10 @@ class TableBooking(generics.CreateAPIView):
                                     user=authenticated_user,
                                     transactionReference=resp["transactionReference"],
                                     paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                    customerName=authenticated_user.firstname
+                                    + authenticated_user.last_name,
                                     customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"]
+                                    redirectUrl=resp["checkoutUrl"],
                                 )
                                 charge_from_card_resp = UseCard.charge(
                                     transactionReference=init_pay.transactionReference,
@@ -123,23 +129,25 @@ class TableBooking(generics.CreateAPIView):
                                     expiryMonth=request.data.get("expiryMonth"),
                                     expiryYear=request.data.get("expiryYear"),
                                     pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv")
+                                    cvv=request.data.get("cvv"),
                                 )
                                 if charge_from_card_resp.status_code == 200:
                                     resp = initialize_response.json()["responseBody"]
                                     validate_card = UseCard.validate_otp(
                                         init_pay.transactionReference,
                                         tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token")
+                                        token=request.data.get("token"),
                                     )
                                     if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(data=user_data)
+                                        serializer = self.serializer_class(
+                                            data=user_data
+                                        )
                                         if serializer.is_valid(raise_exception=True):
                                             UserNotification.objects.create(
                                                 user=request.user,
                                                 title="Brand Account.",
-                                                messsage=f"Payment of {amount} for restaurant table booking\
-                                                    was successful."
+                                                message=f"Payment of {amount} for restaurant table booking\
+                                                    was successful.",
                                             )
                                             serializer.save()
                                             response_data = {
@@ -147,15 +155,20 @@ class TableBooking(generics.CreateAPIView):
                                                 "message": "Debit restaurant table booking.",
                                             }
 
-                                            return Response(data=response_data, status=status.HTTP_200_OK)
+                                            return Response(
+                                                data=response_data,
+                                                status=status.HTTP_200_OK,
+                                            )
 
                                         else:
                                             return Response(
-                                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                                data=serializer.errors,
+                                                status=status.HTTP_400_BAD_REQUEST,
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(), status=debit_response.status_code
+                                            data=debit_response.json(),
+                                            status=debit_response.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
@@ -191,7 +204,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_object(self):
-        booking_id = self.kwargs.get('id')
+        booking_id = self.kwargs.get("id")
         user = self.request.user
 
         try:
@@ -199,8 +212,8 @@ class TableBookingDetail(generics.RetrieveAPIView):
             booking = RestaurantBooking.objects.get(pk=booking_id, user=user)
         except RestaurantBooking.DoesNotExist:
             return Response(
-                {'error': 'Booking not found or does not belong to you.'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         return booking
@@ -238,8 +251,8 @@ class GymBooking(generics.CreateAPIView):
                                 UserNotification.objects.create(
                                     user=request.user,
                                     title="Brand Account.",
-                                    messsage=f"Payment of {amount} for gym booking\
-                                        was successful."
+                                    message=f"Payment of {amount} for gym booking\
+                                        was successful.",
                                 )
                                 send_email(
                                     subject="Credit Transaction.",
@@ -255,7 +268,9 @@ class GymBooking(generics.CreateAPIView):
                                     "message": "Gym booking paid successfully",
                                 }
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                             else:
                                 # initiate a credit refund to the customer after failed transaction.
                                 resp = Account.Credit(
@@ -271,13 +286,16 @@ class GymBooking(generics.CreateAPIView):
                                     "details": resp,
                                 }
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                customerName=authenticated_user.firstname
+                                + authenticated_user.last_name,
                                 customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for gym booking."
+                                paymentDescription="Debit for gym booking.",
                             )
                             if initialize_response.status_code == 200:
                                 resp = initialize_response.json()["responseBody"]
@@ -285,9 +303,10 @@ class GymBooking(generics.CreateAPIView):
                                     user=authenticated_user,
                                     transactionReference=resp["transactionReference"],
                                     paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                    customerName=authenticated_user.firstname
+                                    + authenticated_user.last_name,
                                     customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"]
+                                    redirectUrl=resp["checkoutUrl"],
                                 )
                                 charge_from_card_resp = UseCard.charge(
                                     transactionReference=init_pay.transactionReference,
@@ -295,23 +314,25 @@ class GymBooking(generics.CreateAPIView):
                                     expiryMonth=request.data.get("expiryMonth"),
                                     expiryYear=request.data.get("expiryYear"),
                                     pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv")
+                                    cvv=request.data.get("cvv"),
                                 )
                                 if charge_from_card_resp.status_code == 200:
                                     resp = initialize_response.json()["responseBody"]
                                     validate_card = UseCard.validate_otp(
                                         init_pay.transactionReference,
                                         tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token")
+                                        token=request.data.get("token"),
                                     )
                                     if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(data=user_data)
+                                        serializer = self.serializer_class(
+                                            data=user_data
+                                        )
                                         if serializer.is_valid(raise_exception=True):
                                             UserNotification.objects.create(
                                                 user=request.user,
                                                 title="Brand Account.",
-                                                messsage=f"Payment of {amount} for gym booking\
-                                                    was successful."
+                                                message=f"Payment of {amount} for gym booking\
+                                                    was successful.",
                                             )
                                             send_email(
                                                 subject="Credit Transaction.",
@@ -327,15 +348,20 @@ class GymBooking(generics.CreateAPIView):
                                                 "message": "Gym booking paid successfully",
                                             }
 
-                                            return Response(data=response_data, status=status.HTTP_200_OK)
+                                            return Response(
+                                                data=response_data,
+                                                status=status.HTTP_200_OK,
+                                            )
 
                                         else:
                                             return Response(
-                                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                                data=serializer.errors,
+                                                status=status.HTTP_400_BAD_REQUEST,
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(), status=debit_response.status_code
+                                            data=debit_response.json(),
+                                            status=debit_response.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
@@ -371,7 +397,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_object(self):
-        booking_id = self.kwargs.get('id')
+        booking_id = self.kwargs.get("id")
         user = self.request.user
 
         try:
@@ -379,8 +405,8 @@ class GymBookingDetail(generics.RetrieveAPIView):
             booking = GymSubcription.objects.get(pk=booking_id, user=user)
         except GymSubcription.DoesNotExist:
             return Response(
-                {'error': 'Booking not found or does not belong to you.'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         return booking
@@ -391,7 +417,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
         return Response(serializer.data)
 
 
-class CinemaBooking(generics.CreateAPIView):
+class CinemaBookingView(generics.CreateAPIView):
     serializer_class = CinemaBookingSerilaizers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
@@ -412,14 +438,15 @@ class CinemaBooking(generics.CreateAPIView):
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
-                                amount=amount, description="Debit for cinema seats booking."
+                                amount=amount,
+                                description="Debit for cinema seats booking.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
                                     user=request.user,
                                     title="Brand Account.",
-                                    messsage=f"Payment of {amount} for cinema seats booking\
-                                        was successful."
+                                    message=f"Payment of {amount} for cinema seats booking\
+                                        was successful.",
                                 )
                                 send_email(
                                     subject="Credit Transaction.",
@@ -433,10 +460,12 @@ class CinemaBooking(generics.CreateAPIView):
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Cinema seats booking paid successfully.",
-                                    "data": serializer.data
+                                    "data": serializer.data,
                                 }
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                             else:
                                 # initiate a credit refund to the customer after failed transaction.
                                 resp = Account.Credit(
@@ -450,7 +479,7 @@ class CinemaBooking(generics.CreateAPIView):
                                     UserNotification.objects.create(
                                         user=request.user,
                                         title="Credit Transaction.",
-                                        messsage=f"Acccount credited as with {amount} for restaurant table booking."
+                                        message=f"Acccount credited as with {amount} for restaurant table booking.",
                                     )
                                     send_email(
                                         subject="Credit Transaction.",
@@ -465,13 +494,16 @@ class CinemaBooking(generics.CreateAPIView):
                                     "details": resp,
                                 }
 
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                customerName=authenticated_user.firstname
+                                + authenticated_user.last_name,
                                 customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for cinema seats booking."
+                                paymentDescription="Debit for cinema seats booking.",
                             )
                             if initialize_response.status_code == 200:
                                 resp = initialize_response.json()["responseBody"]
@@ -479,9 +511,10 @@ class CinemaBooking(generics.CreateAPIView):
                                     user=authenticated_user,
                                     transactionReference=resp["transactionReference"],
                                     paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname + authenticated_user.last_name,
+                                    customerName=authenticated_user.firstname
+                                    + authenticated_user.last_name,
                                     customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"]
+                                    redirectUrl=resp["checkoutUrl"],
                                 )
                                 charge_from_card_resp = UseCard.charge(
                                     transactionReference=init_pay.transactionReference,
@@ -489,23 +522,25 @@ class CinemaBooking(generics.CreateAPIView):
                                     expiryMonth=request.data.get("expiryMonth"),
                                     expiryYear=request.data.get("expiryYear"),
                                     pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv")
+                                    cvv=request.data.get("cvv"),
                                 )
                                 if charge_from_card_resp.status_code == 200:
                                     resp = initialize_response.json()["responseBody"]
                                     validate_card = UseCard.validate_otp(
                                         init_pay.transactionReference,
                                         tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token")
+                                        token=request.data.get("token"),
                                     )
                                     if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(data=user_data)
+                                        serializer = self.serializer_class(
+                                            data=user_data
+                                        )
                                         if serializer.is_valid(raise_exception=True):
                                             UserNotification.objects.create(
                                                 user=request.user,
                                                 title="Debit Transaction.",
-                                                messsage=f"Payment of {amount} for cinema seats booking\
-                                                    was successful."
+                                                message=f"Payment of {amount} for cinema seats booking\
+                                                    was successful.",
                                             )
                                             send_email(
                                                 subject="Debit Transaction.",
@@ -521,15 +556,20 @@ class CinemaBooking(generics.CreateAPIView):
                                                 "message": "Debit for cinema seats booking.",
                                             }
 
-                                            return Response(data=response_data, status=status.HTTP_200_OK)
+                                            return Response(
+                                                data=response_data,
+                                                status=status.HTTP_200_OK,
+                                            )
 
                                         else:
                                             return Response(
-                                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                                data=serializer.errors,
+                                                status=status.HTTP_400_BAD_REQUEST,
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(), status=debit_response.status_code
+                                            data=debit_response.json(),
+                                            status=debit_response.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
@@ -565,7 +605,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_object(self):
-        booking_id = self.kwargs.get('id')
+        booking_id = self.kwargs.get("id")
         user = self.request.user
 
         try:
@@ -573,8 +613,8 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
             booking = CinemaBooking.objects.get(pk=booking_id, user=user)
         except CinemaBooking.DoesNotExist:
             return Response(
-                {'error': 'Booking not found or does not belong to you.'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         return booking

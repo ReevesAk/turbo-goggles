@@ -44,12 +44,16 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
         if whoareyou:
             whoareyou_exists = User.objects.filter(whoareyou=whoareyou).exists()
             if whoareyou_exists:
-                raise serializers.ValidationError(f"whoareyou: {whoareyou} has already been used")
+                raise serializers.ValidationError(
+                    f"whoareyou: {whoareyou} has already been used"
+                )
         else:
-            raise serializers.ValidationError("whoareyou: whoareyou field can not be empty")
+            raise serializers.ValidationError(
+                "whoareyou: whoareyou field can not be empty"
+            )
 
         if brand_type:
-           pass
+            pass
         else:
             raise serializers.ValidationError(
                 "brand_type: brand_type field can not be empty"

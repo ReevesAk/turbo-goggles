@@ -63,13 +63,13 @@ class TransferWithinPicadailys(generics.GenericAPIView):
                     )
 
                     if picadailys_transfer_response.status_code == 200:
-                        amount=request.data.get("amount")
-                        account_number=request.data.get("acct_number")
+                        amount = request.data.get("amount")
+                        account_number = request.data.get("acct_number")
 
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Transfer.",
-                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                            message=f"Your trnasfer of {amount} to {account_number} is successful.",
                         )
                         response_data = {
                             "status": "success",
@@ -79,14 +79,19 @@ class TransferWithinPicadailys(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(data=picadailys_transfer_response.json(), status=picadailys_transfer_response.status_code)
+                        return Response(
+                            data=picadailys_transfer_response.json(),
+                            status=picadailys_transfer_response.status_code,
+                        )
                 except requests.exceptions.RequestException as e:
                     logging.error(f"Transfer API request error: {str(e)}")
                     return Response(
                         {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
             else:
-                return Response(data="Incorrect Pin", status=status.HTTP_401_UNAUTHORIZED)
+                return Response(
+                    data="Incorrect Pin", status=status.HTTP_401_UNAUTHORIZED
+                )
         else:
             return Response(data=serializer.error, status=status.HTTP_400_BAD_REQUEST)
 
@@ -121,13 +126,13 @@ class TransferWithinNG(generics.GenericAPIView):
                     )
 
                     if local_transfer_response.status_code == 200:
-                        amount=request.data.get("amount")
-                        account_number=request.data.get("acct_number")
+                        amount = request.data.get("amount")
+                        account_number = request.data.get("acct_number")
 
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Transfer.",
-                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                            message=f"Your trnasfer of {amount} to {account_number} is successful.",
                         )
                         response_data = {
                             "status": "success",
@@ -137,14 +142,19 @@ class TransferWithinNG(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(data=local_transfer_response.json(), status=local_transfer_response.status_code)
+                        return Response(
+                            data=local_transfer_response.json(),
+                            status=local_transfer_response.status_code,
+                        )
                 except requests.exceptions.RequestException as e:
                     logging.error(f"Transfer API request error: {str(e)}")
                     return Response(
                         {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
             else:
-                return Response(data="Incorrect Pin", status=status.HTTP_401_UNAUTHORIZED)
+                return Response(
+                    data="Incorrect Pin", status=status.HTTP_401_UNAUTHORIZED
+                )
         else:
             return Response(data=serializer.error, status=status.HTTP_400_BAD_REQUEST)
 
@@ -196,14 +206,13 @@ class InternationalTransfer(generics.GenericAPIView):
                     )
 
                     if intl_transfer_response.status_code == 200:
-
-                        amount=request.data.get("amount")
-                        account_number=request.data.get("acct_number")
+                        amount = request.data.get("amount")
+                        account_number = request.data.get("acct_number")
 
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Transfer.",
-                            messsage=f"Your trnasfer of {amount} to {account_number} is successful."
+                            message=f"Your trnasfer of {amount} to {account_number} is successful.",
                         )
                         response_data = {
                             "status": "success",
@@ -213,7 +222,10 @@ class InternationalTransfer(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        return Response(data=intl_transfer_response.json(), status=intl_transfer_response.status_code)
+                        return Response(
+                            data=intl_transfer_response.json(),
+                            status=intl_transfer_response.status_code,
+                        )
                 except requests.exceptions.RequestException as e:
                     logging.error(f"International transfer API request error: {str(e)}")
                     return Response(
@@ -237,10 +249,9 @@ class VerifyTransfer(generics.GenericAPIView):
         responses={200: {"description": "Get trnasaction detail of a transfer"}},
     )
     def get(self, request, *args, **kwargs):
-        user_data = request.data
         authenticated_user = request.user
 
-        tx_id = kwargs.get('transfer_id')
+        tx_id = kwargs.get("transfer_id")
 
         if tx_id:
             pin = request.data.get("pin")
@@ -253,13 +264,13 @@ class VerifyTransfer(generics.GenericAPIView):
                         resp = {
                             "status": "success",
                             "message": "Transaction was successful",
-                            "data": verify_transfer_response.json()
+                            "data": verify_transfer_response.json(),
                         }
                         return Response(data=resp, status=status.HTTP_200_OK)
                     else:
                         return Response(
                             data=verify_transfer_response.json(),
-                            status=verify_transfer_response.status_code
+                            status=verify_transfer_response.status_code,
                         )
                 except requests.exceptions.RequestException as e:
                     logging.error(f"Verify transfer API request error: {str(e)}")

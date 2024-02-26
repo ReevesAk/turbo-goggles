@@ -39,8 +39,8 @@ from .controllers import (
     waec_reg,
     AccidentInsurance,
     VehicleInsurance,
-    HomeCoverInsurance, 
-    HealthInsurance
+    HomeCoverInsurance,
+    HealthInsurance,
 )
 
 from cloudinary import uploader as cloud
@@ -81,14 +81,18 @@ class AirTimeTopUp(generics.GenericAPIView):
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            airtime(user=user, serializer=serializer, user_data=user_data)
+                            airtime(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
 
                 case "CARD":
@@ -96,7 +100,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for airtime recharge."
+                        paymentDescription="Debit for airtime recharge.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -106,7 +110,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -114,28 +118,33 @@ class AirTimeTopUp(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    airtime(user=user, serializer=serializer, user_data=user_data)
+                                    airtime(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
-
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -204,7 +213,8 @@ class DataSubscription(generics.GenericAPIView):
                 case "WALLET":
                     # Inititate a debit on the customer's account.
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for data subscription."
+                        amount=user_data["amount"],
+                        reason="Debit for data subscription.",
                     )
 
                     if debit_response.status_code == 200:
@@ -213,18 +223,20 @@ class DataSubscription(generics.GenericAPIView):
                             data(user=user, serializer=serializer, user_data=user_data)
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for data subscription"
+                        paymentDescription="Debit for data subscription",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -234,7 +246,7 @@ class DataSubscription(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -242,26 +254,32 @@ class DataSubscription(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    data(user=user, serializer=serializer, user_data=user_data)
+                                    data(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -337,27 +355,32 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for electricity bill payment."
+                        amount=user_data["amount"],
+                        reason="Debit for electricity bill payment.",
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            electricity(user=user, serializer=serializer, user_data=user_data)
+                            electricity(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
-                
+
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for electricity bill payment."
+                        paymentDescription="Debit for electricity bill payment.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -367,7 +390,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -375,26 +398,32 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    electricity(user=user, serializer=serializer, user_data=user_data)
+                                    electricity(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -563,21 +592,25 @@ class NewTvSubscription(generics.GenericAPIView):
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            NewTvSub(user=user, serializer=serializer, user_data=user_data)
+                            NewTvSub(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for Tv subscription."
+                        paymentDescription="Debit for Tv subscription.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -587,7 +620,7 @@ class NewTvSubscription(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -595,28 +628,33 @@ class NewTvSubscription(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    NewTvSub(user=user, serializer=serializer, user_data=user_data)
+                                    NewTvSub(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
-
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -641,26 +679,31 @@ class RenewTvSubscription(generics.GenericAPIView):
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for tv subscription renewal."
+                        amount=user_data["amount"],
+                        reason="Debit for tv subscription renewal.",
                     )
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            RenewTvSub(user=user, serializer=serializer, user_data=user_data)
+                            RenewTvSub(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for tv subscription renewal."
+                        paymentDescription="Debit for tv subscription renewal.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -670,7 +713,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -678,26 +721,32 @@ class RenewTvSubscription(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    RenewTvSub(user=user, serializer=serializer, user_data=user_data)
+                                    RenewTvSub(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -906,21 +955,25 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            international_topup(user=user, serializer=serializer, user_data=user_data)
+                            international_topup(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for international airtime recharge."
+                        paymentDescription="Debit for international airtime recharge.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -930,7 +983,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -938,26 +991,32 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    international_topup(user=user, serializer=serializer, user_data=user_data)
+                                    international_topup(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -1026,26 +1085,31 @@ class WaecRegistration(generics.GenericAPIView):
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for waec registration."
+                        amount=user_data["amount"],
+                        reason="Debit for waec registration.",
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            waec_reg(user=user, serializer=serializer, user_data=user_data)
+                            waec_reg(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for waec registration."
+                        paymentDescription="Debit for waec registration.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -1055,7 +1119,7 @@ class WaecRegistration(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -1063,26 +1127,32 @@ class WaecRegistration(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    waec_reg(user=user, serializer=serializer, user_data=user_data)
+                                    waec_reg(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -1130,9 +1200,9 @@ class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
                 )
 
 
-class VehicleInsurance(generics.GenericAPIView):
+class VehicleInsuranceView(generics.GenericAPIView):
     """
-    VehicleInsurance is the POST request handler for creating
+    VehicleInsuranceView is the POST request handler for creating
     an accident insurance.
     """
 
@@ -1151,27 +1221,32 @@ class VehicleInsurance(generics.GenericAPIView):
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for vehicle insurance."
+                        amount=user_data["amount"],
+                        reason="Debit for vehicle insurance.",
                     )
 
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            VehicleInsurance(user=user, serializer=serializer, user_data=user_data)
+                            VehicleInsurance(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for vehicle insurance."
+                        paymentDescription="Debit for vehicle insurance.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -1181,7 +1256,7 @@ class VehicleInsurance(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -1189,26 +1264,32 @@ class VehicleInsurance(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    VehicleInsurance(user=user, serializer=serializer, user_data=user_data)
+                                    VehicleInsurance(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -1255,9 +1336,9 @@ class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
                 )
 
 
-class AccidentInsurance(generics.GenericAPIView):
+class AccidentInsuranceView(generics.GenericAPIView):
     """
-    AccidentInsurance is the POST request handler for creating
+    AccidentInsuranceView is the POST request handler for creating
     an accident insurance.
     """
 
@@ -1276,28 +1357,33 @@ class AccidentInsurance(generics.GenericAPIView):
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for accident inssurance."
+                        amount=user_data["amount"],
+                        reason="Debit for accident inssurance.",
                     )
 
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user)
                         if serializer.is_valid(raise_exception=True):
-                            AccidentInsurance(user=user, serializer=serializer, user_data=user_data)
+                            AccidentInsurance(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
-                
+
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for accident inssurance."
+                        paymentDescription="Debit for accident inssurance.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -1307,7 +1393,7 @@ class AccidentInsurance(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -1315,26 +1401,32 @@ class AccidentInsurance(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    AccidentInsurance(user=user, serializer=serializer, user_data=user_data)
+                                    AccidentInsurance(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -1382,9 +1474,9 @@ class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
                 )
 
 
-class HomeCoverInsurance(generics.GenericAPIView):
+class HomeCoverInsuranceView(generics.GenericAPIView):
     """
-    HomeCoverInsurance is the POST request handler for creating
+    HomeCoverInsuranceView is the POST request handler for creating
     a home cover insurance.
     """
 
@@ -1410,21 +1502,25 @@ class HomeCoverInsurance(generics.GenericAPIView):
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user)
                         if serializer.is_valid(raise_exception=True):
-                            HomeCoverInsurance(user=user, serializer=serializer, user_data=user_data)
+                            HomeCoverInsurance(
+                                user=user, serializer=serializer, user_data=user_data
+                            )
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
                 case "CARD":
                     initialize_response = UseCard.initialize_payment(
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for home cover insurance registration."
+                        paymentDescription="Debit for home cover insurance registration.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -1434,7 +1530,7 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -1442,26 +1538,32 @@ class HomeCoverInsurance(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    HomeCoverInsurance(user=user, serializer=serializer, user_data=user_data)
+                                    HomeCoverInsurance(
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
 
@@ -1551,9 +1653,9 @@ class GetHealthInsuranceOptions(generics.RetrieveAPIView):
                 )
 
 
-class HealthInsurance(generics.GenericAPIView):
+class HealthInsuranceView(generics.GenericAPIView):
     """
-    HealthInsurance is the POST request handler for creating
+    HealthInsuranceView is the POST request handler for creating
     a home cover insurance.
     """
 
@@ -1580,20 +1682,27 @@ class HealthInsurance(generics.GenericAPIView):
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user)
                         if serializer.is_valid(raise_exception=True):
-                            HealthInsurance(self.uploaded_passport_url, user=user, serializer=serializer, user_data=user_data)
+                            HealthInsurance(
+                                self.uploaded_passport_url,
+                                user=user,
+                                serializer=serializer,
+                                user_data=user_data,
+                            )
                             # Start a separate thread for image upload
                             thread_upload = Thread(
                                 target=self.upload_image,
                                 args=(user_data.get("Passport_Photo"),),
                             )
-                            thread_upload.start() 
+                            thread_upload.start()
                         else:
                             return Response(
-                                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
                         return Response(
-                            data=debit_response.json(), status=debit_response.status_code
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
 
                 case "CARD":
@@ -1601,7 +1710,7 @@ class HealthInsurance(generics.GenericAPIView):
                         amount=request.data.get("amount"),
                         customerName=user.firstname + user.last_name,
                         customerEmail=user.email,
-                        paymentDescription="Debit for health insurance."
+                        paymentDescription="Debit for health insurance.",
                     )
                     if initialize_response.status_code == 200:
                         resp = initialize_response.json()["responseBody"]
@@ -1611,7 +1720,7 @@ class HealthInsurance(generics.GenericAPIView):
                             paymentReference=resp["paymentReference"],
                             customerName=user.firstname + user.last_name,
                             customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"]
+                            redirectUrl=resp["checkoutUrl"],
                         )
                         charge_from_card_resp = UseCard.charge(
                             transactionReference=init_pay.transactionReference,
@@ -1619,26 +1728,33 @@ class HealthInsurance(generics.GenericAPIView):
                             expiryMonth=request.data.get("expiryMonth"),
                             expiryYear=request.data.get("expiryYear"),
                             pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv")
+                            cvv=request.data.get("cvv"),
                         )
                         if charge_from_card_resp.status_code == 200:
                             resp = initialize_response.json()["responseBody"]
                             validate_card = UseCard.validate_otp(
                                 init_pay.transactionReference,
                                 tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token")
+                                token=request.data.get("token"),
                             )
                             if validate_card.status_code == 200:
                                 serializer = self.serializer_class(data=user_data)
                                 if serializer.is_valid(raise_exception=True):
-                                    HealthInsurance(self.uploaded_passport_url, user=user, serializer=serializer, user_data=user_data)
+                                    HealthInsurance(
+                                        self.uploaded_passport_url,
+                                        user=user,
+                                        serializer=serializer,
+                                        user_data=user_data,
+                                    )
                                 else:
                                     return Response(
-                                        data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(), status=debit_response.status_code
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
                                 )
 
     def upload_image(self, image_data):

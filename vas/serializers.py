@@ -40,7 +40,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -73,7 +73,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -107,7 +107,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -142,7 +142,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -178,7 +178,7 @@ class IntlAirtimeSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -210,7 +210,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -251,7 +251,7 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -289,7 +289,7 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -325,7 +325,7 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
@@ -363,7 +363,7 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
             "card_pin",
             "cvv",
             "tokenId",
-            "token"
+            "token",
         ]
 
 
