@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from accounts.models import User
+from accounts.models import User, UserNotification
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -60,6 +60,22 @@ class DeleteUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email"]
+
+
+
+class NotificationSerializers(serializers.Serializer):
+
+    class Meta:
+        model = UserNotification
+        fields = ["id", "title", "message", "read"]
+
+
+class ClearNotificationSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class DeleteNotificationStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
 
 
 class ProfileStatusSerializer(serializers.Serializer):
