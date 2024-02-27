@@ -18,14 +18,14 @@ from .views import (
     GetWaecVaritaionCodes,
     WaecRegistration,
     GetVehicleInsuranceVaritaionCodes,
-    VehicleInsurance,
+    VehicleInsuranceView,
     GetAccidentVaritaionCodes,
-    AccidentInsurance,
+    AccidentInsuranceView,
     GetHomeCoverVaritaionCodes,
-    HomeCoverInsurance,
+    HomeCoverInsuranceView,
     GetHealthInsuranceVaritaionCodes,
     GetHealthInsuranceOptions,
-    HealthInsurance,
+    HealthInsuranceView,
 )
 
 urlpatterns = [
@@ -87,14 +87,14 @@ urlpatterns = [
         GetVehicleInsuranceVaritaionCodes.as_view(),
         name="vehicle_insurance_codes",
     ),
-    path("insure-vehicle/", VehicleInsurance.as_view(), name="insure_vehicle"),
+    path("insure-vehicle/", VehicleInsuranceView.as_view(), name="insure_vehicle"),
     path(
         "accident-insurance-codes/",
         GetAccidentVaritaionCodes.as_view(),
         name="accident_insurance_codes",
     ),
     path(
-        "accident-insuracnce/", AccidentInsurance.as_view(), name="accident_insurance"
+        "accident-insuracnce/", AccidentInsuranceView.as_view(), name="accident_insurance"
     ),
     path(
         "home-cover-codes/",
@@ -103,7 +103,7 @@ urlpatterns = [
     ),
     path(
         "home-cover-insurance/",
-        HomeCoverInsurance.as_view(),
+        HomeCoverInsuranceView.as_view(),
         name="home_cover_insurance",
     ),
     path(
@@ -116,5 +116,5 @@ urlpatterns = [
         GetHealthInsuranceOptions.as_view(),
         name="health_insurance_options",
     ),
-    path("health-insurance", HealthInsurance.as_view(), name="health_insurance"),
+    path("health-insurance", HealthInsuranceView.as_view(), name="health_insurance"),
 ]
