@@ -60,7 +60,7 @@ def airtime(user, serializer, user_data):
     else:
         response_data = {
             "data": airtime_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -124,7 +124,7 @@ def data(user, serializer, user_data):
     else:
         response_data = {
             "data": data_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -188,7 +188,7 @@ def electricity(user, serializer, user_data):
     else:
         response_data = {
             "data": electricity_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -253,7 +253,7 @@ def NewTvSub(user, serializer, user_data):
     else:
         response_data = {
             "data": new_tv_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -317,7 +317,7 @@ def RenewTvSub(user, serializer, user_data):
     else:
         response_data = {
             "data": renew_tv_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -385,7 +385,7 @@ def international_topup(user, serializer, user_data):
     else:
         response_data = {
             "data": intl_topup_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -448,7 +448,7 @@ def waec_reg(user, serializer, user_data):
     else:
         response_data = {
             "data": waec_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -515,7 +515,7 @@ def VehicleInsurance(user, serializer, user_data):
     else:
         response_data = {
             "data": vehicle_insurance_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -589,7 +589,7 @@ def AccidentInsurance(user, serializer, user_data):
     else:
         response_data = {
             "data": accident_insurance_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -663,7 +663,7 @@ def HomeCoverInsurance(user, serializer, user_data):
     else:
         response_data = {
             "data": home_cover_insurance_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -675,7 +675,7 @@ def HomeCoverInsurance(user, serializer, user_data):
         if credit_response.status_code == 200:
             response = {
                 "data": home_cover_insurance_response.json(),
-                "messsage": "Wallet refunded.",
+                "message": "Wallet refunded.",
             }
             return Response(data=response, status=credit_response.status_code)
         else:
@@ -743,7 +743,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
     else:
         response_data = {
             "data": health_insurance_response.json(),
-            "messsage": "A refund will be issued.",
+            "message": "A refund will be issued.",
         }
 
         # initiate a credit refund to the customer after failed transaction.
@@ -755,7 +755,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         if credit_response.status_code == 200:
             response = {
                 "data": health_insurance_response.json(),
-                "messsage": "Wallet refunded.",
+                "message": "Wallet refunded.",
             }
             return Response(data=response, status=credit_response.status_code)
         else:

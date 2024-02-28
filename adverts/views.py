@@ -212,7 +212,7 @@ class BrandPromote(generics.CreateAPIView):
                             )
                         response_data = {
                             "status": "fail!",
-                            "messsage": "A refund will be issued.",
+                            "message": "A refund will be issued.",
                             "details": resp,
                         }
 

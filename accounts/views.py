@@ -262,7 +262,7 @@ class Login(APIView):
             #     )
 
             UserNotification.objects.create(
-                user=user, title="Login.", messsage="Login successful."
+                user=user, title="Login.", message="Login successful."
             )
 
             # Create JWT tokens
@@ -313,7 +313,7 @@ class ForgotPassword(generics.GenericAPIView):
             UserNotification.objects.create(
                 user=user,
                 title="Forgot Password Request.",
-                messsage="This is to inform you that your forgot password request is successful\
+                message="This is to inform you that your forgot password request is successful\
                     check your phone for an OTP.",
             )
 
@@ -370,7 +370,7 @@ class ResetPassword(generics.CreateAPIView):
         UserNotification.objects.create(
             user=user,
             title="Password Reset.",
-            messsage="This is to inform you that your password reset is successful.",
+            message="This is to inform you that your password reset is successful.",
         )
 
         response = {"status": "success!", "message": "Password reset successfully"}
@@ -404,7 +404,7 @@ class SubmitGamification(generics.CreateAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Submit Gamification.",
-                messsage="You have successfully submitted your gamification task.",
+                message="You have successfully submitted your gamification task.",
             )
 
             response_data = {
@@ -438,7 +438,7 @@ class Logout(APIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Logout.",
-                messsage="You have successfully logged out.",
+                message="You have successfully logged out.",
             )
 
             return Response(

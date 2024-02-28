@@ -97,7 +97,7 @@ class TableBooking(generics.CreateAPIView):
                                     )
                                 response_data = {
                                     "status": "Success!",
-                                    "messsage": "A refund will be issued.",
+                                    "message": "A refund will be issued.",
                                     "details": resp,
                                 }
 
@@ -282,7 +282,7 @@ class GymBooking(generics.CreateAPIView):
                                 )
                                 response_data = {
                                     "status": "Success!",
-                                    "messsage": "A refund will be issued.",
+                                    "message": "A refund will be issued.",
                                     "details": resp,
                                 }
 
@@ -490,7 +490,7 @@ class CinemaBookingView(generics.CreateAPIView):
                                     )
                                 response_data = {
                                     "status": "Success!",
-                                    "messsage": "A refund will be issued.",
+                                    "message": "A refund will be issued.",
                                     "details": resp,
                                 }
 
