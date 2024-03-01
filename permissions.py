@@ -18,6 +18,22 @@ class IsVerifiedUser(permissions.BasePermission):
             raise PermissionDenied("Only verified users can login.")
 
 
+class IsUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["User"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.account_type in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only Users can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")
+
+
+
 class VasPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required types.

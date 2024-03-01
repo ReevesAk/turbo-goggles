@@ -50,6 +50,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_bvn_verified = models.BooleanField(default=False)
     is_member = models.BooleanField(default=False)
     is_upgraded = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+    done_survey = models.BooleanField(default=False)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)
@@ -73,7 +75,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     business_name = models.CharField(max_length=500, null=True)
     website = models.CharField(max_length=255, null=True)
     business_category = models.CharField(max_length=255, null=True)
-    is_verified = models.BooleanField(default=False)
+    business_verified = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_member = models.BooleanField(default=False)
