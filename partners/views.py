@@ -19,6 +19,7 @@ from .serializers import (
     VerifyCacSerializers,
     PartnerServicePhotosSerializer,
     PartnerServiceGymPhotosSerializer,
+    UpdatePartnerServiceSerializer
 )
 from accounts.models import User, AccountType, UserNotification
 from .models import (
@@ -26,7 +27,7 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
-from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember
+from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrReadOnly
 from mail import send_email
 
 
@@ -92,6 +93,8 @@ class CreatePartnerService(generics.CreateAPIView):
     - `service_star`: Rating of the service.
     - `price`: Price of the service.
     - `description`: Description of the service.
+    - `from_station`: From_station is the pickup station of courier service.
+    - `destination`: Destination of the pickup station.
     - `trainer_name`: Name of the trainer (optional).
     - `trainer_price`: Price of the trainer (optional).
 
@@ -144,6 +147,18 @@ class CreatePartnerService(generics.CreateAPIView):
                             trainer_photo=gym_trainer_img_url,
                         )
 
+                if request.data["service"] == "Courier Services":
+                    PartnerServices.objects.cretae(
+                        user=request.user,
+                        business=request.data["business"],
+                        service=request.data["service"],
+                        service_star=request.data["service_star"],
+                        price=request.data["price"],
+                        description=request.data["description"],
+                        from_station=request.data["from_station"],
+                        destination=-request.data["destination"]
+                    )
+
                 response = {
                     "status": "success",
                     "message": "Service recorded!",
@@ -152,6 +167,93 @@ class CreatePartnerService(generics.CreateAPIView):
                     "data": serializer.data,
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
+
+            except Exception as err:
+                return Response(
+                    {"error": "An error occurred: {}".format(err)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdatePartnerService(generics.UpdateAPIView):
+    """
+    API endpoint to update a PartnerService.
+
+    To update a service, send a PUT request with the service ID and the updated data in the request body.
+
+    **Parameters:**
+
+    - `service_id`: ID of the service to update (required for PUT requests).
+    - `service_photos`: List of new images to upload (optional).
+    - `trainer_photo`: New image for the trainer (optional, only applicable for "Gym" services).
+    - Any other fields you want to update (e.g., `business`, `service`, `price`, etc.).
+
+    **Example usage (PUT):**
+
+    ```
+    curl -X PUT -H "Authorization: Bearer <your_token>" -F "service_id=1" -F "service_photos=@image3.jpg" -F "price=120"
+    ```
+    """
+
+    serializer_class = UpdatePartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartner)
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
+
+    def update(self, request, *args, **kwargs):
+        partner_service = self.get_object()
+        serializer = self.get_serializer(partner_service, data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            service_uploads = request.data.getlist("service_photos")
+            trainer_uploads = request.data.getlist("trainer_photo")
+            image_urls = []
+            gym_trainer_img_urls = []
+
+            try:
+                serializer.save()  # Update basic partner service details
+
+                # Update service photos
+                for upload in service_uploads:
+                    upload_result = cloud.upload(file=upload)
+                    image_url = upload_result["url"]
+                    image_urls.append(image_url)
+
+                    # Create new PartnerServicePhotos objects
+                    PartnerServicePhotos.objects.create(
+                        partner=partner_service.user,
+                        photo=image_url,
+                    )
+
+                # Update trainer details (if applicable)
+                if request.data.get("service") == "Gym" and trainer_uploads:
+                    for photo in trainer_uploads:
+                        upload_res = cloud.upload(file=photo)
+                        gym_trainer_img_url = upload_res["url"]
+                        gym_trainer_img_urls.append(gym_trainer_img_url)
+
+                        # Update existing AvailablePartnerGymTrainers objects or create new ones
+                        AvailablePartnerGymTrainers.objects.update(
+                            partner=partner_service.user,
+                            defaults={
+                                "trainer_name": request.data.get("trainer_name"),
+                                "trainer_price": request.data.get("trainer_price"),
+                                "trainer_photo": gym_trainer_img_url,
+                            }
+                        )
+
+                response = {
+                    "status": "success",
+                    "message": "Service updated!",
+                    "image urls": image_urls,
+                    "gym trainers": gym_trainer_img_urls,
+                    "data": serializer.data,
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
 
             except Exception as err:
                 return Response(
@@ -184,8 +286,43 @@ class PartnerServiceList(generics.ListAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class DeletePartnerService(generics.DestroyAPIView):
+    """
+    DeletePartnerService is the DELETE request handler that allows a 
+    partner to delete their service.
+    """
+
+    queryset = PartnerServices.objects.all()
+    serializer_class = PartnerServiceSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    authentication_classes = [JWTAuthentication]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            service = self.get_object()
+            
+            if service.user == request.user:
+                service.delete()
+                return Response(
+                    {"status": "Service deleted."},
+                    status=status.HTTP_204_NO_CONTENT,
+                )
+            else:
+                return Response(
+                    {"detail": "You can only delete a service you uploaded."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        except PartnerServices.DoesNotExist:
+            return Response(
+                {"detail": "Service not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
 class AllPartnersServiceList(generics.ListAPIView):
-    """AllPartnersServiceList lists all the services of
+    """
+    AllPartnersServiceList lists all the services of
     all authenticated Partners.
     """
 
