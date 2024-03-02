@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User, UserNotification
+from .models import MemberSurvey
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -44,6 +45,30 @@ class UpdateUserSerializer(serializers.ModelSerializer):
             "city",
             "created_at",
             "updated_at",
+        ]
+
+
+class MemberSurverySerializers(serializers.ModelSerializer):
+    """Serailizers for  conducting member survery."""
+
+    class Meta:
+        model = MemberSurvey
+        fields = [
+            "id",
+            "age_bracket",
+            "sex",
+            "religion",
+            "wheredoyoulive",
+            "state",
+            "facebook_followers",
+            "twitter_followers",
+            "thread_followers",
+            "instagram_followers",
+            "telegram_followers",
+            "leisure_activities",
+            "phone_activities",
+            "music_genre",
+            "social_event",
         ]
 
 

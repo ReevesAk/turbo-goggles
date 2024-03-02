@@ -216,7 +216,7 @@ class AllPartnersServiceList(generics.ListAPIView):
 
 
 class GetPartnerDetails(generics.RetrieveAPIView):
-    """GetPartner returns the profile details of a partner user."""
+    """GetPartnerDetails returns the profile details of a partner user."""
 
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
@@ -322,14 +322,18 @@ class VerifyCAC(generics.GenericAPIView):
                                 "message": "Your business is verified!",
                                 "data": response.json(),
                             }
+                            user = User.objects.get(user=request.user)
+                            user.business_verified = True
+                            user.save()
+                            
                             UserNotification.objects.create(
                                 user=request.user,
                                 title="Business Verification.",
-                                message="This is to inform you that the verification of your is successful.",
+                                message="This is to inform you that the verification of your business is successful.",
                             )
                             send_email(
                                 subject="Debit Transaction.",
-                                body="This is to inform you that the verification of your is successful.",
+                                body="This is to inform you that the verification of your business is successful.",
                                 sender=picadailys_email,
                                 recipients=current_user.email,
                                 password=app_password,

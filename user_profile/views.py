@@ -1,5 +1,5 @@
 from sms import Message
-from permissions import IsSuperAdmin, IsUserOrMember
+from permissions import IsSuperAdmin, IsUserOrMember, IsUser
 import hmac
 import hashlib
 import json
@@ -28,6 +28,7 @@ from .serializers import (
     DeleteUserSerializer,
     OpenRewardBoxSerializers,
     ClaimRewardSerializers,
+    MemberSurverySerializers
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification
@@ -249,6 +250,33 @@ class WebhookView(generics.GenericAPIView):
                 {"detail": "Invalid signature, webhook data discarded."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class PostMemberSurvey(generics.CreateAPIView):
+    """
+    PostMemberSurvey endpoint to conduct memmber survey.
+    """
+    serializer_class = MemberSurverySerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsUserOrMember)
+
+    def create(self, request):
+        serializer = MemberSurverySerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+
+            user = User.objects.create(user=request.user)
+            user.done_survey = True
+            user.save()
+
+            response = {
+                "status": "success",
+                "message": "Survey completely successully!",
+                "data": serializer.data
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DeleteUser(generics.DestroyAPIView):
