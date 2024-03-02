@@ -9,11 +9,19 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .serializers import (
-    RestaurantBookingSerilaizers,
-    GymSubcriptionSerilaizers,
-    CinemaBookingSerilaizers,
+    RestaurantBookingSerializers,
+    GymSubcriptionSerializers,
+    CinemaBookingSerializers,
+    CourierBookingSerializers,
+    ConsumableSerializers,
 )
-from .models import GymSubcription, RestaurantBooking, CinemaBooking
+from .models import (
+    GymSubcription,
+    RestaurantBooking,
+    CinemaBooking,
+    CourierService,
+    ConsumableService,
+)
 from accounts.models import UserNotification
 from wallets.controllers import Pin
 from banking.controllers import Account
@@ -25,12 +33,12 @@ app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class TableBooking(generics.CreateAPIView):
-    serializer_class = RestaurantBookingSerilaizers
+    serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
-        serializer = RestaurantBookingSerilaizers(data=request.data)
+        serializer = RestaurantBookingSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
@@ -179,7 +187,7 @@ class TableBooking(generics.CreateAPIView):
 class TableBookingList(generics.ListAPIView):
     """TableBookingList lists all restaurant bookings."""
 
-    serializer_class = RestaurantBookingSerilaizers
+    serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -199,7 +207,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
     TableBookingDetail retrieves a specific cinema booking for the authenticated user.
     """
 
-    serializer_class = RestaurantBookingSerilaizers
+    serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -225,12 +233,12 @@ class TableBookingDetail(generics.RetrieveAPIView):
 
 
 class GymBooking(generics.CreateAPIView):
-    serializer_class = GymSubcriptionSerilaizers
+    serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
-        serializer = GymSubcriptionSerilaizers(data=request.data)
+        serializer = GymSubcriptionSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
@@ -372,7 +380,7 @@ class GymBooking(generics.CreateAPIView):
 class GymBookingList(generics.ListAPIView):
     """GymBookingList lists all gym bookings."""
 
-    serializer_class = GymSubcriptionSerilaizers
+    serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -392,7 +400,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
     GymBookingDetail retrieves a specific cinema booking for the authenticated user.
     """
 
-    serializer_class = GymSubcriptionSerilaizers
+    serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -418,12 +426,12 @@ class GymBookingDetail(generics.RetrieveAPIView):
 
 
 class CinemaBookingView(generics.CreateAPIView):
-    serializer_class = CinemaBookingSerilaizers
+    serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
-        serializer = CinemaBookingSerilaizers(data=request.data)
+        serializer = CinemaBookingSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
@@ -580,7 +588,7 @@ class CinemaBookingView(generics.CreateAPIView):
 class CinemaBookingList(generics.ListAPIView):
     """CinemaBookingList lists all cinema bookings."""
 
-    serializer_class = CinemaBookingSerilaizers
+    serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -600,7 +608,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     CinemaBookingDetail retrieves a specific cinema booking for the authenticated user.
     """
 
-    serializer_class = CinemaBookingSerilaizers
+    serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
@@ -612,6 +620,303 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
             # Check if booking exists and belongs to the user
             booking = CinemaBooking.objects.get(pk=booking_id, user=user)
         except CinemaBooking.DoesNotExist:
+            return Response(
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return booking
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+class BookCourierSercvice(generics.CreateAPIView):
+    serializer_class = CourierBookingSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def create(self, request, *args, **kwargs):
+        serializer = CourierBookingSerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                authenticated_user = request.user
+                user_data = request.data
+                pin = request.data.get("pin")
+
+                is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
+                if is_verified:
+                    # Inititate a debit on a users' account.
+                    amount = request.data.get("price_per_kg")
+                    payment_option = request.data.get("payment_option")
+                    match payment_option:
+                        case "WALLET":
+                            debit_response = Account.Debit(
+                                amount=amount,
+                                description="Debit for booking courier service.",
+                            )
+                            if debit_response == 200:
+                                UserNotification.objects.create(
+                                    user=request.user,
+                                    title="Brand Account.",
+                                    message=f"Payment of {amount} for courier service booking\
+                                        was successful.",
+                                )
+                                send_email(
+                                    subject="Credit Transaction.",
+                                    body=f"Payment of {amount} for courier service booking\
+                                        was successful.",
+                                    sender=picadailys_email,
+                                    recipients=authenticated_user.email,
+                                    password=app_password,
+                                )
+                                serializer.save()
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Courier service booking paid successfully.",
+                                    "data": serializer.data,
+                                }
+
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                            else:
+                                # initiate a credit refund to the customer after failed transaction.
+                                resp = Account.Credit(
+                                    first_name=authenticated_user.firstName,
+                                    lastname=authenticated_user.lastName,
+                                    accNo=authenticated_user.accountNumber,
+                                    bankCode="103",
+                                    amount=amount,
+                                )
+                                if resp.status_code == 200:
+                                    UserNotification.objects.create(
+                                        user=request.user,
+                                        title="Credit Transaction.",
+                                        message=f"Acccount credited as with {amount} for courier service booking.",
+                                    )
+                                    send_email(
+                                        subject="Credit Transaction.",
+                                        body=f"Acccount credited as with {amount} for courier service booking.",
+                                        sender=picadailys_email,
+                                        recipients=authenticated_user.email,
+                                        password=app_password,
+                                    )
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "A refund will be issued.",
+                                    "details": resp,
+                                }
+
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                        case "CARD":
+                            initialize_response = UseCard.initialize_payment(
+                                amount=request.data.get("amount"),
+                                customerName=authenticated_user.firstname
+                                + authenticated_user.last_name,
+                                customerEmail=authenticated_user.email,
+                                paymentDescription="Debit for booking courier service.",
+                            )
+                            if initialize_response.status_code == 200:
+                                resp = initialize_response.json()["responseBody"]
+                                init_pay = PayWithCard.objects.create(
+                                    user=authenticated_user,
+                                    transactionReference=resp["transactionReference"],
+                                    paymentReference=resp["paymentReference"],
+                                    customerName=authenticated_user.firstname
+                                    + authenticated_user.last_name,
+                                    customerEmail=authenticated_user.email,
+                                    redirectUrl=resp["checkoutUrl"],
+                                )
+                                charge_from_card_resp = UseCard.charge(
+                                    transactionReference=init_pay.transactionReference,
+                                    number=request.data.get("number"),
+                                    expiryMonth=request.data.get("expiryMonth"),
+                                    expiryYear=request.data.get("expiryYear"),
+                                    pin=request.data.get("card_pin"),
+                                    cvv=request.data.get("cvv"),
+                                )
+                                if charge_from_card_resp.status_code == 200:
+                                    resp = initialize_response.json()["responseBody"]
+                                    validate_card = UseCard.validate_otp(
+                                        init_pay.transactionReference,
+                                        tokenId=request.data.get("tokenId"),
+                                        token=request.data.get("token"),
+                                    )
+                                    if validate_card.status_code == 200:
+                                        serializer = self.serializer_class(
+                                            data=user_data
+                                        )
+                                        if serializer.is_valid(raise_exception=True):
+                                            UserNotification.objects.create(
+                                                user=request.user,
+                                                title="Debit Transaction.",
+                                                message=f"Payment of {amount} for courier service booking\
+                                                    was successful.",
+                                            )
+                                            send_email(
+                                                subject="Debit Transaction.",
+                                                body=f"Payment of {amount} for courier  service booking\
+                                                    was successful.",
+                                                sender=picadailys_email,
+                                                recipients=authenticated_user.email,
+                                                password=app_password,
+                                            )
+                                            serializer.save()
+                                            response_data = {
+                                                "status": "Success!",
+                                                "message": "Debit for courier service booking.",
+                                            }
+
+                                            return Response(
+                                                data=response_data,
+                                                status=status.HTTP_200_OK,
+                                            )
+
+                                        else:
+                                            return Response(
+                                                data=serializer.errors,
+                                                status=status.HTTP_400_BAD_REQUEST,
+                                            )
+                                    else:
+                                        return Response(
+                                            data=debit_response.json(),
+                                            status=debit_response.status_code,
+                                        )
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CourierBookingList(generics.ListAPIView):
+    """CourierBookingList lists all courier bookings."""
+
+    serializer_class = CourierBookingSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = CourierService.objects.filter(user=user)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CourierBookingDetail(generics.RetrieveAPIView):
+    """
+    CourierBookingDetail retrieves a specific courier booking for
+    the authenticated user.
+    """
+
+    serializer_class = CourierBookingSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_object(self):
+        booking_id = self.kwargs.get("id")
+        user = self.request.user
+
+        try:
+            # Check if booking exists and belongs to the user
+            booking = CourierService.objects.get(pk=booking_id, user=user)
+        except CourierService.DoesNotExist:
+            return Response(
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return booking
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+class BookConsumableSercvice(generics.CreateAPIView):
+    serializer_class = CourierBookingSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    queryset = ConsumableService.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()  # Save booking details.
+
+            price = request.data.get("price")
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Debit Transaction.",
+                message=f"Booking of {price} for consumable service booking\
+                    was successful.",
+            )
+            send_email(
+                subject="Product bbooking.",
+                body=f"Booking of {price} for your consumable  service booking\
+                    was successful.",
+                sender=picadailys_email,
+                recipients=request.data.get("contact"),
+                password=app_password,
+            )
+            serializer.save()
+
+            response_data = {
+                "status": "success",
+                "message": "Service booked successfully!",
+                "data": serializer.data,
+            }
+            return Response(data=response_data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ConsumableBookingList(generics.ListAPIView):
+    """ConsumableBookingList lists all consumable bookings."""
+
+    serializer_class = ConsumableSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = ConsumableService.objects.filter(user=user)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ConsumableBookingDetail(generics.RetrieveAPIView):
+    """
+    ConsumableBookingDetail retrieves a specific consumable booking for
+    the authenticated user.
+    """
+
+    serializer_class = ConsumableSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_object(self):
+        booking_id = self.kwargs.get("id")
+        user = self.request.user
+
+        try:
+            # Check if booking exists and belongs to the user
+            booking = ConsumableService.objects.get(pk=booking_id, user=user)
+        except ConsumableService.DoesNotExist:
             return Response(
                 {"error": "Booking not found or does not belong to you."},
                 status=status.HTTP_404_NOT_FOUND,

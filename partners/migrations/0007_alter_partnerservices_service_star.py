@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('partners', '0006_remove_partnerservices_trainer_photo_and_more'),
+        ("partners", "0006_remove_partnerservices_trainer_photo_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='partnerservices',
-            name='service_star',
+            model_name="partnerservices",
+            name="service_star",
             field=models.CharField(blank=True, max_length=50, null=True),
         ),
     ]

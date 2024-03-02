@@ -96,7 +96,7 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
             "trainer_name",
             "trainer_price",
             "from_station",
-            "destination"
+            "destination",
         ]
 
 
@@ -116,7 +116,7 @@ class UpdatePartnerServiceSerializer(serializers.ModelSerializer):
             "trainer_name",
             "trainer_price",
             "from_station",
-            "destination"
+            "destination",
         ]
 
 

@@ -9,6 +9,12 @@ from .views import (
     CinemaBookingView,
     CinemaBookingList,
     CinemaBookingDetail,
+    BookCourierSercvice,
+    CourierBookingList,
+    CourierBookingDetail,
+    BookConsumableSercvice,
+    ConsumableBookingList,
+    ConsumableBookingDetail,
 )
 
 
@@ -35,5 +41,31 @@ urlpatterns = [
         "cinema_booking-details/<int:id>/",
         CinemaBookingDetail.as_view(),
         name="cinema_booking_details",
+    ),
+    path("courier-booking/", BookCourierSercvice.as_view(), name="courier_booking"),
+    path(
+        "courier-booking-list/",
+        CourierBookingList.as_view(),
+        name="courier_booking_list",
+    ),
+    path(
+        "courier_booking-details/<int:id>/",
+        CourierBookingDetail.as_view(),
+        name="courier_booking_details",
+    ),
+    path(
+        "consumable-booking/",
+        BookConsumableSercvice.as_view(),
+        name="consumable_booking",
+    ),
+    path(
+        "consumable-booking-list/",
+        ConsumableBookingList.as_view(),
+        name="consumable_booking_list",
+    ),
+    path(
+        "consumable-booking-details/<int:id>/",
+        ConsumableBookingDetail.as_view(),
+        name="consumable_booking_details",
     ),
 ]

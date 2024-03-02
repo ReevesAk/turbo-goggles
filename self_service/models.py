@@ -30,3 +30,20 @@ class CinemaBooking(ItemPurchaseBaseModel):
     name = models.CharField(max_length=155, null=True)
     available_seats = models.CharField(max_length=100, null=True)
     number_of_persons = models.CharField(max_length=100, null=True)
+
+
+class CourierService(ItemPurchaseBaseModel):
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="courier_service"
+    )
+    pickup = models.CharField(max_length=155, null=True)
+    destination = models.CharField(max_length=155, null=True)
+    price_per_kg = models.CharField(max_length=155, null=True)
+
+
+class ConsumableService(ItemPurchaseBaseModel):
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="consumable_services"
+    )
+    price = models.CharField(max_length=155, null=True)
+    contact = models.CharField(max_length=155, null=True)

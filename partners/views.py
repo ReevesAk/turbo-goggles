@@ -19,7 +19,7 @@ from .serializers import (
     VerifyCacSerializers,
     PartnerServicePhotosSerializer,
     PartnerServiceGymPhotosSerializer,
-    UpdatePartnerServiceSerializer
+    UpdatePartnerServiceSerializer,
 )
 from accounts.models import User, AccountType, UserNotification
 from .models import (
@@ -134,7 +134,7 @@ class CreatePartnerService(generics.CreateAPIView):
                         photo=image_url,
                     )
 
-                if request.data["service"] == "Gym":
+                if request.data["service"] == "Fitness and Entertainment":
                     for photo in trainer_uploads:
                         upload_res = cloud.upload(file=photo)
                         gym_trainer_img_url = upload_res["url"]
@@ -156,7 +156,7 @@ class CreatePartnerService(generics.CreateAPIView):
                         price=request.data["price"],
                         description=request.data["description"],
                         from_station=request.data["from_station"],
-                        destination=-request.data["destination"]
+                        destination=-request.data["destination"],
                     )
 
                 response = {
@@ -207,7 +207,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         partner_service = self.get_object()
-        serializer = self.get_serializer(partner_service, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            partner_service, data=request.data, partial=True
+        )
         if serializer.is_valid(raise_exception=True):
             service_uploads = request.data.getlist("service_photos")
             trainer_uploads = request.data.getlist("trainer_photo")
@@ -243,7 +245,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
                                 "trainer_name": request.data.get("trainer_name"),
                                 "trainer_price": request.data.get("trainer_price"),
                                 "trainer_photo": gym_trainer_img_url,
-                            }
+                            },
                         )
 
                 response = {
@@ -288,7 +290,7 @@ class PartnerServiceList(generics.ListAPIView):
 
 class DeletePartnerService(generics.DestroyAPIView):
     """
-    DeletePartnerService is the DELETE request handler that allows a 
+    DeletePartnerService is the DELETE request handler that allows a
     partner to delete their service.
     """
 
@@ -300,7 +302,7 @@ class DeletePartnerService(generics.DestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         try:
             service = self.get_object()
-            
+
             if service.user == request.user:
                 service.delete()
                 return Response(
@@ -462,7 +464,7 @@ class VerifyCAC(generics.GenericAPIView):
                             user = User.objects.get(user=request.user)
                             user.business_verified = True
                             user.save()
-                            
+
                             UserNotification.objects.create(
                                 user=request.user,
                                 title="Business Verification.",
