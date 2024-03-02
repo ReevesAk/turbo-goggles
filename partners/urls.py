@@ -3,6 +3,8 @@ from .views import (
     CreatePartner,
     ListAllPartners,
     CreatePartnerService,
+    UpdatePartnerService,
+    DeletePartnerService,
     PartnerServiceList,
     AllPartnersServiceList,
     GetPartnerDetails,
@@ -22,6 +24,8 @@ urlpatterns = [
         CreatePartnerService.as_view(),
         name="create_partner_service",
     ),
+    path("update-service/<int:id>/", UpdatePartnerService.as_view(), name="update_service"),
+    path("delete-service/<int:id>/", DeletePartnerService.as_view(), name="delete_service"),
     path(
         "list-partner-service/",
         PartnerServiceList.as_view(),

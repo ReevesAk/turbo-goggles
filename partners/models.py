@@ -32,7 +32,7 @@ class PartnerServices(models.Model):
     )
     business = models.CharField(choices=BUSINESS_CATEGORY, max_length=255, null=True)
     service = models.CharField(max_length=255, null=True)
-    service_star = models.CharField(max_length=50, null=True)
+    service_star = models.CharField(max_length=50, null=True, blank=True)
     price = models.FloatField(null=True)
     description = models.TextField(null=True)
     from_station = models.CharField(max_length=255, null=True)

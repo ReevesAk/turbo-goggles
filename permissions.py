@@ -168,3 +168,15 @@ class IsTaskAdmin(permissions.BasePermission):
                 raise ValidationError("Only TaskAdmin Users can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
+
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow owners of an object to delete it.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        return obj.user == request.user

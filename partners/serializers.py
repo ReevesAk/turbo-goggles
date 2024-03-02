@@ -95,6 +95,28 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
             "description",
             "trainer_name",
             "trainer_price",
+            "from_station",
+            "destination"
+        ]
+
+
+class UpdatePartnerServiceSerializer(serializers.ModelSerializer):
+    """Serailizers for updating our Partners' service."""
+
+    trainer_name = serializers.CharField(required=False, read_only=True)
+    trainer_price = serializers.FloatField(required=False, read_only=True)
+
+    class Meta:
+        model = PartnerServices
+        fields = [
+            "id",
+            "service_star",
+            "price",
+            "description",
+            "trainer_name",
+            "trainer_price",
+            "from_station",
+            "destination"
         ]
 
 
@@ -129,11 +151,8 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "country",
             "state",
             "city",
-            "phone_number",
-            "business_name",
             "website",
             "business_category",
             "created_at",
