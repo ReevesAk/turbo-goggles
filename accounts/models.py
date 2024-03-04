@@ -58,6 +58,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     whoareyou = models.CharField(choices=BRAND_TYPE, max_length=150, null=True)
     name = models.CharField(max_length=155, blank=False, null=True)
     brand_type = models.CharField(max_length=155, blank=False, null=True)
+    has_promoted = models.BooleanField(default=False)
 
     # Brand onboarding.
     brand_name = models.CharField(max_length=255, null=True)

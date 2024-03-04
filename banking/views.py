@@ -11,6 +11,7 @@ from cloudinary import uploader as cloud
 from commons import Message
 
 from django.contrib.auth.hashers import make_password
+from django.shortcuts import get_object_or_404
 
 # Third party imports.
 from rest_framework import generics
@@ -32,6 +33,7 @@ from .serializers import (
     VerifyPinOTPSerializer,
     ResetPinSerializer,
     UpdateCustomerSerializers,
+    VirtaulAccountDetailsSerializer,
 )
 from accounts.models import User, UserNotification
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
@@ -332,6 +334,52 @@ class GetCustomersWallets(generics.RetrieveAPIView):
 
             except requests.exceptions.RequestException as e:
                 logging.error(f"Fetching customer wallets API request error: {str(e)}")
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+
+class GetVirtualAccountDetails(generics.RetrieveAPIView):
+
+    """
+    GetVirtualAccountDetails handles the GET request of retrieving all
+    the details of a virtual account. Call this endpoint to update the virtual
+    account number.
+    """
+
+    serializer_class = VirtaulAccountDetailsSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+
+    @extend_schema(
+        description="Get customer virtual account.",
+        responses={200: {"description": "Get customer virtual account details."}},
+    )
+    def get(self, request):
+        user = self.request.user  # Get the authenticated user.
+
+        customer = CustomerData.objects.get(user=user)
+        customer_id = customer.customer_id
+        wallet = get_object_or_404(Wallet, user=user)
+        if user:
+            resource = f"customers/{customer_id}/virtual-account"
+
+            try:
+                response = requests.get(
+                    url=base_url + resource,
+                    header=headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["data"]
+                    for res in resp:
+                        # Update a user's account to persist the account number on the database.
+                        wallet.account_number = res["account_number"]
+                        wallet.save()
+                    response_data = {"status": "success", "data": response.json()}
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Fetching customer virtual account details API request error: {str(e)}")
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )

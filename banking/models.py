@@ -84,6 +84,7 @@ class Wallet(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     customer_id = models.CharField(max_length=200, null=True)
     bank_name = models.CharField(max_length=150, null=True)
+    account_number = models.CharField(max_length=100, null=True)
     currency = models.CharField(max_length=150, null=True)
     occupation = models.CharField(max_length=150, null=True)
     utility_bill = models.CharField(max_length=255, null=True)

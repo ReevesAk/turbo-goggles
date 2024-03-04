@@ -45,6 +45,9 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 title="Brand Account.",
                 message="Brand advert account created Successfully.",
             )
+            brand = User.objects.get(email=request.user.email)
+            brand.has_promoted = True
+            brand.save()
 
             user_data = serializer.data
             response = {
