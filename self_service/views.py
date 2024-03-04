@@ -82,36 +82,12 @@ class TableBooking(generics.CreateAPIView):
                                     data=response_data, status=status.HTTP_200_OK
                                 )
                             else:
-                                # initiate a credit refund to the customer after failed transaction.
-                                resp = Account.Credit(
-                                    first_name=authenticated_user.firstName,
-                                    lastname=authenticated_user.lastName,
-                                    accNo=authenticated_user.accountNumber,
-                                    bankCode="103",
-                                    amount=amount,
-                                )
-                                if resp.status_code == 200:
-                                    UserNotification.objects.create(
-                                        user=request.user,
-                                        title="Brand Account.",
-                                        message=f"Acccount credited with {amount} for restaurant table booking.",
-                                    )
-                                    send_email(
-                                        subject="Credit Transaction.",
-                                        body=f"Acccount credited with {amount} for restaurant table booking.",
-                                        sender=picadailys_email,
-                                        recipients=authenticated_user.email,
-                                        password=app_password,
-                                    )
                                 response_data = {
-                                    "status": "Success!",
-                                    "message": "A refund will be issued.",
-                                    "details": resp,
-                                }
-
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }   
+                                return Response(data=response_data, status=status.HTTP_200_OK)
+                            
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
@@ -263,7 +239,7 @@ class GymBooking(generics.CreateAPIView):
                                         was successful.",
                                 )
                                 send_email(
-                                    subject="Credit Transaction.",
+                                    subject="Debit Transaction.",
                                     body=f"Payment of {amount} for gym booking\
                                         was successful.",
                                     sender=picadailys_email,
@@ -280,23 +256,12 @@ class GymBooking(generics.CreateAPIView):
                                     data=response_data, status=status.HTTP_200_OK
                                 )
                             else:
-                                # initiate a credit refund to the customer after failed transaction.
-                                resp = Account.Credit(
-                                    first_name=authenticated_user.firstName,
-                                    lastname=authenticated_user.lastName,
-                                    accNo=authenticated_user.accountNumber,
-                                    bankCode="103",
-                                    amount=amount,
-                                )
                                 response_data = {
-                                    "status": "Success!",
-                                    "message": "A refund will be issued.",
-                                    "details": resp,
-                                }
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }   
+                                return Response(data=response_data, status=status.HTTP_200_OK)
 
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
@@ -343,7 +308,7 @@ class GymBooking(generics.CreateAPIView):
                                                     was successful.",
                                             )
                                             send_email(
-                                                subject="Credit Transaction.",
+                                                subject="Debit Transaction.",
                                                 body=f"Payment of {amount} for gym booking\
                                                     was successful.",
                                                 sender=picadailys_email,
@@ -368,8 +333,8 @@ class GymBooking(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(),
-                                            status=debit_response.status_code,
+                                            data=charge_from_card_resp.json(),
+                                            status=charge_from_card_resp.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
@@ -457,7 +422,7 @@ class CinemaBookingView(generics.CreateAPIView):
                                         was successful.",
                                 )
                                 send_email(
-                                    subject="Credit Transaction.",
+                                    subject="Debit Transaction.",
                                     body=f"Payment of {amount} for cinema seats booking\
                                         was successful.",
                                     sender=picadailys_email,
@@ -475,36 +440,12 @@ class CinemaBookingView(generics.CreateAPIView):
                                     data=response_data, status=status.HTTP_200_OK
                                 )
                             else:
-                                # initiate a credit refund to the customer after failed transaction.
-                                resp = Account.Credit(
-                                    first_name=authenticated_user.firstName,
-                                    lastname=authenticated_user.lastName,
-                                    accNo=authenticated_user.accountNumber,
-                                    bankCode="103",
-                                    amount=amount,
-                                )
-                                if resp.status_code == 200:
-                                    UserNotification.objects.create(
-                                        user=request.user,
-                                        title="Credit Transaction.",
-                                        message=f"Acccount credited as with {amount} for restaurant table booking.",
-                                    )
-                                    send_email(
-                                        subject="Credit Transaction.",
-                                        body=f"Acccount credited as with {amount} for restaurant table booking.",
-                                        sender=picadailys_email,
-                                        recipients=authenticated_user.email,
-                                        password=app_password,
-                                    )
                                 response_data = {
-                                    "status": "Success!",
-                                    "message": "A refund will be issued.",
-                                    "details": resp,
-                                }
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }   
+                                return Response(data=response_data, status=status.HTTP_200_OK)
 
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
@@ -576,8 +517,8 @@ class CinemaBookingView(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(),
-                                            status=debit_response.status_code,
+                                            data=charge_from_card_resp.json(),
+                                            status=charge_from_card_resp.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
@@ -665,7 +606,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                                         was successful.",
                                 )
                                 send_email(
-                                    subject="Credit Transaction.",
+                                    subject="Debit Transaction.",
                                     body=f"Payment of {amount} for courier service booking\
                                         was successful.",
                                     sender=picadailys_email,
@@ -683,36 +624,12 @@ class BookCourierSercvice(generics.CreateAPIView):
                                     data=response_data, status=status.HTTP_200_OK
                                 )
                             else:
-                                # initiate a credit refund to the customer after failed transaction.
-                                resp = Account.Credit(
-                                    first_name=authenticated_user.firstName,
-                                    lastname=authenticated_user.lastName,
-                                    accNo=authenticated_user.accountNumber,
-                                    bankCode="103",
-                                    amount=amount,
-                                )
-                                if resp.status_code == 200:
-                                    UserNotification.objects.create(
-                                        user=request.user,
-                                        title="Credit Transaction.",
-                                        message=f"Acccount credited as with {amount} for courier service booking.",
-                                    )
-                                    send_email(
-                                        subject="Credit Transaction.",
-                                        body=f"Acccount credited as with {amount} for courier service booking.",
-                                        sender=picadailys_email,
-                                        recipients=authenticated_user.email,
-                                        password=app_password,
-                                    )
                                 response_data = {
-                                    "status": "Success!",
-                                    "message": "A refund will be issued.",
-                                    "details": resp,
-                                }
-
-                                return Response(
-                                    data=response_data, status=status.HTTP_200_OK
-                                )
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }   
+                                return Response(data=response_data, status=status.HTTP_200_OK)
+                            
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
@@ -784,8 +701,8 @@ class BookCourierSercvice(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(),
-                                            status=debit_response.status_code,
+                                            data=charge_from_card_resp.json(),
+                                            status=charge_from_card_resp.status_code,
                                         )
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)

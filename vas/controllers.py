@@ -12,7 +12,7 @@ from banking.controllers import Account
 from .helpers import VAS
 
 
-def airtime(user, serializer, user_data):
+def airtime(user, serializer, reason, user_data):
     airtime_response = VAS.aritime(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -64,17 +64,15 @@ def airtime(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(data=response_data, status=airtime_response.status_code)
 
 
-def data(user, serializer, user_data):
+def data(user, serializer, reason, user_data):
     data_response = VAS.data(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -128,17 +126,15 @@ def data(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user_data["amount"],
+            reason=reason
         )
         return Response(data=response_data, status=data_response.status_code)
 
 
-def electricity(user, serializer, user_data):
+def electricity(user, serializer, reason, user_data):
     electricity_response = VAS.electricity(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -192,17 +188,15 @@ def electricity(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(data=response_data, status=electricity_response.status_code)
 
 
-def NewTvSub(user, serializer, user_data):
+def NewTvSub(user, serializer, reason, user_data):
     new_tv_response = VAS.newTvSub(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -257,17 +251,15 @@ def NewTvSub(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(response_data, status=new_tv_response.status_code)
 
 
-def RenewTvSub(user, serializer, user_data):
+def RenewTvSub(user, serializer, reason, user_data):
     renew_tv_response = VAS.renewTvSub(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -321,17 +313,15 @@ def RenewTvSub(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(response_data, status=renew_tv_response.status_code)
 
 
-def international_topup(user, serializer, user_data):
+def international_topup(user, serializer, reason, user_data):
     intl_topup_response = VAS.intl_topup(
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
@@ -389,17 +379,15 @@ def international_topup(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(data=response_data, status=intl_topup_response.status_code)
 
 
-def waec_reg(user, serializer, user_data):
+def waec_reg(user, serializer, reason, user_data):
     waec_response = VAS.waec_reg(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -452,17 +440,15 @@ def waec_reg(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
-            accNo=user.accountNumber,
-            bankCode="103",
+        _ = Account.Credit(
+            acct_no=user.accountNumber,
             amount=user["amount"],
+            reason=reason
         )
         return Response(response_data, status=waec_response.status_code)
 
 
-def VehicleInsurance(user, serializer, user_data):
+def VehicleInsurance(user, serializer, reason, user_data):
     vehicle_insurance_response = VAS.vehicle_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -519,12 +505,10 @@ def VehicleInsurance(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
+        _ = Account.Credit(
             accNo=user.accountNumber,
-            bankCode="103",
             amount=user["amount"],
+            reason=reason
         )
         return Response(
             data=response_data,
@@ -532,7 +516,7 @@ def VehicleInsurance(user, serializer, user_data):
         )
 
 
-def AccidentInsurance(user, serializer, user_data):
+def AccidentInsurance(user, serializer, reason, user_data):
     accident_insurance_response = VAS.accident_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -593,12 +577,10 @@ def AccidentInsurance(user, serializer, user_data):
         }
 
         # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit.credit_customer(
-            first_name=user.firstName,
-            lastname=user.lastName,
+        _ = Account.Credit(
             accNo=user.accountNumber,
-            bankCode="103",
             amount=user["amount"],
+            reason=reason
         )
         return Response(
             response_data,
@@ -606,7 +588,7 @@ def AccidentInsurance(user, serializer, user_data):
         )
 
 
-def HomeCoverInsurance(user, serializer, user_data):
+def HomeCoverInsurance(user, serializer, reason, user_data):
     home_cover_insurance_response = VAS.home_cover_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
