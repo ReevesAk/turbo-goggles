@@ -187,33 +187,10 @@ class BrandPromote(generics.CreateAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        # initiate a credit refund to the customer after failed transaction.
-                        resp = Account.credit(
-                            first_name=authenticated_user.firstName,
-                            lastname=authenticated_user.lastName,
-                            accNo=authenticated_user.accountNumber,
-                            bankCode="103",
-                            amount=price,
-                        )
-                        if resp.status_code == 200:
-                            UserNotification.objects.create(
-                                user=request.user,
-                                title="Brand Promotion.",
-                                message=f"This is to inform you that a refund {price} \
-                                    for brand promotion has been issued.",
-                            )
-                            send_email(
-                                subject="Creit Transaction.",
-                                body=f"This is to inform you that a refund {price} \
-                                    for brand promotion has been issued.",
-                                sender=picadailys_email,
-                                recipients=authenticated_user.email,
-                                password=app_password,
-                            )
+                        
                         response_data = {
                             "status": "fail!",
-                            "message": "A refund will be issued.",
-                            "details": resp,
+                            "details": debit_response.json(),
                         }
 
                         return Response(data=response_data, status=status.HTTP_200_OK)

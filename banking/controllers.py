@@ -194,8 +194,8 @@ class Account:
     def Debit(amount, reason):
         resource = "transfers"
         payload = {
-            "bank_code": "101",
-            "account_number": "",
+            "bank_code": "C34",
+            "account_number": "6192168285",
             "amount": amount,
             "reason": reason,
         }
@@ -218,7 +218,7 @@ class Account:
     def Credit(acct_no, amount, reason):
         resource = "transfers"
         payload = {
-            "bank_code": "101",
+            "bank_code": "C34",
             "account_number": acct_no,
             "amount": amount,
             "reason": reason,
@@ -246,7 +246,7 @@ class Transfer:
     def picadailys(amount, reason, currency, account_number):
         resource = "transfers"
         payload = {
-            "bank_code": "101",
+            "bank_code": "C34",
             "account_number": account_number,
             "currency": currency,
             "amount": amount,

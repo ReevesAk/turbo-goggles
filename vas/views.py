@@ -82,7 +82,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             airtime(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for airtime recharge.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -133,6 +136,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     airtime(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for airtime recharge.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -220,7 +224,12 @@ class DataSubscription(generics.GenericAPIView):
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
-                            data(user=user, serializer=serializer, user_data=user_data)
+                            data(
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for data subscription.",
+                                user_data=user_data
+                            )
                         else:
                             return Response(
                                 data=serializer.errors,
@@ -269,6 +278,7 @@ class DataSubscription(generics.GenericAPIView):
                                     data(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for data subscription.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -362,7 +372,10 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             electricity(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for electricity bill payment.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -413,6 +426,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                     electricity(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for electricity bill payment.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -593,7 +607,10 @@ class NewTvSubscription(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             NewTvSub(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for Tv subscription.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -643,6 +660,7 @@ class NewTvSubscription(generics.GenericAPIView):
                                     NewTvSub(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for Tv subscription.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -686,7 +704,10 @@ class RenewTvSubscription(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             RenewTvSub(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for tv subscription renewal.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -736,6 +757,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                                     RenewTvSub(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for tv subscription renewal.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -956,7 +978,10 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             international_topup(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for international airtime recharge.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -1006,6 +1031,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                                     international_topup(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for international airtime recharge.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -1092,7 +1118,10 @@ class WaecRegistration(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             waec_reg(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for waec registration.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -1142,6 +1171,7 @@ class WaecRegistration(generics.GenericAPIView):
                                     waec_reg(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for waec registration.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -1229,7 +1259,10 @@ class VehicleInsuranceView(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user_data)
                         if serializer.is_valid(raise_exception=True):
                             VehicleInsurance(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for vehicle insurance.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -1279,6 +1312,7 @@ class VehicleInsuranceView(generics.GenericAPIView):
                                     VehicleInsurance(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for vehicle insurance.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -1365,7 +1399,10 @@ class AccidentInsuranceView(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user)
                         if serializer.is_valid(raise_exception=True):
                             AccidentInsurance(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for accident inssurance.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -1416,6 +1453,7 @@ class AccidentInsuranceView(generics.GenericAPIView):
                                     AccidentInsurance(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for accident inssurance.",
                                         user_data=user_data,
                                     )
                                 else:
@@ -1503,7 +1541,10 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
                         serializer = self.serializer_class(data=user)
                         if serializer.is_valid(raise_exception=True):
                             HomeCoverInsurance(
-                                user=user, serializer=serializer, user_data=user_data
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for home cover insurance registration.",
+                                user_data=user_data
                             )
                         else:
                             return Response(
@@ -1553,6 +1594,7 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
                                     HomeCoverInsurance(
                                         user=user,
                                         serializer=serializer,
+                                        reason="Debit for home cover insurance registration.",
                                         user_data=user_data,
                                     )
                                 else:
