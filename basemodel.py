@@ -22,6 +22,7 @@ class ItemPurchaseBaseModel(models.Model):
     """Define abstract base model for payments."""
 
     payment_option = models.CharField(choices=PAYMENT_OPTIONS, max_length=100, null=True)
+    use_bonus = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now=True)
 
     class Meta:
