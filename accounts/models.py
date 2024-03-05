@@ -28,14 +28,6 @@ BRAND_TYPE = (
 )
 
 
-class AccountType(models.Model):
-    user_type = models.CharField(
-        choices=USER_CATEGORY_CHOICES, max_length=40, null=True
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=255, null=True)
@@ -72,7 +64,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     telegram = models.CharField(max_length=150, null=True)
 
     # Partner details.
-    account_type = models.ManyToManyField(to=AccountType, related_name="users")
+    active_role = models.CharField(max_length=150, null=True)
 
     business_name = models.CharField(max_length=500, null=True)
     website = models.CharField(max_length=255, null=True)
@@ -92,6 +84,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.phone_number
+
+
+class AccountType(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
+    user_type = models.CharField(
+        choices=USER_CATEGORY_CHOICES, max_length=40, null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class DeviceId(models.Model):

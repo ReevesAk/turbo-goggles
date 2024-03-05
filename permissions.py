@@ -25,13 +25,12 @@ class IsUser(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only Users can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
-
 
 
 class VasPermission(permissions.BasePermission):
@@ -42,7 +41,7 @@ class VasPermission(permissions.BasePermission):
         # Check if the user is authenticated
         if request.user.is_authenticated:
             # Check if the user's user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only Users, Members and Partners can use this service.")
@@ -57,7 +56,7 @@ class IsSuperAdmin(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only SuperAdmin Users can perform this action.")
@@ -72,7 +71,7 @@ class IsPartner(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only Partners can perform this action.")
@@ -87,7 +86,7 @@ class IsPartnerUserOrMember(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only Partners, Users and Members can perform this action.")
@@ -102,7 +101,7 @@ class IsUserOrMember(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only Users and Members can perform this action.")
@@ -117,7 +116,7 @@ class IsBrandAd(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only BrandAd can perform this action.")
@@ -132,7 +131,7 @@ class IsBrandAdAdmin(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only BrandAdAdmin can perform this action.")
@@ -147,7 +146,7 @@ class IsPartnerAdmin(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only PartnersAdmin can perform this action.")
@@ -162,7 +161,7 @@ class IsTaskAdmin(permissions.BasePermission):
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
-            if request.user.account_type in required_user_types:
+            if request.user.active_role in required_user_types:
                 return True
             else:
                 raise ValidationError("Only TaskAdmin Users can perform this action.")

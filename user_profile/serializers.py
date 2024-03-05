@@ -119,3 +119,15 @@ class ClaimRewardSerializers(serializers.Serializer):
     class Meta:
         model = None
         fields = ["service_id", "phone_number", "form_of_gift"]
+
+
+class SwitchToUserSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class SwitchToPartnersSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class SwitchToBrandAdSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

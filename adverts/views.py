@@ -15,7 +15,7 @@ from .serializers import (
     AdBudgetSerializer,
 )
 from mail import send_email
-from accounts.models import User, UserNotification
+from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
 from wallets.controllers import Pin, Debit
@@ -31,9 +31,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
 
     def post(self, request):
         user = request.data
+        authenticated_user = request.user
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
+            serializer.save()
 
             # # Save the device_id separately using DeviceId model
             # device_id = user_data.get("device_id")
@@ -41,13 +42,19 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             #     DeviceId.objects.create(user=user, device_id=device_id)
 
             UserNotification.objects.create(
-                user=request.user,
+                user=authenticated_user,
                 title="Brand Account.",
                 message="Brand advert account created Successfully.",
             )
-            brand = User.objects.get(email=request.user.email)
-            brand.has_promoted = True
-            brand.save()
+            brand_user = User.objects.get(email=authenticated_user.email)
+            brand_user.has_promoted = True
+
+            AccountType.objects.create(
+                user=user,
+                user_type="BrandAd",
+            )
+            brand_user.active_role = "BrandAd"
+            brand_user.save()
 
             user_data = serializer.data
             response = {
