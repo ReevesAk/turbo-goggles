@@ -17,13 +17,14 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     """Serializers for airtime topup."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    use_bonus = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = AirtimeTopup
@@ -41,6 +42,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "cvv",
             "tokenId",
             "token",
+            "use_bonus"
         ]
 
 
@@ -48,13 +50,14 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for data subscription."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    use_bonus = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = DataSubscription
@@ -74,6 +77,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "cvv",
             "tokenId",
             "token",
+            "use_bonus"
         ]
 
 
@@ -81,13 +85,14 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
     """Serializers for electriicty payment."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    use_bonus = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = ElectricityBill
@@ -108,6 +113,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "cvv",
             "tokenId",
             "token",
+            "use_bonus"
         ]
 
 
@@ -115,13 +121,13 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for tv subscription."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = TvSubscription
@@ -150,13 +156,13 @@ class IntlAirtimeSerializer(serializers.ModelSerializer):
     """Serializers for international airtime topup."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = AirtimeTopup
@@ -186,13 +192,13 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
     """Serializers for waec registration."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = WaecRegistration
@@ -218,13 +224,13 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for vehicle insurance."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = VehicleInsurance
@@ -259,13 +265,13 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for accident insurance."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = AccidentInsurance
@@ -297,13 +303,13 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for home cover insurance."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = HomeCoverInsurance
@@ -333,13 +339,13 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
     """Serializers for home cover insurance."""
 
     pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    number = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
+    token = serializers.CharField(max_length=4, min_length=6, write_only=True, required=False)
 
     class Meta:
         model = HealthInsurance

@@ -68,87 +68,104 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         pin = request.data.get("pin")
         payment_option = request.data.get("payment_option")
+        use_bonus = request.data.get("use_bonus")
+        amount = request.data.get("amount")
 
+        serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
-            match payment_option:
-                case "WALLET":
-                    # Inititate a debit on the customer's account.
-                    debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for airtime recharge."
+            if use_bonus:
+                if user.welcome_bonus <= float(amount):
+                    airtime(
+                        user=user,
+                        serializer=serializer,
+                        reason="Debit for airtime recharge.",
+                        user_data=user_data
                     )
-
-                    if debit_response.status_code == 200:
-                        serializer = self.serializer_class(data=user_data)
-                        if serializer.is_valid(raise_exception=True):
-                            airtime(
-                                user=user,
-                                serializer=serializer,
-                                reason="Debit for airtime recharge.",
-                                user_data=user_data
-                            )
-                        else:
-                            return Response(
-                                data=serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        return Response(
-                            data=debit_response.json(),
-                            status=debit_response.status_code,
+                else:
+                    return Response(
+                        data="You do not have enough bonus to purchase this product",
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                match payment_option:
+                    case "WALLET":
+                        # Inititate a debit on the customer's account.
+                        debit_response = Account.Debit(
+                            amount=amount, reason="Debit for airtime recharge."
                         )
 
-                case "CARD":
-                    initialize_response = UseCard.initialize_payment(
-                        amount=request.data.get("amount"),
-                        customerName=user.firstname + user.last_name,
-                        customerEmail=user.email,
-                        paymentDescription="Debit for airtime recharge.",
-                    )
-                    if initialize_response.status_code == 200:
-                        resp = initialize_response.json()["responseBody"]
-                        init_pay = PayWithCard.objects.create(
-                            user=user,
-                            transactionReference=resp["transactionReference"],
-                            paymentReference=resp["paymentReference"],
-                            customerName=user.firstname + user.last_name,
-                            customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"],
-                        )
-                        charge_from_card_resp = UseCard.charge(
-                            transactionReference=init_pay.transactionReference,
-                            number=request.data.get("number"),
-                            expiryMonth=request.data.get("expiryMonth"),
-                            expiryYear=request.data.get("expiryYear"),
-                            pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv"),
-                        )
-                        if charge_from_card_resp.status_code == 200:
-                            resp = initialize_response.json()["responseBody"]
-                            validate_card = UseCard.validate_otp(
-                                init_pay.transactionReference,
-                                tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token"),
-                            )
-                            if validate_card.status_code == 200:
-                                serializer = self.serializer_class(data=user_data)
-                                if serializer.is_valid(raise_exception=True):
-                                    airtime(
-                                        user=user,
-                                        serializer=serializer,
-                                        reason="Debit for airtime recharge.",
-                                        user_data=user_data,
-                                    )
-                                else:
-                                    return Response(
-                                        data=serializer.errors,
-                                        status=status.HTTP_400_BAD_REQUEST,
-                                    )
+                        if debit_response.status_code == 200:
+                            serializer = self.serializer_class(data=user_data)
+                            if serializer.is_valid(raise_exception=True):
+                                airtime(
+                                    user=user,
+                                    serializer=serializer,
+                                    reason="Debit for airtime recharge.",
+                                    user_data=user_data
+                                )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=serializer.errors,
+                                    status=status.HTTP_400_BAD_REQUEST,
                                 )
+                        else:
+                            return Response(
+                                data=debit_response.json(),
+                                status=debit_response.status_code,
+                            )
+
+                    case "CARD":
+                        initialize_response = UseCard.initialize_payment(
+                            amount=request.data.get("amount"),
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            paymentDescription="Debit for airtime recharge.",
+                        )
+                        if initialize_response.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            init_pay = PayWithCard.objects.create(
+                                user=user,
+                                transactionReference=resp["transactionReference"],
+                                paymentReference=resp["paymentReference"],
+                                customerName=user.firstname + user.last_name,
+                                customerEmail=user.email,
+                                redirectUrl=resp["checkoutUrl"],
+                            )
+                            charge_from_card_resp = UseCard.charge(
+                                transactionReference=init_pay.transactionReference,
+                                number=request.data.get("number"),
+                                expiryMonth=request.data.get("expiryMonth"),
+                                expiryYear=request.data.get("expiryYear"),
+                                pin=request.data.get("card_pin"),
+                                cvv=request.data.get("cvv"),
+                            )
+                            if charge_from_card_resp.status_code == 200:
+                                resp = initialize_response.json()["responseBody"]
+                                validate_card = UseCard.validate_otp(
+                                    init_pay.transactionReference,
+                                    tokenId=request.data.get("tokenId"),
+                                    token=request.data.get("token"),
+                                )
+                                if validate_card.status_code == 200:
+                                    serializer = self.serializer_class(data=user_data)
+                                    if serializer.is_valid(raise_exception=True):
+                                        airtime(
+                                            user=user,
+                                            serializer=serializer,
+                                            reason="Debit for airtime recharge.",
+                                            user_data=user_data,
+                                        )
+                                    else:
+                                        return Response(
+                                            data=serializer.errors,
+                                            status=status.HTTP_400_BAD_REQUEST,
+                                        )
+                                else:
+                                    return Response(
+                                        data=debit_response.json(),
+                                        status=debit_response.status_code,
+                                    )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -210,87 +227,105 @@ class DataSubscription(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_bonus = request.data.get("use_bonus")
+        amount = request.data.get("amount")
+
+        serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
-            match payment_option:
-                case "WALLET":
-                    # Inititate a debit on the customer's account.
-                    debit_response = Account.Debit(
-                        amount=user_data["amount"],
+            if use_bonus:
+                if user.welcome_bonus <= float(amount):
+                    data(
+                        user=user,
+                        serializer=serializer,
                         reason="Debit for data subscription.",
+                        user_data=user_data
                     )
+                else:
+                    return Response(
+                        data="You do not have enough bonus to purchase this product",
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                match payment_option:
+                    case "WALLET":
+                        # Inititate a debit on the customer's account.
+                        debit_response = Account.Debit(
+                            amount=user_data["amount"],
+                            reason="Debit for data subscription.",
+                        )
 
-                    if debit_response.status_code == 200:
-                        serializer = self.serializer_class(data=user_data)
-                        if serializer.is_valid(raise_exception=True):
-                            data(
-                                user=user,
-                                serializer=serializer,
-                                reason="Debit for data subscription.",
-                                user_data=user_data
-                            )
-                        else:
-                            return Response(
-                                data=serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        return Response(
-                            data=debit_response.json(),
-                            status=debit_response.status_code,
-                        )
-                case "CARD":
-                    initialize_response = UseCard.initialize_payment(
-                        amount=request.data.get("amount"),
-                        customerName=user.firstname + user.last_name,
-                        customerEmail=user.email,
-                        paymentDescription="Debit for data subscription",
-                    )
-                    if initialize_response.status_code == 200:
-                        resp = initialize_response.json()["responseBody"]
-                        init_pay = PayWithCard.objects.create(
-                            user=user,
-                            transactionReference=resp["transactionReference"],
-                            paymentReference=resp["paymentReference"],
-                            customerName=user.firstname + user.last_name,
-                            customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"],
-                        )
-                        charge_from_card_resp = UseCard.charge(
-                            transactionReference=init_pay.transactionReference,
-                            number=request.data.get("number"),
-                            expiryMonth=request.data.get("expiryMonth"),
-                            expiryYear=request.data.get("expiryYear"),
-                            pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv"),
-                        )
-                        if charge_from_card_resp.status_code == 200:
-                            resp = initialize_response.json()["responseBody"]
-                            validate_card = UseCard.validate_otp(
-                                init_pay.transactionReference,
-                                tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token"),
-                            )
-                            if validate_card.status_code == 200:
-                                serializer = self.serializer_class(data=user_data)
-                                if serializer.is_valid(raise_exception=True):
-                                    data(
-                                        user=user,
-                                        serializer=serializer,
-                                        reason="Debit for data subscription.",
-                                        user_data=user_data,
-                                    )
-                                else:
-                                    return Response(
-                                        data=serializer.errors,
-                                        status=status.HTTP_400_BAD_REQUEST,
-                                    )
+                        if debit_response.status_code == 200:
+                            serializer = self.serializer_class(data=user_data)
+                            if serializer.is_valid(raise_exception=True):
+                                data(
+                                    user=user,
+                                    serializer=serializer,
+                                    reason="Debit for data subscription.",
+                                    user_data=user_data
+                                )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=serializer.errors,
+                                    status=status.HTTP_400_BAD_REQUEST,
                                 )
+                        else:
+                            return Response(
+                                data=debit_response.json(),
+                                status=debit_response.status_code,
+                            )
+                    case "CARD":
+                        initialize_response = UseCard.initialize_payment(
+                            amount=request.data.get("amount"),
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            paymentDescription="Debit for data subscription",
+                        )
+                        if initialize_response.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            init_pay = PayWithCard.objects.create(
+                                user=user,
+                                transactionReference=resp["transactionReference"],
+                                paymentReference=resp["paymentReference"],
+                                customerName=user.firstname + user.last_name,
+                                customerEmail=user.email,
+                                redirectUrl=resp["checkoutUrl"],
+                            )
+                            charge_from_card_resp = UseCard.charge(
+                                transactionReference=init_pay.transactionReference,
+                                number=request.data.get("number"),
+                                expiryMonth=request.data.get("expiryMonth"),
+                                expiryYear=request.data.get("expiryYear"),
+                                pin=request.data.get("card_pin"),
+                                cvv=request.data.get("cvv"),
+                            )
+                            if charge_from_card_resp.status_code == 200:
+                                resp = initialize_response.json()["responseBody"]
+                                validate_card = UseCard.validate_otp(
+                                    init_pay.transactionReference,
+                                    tokenId=request.data.get("tokenId"),
+                                    token=request.data.get("token"),
+                                )
+                                if validate_card.status_code == 200:
+                                    serializer = self.serializer_class(data=user_data)
+                                    if serializer.is_valid(raise_exception=True):
+                                        data(
+                                            user=user,
+                                            serializer=serializer,
+                                            reason="Debit for data subscription.",
+                                            user_data=user_data,
+                                        )
+                                    else:
+                                        return Response(
+                                            data=serializer.errors,
+                                            status=status.HTTP_400_BAD_REQUEST,
+                                        )
+                                else:
+                                    return Response(
+                                        data=debit_response.json(),
+                                        status=debit_response.status_code,
+                                    )
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -359,86 +394,103 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_bonus = request.data.get("use_bonus")
+        amount = request.data.get("amount")
+
+        serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
-            match payment_option:
-                case "WALLET":
-                    debit_response = Account.Debit(
-                        amount=user_data["amount"],
+            if use_bonus:
+                if user.welcome_bonus <= float(amount):
+                    electricity(
+                        user=user,
+                        serializer=serializer,
                         reason="Debit for electricity bill payment.",
+                        user_data=user_data
                     )
-                    if debit_response == 200:
-                        serializer = self.serializer_class(data=user_data)
-                        if serializer.is_valid(raise_exception=True):
-                            electricity(
-                                user=user,
-                                serializer=serializer,
-                                reason="Debit for electricity bill payment.",
-                                user_data=user_data
-                            )
-                        else:
-                            return Response(
-                                data=serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        return Response(
-                            data=debit_response.json(),
-                            status=debit_response.status_code,
-                        )
-
-                case "CARD":
-                    initialize_response = UseCard.initialize_payment(
-                        amount=request.data.get("amount"),
-                        customerName=user.firstname + user.last_name,
-                        customerEmail=user.email,
-                        paymentDescription="Debit for electricity bill payment.",
+                else:
+                    return Response(
+                        data="You do not have enough bonus to purchase this product",
+                        status=status.HTTP_400_BAD_REQUEST
                     )
-                    if initialize_response.status_code == 200:
-                        resp = initialize_response.json()["responseBody"]
-                        init_pay = PayWithCard.objects.create(
-                            user=user,
-                            transactionReference=resp["transactionReference"],
-                            paymentReference=resp["paymentReference"],
-                            customerName=user.firstname + user.last_name,
-                            customerEmail=user.email,
-                            redirectUrl=resp["checkoutUrl"],
+                match payment_option:
+                    case "WALLET":
+                        debit_response = Account.Debit(
+                            amount=user_data["amount"],
+                            reason="Debit for electricity bill payment.",
                         )
-                        charge_from_card_resp = UseCard.charge(
-                            transactionReference=init_pay.transactionReference,
-                            number=request.data.get("number"),
-                            expiryMonth=request.data.get("expiryMonth"),
-                            expiryYear=request.data.get("expiryYear"),
-                            pin=request.data.get("card_pin"),
-                            cvv=request.data.get("cvv"),
-                        )
-                        if charge_from_card_resp.status_code == 200:
-                            resp = initialize_response.json()["responseBody"]
-                            validate_card = UseCard.validate_otp(
-                                init_pay.transactionReference,
-                                tokenId=request.data.get("tokenId"),
-                                token=request.data.get("token"),
-                            )
-                            if validate_card.status_code == 200:
-                                serializer = self.serializer_class(data=user_data)
-                                if serializer.is_valid(raise_exception=True):
-                                    electricity(
-                                        user=user,
-                                        serializer=serializer,
-                                        reason="Debit for electricity bill payment.",
-                                        user_data=user_data,
-                                    )
-                                else:
-                                    return Response(
-                                        data=serializer.errors,
-                                        status=status.HTTP_400_BAD_REQUEST,
-                                    )
+                        if debit_response == 200:
+                            serializer = self.serializer_class(data=user_data)
+                            if serializer.is_valid(raise_exception=True):
+                                electricity(
+                                    user=user,
+                                    serializer=serializer,
+                                    reason="Debit for electricity bill payment.",
+                                    user_data=user_data
+                                )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=serializer.errors,
+                                    status=status.HTTP_400_BAD_REQUEST,
                                 )
+                        else:
+                            return Response(
+                                data=debit_response.json(),
+                                status=debit_response.status_code,
+                            )
+
+                    case "CARD":
+                        initialize_response = UseCard.initialize_payment(
+                            amount=request.data.get("amount"),
+                            customerName=user.firstname + user.last_name,
+                            customerEmail=user.email,
+                            paymentDescription="Debit for electricity bill payment.",
+                        )
+                        if initialize_response.status_code == 200:
+                            resp = initialize_response.json()["responseBody"]
+                            init_pay = PayWithCard.objects.create(
+                                user=user,
+                                transactionReference=resp["transactionReference"],
+                                paymentReference=resp["paymentReference"],
+                                customerName=user.firstname + user.last_name,
+                                customerEmail=user.email,
+                                redirectUrl=resp["checkoutUrl"],
+                            )
+                            charge_from_card_resp = UseCard.charge(
+                                transactionReference=init_pay.transactionReference,
+                                number=request.data.get("number"),
+                                expiryMonth=request.data.get("expiryMonth"),
+                                expiryYear=request.data.get("expiryYear"),
+                                pin=request.data.get("card_pin"),
+                                cvv=request.data.get("cvv"),
+                            )
+                            if charge_from_card_resp.status_code == 200:
+                                resp = initialize_response.json()["responseBody"]
+                                validate_card = UseCard.validate_otp(
+                                    init_pay.transactionReference,
+                                    tokenId=request.data.get("tokenId"),
+                                    token=request.data.get("token"),
+                                )
+                                if validate_card.status_code == 200:
+                                    serializer = self.serializer_class(data=user_data)
+                                    if serializer.is_valid(raise_exception=True):
+                                        electricity(
+                                            user=user,
+                                            serializer=serializer,
+                                            reason="Debit for electricity bill payment.",
+                                            user_data=user_data,
+                                        )
+                                    else:
+                                        return Response(
+                                            data=serializer.errors,
+                                            status=status.HTTP_400_BAD_REQUEST,
+                                        )
+                                else:
+                                    return Response(
+                                        data=debit_response.json(),
+                                        status=debit_response.status_code,
+                                    )
 
 
 class ProductStatus(generics.RetrieveAPIView):

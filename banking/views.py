@@ -223,32 +223,28 @@ class CreateNGNAccount(generics.GenericAPIView):
                 )
                 account_details.save()
 
-                acct_creatn_bonus = Account.Credit(
-                    acct_no=account_details.account_number,
-                    amuount="1500.00",
-                    reason="Sign on bonus"
-                )
-                if acct_creatn_bonus.status_code == 200:
+                user_data.welcome_bonus = 1500.00
+                user_data.save()
                 
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Wallet Creation.",
-                        message="Your NGN wallet creation is successful.",
-                    )
-                    send_email(
-                        subject="Wallet Creation.",
-                        body="This is to inform you that your Wallet creation was successful.",
-                        sender=picadailys_email,
-                        recipients=authenticated_user.email,
-                        password=app_password,
-                    )
-                    response_data = {
-                        "status": "success",
-                        "message": "Congratulations your customer wallet has been created\
-                            successfully and you been creidited with a bonus of 1500 that \
-                            could be used for the VAS section of our platform.",
-                        "data": response.json(),
-                    }
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Wallet Creation.",
+                    message="Your NGN wallet creation is successful.",
+                )
+                send_email(
+                    subject="Wallet Creation.",
+                    body="This is to inform you that your Wallet creation was successful.",
+                    sender=picadailys_email,
+                    recipients=authenticated_user.email,
+                    password=app_password,
+                )
+                response_data = {
+                    "status": "success",
+                    "message": "Congratulations your customer wallet has been created\
+                        successfully and you have been creidited with a bonus of 1500 that \
+                        could be used on the VAS section of our platform.",
+                    "data": response.json(),
+                }
 
                 return Response(data=response_data, status=status.HTTP_201_CREATED)
             else:
