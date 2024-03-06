@@ -63,7 +63,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
-            "account_type",
+            "active_role",
             "country",
             "state",
             "city",

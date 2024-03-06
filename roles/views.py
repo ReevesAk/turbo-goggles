@@ -37,16 +37,16 @@ headers = {
 class RegisterSuperAdmin(generics.GenericAPIView):
     """
     RegisterSuperAdmin handles the POST request of registering a superuser,
-    It takes in email, phone, account_type, password and password2.
+    It takes in email, phone, active_role, password and password2.
     Sends an otp to phone for validation.
     """
 
     serializer_class = RegisterSuperAdminSerializer
 
     def post(self, request):
-        account_type = "SuperAdmin"
+        active_role = "SuperAdmin"
 
-        if User.objects.filter(account_type=account_type).exists():
+        if User.objects.filter(active_role=active_role).exists():
             # Super admin exists, block user registration
             return Response(
                 data="User registration is not allowed. Super admin already exists.",
@@ -120,7 +120,7 @@ class CreateOtherAdmin(generics.CreateAPIView):
             user_data = RegisterSuperAdminSerializer(user).data
             resp = {
                 "status": "Success",
-                "message": "{} Created Successfully.".format(user.data["account_type"]),
+                "message": "{} Created Successfully.".format(user.data["active_role"]),
                 "data": user_data,
             }
             return Response(
@@ -151,10 +151,10 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         instance = self.get_object()
         if instance is None:
             return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
-        new_role = request.data.get("account_type")
+        new_role = request.data.get("active_role")
 
         # Update the user's role
-        instance.account_type = new_role
+        instance.active_role = new_role
         instance.save()
 
         UserNotification.objects.create(

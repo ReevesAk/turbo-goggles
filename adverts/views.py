@@ -73,7 +73,7 @@ class ListAllBrandAds(generics.ListAPIView):
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
 
     def get_queryset(self):
-        brand_ads = User.objects.filter(account_type="BrandAd")
+        brand_ads = User.objects.filter(active_role="BrandAd")
         return brand_ads
 
     def list(self, request, *args, **kwargs):

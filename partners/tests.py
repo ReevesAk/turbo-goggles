@@ -11,7 +11,7 @@ class TestSetup(APITestCase):
         self.user_data = {
             "first_name": "partner",
             "last_name": "user",
-            "account_type": "Partner",
+            "active_role": "Partner",
             "country": "Nigeria",
             "state": "Rivers",
             "city": "Port Harcourt",

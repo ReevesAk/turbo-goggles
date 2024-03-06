@@ -7,15 +7,15 @@ class Command(BaseCommand):
     help = "Check is a super admin exists."
 
     def handle(self, *args, **options):
-        account_type = "SuperAdmin"
+        active_role = "SuperAdmin"
         try:
-            User.objects.get(account_type=account_type)
+            User.objects.get(active_role=active_role)
             self.stdout.write(
-                self.style.SUCCESS(f'A user with account type "{account_type}" exists.')
+                self.style.SUCCESS(f'A user with account type "{active_role}" exists.')
             )
         except User.DoesNotExist:
             self.stdout.write(
                 self.style.ERROR(
-                    f'A user with account type "{account_type}" does not exist.'
+                    f'A user with account type "{active_role}" does not exist.'
                 )
             )

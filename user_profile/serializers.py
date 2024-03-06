@@ -19,7 +19,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
-            "account_type",
+            "active_role",
             "profile_img_url",
             "country",
             "state",

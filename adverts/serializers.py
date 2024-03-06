@@ -107,7 +107,7 @@ class BrandAdProfileSerializers(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "account_type",
+            "active_role",
             "whoareyou",
             "name",
             "address",

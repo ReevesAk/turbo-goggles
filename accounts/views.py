@@ -54,8 +54,10 @@ class Register(generics.GenericAPIView):
                 )
 
             user = serializer.save()
-            user_type = AccountType.objects.create(user=user)
-            user.account_type.add(user_type)
+            AccountType.objects.create(
+                user=user,
+                user_type="User",
+            )
             user.active_role = "User"
             user.save()
 

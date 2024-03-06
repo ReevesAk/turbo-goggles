@@ -72,7 +72,7 @@ class ListAllPartners(generics.ListAPIView):
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def get_queryset(self):
-        partners = User.objects.filter(account_type="Partner")
+        partners = User.objects.filter(active_role="Partner")
         return partners
 
     def list(self, request, *args, **kwargs):
@@ -334,7 +334,7 @@ class AllPartnersServiceList(generics.ListAPIView):
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def list(self, request, *args, **kwargs):
-        partners = User.objects.filter(account_type="Partner")
+        partners = User.objects.filter(active_role="Partner")
         data = []
 
         for partner in partners:

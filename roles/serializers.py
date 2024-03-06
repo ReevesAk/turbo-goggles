@@ -16,7 +16,7 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "account_type",
+            "active_role",
             "phone_number",
             "email",
             "password",
@@ -39,7 +39,7 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create(
             email=validated_data["email"],
-            account_type=validated_data["account_type"],
+            active_role=validated_data["active_role"],
             phone_number=validated_data["phone_number"],
         )
 
@@ -56,7 +56,7 @@ class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "account_type",
+            "active_role",
             "phone_number",
             "email",
             "password",
@@ -78,7 +78,7 @@ class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create(
             email=validated_data["email"],
-            account_type=validated_data["account_type"],
+            active_role=validated_data["active_role"],
             phone_number=validated_data["phone_number"],
         )
 
@@ -97,7 +97,7 @@ class AdminDeletionSerializer(serializers.ModelSerializer):
 class UpdateAdminRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["email", "account_type"]
+        fields = ["email", "active_role"]
 
 
 class ListAdminSerializer(serializers.ModelSerializer):
@@ -106,7 +106,7 @@ class ListAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "email",
-            "account_type",
+            "active_role",
         ]
 
 

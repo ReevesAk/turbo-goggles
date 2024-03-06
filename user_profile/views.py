@@ -336,7 +336,6 @@ class MemberUserSwitch(generics.UpdateAPIView):
                         user_type = AccountType.objects.update_or_create(
                             user_type="Partners",
                         )
-                        user.account_type.add(user_type)
 
                         user.active_role = "Member"
                         game_point.balance -= 10.0
@@ -376,8 +375,8 @@ class MemberUserSwitch(generics.UpdateAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        elif user.account_type == "Member":
-            user.account_type = "User"
+        elif user.active_role == "Member":
+            user.active_role = "User"
             user.save()
             return Response(
                 {"status": "success", "detail": "Member has been switched to a User."},
