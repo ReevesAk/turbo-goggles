@@ -1,6 +1,9 @@
 from django.urls import path
 
 from .views import (
+    SwitchToBrandAd,
+    SwitchToPartner,
+    SwitchToUser,
     GetUserDetails,
     UpdateUserProfile,
     MemberUserSwitch,
@@ -20,6 +23,9 @@ from .notifications import (
 )
 
 urlpatterns = [
+    path("switch-to-user/", SwitchToUser.as_view(), name="switch_to_user"),
+    path("switch-to-partner/", SwitchToPartner.as_view(), name="switch_to_partner"),
+    path("switch-to-brandAd/", SwitchToBrandAd.as_view(), name="switch_to_brandAd"),
     path("profile-img/", ProfileImage.as_view(), name="profile_img"),
     path("get-user-profile/", GetUserDetails.as_view(), name="get_user_profile"),
     path("update-user/", UpdateUserProfile.as_view(), name="update_user"),

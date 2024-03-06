@@ -49,11 +49,12 @@ class CreatePartner(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user_type = AccountType.objects.create(
+            AccountType.objects.create(
+                user=authenticated_user,
                 user_type="Partners",
             )
-            authenticated_user.account_type.add(user_type)
+            authenticated_user.active_role = "Partners"
+            authenticated_user.save()
 
             response = {
                 "status": "success",

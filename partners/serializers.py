@@ -14,13 +14,10 @@ from .models import (
 class BecomePartnerSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' first time joining"""
 
-    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
-
     class Meta:
         model = User
         fields = [
             "id",
-            "device_id",
             "country",
             "state",
             "city",
@@ -131,7 +128,7 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "email",
             "country",
-            "account_type",
+            "active_role",
             "state",
             "city",
             "phone_number",

@@ -1,5 +1,5 @@
 from sms import Message
-from permissions import IsSuperAdmin, IsUserOrMember, IsUser
+from permissions import IsSuperAdmin, IsUserOrMember
 import hmac
 import hashlib
 import json
@@ -28,10 +28,13 @@ from .serializers import (
     DeleteUserSerializer,
     OpenRewardBoxSerializers,
     ClaimRewardSerializers,
-    MemberSurverySerializers
+    MemberSurverySerializers,
+    SwitchToUserSerializer,
+    SwitchToPartnersSerializer,
+    SwitchToBrandAdSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
-from accounts.models import User, Rewards, UserNotification
+from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import Points
 from vas.helpers import VAS
 from cloudinary import uploader as cloud
@@ -40,8 +43,165 @@ from cloudinary import uploader as cloud
 fincra_webhook_key = config("WEBHOOK_SECRET_KEY")
 
 
+class SwitchToUser(generics.RetrieveAPIView):
+    """
+    SwitchToUser is the PUT request method for updating and switching
+    to a user's account type.
+    """
+    serializer_class = SwitchToUserSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        description="Switch to User.",
+        responses={200: {"description": "Switch an account type to User."}},
+    )
+    def get_object(self):
+        return self.request.user
+    
+    def put(self, request):
+        user = self.get_object()
+
+        try:
+            acct = AccountType.objects.get(user=user)
+        except AccountType.DoesNotExist:
+            raise exceptions.ValidationError("AccountType for the user does not exist.")
+
+        if user.active_role != "User" and "User" in acct.user_type:
+            user.active_role = "User"
+            user.save()
+
+            data = {
+                "status": "success",
+                "message": "Account type switched to User successfully.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_200_OK)
+
+        elif user.active_role == "User":
+            data = {
+                "status": "success",
+                "message": "You are already on the User screen.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+
+        else:
+            data = {
+                "status": "fail",
+                "message": "Oops, you have not registered as a User yet.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SwitchToPartner(generics.RetrieveAPIView):
+    """
+    SwitchToPartner is the PUT request method for updating and switching
+    to a Partner's account type.
+    """
+    serializer_class = SwitchToPartnersSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        description="Switch to Partner.",
+        responses={200: {"description": "Switch an account type to Partner."}},
+    )
+    def get_object(self):
+        return self.request.user
+    
+    def put(self, request):
+        user = self.get_object()
+
+        try:
+            acct = AccountType.objects.get(user=user)
+        except AccountType.DoesNotExist:
+            raise exceptions.ValidationError("AccountType for the user does not exist.")
+
+        if user.active_role != "Partner" and "Partner" in acct.user_type:
+            user.active_role = "Partner"
+            user.save()
+
+            data = {
+                "status": "success",
+                "message": "Account type switched to Partner successfully.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_200_OK)
+
+        elif user.active_role == "Partner":
+            data = {
+                "status": "success",
+                "message": "You are already on the Partner screen.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+
+        else:
+            data = {
+                "status": "fail",
+                "message": "Oops, you have not registered as a Partner yet.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SwitchToBrandAd(generics.RetrieveAPIView):
+    """
+    SwitchToBrandAd is the PUT request method for updating and switching
+    to a BrandAd account type.
+    """
+    serializer_class = SwitchToBrandAdSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        description="Switch to BrandAd.",
+        responses={200: {"description": "Switch an account type to BrandAd."}},
+    )
+    def get_object(self):
+        return self.request.user
+    
+    def put(self, request):
+        user = self.get_object()
+
+        try:
+            acct = AccountType.objects.get(user=user)
+        except AccountType.DoesNotExist:
+            raise exceptions.ValidationError("AccountType for the user does not exist.")
+
+        if user.active_role != "BrandAd" and "BrandAd" in acct.user_type:
+            user.active_role = "BrandAd"
+            user.save()
+
+            data = {
+                "status": "success",
+                "message": "Account type switched to BrandAd successfully.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_200_OK)
+
+        elif user.active_role == "BrandAd":
+            data = {
+                "status": "success",
+                "message": "You are already on the BrandAd screen.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+
+        else:
+            data = {
+                "status": "fail",
+                "message": "Oops, you have not registered as a BrandAd yet.",
+                "data": user.active_role
+            }
+            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ProfileImage(generics.CreateAPIView):
-    """Upload profile image. This endpoint only
+    """
+    Upload profile image. This endpoint only
     accepts multipart/form-data data format.
     """
 
@@ -169,12 +329,16 @@ class MemberUserSwitch(generics.UpdateAPIView):
         user = self.get_object()
 
         game_point = Points.objects.get(user=user)
-        if user.account_type == "User":
+        if user.active_role == "User":
             try:
                 if game_point.balance is not None:
                     if game_point.balance >= 10.0:
-                        user.account_type = "Member"
+                        user_type = AccountType.objects.update_or_create(
+                            user_type="Partners",
+                        )
+                        user.account_type.add(user_type)
 
+                        user.active_role = "Member"
                         game_point.balance -= 10.0
                         user.save()
 

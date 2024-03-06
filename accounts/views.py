@@ -54,8 +54,10 @@ class Register(generics.GenericAPIView):
                 )
 
             user = serializer.save()
-            user_type = AccountType.objects.create(user_type="User")
+            user_type = AccountType.objects.create(user=user)
             user.account_type.add(user_type)
+            user.active_role = "User"
+            user.save()
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
