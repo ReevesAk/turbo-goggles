@@ -53,9 +53,9 @@ class CreatePartner(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             AccountType.objects.create(
                 user=authenticated_user,
-                user_type="Partners",
+                user_type="Partner",
             )
-            authenticated_user.active_role = "Partners"
+            authenticated_user.active_role = "Partner"
             authenticated_user.save()
 
             response = {
