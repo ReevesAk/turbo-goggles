@@ -42,6 +42,8 @@ class CreatePartner(generics.GenericAPIView):
     """
 
     serializer_class = BecomePartnerSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         user_data = request.data
