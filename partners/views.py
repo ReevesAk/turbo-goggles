@@ -118,66 +118,75 @@ class CreatePartnerService(generics.CreateAPIView):
     def create(self, request):
         serializer = PartnerServiceSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            service_uploads = request.data.getlist("service_photos")
-            trainer_uploads = request.data.getlist("trainer_photo")
-            image_urls = []
-            gym_trainer_img_urls = []
+            current_user = request.user
+            if current_user.business_verified is True:
+                service_uploads = request.data.getlist("service_photos")
+                trainer_uploads = request.data.getlist("trainer_photo")
+                image_urls = []
+                gym_trainer_img_urls = []
 
-            try:
-                serializer.validated_data["user"] = request.user
-                partner_service = serializer.save()
+                try:
+                    serializer.validated_data["user"] = request.user
+                    partner_service = serializer.save()
 
-                for upload in service_uploads:
-                    upload_result = cloud.upload(file=upload)
-                    image_url = upload_result["url"]
-                    image_urls.append(image_url)
+                    for upload in service_uploads:
+                        upload_result = cloud.upload(file=upload)
+                        image_url = upload_result["url"]
+                        image_urls.append(image_url)
 
-                    PartnerServicePhotos.objects.create(
-                        partner=partner_service.user,
-                        photo=image_url,
-                    )
-
-                if request.data["service"] == "Fitness and Entertainment":
-                    for photo in trainer_uploads:
-                        upload_res = cloud.upload(file=photo)
-                        gym_trainer_img_url = upload_res["url"]
-                        gym_trainer_img_urls.append(gym_trainer_img_url)
-
-                        AvailablePartnerGymTrainers.objects.create(
+                        PartnerServicePhotos.objects.create(
                             partner=partner_service.user,
-                            trainer_name=request.data["trainer_name"],
-                            trainer_price=request.data["trainer_price"],
-                            trainer_photo=gym_trainer_img_url,
+                            photo=image_url,
                         )
 
-                if request.data["service"] == "Courier Services":
-                    PartnerServices.objects.cretae(
-                        user=request.user,
-                        business=request.data["business"],
-                        service=request.data["service"],
-                        service_star=request.data["service_star"],
-                        price=request.data["price"],
-                        description=request.data["description"],
-                        from_station=request.data["from_station"],
-                        destination=-request.data["destination"],
-                    )
+                    if request.data["service"] == "Fitness and Entertainment":
+                        for photo in trainer_uploads:
+                            upload_res = cloud.upload(file=photo)
+                            gym_trainer_img_url = upload_res["url"]
+                            gym_trainer_img_urls.append(gym_trainer_img_url)
 
+                            AvailablePartnerGymTrainers.objects.create(
+                                partner=partner_service.user,
+                                trainer_name=request.data["trainer_name"],
+                                trainer_price=request.data["trainer_price"],
+                                trainer_photo=gym_trainer_img_url,
+                            )
+
+                    if request.data["service"] == "Courier Services":
+                        PartnerServices.objects.cretae(
+                            user=request.user,
+                            business=request.data["business"],
+                            service=request.data["service"],
+                            service_star=request.data["service_star"],
+                            price=request.data["price"],
+                            description=request.data["description"],
+                            from_station=request.data["from_station"],
+                            destination=-request.data["destination"],
+                        )
+
+                    response = {
+                        "status": "success",
+                        "message": "Service recorded!",
+                        "image urls": image_urls,
+                        "gym trainers": gym_trainer_img_urls,
+                        "data": serializer.data,
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+
+                except Exception as err:
+                    return Response(
+                        {"error": "An error occurred: {}".format(err)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+            else:
                 response = {
-                    "status": "success",
-                    "message": "Service recorded!",
-                    "image urls": image_urls,
-                    "gym trainers": gym_trainer_img_urls,
-                    "data": serializer.data,
+                    "status": "fail",
+                    "message": "Sorry, you have to validate your business before you can create a service!",
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
 
-            except Exception as err:
-                return Response(
-                    {"error": "An error occurred: {}".format(err)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UpdatePartnerService(generics.UpdateAPIView):
