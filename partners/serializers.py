@@ -158,7 +158,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 
 
 class VerifyCacSerializers(serializers.ModelSerializer):
-    """Serailizers for our Partners' business verification."""
+    """Serializers for our Partners' business verification."""
 
     class Meta:
         model = VerifyCAC
