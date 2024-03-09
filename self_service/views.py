@@ -85,9 +85,11 @@ class TableBooking(generics.CreateAPIView):
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
-                                }   
-                                return Response(data=response_data, status=status.HTTP_200_OK)
-                            
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),
@@ -259,8 +261,10 @@ class GymBooking(generics.CreateAPIView):
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
-                                }   
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
 
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
@@ -443,8 +447,10 @@ class CinemaBookingView(generics.CreateAPIView):
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
-                                }   
-                                return Response(data=response_data, status=status.HTTP_200_OK)
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
 
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
@@ -627,9 +633,11 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
-                                }   
-                                return Response(data=response_data, status=status.HTTP_200_OK)
-                            
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(
                                 amount=request.data.get("amount"),

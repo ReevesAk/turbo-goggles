@@ -214,7 +214,7 @@ class BankingStatusSerializer(serializers.Serializer):
 
 
 class VirtaulAccountDetailsSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)    
+    message = serializers.CharField(max_length=200)
 
 
 class VerifyTransferSerializer(serializers.Serializer):

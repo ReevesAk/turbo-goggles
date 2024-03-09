@@ -29,7 +29,6 @@ class GetUserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_verified",
-            "is_member",
         ]
 
 

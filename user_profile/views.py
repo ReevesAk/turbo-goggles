@@ -348,7 +348,7 @@ class MemberUserSwitch(generics.UpdateAPIView):
             try:
                 if game_point.balance is not None:
                     if game_point.balance >= 10.0:
-                        user_type = AccountType.objects.update_or_create(
+                        AccountType.objects.update_or_create(
                             user_type="Partners",
                         )
 

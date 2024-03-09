@@ -37,7 +37,7 @@ from .serializers import (
 )
 from accounts.models import User, UserNotification
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
-from .controllers import BVN, Customer, Account
+from .controllers import BVN, Customer
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -225,7 +225,7 @@ class CreateNGNAccount(generics.GenericAPIView):
 
                 user_data.welcome_bonus = 1500.00
                 user_data.save()
-                
+
                 UserNotification.objects.create(
                     user=authenticated_user,
                     title="Wallet Creation.",
@@ -375,7 +375,9 @@ class GetVirtualAccountDetails(generics.RetrieveAPIView):
                     return Response(data=response_data, status=status.HTTP_200_OK)
 
             except requests.exceptions.RequestException as e:
-                logging.error(f"Fetching customer virtual account details API request error: {str(e)}")
+                logging.error(
+                    f"Fetching customer virtual account details API request error: {str(e)}"
+                )
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )

@@ -19,7 +19,6 @@ from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
 from wallets.controllers import Pin, Debit
-from banking.controllers import Account
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -197,7 +196,6 @@ class BrandPromote(generics.CreateAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
-                        
                         response_data = {
                             "status": "fail!",
                             "details": debit_response.json(),

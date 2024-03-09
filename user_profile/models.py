@@ -3,7 +3,7 @@ from django.utils import timezone
 from cloudinary.models import CloudinaryField
 
 from accounts.models import User
-from .choices import FOLLOWERS, SEX, BENEFICIARIES, RELIGION
+from .choices import FOLLOWERS
 
 
 class ProfileImage(models.Model):

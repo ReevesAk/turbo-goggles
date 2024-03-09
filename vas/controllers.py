@@ -30,7 +30,7 @@ def airtime(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -90,7 +90,7 @@ def data(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -150,7 +150,7 @@ def electricity(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -212,7 +212,7 @@ def NewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -271,7 +271,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -335,7 +335,7 @@ def international_topup(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -394,7 +394,7 @@ def waec_reg(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -455,7 +455,7 @@ def VehicleInsurance(user, serializer, reason, user_data):
         amount = vehicle_insurance_response.json()["amount"]
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -526,7 +526,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -595,7 +595,7 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -675,7 +675,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role is "Member":
+        if user.active_role == "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
