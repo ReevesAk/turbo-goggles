@@ -87,9 +87,7 @@ class DeleteUserSerializer(serializers.ModelSerializer):
         fields = ["email"]
 
 
-
 class NotificationSerializers(serializers.Serializer):
-
     class Meta:
         model = UserNotification
         fields = ["id", "title", "message", "read"]

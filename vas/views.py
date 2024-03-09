@@ -42,6 +42,7 @@ from .controllers import (
     HomeCoverInsurance,
     HealthInsurance,
 )
+from commons import Pay
 
 from cloudinary import uploader as cloud
 
@@ -69,6 +70,8 @@ class AirTimeTopUp(generics.GenericAPIView):
         pin = request.data.get("pin")
         payment_option = request.data.get("payment_option")
         use_bonus = request.data.get("use_bonus")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
         amount = request.data.get("amount")
 
         serializer = self.serializer_class(data=user_data)
@@ -80,19 +83,30 @@ class AirTimeTopUp(generics.GenericAPIView):
                         user=user,
                         serializer=serializer,
                         reason="Debit for airtime recharge.",
-                        user_data=user_data
+                        user_data=user_data,
                     )
                 else:
                     return Response(
                         data="You do not have enough bonus to purchase this product",
-                        status=status.HTTP_400_BAD_REQUEST
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
                 match payment_option:
                     case "WALLET":
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                        else:
+                            pts_amt = 0
+                        if use_rewards:
+                            _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                        else:
+                            rwd_amt = 0
+
+                        new_amount = amount - pts_amt - rwd_amt
+
                         # Inititate a debit on the customer's account.
                         debit_response = Account.Debit(
-                            amount=amount, reason="Debit for airtime recharge."
+                            amount=new_amount, reason="Debit for airtime recharge."
                         )
 
                         if debit_response.status_code == 200:
@@ -102,7 +116,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     user=user,
                                     serializer=serializer,
                                     reason="Debit for airtime recharge.",
-                                    user_data=user_data
+                                    user_data=user_data,
                                 )
                             else:
                                 return Response(
@@ -229,6 +243,8 @@ class DataSubscription(generics.GenericAPIView):
         pin = request.data.get("pin")
         use_bonus = request.data.get("use_bonus")
         amount = request.data.get("amount")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -240,19 +256,30 @@ class DataSubscription(generics.GenericAPIView):
                         user=user,
                         serializer=serializer,
                         reason="Debit for data subscription.",
-                        user_data=user_data
+                        user_data=user_data,
                     )
                 else:
                     return Response(
                         data="You do not have enough bonus to purchase this product",
-                        status=status.HTTP_400_BAD_REQUEST
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
                 match payment_option:
                     case "WALLET":
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                        else:
+                            pts_amt = 0
+                        if use_rewards:
+                            _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                        else:
+                            rwd_amt = 0
+
+                        new_amount = amount - pts_amt - rwd_amt
+
                         # Inititate a debit on the customer's account.
                         debit_response = Account.Debit(
-                            amount=user_data["amount"],
+                            amount=new_amount,
                             reason="Debit for data subscription.",
                         )
 
@@ -263,7 +290,7 @@ class DataSubscription(generics.GenericAPIView):
                                     user=user,
                                     serializer=serializer,
                                     reason="Debit for data subscription.",
-                                    user_data=user_data
+                                    user_data=user_data,
                                 )
                             else:
                                 return Response(
@@ -396,6 +423,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         pin = request.data.get("pin")
         use_bonus = request.data.get("use_bonus")
         amount = request.data.get("amount")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -407,17 +436,28 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         user=user,
                         serializer=serializer,
                         reason="Debit for electricity bill payment.",
-                        user_data=user_data
+                        user_data=user_data,
                     )
                 else:
                     return Response(
                         data="You do not have enough bonus to purchase this product",
-                        status=status.HTTP_400_BAD_REQUEST
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 match payment_option:
                     case "WALLET":
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                        else:
+                            pts_amt = 0
+                        if use_rewards:
+                            _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                        else:
+                            rwd_amt = 0
+
+                        new_amount = amount - pts_amt - rwd_amt
+
                         debit_response = Account.Debit(
-                            amount=user_data["amount"],
+                            amount=new_amount,
                             reason="Debit for electricity bill payment.",
                         )
                         if debit_response == 200:
@@ -427,7 +467,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                     user=user,
                                     serializer=serializer,
                                     reason="Debit for electricity bill payment.",
-                                    user_data=user_data
+                                    user_data=user_data,
                                 )
                             else:
                                 return Response(
@@ -646,14 +686,28 @@ class NewTvSubscription(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"], reason="Debit for Tv subscription."
+                        amount=new_amount, reason="Debit for Tv subscription."
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
@@ -662,7 +716,7 @@ class NewTvSubscription(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for Tv subscription.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -742,14 +796,28 @@ class RenewTvSubscription(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"],
+                        amount=new_amount,
                         reason="Debit for tv subscription renewal.",
                     )
                     if debit_response.status_code == 200:
@@ -759,7 +827,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for tv subscription renewal.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1015,6 +1083,9 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
     def post(self, request):
         user_data = request.data
         user = request.user
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
 
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -1022,8 +1093,19 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"],
+                        amount=new_amount,
                         reason="Debit for international airtime recharge.",
                     )
                     if debit_response == 200:
@@ -1033,7 +1115,7 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for international airtime recharge.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1157,13 +1239,28 @@ class WaecRegistration(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
+
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"],
+                        amount=new_amount,
                         reason="Debit for waec registration.",
                     )
                     if debit_response == 200:
@@ -1173,7 +1270,7 @@ class WaecRegistration(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for waec registration.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1297,13 +1394,28 @@ class VehicleInsuranceView(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
+
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"],
+                        amount=new_amount,
                         reason="Debit for vehicle insurance.",
                     )
 
@@ -1314,7 +1426,7 @@ class VehicleInsuranceView(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for vehicle insurance.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1437,13 +1549,28 @@ class AccidentInsuranceView(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
+
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user_data["amount"],
+                        amount=new_amount,
                         reason="Debit for accident inssurance.",
                     )
 
@@ -1454,7 +1581,7 @@ class AccidentInsuranceView(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for accident inssurance.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1579,13 +1706,28 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
+
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user["amount"],
+                        amount=new_amount,
                         reason="Debit for home cover insurance registration.",
                     )
 
@@ -1596,7 +1738,7 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
                                 user=user,
                                 serializer=serializer,
                                 reason="Debit for home cover insurance registration.",
-                                user_data=user_data
+                                user_data=user_data,
                             )
                         else:
                             return Response(
@@ -1763,13 +1905,28 @@ class HealthInsuranceView(generics.GenericAPIView):
         user = request.user
 
         pin = request.data.get("pin")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
+        amount = request.data.get("amount")
+
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
                 case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = amount - pts_amt - rwd_amt
+
                     debit_response = Account.Debit(
-                        amount=user["amount"],
+                        amount=new_amount,
                         reason="Debit for health insurance.",
                     )
 

@@ -48,6 +48,7 @@ class SwitchToUser(generics.RetrieveAPIView):
     SwitchToUser is the PUT request method for updating and switching
     to a user's account type.
     """
+
     serializer_class = SwitchToUserSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -58,7 +59,7 @@ class SwitchToUser(generics.RetrieveAPIView):
     )
     def get_object(self):
         return self.request.user
-    
+
     def put(self, request):
         user = self.get_object()
 
@@ -71,7 +72,7 @@ class SwitchToUser(generics.RetrieveAPIView):
                 data = {
                     "status": "fail",
                     "message": "Oops, you haven't registered as a User yet.",
-                    "data": user.active_role
+                    "data": user.active_role,
                 }
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
@@ -83,7 +84,7 @@ class SwitchToUser(generics.RetrieveAPIView):
             data = {
                 "status": "success",
                 "message": "You are already on the User screen.",
-                "data": user.active_role
+                "data": user.active_role,
             }
             return Response(data=data, status=status.HTTP_200_OK)
 
@@ -94,7 +95,7 @@ class SwitchToUser(generics.RetrieveAPIView):
         data = {
             "status": "success",
             "message": "Account type switched to User successfully.",
-            "data": user.active_role
+            "data": user.active_role,
         }
         return Response(data=data, status=status.HTTP_200_OK)
 
@@ -104,6 +105,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
     SwitchToPartner is the PUT request method for updating and switching
     to a Partner's account type.
     """
+
     serializer_class = SwitchToPartnersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -127,7 +129,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
                 data = {
                     "status": "fail",
                     "message": "Oops, you haven't registered as a Partner yet.",
-                    "data": user.active_role
+                    "data": user.active_role,
                 }
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
@@ -139,7 +141,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
             data = {
                 "status": "success",
                 "message": "You are already on the Partner screen.",
-                "data": user.active_role
+                "data": user.active_role,
             }
             return Response(data=data, status=status.HTTP_200_OK)
 
@@ -150,7 +152,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
         data = {
             "status": "success",
             "message": "Account type switched to Partner successfully.",
-            "data": user.active_role
+            "data": user.active_role,
         }
         return Response(data=data, status=status.HTTP_200_OK)
 
@@ -160,6 +162,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
     SwitchToBrandAd is the PUT request method for updating and switching
     to a BrandAd account type.
     """
+
     serializer_class = SwitchToBrandAdSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -170,7 +173,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
     )
     def get_object(self):
         return self.request.user
-    
+
     def put(self, request):
         user = self.get_object()
 
@@ -183,7 +186,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
                 data = {
                     "status": "fail",
                     "message": "Oops, you haven't registered as a BrandAd yet.",
-                    "data": user.active_role
+                    "data": user.active_role,
                 }
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,7 +198,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
             data = {
                 "status": "success",
                 "message": "You are already on the BrandAd screen.",
-                "data": user.active_role
+                "data": user.active_role,
             }
             return Response(data=data, status=status.HTTP_200_OK)
 
@@ -206,7 +209,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         data = {
             "status": "success",
             "message": "Account type switched to BrandAd successfully.",
-            "data": user.active_role
+            "data": user.active_role,
         }
         return Response(data=data, status=status.HTTP_200_OK)
 
@@ -431,6 +434,7 @@ class PostMemberSurvey(generics.CreateAPIView):
     """
     PostMemberSurvey endpoint to conduct memmber survey.
     """
+
     serializer_class = MemberSurverySerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsUserOrMember)
@@ -447,7 +451,7 @@ class PostMemberSurvey(generics.CreateAPIView):
             response = {
                 "status": "success",
                 "message": "Survey completely successully!",
-                "data": serializer.data
+                "data": serializer.data,
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
@@ -552,7 +556,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                 case "airtime":
                     amount = Rewards.objects.get(user=authenticated_user)
                     airtime_response = VAS.aritime(
-                        service_id=user_data["  "],
+                        service_id=user_data["serviceID"],
                         amount=amount.mystery_box,
                         phone=user_data["phone"],
                     )
@@ -560,7 +564,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            message="You have successfully claime your mystery box item.",
+                            message="You have successfully claimed your mystery box item.",
                         )
 
                         response_data = {

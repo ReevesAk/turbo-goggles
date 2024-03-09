@@ -5,6 +5,7 @@ from cloudinary.models import CloudinaryField
 from accounts.models import User
 from .choices import FOLLOWERS, SEX, BENEFICIARIES, RELIGION
 
+
 class ProfileImage(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     image = CloudinaryField(null=True)

@@ -30,7 +30,7 @@ def airtime(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -65,9 +65,7 @@ def airtime(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(data=response_data, status=airtime_response.status_code)
 
@@ -92,7 +90,7 @@ def data(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -127,9 +125,7 @@ def data(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user_data["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user_data["amount"], reason=reason
         )
         return Response(data=response_data, status=data_response.status_code)
 
@@ -154,7 +150,7 @@ def electricity(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -189,9 +185,7 @@ def electricity(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(data=response_data, status=electricity_response.status_code)
 
@@ -218,7 +212,7 @@ def NewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -252,9 +246,7 @@ def NewTvSub(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(response_data, status=new_tv_response.status_code)
 
@@ -279,7 +271,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -314,9 +306,7 @@ def RenewTvSub(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(response_data, status=renew_tv_response.status_code)
 
@@ -345,7 +335,7 @@ def international_topup(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -380,9 +370,7 @@ def international_topup(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(data=response_data, status=intl_topup_response.status_code)
 
@@ -406,7 +394,7 @@ def waec_reg(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -441,9 +429,7 @@ def waec_reg(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(response_data, status=waec_response.status_code)
 
@@ -469,7 +455,7 @@ def VehicleInsurance(user, serializer, reason, user_data):
         amount = vehicle_insurance_response.json()["amount"]
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -506,9 +492,7 @@ def VehicleInsurance(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            accNo=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(
             data=response_data,
@@ -542,7 +526,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -578,9 +562,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
-            accNo=user.accountNumber,
-            amount=user["amount"],
-            reason=reason
+            accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return Response(
             response_data,
@@ -613,7 +595,7 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:
@@ -693,7 +675,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.is_member is True:
+        if user.active_role is "Member":
             if amount >= 100:
                 new_rewards = Allocate.reward(amount=amount)
                 try:

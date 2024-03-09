@@ -36,10 +36,13 @@ urlpatterns = [
     path("claim-gift/", ClaimMysteryBoxGift.as_view(), name="claim_gift"),
     path("webhook/", WebhookView.as_view(), name="webhook_view"),
     path("delete/", DeleteUser.as_view(), name="delete"),
-
     # Notification endpoints.
     path("notification/get", GetNotifications.as_view(), name="get_ntfn"),
-    path("notification/mark-as-read", MarkNotificationsAsRead.as_view(), name="mark_ntfn_as_read"),
+    path(
+        "notification/mark-as-read",
+        MarkNotificationsAsRead.as_view(),
+        name="mark_ntfn_as_read",
+    ),
     path("notification/clear", ClearNotifications.as_view(), name="clear_ntfn"),
-    path("notification/delete", DeleteNotification.as_view(), name="delete_ntfn")
+    path("notification/delete", DeleteNotification.as_view(), name="delete_ntfn"),
 ]

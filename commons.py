@@ -7,6 +7,9 @@ from rest_framework import status
 
 from decouple import config
 
+from accounts.models import Rewards
+from roles.models import Points
+
 termii_base_url = config("TERMII_BASE_URL")
 termii_api_key = config("TERMII_API_KEY")
 
@@ -109,3 +112,35 @@ class Allocate:
     def reward(amount):
         rewards = (amount / 100) * 0.5
         return rewards
+
+
+class Pay:
+    @staticmethod
+    def with_rwd(user, amount):
+        rwd = Rewards.objects.get(user=user)
+        deducted_amount = (0.30 * amount) * 0.5
+
+        if rwd.balance >= deducted_amount:
+            rwd.balance -= deducted_amount
+            rwd.save()
+            return "Enough", deducted_amount
+        else:
+            deducted_amount = rwd.balance
+            rwd.balance = 0
+            rwd.save()
+            return "Not Enough", deducted_amount
+
+    @staticmethod
+    def with_pts(user, amount):
+        pts = Points.objects.get(user=user)
+        deducted_amount = 0.20 * amount
+
+        if pts.balance >= deducted_amount:
+            pts.balance -= deducted_amount
+            pts.save()
+            return "Enough", deducted_amount
+        else:
+            deducted_amount = pts.balance
+            pts.balance = 0
+            pts.save()
+            return "Not Enough", deducted_amount

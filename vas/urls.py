@@ -94,7 +94,9 @@ urlpatterns = [
         name="accident_insurance_codes",
     ),
     path(
-        "accident-insuracnce/", AccidentInsuranceView.as_view(), name="accident_insurance"
+        "accident-insuracnce/",
+        AccidentInsuranceView.as_view(),
+        name="accident_insurance",
     ),
     path(
         "home-cover-codes/",
