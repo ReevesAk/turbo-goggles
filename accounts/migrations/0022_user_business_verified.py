@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0021_rewards_form_of_gift_usernotification'),
+        ("accounts", "0021_rewards_form_of_gift_usernotification"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='business_verified',
+            model_name="user",
+            name="business_verified",
             field=models.BooleanField(default=False),
         ),
     ]
