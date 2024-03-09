@@ -63,36 +63,40 @@ class SwitchToUser(generics.RetrieveAPIView):
         user = self.get_object()
 
         try:
-            acct = AccountType.objects.get(user=user)
+            account_types = AccountType.objects.filter(user=user)
+            # Check if any AccountType has "BrandAd" in user_type
+            is_partner = any(acct.user_type == "User" for acct in account_types)
+
+            if not is_partner:
+                data = {
+                    "status": "fail",
+                    "message": "Oops, you haven't registered as a User yet.",
+                    "data": user.active_role
+                }
+                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
         except AccountType.DoesNotExist:
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
-        if user.active_role != "User" and "User" in acct.user_type:
-            user.active_role = "User"
-            user.save()
-
-            data = {
-                "status": "success",
-                "message": "Account type switched to User successfully.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_200_OK)
-
-        elif user.active_role == "User":
+        # Handle already switched to Partner
+        if user.active_role == "User":
             data = {
                 "status": "success",
                 "message": "You are already on the User screen.",
                 "data": user.active_role
             }
-            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+            return Response(data=data, status=status.HTTP_200_OK)
 
-        else:
-            data = {
-                "status": "fail",
-                "message": "Oops, you have not registered as a User yet.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+        # User has a Partner account type, switch the role
+        user.active_role = "User"
+        user.save()
+
+        data = {
+            "status": "success",
+            "message": "Account type switched to User successfully.",
+            "data": user.active_role
+        }
+        return Response(data=data, status=status.HTTP_200_OK)
 
 
 class SwitchToPartner(generics.RetrieveAPIView):
@@ -110,41 +114,45 @@ class SwitchToPartner(generics.RetrieveAPIView):
     )
     def get_object(self):
         return self.request.user
-    
+
     def put(self, request):
         user = self.get_object()
 
         try:
-            acct = AccountType.objects.get(user=user)
+            account_types = AccountType.objects.filter(user=user)
+            # Check if any AccountType has "Partner" in user_type
+            is_partner = any(acct.user_type == "Partner" for acct in account_types)
+
+            if not is_partner:
+                data = {
+                    "status": "fail",
+                    "message": "Oops, you haven't registered as a Partner yet.",
+                    "data": user.active_role
+                }
+                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
         except AccountType.DoesNotExist:
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
-        if user.active_role != "Partner" and "Partner" in acct.user_type:
-            user.active_role = "Partner"
-            user.save()
-
-            data = {
-                "status": "success",
-                "message": "Account type switched to Partner successfully.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_200_OK)
-
-        elif user.active_role == "Partner":
+        # Handle already switched to Partner
+        if user.active_role == "Partner":
             data = {
                 "status": "success",
                 "message": "You are already on the Partner screen.",
                 "data": user.active_role
             }
-            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+            return Response(data=data, status=status.HTTP_200_OK)
 
-        else:
-            data = {
-                "status": "fail",
-                "message": "Oops, you have not registered as a Partner yet.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+        # User has a Partner account type, switch the role
+        user.active_role = "Partner"
+        user.save()
+
+        data = {
+            "status": "success",
+            "message": "Account type switched to Partner successfully.",
+            "data": user.active_role
+        }
+        return Response(data=data, status=status.HTTP_200_OK)
 
 
 class SwitchToBrandAd(generics.RetrieveAPIView):
@@ -167,36 +175,40 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         user = self.get_object()
 
         try:
-            acct = AccountType.objects.get(user=user)
+            account_types = AccountType.objects.filter(user=user)
+            # Check if any AccountType has "BrandAd" in user_type
+            is_partner = any(acct.user_type == "BrandAd" for acct in account_types)
+
+            if not is_partner:
+                data = {
+                    "status": "fail",
+                    "message": "Oops, you haven't registered as a BrandAd yet.",
+                    "data": user.active_role
+                }
+                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
         except AccountType.DoesNotExist:
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
-        if user.active_role != "BrandAd" and "BrandAd" in acct.user_type:
-            user.active_role = "BrandAd"
-            user.save()
-
-            data = {
-                "status": "success",
-                "message": "Account type switched to BrandAd successfully.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_200_OK)
-
-        elif user.active_role == "BrandAd":
+        # Handle already switched to Partner
+        if user.active_role == "BrandAd":
             data = {
                 "status": "success",
                 "message": "You are already on the BrandAd screen.",
                 "data": user.active_role
             }
-            return Response(data=data, status=status.HTTP_403_FORBIDDEN)
+            return Response(data=data, status=status.HTTP_200_OK)
 
-        else:
-            data = {
-                "status": "fail",
-                "message": "Oops, you have not registered as a BrandAd yet.",
-                "data": user.active_role
-            }
-            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+        # User has a Partner account type, switch the role
+        user.active_role = "BrandAd"
+        user.save()
+
+        data = {
+            "status": "success",
+            "message": "Account type switched to BrandAd successfully.",
+            "data": user.active_role
+        }
+        return Response(data=data, status=status.HTTP_200_OK)
 
 
 class ProfileImage(generics.CreateAPIView):
