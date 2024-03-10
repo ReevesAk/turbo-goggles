@@ -54,7 +54,7 @@ urlpatterns = [
     # User Profile and settings endpoints.
     path("api/v1/roles/", include("roles.urls")),
     # Self service endpoints.
-    path("api/v1/self_serve/", include("self_service.urls")),
+    path("api/v1/self_service/", include("self_service.urls")),
     # Maplerad banking endpoints.
     path("api/v1/banking/", include("banking.urls")),
 ]
