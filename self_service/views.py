@@ -182,7 +182,7 @@ class TableBookingList(generics.ListAPIView):
 
 class TableBookingDetail(generics.RetrieveAPIView):
     """
-    TableBookingDetail retrieves a specific cinema booking for the authenticated user.
+    TableBookingDetail retrieves a specific restaurant table booking for the authenticated user.
     """
 
     serializer_class = RestaurantBookingSerializers
