@@ -20,6 +20,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "active_role",
+            "has_wallet",
             "profile_img_url",
             "country",
             "state",

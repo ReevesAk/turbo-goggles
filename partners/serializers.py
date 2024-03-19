@@ -129,6 +129,7 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "email",
             "country",
             "active_role",
+            "has_wallet",
             "state",
             "city",
             "phone_number",

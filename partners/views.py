@@ -464,42 +464,40 @@ class VerifyCAC(generics.GenericAPIView):
                 )
 
                 if response.status_code == 200:
-                    resp = response.json()["data"]
-                    for name in resp:
-                        business_name = user["business_name"].upper()
-                        if business_name == name["approvedName"]:
-                            response_data = {
-                                "status": "success",
-                                "message": "Your business is verified!",
-                                "data": response.json(),
-                            }
-                            user = User.objects.get(user=request.user)
-                            user.business_verified = True
-                            user.save()
+                    resp = response.json()["data"][0]
+                    print(resp)
+                    business_name = user["business_name"].upper()
+                    if business_name == resp["approvedName"]:
+                        response_data = {
+                            "status": "success",
+                            "message": "Your business is verified!",
+                            "data": response.json(),
+                        }
+                        # Assign true to current user.
+                        current_user.business_verified = True
+                        current_user.save()
 
-                            UserNotification.objects.create(
-                                user=request.user,
-                                title="Business Verification.",
-                                message="This is to inform you that the verification of your business is successful.",
-                            )
-                            send_email(
-                                subject="Debit Transaction.",
-                                body="This is to inform you that the verification of your business is successful.",
-                                sender=picadailys_email,
-                                recipients=current_user.email,
-                                password=app_password,
-                            )
-                            return Response(
-                                data=response_data, status=status.HTTP_200_OK
-                            )
-                        else:
-                            error_response = {
-                                "status": "fail",
-                                "message": "The business name provided does not match the RC number!",
-                            }
-                            return Response(
-                                data=error_response, status=status.HTTP_404_NOT_FOUND
-                            )
+                        UserNotification.objects.create(
+                            user=request.user,
+                            title="Business Verification.",
+                            message="This is to inform you that the verification of your business is successful.",
+                        )
+                        # send_email(
+                        #     subject="Business Verification.",
+                        #     body="This is to inform you that the verification of your business was successful.",
+                        #     sender=picadailys_email,
+                        #     recipients=current_user.email,
+                        #     password=app_password,
+                        # )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    else:
+                        error_response = {
+                            "status": "fail",
+                            "message": "The business name provided does not match the RC number!",
+                        }
+                        return Response(
+                            data=error_response, status=status.HTTP_404_NOT_FOUND
+                        )
                 else:
                     error_response = {
                         "error": "An error occurred!",

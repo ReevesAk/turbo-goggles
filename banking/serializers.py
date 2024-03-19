@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import BVNData, Address, Wallet, Cards, Transfer
+from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel
 
 
 class BVNSerializer(serializers.Serializer):
@@ -18,9 +18,12 @@ class BVNSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         bvn = attrs.get("bvn", "")
+        date_of_birth = attrs.get("date_of_birth", "")
 
         if not bvn:
             raise serializers.ValidationError("bvn is required")
+        if not date_of_birth:
+            raise serializers.ValidationError("date_of_birth is required")
 
         return super().validate(attrs)
 
@@ -219,3 +222,14 @@ class VirtaulAccountDetailsSerializer(serializers.Serializer):
 
 class VerifyTransferSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class QuotationSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class ExchangeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ForexModel
+        fields = ["amount"]

@@ -241,8 +241,12 @@ class ProfileImage(generics.CreateAPIView):
                 title="Profile Image.",
                 message="You have been successfully uploaded your profile image.",
             )
+            response = {
+                "status": "success",
+                "message": "Profile picture uploaded successfully",
+            }
             return Response(
-                {"message": "Profile picture uploaded successfully"},
+                data=response,
                 status=status.HTTP_200_OK,
             )
 
@@ -302,10 +306,8 @@ class ChangePassword(generics.UpdateAPIView):
             new_password = serializer.validated_data["new_password"]
 
             if not check_password(old_password, user.password):
-                return Response(
-                    {"detail": "Old password is incorrect."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                response = {"status": "fail", "message": "Old password is incorrect."}
+                return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
             user.set_password(new_password)
 
@@ -321,9 +323,11 @@ class ChangePassword(generics.UpdateAPIView):
                 message="You have successfully changed your password.",
             )
 
-            return Response(
-                {"detail": "Password updated successfully."}, status=status.HTTP_200_OK
-            )
+            response = {
+                "status": "success",
+                "message": "Password updated successfully.",
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -394,7 +398,7 @@ class MemberUserSwitch(generics.UpdateAPIView):
             user.active_role = "User"
             user.save()
             return Response(
-                {"status": "success", "detail": "Member has been switched to a User."},
+                {"status": "success", "message": "Member has been switched to a User."},
                 status=status.HTTP_200_OK,
             )
 
@@ -481,13 +485,21 @@ class DeleteUser(generics.DestroyAPIView):
                     We regret to lose you, we hope to see you again soon.",
                 to=recipient,
             )
+            response = {
+                "status": "success",
+                "message": f"Account with '{email}' deleted successfully.",
+            }
             return Response(
-                f"Account with '{email}' deleted successfully.",
+                data=response,
                 status=status.HTTP_204_NO_CONTENT,
             )
         except User.DoesNotExist:
+            resp = {
+                "status": "fail",
+                "message": f"User with '{email}' does not exist.",
+            }
             return Response(
-                f"User with '{email}' does not exist.",
+                data=resp,
                 status=status.HTTP_404_NOT_FOUND,
             )
 
