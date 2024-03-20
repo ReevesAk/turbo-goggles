@@ -24,7 +24,7 @@ from .transfers import (
     InternationalTransfer,
     VerifyTransfer,
 )
-
+from .fx import GetQuotation
 
 urlpatterns = [
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
@@ -71,4 +71,5 @@ urlpatterns = [
         VerifyTransfer.as_view(),
         name="verify_transfer",
     ),
+    path("get-quotation", GetQuotation.as_view(), name="get_quotation"),
 ]

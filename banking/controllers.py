@@ -383,3 +383,43 @@ class Transfer:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class Forex:
+    @staticmethod
+    def generate_quote():
+        resource = "fx/quote"
+
+        payload = {"source_currency": "NGN", "target_currency": "USD", "amount": 1}
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Generate quote request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def exchange(reference):
+        resource = "fx"
+
+        payload = { "quote_reference": reference}
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                header=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Forex exchange request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

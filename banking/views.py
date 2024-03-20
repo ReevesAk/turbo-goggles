@@ -52,12 +52,12 @@ picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
 
 
-class VerifYBVN(generics.CreateAPIView):
+class VerifYBVN(generics.GenericAPIView):
     serializer_class = BVNSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
-    def create(self, request):
+    def post(self, request):
         user_data = request.data
         authenticated_user = request.user
 
@@ -134,6 +134,8 @@ class VerifYBVN(generics.CreateAPIView):
                 return Response(data=response, status=status.HTTP_201_CREATED)
             else:
                 return Response(data=bvn_response.json(), status=bvn_status_code)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateNGNAccount(generics.GenericAPIView):
@@ -223,6 +225,7 @@ class CreateNGNAccount(generics.GenericAPIView):
                 )
                 account_details.save()
 
+                user_data.has_wallet = True
                 user_data.welcome_bonus = 1500.00
                 user_data.save()
 
