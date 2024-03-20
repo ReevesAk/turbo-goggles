@@ -1,5 +1,3 @@
-import logging
-
 # Third party imports.
 from rest_framework import generics
 from rest_framework.response import Response
@@ -10,11 +8,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_spectacular.utils import extend_schema
 
 from .controllers import Forex
-from .models import ForexModel
 
 from .serializers import (
     QuotationSerializer,
-    ExchangeSerializer
 )
 
 
@@ -25,10 +21,9 @@ class GetQuotation(generics.GenericAPIView):
 
     @extend_schema(
         description="Get quotation view",
-        responses={200: {"description": "Get dollar to naira rate"}},
+        responses={200: {"description": "Get naira to dollar rate"}},
     )
     def get(self, request):
-
         fx_resp = Forex.generate_quote()
         if fx_resp.status_code == 200:
             fx_rate = fx_resp.json()["data"]["rate"]
@@ -38,15 +33,15 @@ class GetQuotation(generics.GenericAPIView):
 
             response = {
                 "status": "success",
-                "message": "Market value retrieved successfully!.",
-                "naira value": naira_value 
+                "message": "Dollar to Naira market value retrieved successfully!.",
+                "naira value": naira_value,
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
             resp = {
                 "status": "fail",
                 "message": "Request failed, please try again!.",
-                "data": fx_resp.json()
+                "data": fx_resp.json(),
             }
             return Response(data=resp, status=status.HTTP_404_NOT_FOUND)
 
@@ -81,6 +76,5 @@ class GetQuotation(generics.GenericAPIView):
 #                     reference=quotation_ref,
 #                     amount=request.get("amount")
 #                 )
-            
 #             fx_resp = Forex.exchange(reference=quotation_ref)
 #             if fx resp

@@ -229,7 +229,6 @@ class QuotationSerializer(serializers.Serializer):
 
 
 class ExchangeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ForexModel
         fields = ["amount"]

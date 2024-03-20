@@ -130,7 +130,8 @@ class CreateCard(generics.CreateAPIView):
                     except requests.exceptions.RequestException as e:
                         logging.error(f"Create a USD card API request error: {str(e)}")
                         return Response(
-                            {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            {"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
                 else:
                     return Response(
@@ -140,12 +141,14 @@ class CreateCard(generics.CreateAPIView):
             else:
                 # initiate a credit refund to the customer after failed transaction.
                 _ = Account.Credit(
-                    accNo=authenticated_user.accountNumber, amount=naira_value, reason="Refund for failed card creation"
+                    accNo=authenticated_user.accountNumber,
+                    amount=naira_value,
+                    reason="Refund for failed card creation",
                 )
                 resp = {
                     "status": "fail",
                     "message": "A refund will be issued shortly.",
-                    "data": debit_response.json()
+                    "data": debit_response.json(),
                 }
                 return Response(data=resp, status=debit_response.status_code)
         else:

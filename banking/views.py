@@ -18,6 +18,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -278,7 +279,11 @@ class GetCustomer(generics.RetrieveAPIView):
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
-        customer = CustomerData.objects.get(user=user)
+        try:
+            customer = CustomerData.objects.get(user=user)
+        except CustomerData.DoesNotExist:
+            raise NotFound("User does not have an associated customer account!")
+
         id = customer.customer_id
         if user:
             resource = f"customers/{id}"
@@ -317,7 +322,11 @@ class GetCustomersWallets(generics.RetrieveAPIView):
     def get(self, request):
         user = self.request.user  # Get the authenticated user.
 
-        customer = CustomerData.objects.get(user=user)
+        try:
+            customer = CustomerData.objects.get(user=user)
+        except CustomerData.DoesNotExist:
+            raise NotFound("User does not have an associated customer account!")
+
         id = customer.customer_id
         if user:
             resource = f"customers/{id}/accounts"
@@ -405,7 +414,11 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
         user = self.request.user  # Get the authenticated user.
 
         if user:
-            customer = CustomerData.objects.get(user=user)
+            try:
+                customer = CustomerData.objects.get(user=user)
+            except CustomerData.DoesNotExist:
+                raise NotFound("User does not have an associated customer account!")
+
             id = customer.customer_id
             resource = f"customers/{id}/transactions"
 

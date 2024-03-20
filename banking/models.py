@@ -151,8 +151,12 @@ class PayWithCard(models.Model):
 
 class ForexModel(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    source_currency = models.CharField(choices=CURRENCY, default="NGN", max_length=50, null=True)
-    target_currency = models.CharField(choices=CURRENCY, default="USD", max_length=50, null=True)
+    source_currency = models.CharField(
+        choices=CURRENCY, default="NGN", max_length=50, null=True
+    )
+    target_currency = models.CharField(
+        choices=CURRENCY, default="USD", max_length=50, null=True
+    )
     rate = models.CharField(max_length=150, null=True)
     reference = models.CharField(max_length=150, null=True)
     amount = models.FloatField(null=True)

@@ -28,7 +28,6 @@ from .models import (
     AvailablePartnerGymTrainers,
 )
 from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrReadOnly
-from mail import send_email
 
 
 picadailys_email = config("EMAIL_HOST_USER")

@@ -29,7 +29,7 @@ class BVN:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -54,7 +54,7 @@ class Customer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             if response.status_code == 200:
                 resp = response.json()
@@ -95,7 +95,7 @@ class Customer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -122,7 +122,7 @@ class Customer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -145,7 +145,7 @@ class VirtualCard:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -162,7 +162,7 @@ class VirtualCard:
         try:
             response = requests.post(
                 url=base_url + resource,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -178,7 +178,7 @@ class VirtualCard:
         try:
             response = requests.post(
                 url=base_url + resource,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -204,7 +204,7 @@ class Account:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -228,7 +228,7 @@ class Account:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -257,7 +257,7 @@ class Transfer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -282,7 +282,7 @@ class Transfer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -357,7 +357,7 @@ class Transfer:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -374,7 +374,7 @@ class Transfer:
         try:
             response = requests.post(
                 url=base_url + resource,
-                header=headers,
+                headers=headers,
             )
             return response
 
@@ -390,13 +390,13 @@ class Forex:
     def generate_quote():
         resource = "fx/quote"
 
-        payload = {"source_currency": "NGN", "target_currency": "USD", "amount": 1}
+        payload = {"source_currency": "NGN", "target_currency": "USD", "amount": 10000}
 
         try:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -409,13 +409,13 @@ class Forex:
     def exchange(reference):
         resource = "fx"
 
-        payload = { "quote_reference": reference}
+        payload = {"quote_reference": reference}
 
         try:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
-                header=headers,
+                headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
