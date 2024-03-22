@@ -91,8 +91,8 @@ class VerifYBVN(generics.GenericAPIView):
 
                 # Check if the user's date of birth and phone number match the ones on BVN.
                 if (
-                    user_data.get("date_of_birth") != bvn_data["date_of_birth"]
-                    or user_data.get("phone_number") != bvn_data["phone_num"]
+                    user_data.get("date_of_birth") != bvn_data["data"]["dob"]
+                    or user_data.get("phone_number") != bvn_data["data"]["phone_number"]
                 ):
                     return Response(
                         data={
@@ -102,10 +102,10 @@ class VerifYBVN(generics.GenericAPIView):
                     )
 
                 # Update the user's BVN instance with the new data.
-                bvn.first_name = bvn_data["first_name"]
-                bvn.last_name = bvn_data["last_name"]
-                bvn.date_of_birth = bvn_data["date_of_birth"]
-                bvn.phone_number = bvn_data["phone_num"]
+                bvn.first_name = bvn_data["data"]["first_name"]
+                bvn.last_name = bvn_data["data"]["last_name"]
+                bvn.date_of_birth = bvn_data["data"]["dob"]
+                bvn.phone_number = bvn_data["data"]["phone_number"]
                 bvn.number = user_data.get("bvn")
                 bvn.save()
 

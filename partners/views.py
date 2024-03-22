@@ -464,7 +464,6 @@ class VerifyCAC(generics.GenericAPIView):
 
                 if response.status_code == 200:
                     resp = response.json()["data"][0]
-                    print(resp)
                     business_name = user["business_name"].upper()
                     if business_name == resp["approvedName"]:
                         response_data = {
