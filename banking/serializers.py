@@ -1,6 +1,3 @@
-from datetime import datetime
-import re
-
 # Third party imports.
 from rest_framework import serializers
 
@@ -18,23 +15,6 @@ class BVNSerializer(serializers.Serializer):
             "bvn",
             "date_of_birth",
         ]
-
-    # def validate(self, attrs):
-    #     user_bvn = attrs.get("bvn")
-    #     date_of_birth = attrs.get("date_of_birth")
-
-    #     # if user_bvn is None:
-    #     #     raise serializers.ValidationError("BVN is required")
-
-    #     if not re.match(r"^\d{11}$", user_bvn):
-    #         raise serializers.ValidationError("BVN must be 11 digits")
-
-    #     try:
-    #         date_of_birth = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
-    #     except ValueError:
-    #         raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD.")
-
-    #     return super().validate(attrs)
 
 
 class CustomerUpgradeSerializers(serializers.ModelSerializer):

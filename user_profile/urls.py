@@ -16,7 +16,8 @@ from .views import (
     OpenRewardBox,
 )
 from .notifications import (
-    GetNotifications,
+    GetAllNotifications,
+    GetSingleNotification,
     ClearNotifications,
     MarkNotificationsAsRead,
     DeleteNotification,
@@ -37,12 +38,15 @@ urlpatterns = [
     path("webhook/", WebhookView.as_view(), name="webhook_view"),
     path("delete/", DeleteUser.as_view(), name="delete"),
     # Notification endpoints.
-    path("notification/get", GetNotifications.as_view(), name="get_ntfn"),
+    path("notification/<int:id>/get", GetSingleNotification.as_view(), name="get_ntfn"),
+    path("notification/get-all", GetAllNotifications.as_view(), name="get_ntfns"),
     path(
         "notification/mark-as-read",
         MarkNotificationsAsRead.as_view(),
         name="mark_ntfn_as_read",
     ),
     path("notification/clear", ClearNotifications.as_view(), name="clear_ntfn"),
-    path("notification/delete", DeleteNotification.as_view(), name="delete_ntfn"),
+    path(
+        "notification/<int:id>/delete", DeleteNotification.as_view(), name="delete_ntfn"
+    ),
 ]
