@@ -73,7 +73,7 @@ class VerifYBVN(generics.GenericAPIView):
             }
             return Response(
                 data={"message": "User has already verified BVN", "Bvn data": data},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_202_ACCEPTED,
             )
         try:
             bvn = BVNData.objects.get(user=authenticated_user)
@@ -89,15 +89,16 @@ class VerifYBVN(generics.GenericAPIView):
             if bvn_status_code == 200:
                 bvn_data = bvn_response.json()
 
-                # Check if the user's date of birth and phone number match the ones on BVN.
-                if (
-                    user_data.get("date_of_birth") != bvn_data["data"]["dob"]
-                    or user_data.get("phone_number") != bvn_data["data"]["phone_number"]
+                # Check if the user's date of birth matches the ones on BVN.
+                if all(
+                    data != bvn_data["data"][field]
+                    for data, field in [
+                        (user_data.get("date_of_ birth"), "dob"),
+                        (user_data.get("phone_number"), "phone_number"),
+                    ]
                 ):
                     return Response(
-                        data={
-                            "message": "Date of birth or phone number provided does not match the one on bvn"
-                        },
+                        data={"message": "Date of birth or phone number provided does not match the one on bvn"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -119,13 +120,13 @@ class VerifYBVN(generics.GenericAPIView):
                     title="BVN Verification.",
                     message="Your BVN Verifiction is successful.",
                 )
-                send_email(
-                    subject="BVN Verifiction.",
-                    body="This is to inform you that your BVN verifiction was successful.",
-                    sender=picadailys_email,
-                    recipients=authenticated_user.email,
-                    password=app_password,
-                )
+                # send_email(
+                #     subject="BVN Verification.",
+                #     body="This is to inform you that your BVN verifiction was successful.",
+                #     sender=picadailys_email,
+                #     recipients=authenticated_user.email,
+                #     password=app_password,
+                # )
 
                 response = {
                     "status": "success",

@@ -187,6 +187,18 @@ class PayWithCard(generics.GenericAPIView):
                     id=id, amount=request.data.get["amount"]
                 )
                 if fund_card_response.status_code == 200:
+                    fx_resp = Forex.generate_quote()
+                    if fx_resp.status_code == 200:
+                        fx_rate = fx_resp.json()["data"]["rate"]
+
+                        dollars = 3
+                        naira_value = dollars / fx_rate
+
+                    # Inititate a debit on the customer's account for card creation.
+                    debit_response = Account.Debit(
+                        amount=naira_value, reason="Debit for card request."
+                    )
+
                     card = Cards.objects.get(user=customer)
                     card.amount = request.data.get["amount"]
                     card.save()
