@@ -13,10 +13,10 @@ from .serializers import (
 from accounts.models import UserNotification
 
 
-class GetNotifications(generics.ListAPIView):
+class GetAllNotifications(generics.ListAPIView):
     """
-    GetNotifications is the GET request handler that allows a user to
-    receieve notifications.
+    GetAllNotifications is the GET request handler that allows a user to
+    receieve all notifications.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -27,6 +27,44 @@ class GetNotifications(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user  # Access authorized user from request
         return UserNotification.objects.filter(user=user).order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class GetSingleNotification(generics.RetrieveAPIView):
+    """
+    GetSingleNotification is the GET request handler that allows a user to
+    receieve notification.
+    """
+
+    queryset = UserNotification.objects.all()
+    serializer_class = NotificationSerializers
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            notification = self.get_object()
+
+            # Check if the notification belongs to the authenticated user
+            if notification.user != request.user:
+                return Response(
+                    {"detail": "You are not authorized to view this notification."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            serializer = self.get_serializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except UserNotification.DoesNotExist:
+            return Response(
+                {"detail": "Notification not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class ClearNotifications(generics.DestroyAPIView):
@@ -51,7 +89,7 @@ class ClearNotifications(generics.DestroyAPIView):
 
         notifications.delete()
         return Response(
-            {"message": "Notifications deleted."}, status=status.HTTP_200_OK
+            {"message": "Notifications cleared."}, status=status.HTTP_200_OK
         )
 
 
@@ -65,47 +103,32 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
     authentication_classes = [JWTAuthentication]
     serializer_class = NotificationSerializers
 
-    def update(self, request, *args, **kwargs):
-        user = self.request.user
-        data = request.data.get("ids", [])
+    def post(self, request):
+        user = request.user
+        notifications = UserNotification.objects.filter(user=user)
 
-        if not data:
+        if not notifications.exists():
             return Response(
-                {"error": "Please provide notification IDs to mark as read."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"message": "You have no notifications to mark as read."},
+                status=status.HTTP_200_OK,
             )
 
-        # Validate IDs are integers and belong to the user
-        valid_ids = []
-        for id_str in data:
-            try:
-                notification_id = int(id_str)
-                UserNotification.objects.get(id=notification_id, user=user)
-                valid_ids.append(notification_id)
-            except (ValueError, UserNotification.DoesNotExist):
-                pass
-
-        if not valid_ids:
-            return Response(
-                data={"error": "Invalid or non-existent notification IDs provided."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        UserNotification.objects.filter(id__in=valid_ids).update(read=True)
+        notifications.update(is_read=True)
         return Response(
-            data={"message": "Notifications marked as read."}, status=status.HTTP_200_OK
+            {"message": "All notifications marked as read."}, status=status.HTTP_200_OK
         )
 
 
 class DeleteNotification(generics.DestroyAPIView):
     """
-    DeletePost is the DELETE request handler that allows a user to delete their post.
+    DeleteNotification is the DELETE request handler that allows a user to delete their post.
     """
 
     queryset = UserNotification.objects.all()
     serializer_class = DeleteNotificationStatusSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    lookup_field = "id"
 
     def destroy(self, request, *args, **kwargs):
         try:
