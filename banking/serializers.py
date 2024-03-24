@@ -227,9 +227,8 @@ class NGNToUSDConversionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
-        class Meta:
-            model = Transfer
-            fields = [
-                "pin",
-                "amount",
-            ]
+        model = Transfer
+        fields = [
+            "pin",
+            "amount",
+        ]
