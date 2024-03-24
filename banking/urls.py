@@ -24,7 +24,7 @@ from .transfers import (
     InternationalTransfer,
     VerifyTransfer,
 )
-from .fx import GetQuotation
+from .fx import GetQuotation, ConvertToDollar
 
 urlpatterns = [
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
@@ -71,5 +71,9 @@ urlpatterns = [
         VerifyTransfer.as_view(),
         name="verify_transfer",
     ),
-    path("get-quotation", GetQuotation.as_view(), name="get_quotation"),
+    # Fx Endpoints.
+    path(
+        "fx/convert-to-dollar", ConvertToDollar.as_view(), name="transfer_con_to_doll"
+    ),
+    path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
 ]

@@ -98,7 +98,9 @@ class VerifYBVN(generics.GenericAPIView):
                     ]
                 ):
                     return Response(
-                        data={"message": "Date of birth or phone number provided does not match the one on bvn"},
+                        data={
+                            "message": "Date of birth or phone number provided does not match the one on bvn"
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 

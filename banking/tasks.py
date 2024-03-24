@@ -1,5 +1,6 @@
 import logging
-import schedule, time
+import schedule
+import time
 from datetime import date, timedelta
 
 from django.core.mail import send_mail
@@ -8,6 +9,7 @@ from .controllers import Forex, Account
 from .models import Cards
 
 scheduled_charges = {}
+
 
 def charge_cards_every_30_days():
     today = date.today()
@@ -37,7 +39,7 @@ def charge_cards_every_30_days():
                             subject="Card Charge Successful",
                             message=f"Card charge for {card.user.email} was successful.",
                             recipient_list=[card.user.email],
-                            fail_silently=False
+                            fail_silently=False,
                         )
                     else:
                         logging.error(msg="Cards charge error")
@@ -45,10 +47,11 @@ def charge_cards_every_30_days():
                             subject="Card Charge Failed",
                             message=f"Card charge for {card.user.email} failed. Please check card details.",
                             recipient_list=[card.user.email],
-                            fail_silently=False
+                            fail_silently=False,
                         )
                 except Exception as e:
                     logging.error("Card charge error:", e)
+
 
 # Schedule the task to run every 30 days
 schedule.every(30).days.do(charge_cards_every_30_days)

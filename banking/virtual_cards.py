@@ -184,9 +184,7 @@ class PayWithCard(generics.GenericAPIView):
             )
             if is_pin_correct:
                 amount = request.data.get["amount"]
-                fund_card_response = VirtualCard.fund(
-                    id=id, amount=amount
-                )
+                fund_card_response = VirtualCard.fund(id=id, amount=amount)
                 if fund_card_response.status_code == 200:
                     fx_resp = Forex.generate_quote()
                     if fx_resp.status_code == 200:
@@ -220,7 +218,8 @@ class PayWithCard(generics.GenericAPIView):
                                 naira_value = dollars / fx_rate
                             # Inititate a debit on the customer's account for card creation.
                             Account.Debit(
-                                amount=naira_value, reason="Charge for withdrawal from card."
+                                amount=naira_value,
+                                reason="Charge for withdrawal from card.",
                             )
 
                             resp = {
