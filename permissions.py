@@ -2,6 +2,8 @@ from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
 
+from banking.models import CustomerData
+
 
 class IsVerifiedUser(permissions.BasePermission):
     """
@@ -179,3 +181,22 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
             return True
 
         return obj.user == request.user
+
+
+class hasWallet(permissions.BasePermission):
+    """
+    Custom permission to only allow owners of wallet to convert naira to ddollar.
+    """
+
+    def has_permission(self, request, view):
+
+        if request.user.is_authenticated:
+            customer = CustomerData.objects.filter(user=request.user).exists()
+
+            # Check if the user_type matches the required user_type
+            if customer:
+                return True
+            else:
+                raise ValidationError("You need to have a wallet to conduct this transaction.")
+
+        raise ValidationError("Authentication is required to access this resource.")

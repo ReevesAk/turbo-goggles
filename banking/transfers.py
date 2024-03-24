@@ -3,7 +3,7 @@ import logging
 from decouple import config
 
 from exceptions import Customexceptions
-from permissions import IsPartnerUserOrMember
+from permissions import hasWallet
 
 # Third party imports.
 from rest_framework import generics
@@ -42,7 +42,7 @@ class TransferWithinPicadailys(generics.GenericAPIView):
 
     serializer_class = TransferWithinPicadailysSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, hasWallet)
 
     def post(self, request):
         user_data = request.data
@@ -104,7 +104,7 @@ class TransferWithinNG(generics.GenericAPIView):
 
     serializer_class = TransferWithinNigeriaSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, hasWallet)
 
     def post(self, request):
         user_data = request.data
@@ -167,7 +167,7 @@ class InternationalTransfer(generics.GenericAPIView):
 
     serializer_class = InternationalTransfersSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, hasWallet)
 
     def post(self, request):
         user_data = request.data
@@ -242,7 +242,7 @@ class VerifyTransfer(generics.GenericAPIView):
 
     serializer_class = VerifyTransferSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, hasWallet)
 
     @extend_schema(
         description="Get transfer details",
