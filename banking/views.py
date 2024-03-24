@@ -84,9 +84,10 @@ class VerifYBVN(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
 
             number = BVNData.objects.filter(number=user_data.get("bvn")).exists()
+            num = request.data.get("bvn")
             if number:
                 return Response(
-                    data={"status": "fail", "message": f"User with this bvn: {user_data.get("bvn")} already exist"},
+                    data={"status": "fail", "message": f"User with this bvn: {num} already exist"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # Verify the user's BVN.
