@@ -183,20 +183,20 @@ class PayWithCard(generics.GenericAPIView):
                 user=authenticated_user, pin=pin, hashed_pin=wallet.pin
             )
             if is_pin_correct:
+                amount = request.data.get["amount"]
                 fund_card_response = VirtualCard.fund(
-                    id=id, amount=request.data.get["amount"]
+                    id=id, amount=amount
                 )
                 if fund_card_response.status_code == 200:
                     fx_resp = Forex.generate_quote()
                     if fx_resp.status_code == 200:
                         fx_rate = fx_resp.json()["data"]["rate"]
 
-                        dollars = 3
-                        naira_value = dollars / fx_rate
+                        fund_percentage = 1.5 * amount
 
                     # Inititate a debit on the customer's account for card creation.
-                    debit_response = Account.Debit(
-                        amount=naira_value, reason="Debit for card request."
+                    Account.Debit(
+                        amount=fund_percentage, reason="Charge for card funding."
                     )
 
                     card = Cards.objects.get(user=customer)
@@ -212,6 +212,17 @@ class PayWithCard(generics.GenericAPIView):
                             header=headers,
                         )
                         if withdraw_response.status_code == 200:
+                            fx_resp = Forex.generate_quote()
+                            if fx_resp.status_code == 200:
+                                fx_rate = fx_resp.json()["data"]["rate"]
+
+                                dollars = 3
+                                naira_value = dollars / fx_rate
+                            # Inititate a debit on the customer's account for card creation.
+                            Account.Debit(
+                                amount=naira_value, reason="Charge for withdrawal from card."
+                            )
+
                             resp = {
                                 "message": "Transaction successful",
                                 "data": withdraw_response.json(),

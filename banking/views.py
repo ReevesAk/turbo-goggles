@@ -127,7 +127,6 @@ class VerifYBVN(generics.GenericAPIView):
                 #     recipients=authenticated_user.email,
                 #     password=app_password,
                 # )
-
                 response = {
                     "status": "success",
                     "message": "Bvn verification was successful",
