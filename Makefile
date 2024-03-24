@@ -15,3 +15,6 @@ lint:
 
 fmt:
 	black accounts adverts banking partners roles self_service user_profile vas
+
+purge:
+	python3 manage.py flush --no-input

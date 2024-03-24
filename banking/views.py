@@ -72,7 +72,7 @@ class VerifYBVN(generics.GenericAPIView):
                 "Bvn": user_data.get("bvn"),
             }
             return Response(
-                data={"message": "User has already verified BVN", "Bvn data": data},
+                data={"status": "success", "message": "User has already verified BVN", "Bvn data": data},
                 status=status.HTTP_202_ACCEPTED,
             )
         try:
@@ -93,12 +93,15 @@ class VerifYBVN(generics.GenericAPIView):
                 if all(
                     data != bvn_data["data"][field]
                     for data, field in [
-                        (user_data.get("date_of_ birth"), "dob"),
+                        (user_data.get("date_of_birth"), "dob"),
                         (user_data.get("phone_number"), "phone_number"),
                     ]
                 ):
+                    print(user_data.get("date_of_birth"))
+                    print(bvn_data["data"]["dob"])
                     return Response(
                         data={
+                            "status": "fail",
                             "message": "Date of birth or phone number provided does not match the one on bvn"
                         },
                         status=status.HTTP_400_BAD_REQUEST,
@@ -132,7 +135,13 @@ class VerifYBVN(generics.GenericAPIView):
                 response = {
                     "status": "success",
                     "message": "Bvn verification was successful",
-                    "Bvn data": serializer.data,
+                    "bvn data": {
+                        "first_name": bvn_data["data"]["first_name"],
+                        "last_name": bvn_data["data"]["last_name"],
+                        "date_of_birth": bvn_data["data"]["dob"],
+                        "phone_number": bvn_data["data"]["phone_number"],
+                        "number": user_data.get("bvn"),
+                    },
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
             else:
