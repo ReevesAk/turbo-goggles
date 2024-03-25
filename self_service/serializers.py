@@ -6,6 +6,7 @@ from .models import (
     CinemaBooking,
     CourierService,
     ConsumableService,
+    LandTravels,
 )
 
 
@@ -145,3 +146,19 @@ class ConsumableSerializers(serializers.ModelSerializer):
     class Meta:
         model = ConsumableService
         fields = ["id", "price", "contact"]  # contact the seller
+
+
+class LandTravelsSerilaizers(serializers.ModelSerializer):
+    class Meta:
+        model = LandTravels
+        fields = [
+            "id",
+            "trip_date",
+            "departure_state",
+            "terminal",
+            "destination",
+            "no_of_adults",
+            "no_of_children",
+            "trip_type",
+            "trip_pattern",
+        ]
