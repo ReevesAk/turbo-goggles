@@ -175,7 +175,7 @@ class CreateNGNAccount(generics.GenericAPIView):
     def post(self, request):
         authenticated_user = request.user
 
-        user_data = User.objects.get(user=authenticated_user)
+        user_data = User.objects.get(email=authenticated_user.email)
 
         try:
             customer = CustomerData.objects.get(email=request.data.get("email"))
