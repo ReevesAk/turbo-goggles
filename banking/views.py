@@ -175,7 +175,11 @@ class CreateNGNAccount(generics.GenericAPIView):
     def post(self, request):
         authenticated_user = request.user
 
-        user_data = User.objects.get(email=authenticated_user.email)
+        # TODO- Production query.
+        # user_data = User.objects.get(email=authenticated_user.email)
+
+        # sandbox testing        
+        user_data = BVNData.objects.get(user=authenticated_user)
 
         try:
             customer = CustomerData.objects.get(email=request.data.get("email"))
@@ -218,7 +222,7 @@ class CreateNGNAccount(generics.GenericAPIView):
         payload = {
             "customer_id": user_exist.customer_id,
             "currency": "NGN",
-            "preferred_bank": "C34",
+            "preferred_bank": "251",
             "country": "NG",
         }
         try:
@@ -241,7 +245,8 @@ class CreateNGNAccount(generics.GenericAPIView):
                     user=authenticated_user,
                     customer_id=user_exist.customer_id,
                     currency="NGN",
-                    bank_name=response.json()["data"]["preferred_bank"],
+                    bank_name=response.json()["data"]["bank_name"],
+                    account_number=response.json()["data"]["account_number"]
                 )
                 account_details.save()
 
@@ -397,11 +402,6 @@ class GetVirtualAccountDetails(generics.RetrieveAPIView):
                     header=headers,
                 )
                 if response.status_code == 200:
-                    resp = response.json()["data"]
-                    for res in resp:
-                        # Update a user's account to persist the account number on the database.
-                        wallet.account_number = res["account_number"]
-                        wallet.save()
                     response_data = {"status": "success", "data": response.json()}
                     return Response(data=response_data, status=status.HTTP_200_OK)
 
