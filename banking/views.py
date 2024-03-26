@@ -36,7 +36,7 @@ from .serializers import (
     UpdateCustomerSerializers,
     VirtaulAccountDetailsSerializer,
 )
-from accounts.models import User, UserNotification
+from accounts.models import UserNotification
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
 from .controllers import BVN, Customer
 
@@ -72,7 +72,11 @@ class VerifYBVN(generics.GenericAPIView):
                 "Bvn": user_data.get("bvn"),
             }
             return Response(
-                data={"status": "success", "message": "User has already verified BVN", "Bvn data": data},
+                data={
+                    "status": "success",
+                    "message": "User has already verified BVN",
+                    "Bvn data": data,
+                },
                 status=status.HTTP_202_ACCEPTED,
             )
         try:
@@ -82,12 +86,14 @@ class VerifYBVN(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-
             number = BVNData.objects.filter(number=user_data.get("bvn")).exists()
             num = request.data.get("bvn")
             if number:
                 return Response(
-                    data={"status": "fail", "message": f"User with this bvn: {num} already exist"},
+                    data={
+                        "status": "fail",
+                        "message": f"User with this bvn: {num} already exist",
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # Verify the user's BVN.
@@ -110,7 +116,7 @@ class VerifYBVN(generics.GenericAPIView):
                     return Response(
                         data={
                             "status": "fail",
-                            "message": "Date of birth or phone number provided does not match the one on bvn"
+                            "message": "Date of birth or phone number provided does not match the one on bvn",
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
@@ -178,7 +184,7 @@ class CreateNGNAccount(generics.GenericAPIView):
         # TODO- Production query.
         # user_data = User.objects.get(email=authenticated_user.email)
 
-        # sandbox testing        
+        # sandbox testing.
         user_data = BVNData.objects.get(user=authenticated_user)
 
         try:
@@ -246,7 +252,7 @@ class CreateNGNAccount(generics.GenericAPIView):
                     customer_id=user_exist.customer_id,
                     currency="NGN",
                     bank_name=response.json()["data"]["bank_name"],
-                    account_number=response.json()["data"]["account_number"]
+                    account_number=response.json()["data"]["account_number"],
                 )
                 account_details.save()
 
@@ -393,7 +399,7 @@ class GetVirtualAccountDetails(generics.RetrieveAPIView):
         customer = CustomerData.objects.get(user=user)
         customer_id = customer.customer_id
         wallet = get_object_or_404(Wallet, user=user)
-        if user:
+        if wallet:
             resource = f"customers/{customer_id}/virtual-account"
 
             try:

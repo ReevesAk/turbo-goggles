@@ -15,6 +15,9 @@ from .views import (
     BookConsumableSercvice,
     ConsumableBookingList,
     ConsumableBookingDetail,
+    BookLandTrip,
+    LandTripBookingDetail,
+    LandTripBookingList,
 )
 
 
@@ -67,5 +70,16 @@ urlpatterns = [
         "consumable-booking-details/<int:id>/",
         ConsumableBookingDetail.as_view(),
         name="consumable_booking_details",
+    ),
+    path("book-land-trip/", BookLandTrip.as_view(), name="book_land_trip"),
+    path(
+        "land-trip-booking-details/<int:id>/",
+        LandTripBookingDetail.as_view(),
+        name="land_trip_booking_details",
+    ),
+    path(
+        "land-trips-booking-list/",
+        LandTripBookingList.as_view(),
+        name="land_trip_booking_list",
     ),
 ]

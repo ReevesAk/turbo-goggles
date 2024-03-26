@@ -14,6 +14,7 @@ from .serializers import (
     CinemaBookingSerializers,
     CourierBookingSerializers,
     ConsumableSerializers,
+    LandTravelsSerilaizers,
 )
 from .models import (
     GymSubcription,
@@ -21,6 +22,7 @@ from .models import (
     CinemaBooking,
     CourierService,
     ConsumableService,
+    LandTravels,
 )
 from accounts.models import UserNotification
 from wallets.controllers import Pin
@@ -853,3 +855,118 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+class BookLandTrip(generics.GenericAPIView):
+    serializer_class = LandTravelsSerilaizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def post(self, request):
+        serializer = CourierBookingSerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                authenticated_user = request.user
+                trip_pattern = request.data.get("trip_pattern")
+                payload = request.data
+
+                trip_date = (payload["trip_date"],)
+                departure_state = (payload["departure_state"],)
+                terminal = (payload["terminal"],)
+                destination = (payload["destination"],)
+                no_of_adults = (payload["no_of_adults"],)
+                no_of_children = (payload["no_of_children"],)
+                trip_type = (payload["trip_type"],)
+                trip_pattern = payload["trip_pattern"]
+
+                LandTravels.objects.create(
+                    user=authenticated_user,
+                    trip_date=trip_date,
+                    departure_state=departure_state,
+                    terminal=terminal,
+                    destination=destination,
+                    no_of_adults=no_of_adults,
+                    no_of_children=no_of_children,
+                    trip_type=trip_type,
+                    trip_pattern=trip_pattern,
+                )
+
+                data = {
+                    "trip_date": request.data.get("trip_date"),
+                    "departure_state": request.data.get("departure_state"),
+                    "terminal": request.data.get("terminal"),
+                    "destination": request.data.get("destination"),
+                    "no_of_children": request.data.get("no_of_children"),
+                    "trip_type": request.data.get("trip_type"),
+                    "trip_pattern": request.data.get("trip_pattern"),
+                }
+
+                match trip_pattern:
+                    case "One Way":
+                        response = {
+                            "status": "success!",
+                            "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
+                            "data": data,
+                        }
+                        return Response(data=response, status=status.HTTP_201_CREATED)
+                    case "Round Trip":
+                        response = {
+                            "status": "success!",
+                            "message": f"You have successfully booked a round trip from {departure_state} to {destination} and {destination} to {departure_state}.",
+                            "data": data,
+                        }
+                        return Response(data=response, status=status.HTTP_201_CREATED)
+
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LandTripBookingDetail(generics.RetrieveAPIView):
+    """
+    LandTripBookingDetail retrieves a specific land trip booking for
+    the authenticated user.
+    """
+
+    serializer_class = LandTravelsSerilaizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_object(self):
+        booking_id = self.kwargs.get("id")
+        user = self.request.user
+
+        try:
+            # Check if booking exists and belongs to the user
+            booking = LandTravels.objects.get(id=booking_id, user=user)
+        except LandTravels.DoesNotExist:
+            return Response(
+                {"error": "Booking not found or does not belong to you."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return booking
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+class LandTripBookingList(generics.ListAPIView):
+    """LandTripBookingList lists all land travel bookings."""
+
+    serializer_class = LandTravelsSerilaizers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = LandTravels.objects.filter(user=user)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
