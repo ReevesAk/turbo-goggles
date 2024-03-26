@@ -129,8 +129,14 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         fields = ("otp", "password", "password2")
 
 
-class AcccountStatusSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
+class LogoutSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField(max_length=200)
+
+    class Meta:
+        model = User
+        fields = [
+            "refresh_token",
+        ]
 
 
 class SubmitGamificationSerializer(serializers.ModelSerializer):

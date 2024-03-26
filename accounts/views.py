@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings
 
 from drf_spectacular.utils import extend_schema
 
@@ -22,7 +23,7 @@ from .serializers import (
     ResendOTPSerializer,
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
-    AcccountStatusSerializer,
+    LogoutSerializer,
     SubmitGamificationSerializer,
 )
 from .models import User, DeviceId, AccountType, UserNotification
@@ -427,7 +428,7 @@ class SubmitGamification(generics.CreateAPIView):
 
 
 class Logout(APIView):
-    serializer_class = AcccountStatusSerializer
+    serializer_class = LogoutSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -440,7 +441,7 @@ class Logout(APIView):
             refresh_token = request.data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-
+            
             UserNotification.objects.create(
                 user=request.user,
                 title="Logout.",
