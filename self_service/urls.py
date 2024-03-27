@@ -18,6 +18,7 @@ from .views import (
     BookLandTrip,
     LandTripBookingDetail,
     LandTripBookingList,
+    BookHotel,
 )
 
 
@@ -82,4 +83,5 @@ urlpatterns = [
         LandTripBookingList.as_view(),
         name="land_trip_booking_list",
     ),
+    path("hotel-booking/", BookHotel.as_view(), name="hotel_booking"),
 ]

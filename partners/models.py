@@ -35,8 +35,16 @@ class PartnerServices(models.Model):
     service_star = models.CharField(max_length=50, null=True, blank=True)
     price = models.FloatField(null=True)
     description = models.TextField(null=True)
-    from_station = models.CharField(max_length=255, null=True)
-    destination = models.CharField(max_length=255, null=True)
+    from_station = models.CharField(max_length=255, null=True, blank=True)
+    destination = models.CharField(max_length=255, null=True, blank=True)
+
+
+class CustomerRating(models.Model):
+    service = models.ForeignKey(
+        PartnerServices, on_delete=models.CASCADE, related_name="customer_rating"
+    )
+    rating = models.CharField(null=True, blank=True)
+    review = models.TextField(null=True, blank=True)
 
 
 class PartnerServicePhotos(models.Model):

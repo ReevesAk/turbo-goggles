@@ -7,6 +7,7 @@ from .models import (
     CourierService,
     ConsumableService,
     LandTravels,
+    Hotels
 )
 
 
@@ -161,4 +162,14 @@ class LandTravelsSerilaizers(serializers.ModelSerializer):
             "no_of_children",
             "trip_type",
             "trip_pattern",
+        ]
+
+
+class HotelSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Hotels
+        fields = [
+            "id",
+            "payment_option",
+            "amount",
         ]

@@ -15,6 +15,7 @@ from .serializers import (
     CourierBookingSerializers,
     ConsumableSerializers,
     LandTravelsSerilaizers,
+    HotelSerializers,
 )
 from .models import (
     GymSubcription,
@@ -155,9 +156,13 @@ class TableBooking(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=debit_response.json(),
-                                            status=debit_response.status_code,
+                                            data=validate_card.json(),
+                                            status=validate_card.status_code,
                                         )
+                                else:
+                                    return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                            else:
+                                return Response(data=initialize_response.json(), status=initialize_response.status_code)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -339,9 +344,13 @@ class GymBooking(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=charge_from_card_resp.json(),
-                                            status=charge_from_card_resp.status_code,
+                                            data=validate_card.json(),
+                                            status=validate_card.status_code,
                                         )
+                                else:
+                                    return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                            else:
+                                return Response(data=initialize_response.json(), status=initialize_response.status_code)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -525,9 +534,13 @@ class CinemaBookingView(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=charge_from_card_resp.json(),
-                                            status=charge_from_card_resp.status_code,
+                                            data=validate_card.json(),
+                                            status=validate_card.status_code,
                                         )
+                                else:
+                                    return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                            else:
+                                return Response(data=initialize_response.json(), status=initialize_response.status_code)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -609,7 +622,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                             if debit_response == 200:
                                 UserNotification.objects.create(
                                     user=request.user,
-                                    title="Brand Account.",
+                                    title="Courier Service Booking.",
                                     message=f"Payment of {amount} for courier service booking\
                                         was successful.",
                                 )
@@ -711,9 +724,13 @@ class BookCourierSercvice(generics.CreateAPIView):
                                             )
                                     else:
                                         return Response(
-                                            data=charge_from_card_resp.json(),
-                                            status=charge_from_card_resp.status_code,
+                                            data=validate_card.json(),
+                                            status=validate_card.status_code,
                                         )
+                                else:
+                                        return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                            else:
+                                return Response(data=initialize_response.json(), status=initialize_response.status_code)      
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -858,6 +875,9 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
 
 
 class BookLandTrip(generics.GenericAPIView):
+    """
+    BookLandTrip is an POST request route for booking a land trip, one way or round trip.
+    """
     serializer_class = LandTravelsSerilaizers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
@@ -970,3 +990,147 @@ class LandTripBookingList(generics.ListAPIView):
         queryset = self.get_queryset()
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BookHotel(generics.GenericAPIView):
+    """
+    BookHotel is a POST request route for booking a hotel.
+    """
+    serializer_class = HotelSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def post(self, request):
+        serializer = CourierBookingSerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                authenticated_user = request.user
+                user_data = request.data
+                pin = request.data.get("pin")
+
+                is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
+                if is_verified:
+                    # Inititate a debit on a users' account.
+                    amount = request.data.get("price_per_kg")
+                    payment_option = request.data.get("payment_option")
+                    match payment_option:
+                        case "WALLET":
+                            debit_response = Account.Debit(
+                                amount=amount,
+                                description="Debit for hotel booking.",
+                            )
+                            if debit_response == 200:
+                                UserNotification.objects.create(
+                                    user=request.user,
+                                    title="Hotel Booking.",
+                                    message=f"Payment of {amount} for hotel booking\
+                                        was successful.",
+                                )
+                                send_email(
+                                    subject="Debit Transaction.",
+                                    body=f"Payment of {amount} for hotel booking\
+                                        was successful.",
+                                    sender=picadailys_email,
+                                    recipients=authenticated_user.email,
+                                    password=app_password,
+                                )
+                                serializer.save()
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Hotel service booking paid successfully.",
+                                    "data": serializer.data,
+                                }
+
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                            else:
+                                response_data = {
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }
+                                return Response(
+                                    data=response_data, status=status.HTTP_200_OK
+                                )
+                        case "CARD":
+                            initialize_response = UseCard.initialize_payment(
+                                amount=request.data.get("amount"),
+                                customerName=authenticated_user.firstname
+                                + authenticated_user.last_name,
+                                customerEmail=authenticated_user.email,
+                                paymentDescription="Debit for hotel booking.",
+                            )
+                            if initialize_response.status_code == 200:
+                                resp = initialize_response.json()["responseBody"]
+                                init_pay = PayWithCard.objects.create(
+                                    user=authenticated_user,
+                                    transactionReference=resp["transactionReference"],
+                                    paymentReference=resp["paymentReference"],
+                                    customerName=authenticated_user.firstname
+                                    + authenticated_user.last_name,
+                                    customerEmail=authenticated_user.email,
+                                    redirectUrl=resp["checkoutUrl"],
+                                )
+                                charge_from_card_resp = UseCard.charge(
+                                    transactionReference=init_pay.transactionReference,
+                                    number=request.data.get("number"),
+                                    expiryMonth=request.data.get("expiryMonth"),
+                                    expiryYear=request.data.get("expiryYear"),
+                                    pin=request.data.get("card_pin"),
+                                    cvv=request.data.get("cvv"),
+                                )
+                                if charge_from_card_resp.status_code == 200:
+                                    resp = initialize_response.json()["responseBody"]
+                                    validate_card = UseCard.validate_otp(
+                                        init_pay.transactionReference,
+                                        tokenId=request.data.get("tokenId"),
+                                        token=request.data.get("token"),
+                                    )
+                                    if validate_card.status_code == 200:
+                                        serializer = self.serializer_class(
+                                            data=user_data
+                                        )
+                                        if serializer.is_valid(raise_exception=True):
+                                            UserNotification.objects.create(
+                                                user=request.user,
+                                                title="Debit Transaction.",
+                                                message=f"Payment of {amount} for hotel booking\
+                                                    was successful.",
+                                            )
+                                            send_email(
+                                                subject="Debit Transaction.",
+                                                body=f"Payment of {amount} for hotel booking\
+                                                    was successful.",
+                                                sender=picadailys_email,
+                                                recipients=authenticated_user.email,
+                                                password=app_password,
+                                            )
+                                            serializer.save()
+                                            response_data = {
+                                                "status": "Success!",
+                                                "message": "Debit for hotel booking.",
+                                            }
+
+                                            return Response(
+                                                data=response_data,
+                                                status=status.HTTP_200_OK,
+                                            )
+
+                                        else:
+                                            return Response(
+                                                data=serializer.errors,
+                                                status=status.HTTP_400_BAD_REQUEST,
+                                            )
+                                    else:
+                                        return Response(
+                                            data=validate_card.json(),
+                                            status=validate_card.status_code,
+                                        )
+                                else:
+                                    return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                            else:
+                                return Response(data=initialize_response.json(), status=initialize_response.status_code)
+            except Exception as err:
+                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -69,3 +69,10 @@ class LandTravels(ItemPurchaseBaseModel):
     no_of_children = models.CharField(max_length=150, null=True)
     trip_type = models.CharField(choices=TRIP_TYPE, max_length=100, null=True)
     trip_pattern = models.CharField(choices=TRIP_PATTERN, max_length=100, null=True)
+
+
+class Hotels(ItemPurchaseBaseModel):
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="hotel"
+    )
+    amount = models.FloatField(null=True)

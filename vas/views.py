@@ -177,9 +177,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                         )
                                 else:
                                     return Response(
-                                        data=debit_response.json(),
-                                        status=debit_response.status_code,
+                                        data=validate_card.json(),
+                                        status=validate_card.status_code,
                                     )
+                            else:
+                                return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                        else:
+                            return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -350,9 +354,13 @@ class DataSubscription(generics.GenericAPIView):
                                         )
                                 else:
                                     return Response(
-                                        data=debit_response.json(),
-                                        status=debit_response.status_code,
+                                        data=validate_card.json(),
+                                        status=validate_card.status_code,
                                     )
+                            else:
+                                return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                        else:
+                            return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class VerifyMeterNumber(generics.RetrieveAPIView):
@@ -528,9 +536,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                         )
                                 else:
                                     return Response(
-                                        data=debit_response.json(),
-                                        status=debit_response.status_code,
+                                        data=validate_card.json(),
+                                        status=validate_card.status_code,
                                     )
+                            else:
+                                return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                        else:
+                            return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class ProductStatus(generics.RetrieveAPIView):
@@ -776,9 +788,13 @@ class NewTvSubscription(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -887,9 +903,13 @@ class RenewTvSubscription(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
@@ -1175,9 +1195,13 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetWaecVaritaionCodes(generics.RetrieveAPIView):
@@ -1330,9 +1354,13 @@ class WaecRegistration(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -1486,9 +1514,13 @@ class VehicleInsuranceView(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
@@ -1642,9 +1674,13 @@ class AccidentInsuranceView(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetHomeCoverVaritaionCodes(generics.RetrieveAPIView):
@@ -1798,9 +1834,13 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
 
 class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
@@ -2004,9 +2044,13 @@ class HealthInsuranceView(generics.GenericAPIView):
                                     )
                             else:
                                 return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
+                                    data=validate_card.json(),
+                                    status=validate_card.status_code,
                                 )
+                        else:
+                            return Response(data=charge_from_card_resp.json(), status=charge_from_card_resp.status_code)
+                    else:
+                        return Response(data=initialize_response.json(), status=initialize_response.status_code)
 
     def upload_image(self, image_data):
         passport = cloud.upload(file=image_data)
