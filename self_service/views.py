@@ -16,6 +16,7 @@ from .serializers import (
     ConsumableSerializers,
     LandTravelsSerilaizers,
     HotelSerializers,
+    CustomerRatingSerializer
 )
 from .models import (
     GymSubcription,
@@ -24,8 +25,9 @@ from .models import (
     CourierService,
     ConsumableService,
     LandTravels,
+    Hotels
 )
-from accounts.models import UserNotification
+from accounts.models import UserNotification, PurchaseModel
 from wallets.controllers import Pin
 from banking.controllers import Account
 from banking.payments import UseCard
@@ -33,6 +35,16 @@ from banking.models import PayWithCard
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
+
+SERVICES = (
+    ("restaurant", "restaurant"),
+    ("gym", "gym"),
+    ("cinema", "cinema"),
+    ("courier", "courier"),
+    ("consumable", "consumable"),
+    ("land_travel", "land_travel"),
+    ("hotel", "hotel")
+)
 
 
 class TableBooking(generics.CreateAPIView):
@@ -75,6 +87,16 @@ class TableBooking(generics.CreateAPIView):
                                     password=app_password,
                                 )
                                 serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Restaurant Booking",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                current_user = RestaurantBooking.objects.get(user=authenticated_user)
+                                current_user.purchase = purchase
+                                current_user.save()
+
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Restaurant booking paid successfully.",
@@ -139,6 +161,16 @@ class TableBooking(generics.CreateAPIView):
                                                     was successful.",
                                             )
                                             serializer.save()
+                                            purchase = PurchaseModel.objects.create(
+                                                user=authenticated_user,
+                                                service_type="Restaurant Booking.",
+                                                service_id=serializer.data["id"],
+                                                amount=amount,
+                                            )
+                                            current_user = RestaurantBooking.objects.get(user=authenticated_user)
+                                            current_user.purchase = purchase
+                                            current_user.save()
+
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Debit restaurant table booking.",
@@ -256,6 +288,16 @@ class GymBooking(generics.CreateAPIView):
                                     password=app_password,
                                 )
                                 serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Gym Subscription",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                current_user = GymSubcription.objects.get(user=authenticated_user)
+                                current_user.purchase = purchase
+                                current_user.save()
+
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Gym booking paid successfully",
@@ -327,6 +369,16 @@ class GymBooking(generics.CreateAPIView):
                                                 password=app_password,
                                             )
                                             serializer.save()
+                                            purchase = PurchaseModel.objects.create(
+                                                user=authenticated_user,
+                                                service_type="Gym Subscription.",
+                                                service_id=serializer.data["id"],
+                                                amount=amount,
+                                            )
+                                            current_user = GymSubcription.objects.get(user=authenticated_user)
+                                            current_user.purchase = purchase
+                                            current_user.save()
+
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Gym booking paid successfully",
@@ -445,6 +497,16 @@ class CinemaBookingView(generics.CreateAPIView):
                                     password=app_password,
                                 )
                                 serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Cinema Booking.",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                current_user = CinemaBooking.objects.get(user=authenticated_user)
+                                current_user.purchase = purchase
+                                current_user.save()
+
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Cinema seats booking paid successfully.",
@@ -517,6 +579,16 @@ class CinemaBookingView(generics.CreateAPIView):
                                                 password=app_password,
                                             )
                                             serializer.save()
+                                            purchase = PurchaseModel.objects.create(
+                                                user=authenticated_user,
+                                                service_type="Cinema Booking.",
+                                                service_id=serializer.data["id"],
+                                                amount=amount,
+                                            )
+                                            current_user = CinemaBooking.objects.get(user=authenticated_user)
+                                            current_user.purchase = purchase
+                                            current_user.save()
+
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Debit for cinema seats booking.",
@@ -635,6 +707,16 @@ class BookCourierSercvice(generics.CreateAPIView):
                                     password=app_password,
                                 )
                                 serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Courier Service.",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                current_user = CourierService.objects.get(user=authenticated_user)
+                                current_user.purchase = purchase
+                                current_user.save()
+
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Courier service booking paid successfully.",
@@ -707,6 +789,16 @@ class BookCourierSercvice(generics.CreateAPIView):
                                                 password=app_password,
                                             )
                                             serializer.save()
+                                            purchase = PurchaseModel.objects.create(
+                                                user=authenticated_user,
+                                                service_type="Courier Service.",
+                                                service_id=serializer.data["id"],
+                                                amount=amount,
+                                            )
+                                            current_user = CourierService.objects.get(user=authenticated_user)
+                                            current_user.purchase = purchase
+                                            current_user.save()
+
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Debit for courier service booking.",
@@ -814,6 +906,15 @@ class BookConsumableSercvice(generics.CreateAPIView):
                 password=app_password,
             )
             serializer.save()
+            purchase = PurchaseModel.objects.create(
+                user=request.user,
+                service_type="Consumable Service.",
+                service_id=serializer.data["id"],
+                amount=price,
+            )
+            current_user = ConsumableService.objects.get(user=request.user)
+            current_user.purchase = purchase
+            current_user.save()
 
             response_data = {
                 "status": "success",
@@ -1035,6 +1136,16 @@ class BookHotel(generics.GenericAPIView):
                                     password=app_password,
                                 )
                                 serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Hotel Service.",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                current_user = Hotels.objects.get(user=authenticated_user)
+                                current_user.purchase = purchase
+                                current_user.save()
+
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Hotel service booking paid successfully.",
@@ -1106,6 +1217,16 @@ class BookHotel(generics.GenericAPIView):
                                                 password=app_password,
                                             )
                                             serializer.save()
+                                            purchase = PurchaseModel.objects.create(
+                                                user=authenticated_user,
+                                                service_type="Hotel Service.",
+                                                service_id=serializer.data["id"],
+                                                amount=amount,
+                                            )
+                                            current_user = Hotels.objects.get(user=authenticated_user)
+                                            current_user.purchase = purchase
+                                            current_user.save()
+
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Debit for hotel booking.",
@@ -1134,3 +1255,84 @@ class BookHotel(generics.GenericAPIView):
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ServiceRating(generics.GenericAPIView):
+    """
+    ServiceRating is the POST request that allows a customer to rate a
+    service on self-service.
+
+    - `service_type`: This represents the servive type the customer is rating.
+    - Example of service types: \n
+        `restaurant`\n
+        `gym`\n
+        `cinema`\n
+        `courier`\n
+        `consumable`\n
+        `land_travel`\n
+        `hotel`\n
+    `rating`: This comes in numbers 1-5 depending on the quality of the service provided.
+    `review`: The review is a written appraisal of the product comnsumed.
+    """
+
+    serializer_class = CustomerRatingSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    lookup_field = "id"
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            user = request.user
+            service_id = kwargs.get("id")
+            service_type = kwargs.get("service_type")
+            
+            service_models = {
+                "restaurant": RestaurantBooking,
+                "gym": GymSubcription,
+                "cinema": CinemaBooking,
+                "courier": CourierService,
+                "consumable": ConsumableService,
+                "land_travel": LandTravels,
+                "hotel": Hotels
+            }
+
+            service_model = service_models.get(service_type)
+
+            if service_model is None:
+                return Response(
+                    {"error": "Invalid service type."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                # Get the service instance
+                service = service_model.objects.get(id=service_id)
+
+                # Check if the user has already rated this service
+                if user in service.rated_by.all():
+                    return Response(
+                        {"error": "You have already rated this service."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Add user to the list of users who rated this service
+                service.rated_by.add(user)
+                
+                # Save the rating linked to the service
+                serializer.save(service=service)
+                
+                return Response(
+                    {"success": "Service rating added successfully."},
+                    status=status.HTTP_201_CREATED
+                )
+            except service_model.DoesNotExist:
+                return Response(
+                    {"error": "Service not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            return Response(
+                data=serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+            )

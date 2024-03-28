@@ -9,6 +9,7 @@ from .models import (
     LandTravels,
     Hotels
 )
+from partners.models import CustomerRating
 
 
 class RestaurantBookingSerializers(serializers.ModelSerializer):
@@ -172,4 +173,13 @@ class HotelSerializers(serializers.ModelSerializer):
             "id",
             "payment_option",
             "amount",
+        ]
+
+
+class CustomerRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerRating
+        fields = [
+            "rating",
+            "review",
         ]

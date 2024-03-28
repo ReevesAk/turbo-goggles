@@ -19,6 +19,7 @@ from .views import (
     LandTripBookingDetail,
     LandTripBookingList,
     BookHotel,
+    ServiceRating,
 )
 
 
@@ -84,4 +85,5 @@ urlpatterns = [
         name="land_trip_booking_list",
     ),
     path("hotel-booking/", BookHotel.as_view(), name="hotel_booking"),
+    path('<str:service_type>/<int:id>/rate/', ServiceRating.as_view(), name='rate-service'),
 ]
