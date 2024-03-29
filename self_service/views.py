@@ -1261,6 +1261,18 @@ class ServiceRating(generics.GenericAPIView):
     """
     ServiceRating is the POST request that allows a customer to rate a
     service on self-service.
+
+    - `service_type`: This represents the servive type the customer is rating.
+    - Example of service types: \n
+        `restaurant`\n
+        `gym`\n
+        `cinema`\n
+        `courier`\n
+        `consumable`\n
+        `land_travel`\n
+        `hotel`\n
+    `rating`: This comes in numbers 1-5 depending on the quality of the service provided.
+    `review`: The review is a written appraisal of the product comnsumed.
     """
 
     serializer_class = CustomerRatingSerializer
