@@ -191,7 +191,7 @@ class GetAllCustomers(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=base_url + resource,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     return Response(data=response.json(), status=status.HTTP_200_OK)

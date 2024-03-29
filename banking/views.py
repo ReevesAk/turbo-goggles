@@ -139,13 +139,13 @@ class VerifYBVN(generics.GenericAPIView):
                     title="BVN Verification.",
                     message="Your BVN Verifiction is successful.",
                 )
-                # send_email(
-                #     subject="BVN Verification.",
-                #     body="This is to inform you that your BVN verifiction was successful.",
-                #     sender=picadailys_email,
-                #     recipients=authenticated_user.email,
-                #     password=app_password,
-                # )
+                send_email(
+                    subject="BVN Verification.",
+                    body="This is to inform you that your BVN verifiction was successful.",
+                    sender=picadailys_email,
+                    recipients=authenticated_user.email,
+                    password=app_password,
+                )
                 response = {
                     "status": "success",
                     "message": "Bvn verification was successful",
@@ -321,7 +321,7 @@ class GetCustomer(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=base_url + resource,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     response_data = {"status": "success", "data": response.json()}
@@ -364,7 +364,7 @@ class GetCustomersWallets(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=base_url + resource,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     response_data = {"status": "success", "data": response.json()}
@@ -405,7 +405,7 @@ class GetVirtualAccountDetails(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=base_url + resource,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     response_data = {"status": "success", "data": response.json()}
@@ -450,7 +450,7 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
             try:
                 response = requests.get(
                     url=base_url + resource,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     response_data = {"status": "success", "data": response.json()}
@@ -529,7 +529,7 @@ class UpdateCustomer(generics.RetrieveAPIView):
                 response = requests.post(
                     url=base_url + resource,
                     json=payload,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     UserNotification.objects.create(
@@ -745,7 +745,7 @@ class CreateUSDAccount(generics.CreateAPIView):
                 response = requests.post(
                     url=base_url + resource,
                     json=payload,
-                    header=headers,
+                    headers=headers,
                 )
                 if response.status_code == 200:
                     # Update wallet fields to save dollar wallet data.

@@ -87,7 +87,7 @@ class CreateCard(generics.CreateAPIView):
                         response = requests.post(
                             url=base_url + resource,
                             json=payload,
-                            header=headers,
+                            headers=headers,
                         )
                         if response.status_code == 200:
                             new_card = Cards.objects.create(
@@ -207,7 +207,7 @@ class PayWithCard(generics.GenericAPIView):
                         withdraw_response = requests.post(
                             url=base_url + resource,
                             json=payload,
-                            header=headers,
+                            headers=headers,
                         )
                         if withdraw_response.status_code == 200:
                             fx_resp = Forex.generate_quote()
