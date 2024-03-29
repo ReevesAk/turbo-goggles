@@ -196,7 +196,7 @@ class CreateNGNAccount(generics.GenericAPIView):
         customer_data_resp = Customer.create(
             f_name=user_data.first_name,
             l_name=user_data.last_name,
-            email=user_data.email,
+            email=authenticated_user.email,
             country="NG",
         )
 

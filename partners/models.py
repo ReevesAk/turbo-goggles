@@ -2,6 +2,7 @@ from django.db import models
 
 from accounts.models import User
 
+from basemodel import BaseModel
 
 BUSINESS_CATEGORY = (
     ("Travel and Leisure", "Travel and Leisure"),
@@ -45,6 +46,7 @@ class CustomerRating(models.Model):
     )
     rating = models.CharField(null=True, blank=True)
     review = models.TextField(null=True, blank=True)
+    slug = models.SlugField(default="", max_length=155, null=False)
 
 
 class PartnerServicePhotos(models.Model):
