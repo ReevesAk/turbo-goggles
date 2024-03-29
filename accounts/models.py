@@ -138,7 +138,7 @@ class PurchaseModel(models.Model):
     service_type = models.CharField(max_length=150, null=True)  # Service type (e.g., Restaurant, Gym)
     service_id = models.PositiveIntegerField(null=True)  # ID of the specific service purchased
     amount = models.FloatField(null=True)
-    purchase_date = models.DateTimeField(auto_now_add=True)  # Date and time of purchase
+    purchase_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-purchase_date"]

@@ -16,7 +16,8 @@ from .serializers import (
     ConsumableSerializers,
     LandTravelsSerilaizers,
     HotelSerializers,
-    CustomerRatingSerializer
+    CustomerRatingSerializer,
+    GetTransactionSerializer
 )
 from .models import (
     GymSubcription,
@@ -25,8 +26,10 @@ from .models import (
     CourierService,
     ConsumableService,
     LandTravels,
-    Hotels
+    Hotels,
+    TransactionStatus
 )
+from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
 from wallets.controllers import Pin
 from banking.controllers import Account
@@ -93,20 +96,35 @@ class TableBooking(generics.CreateAPIView):
                                     service_id=serializer.data["id"],
                                     amount=amount,
                                 )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Restaurant booking paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="RST-")
                                 current_user = RestaurantBooking.objects.get(user=authenticated_user)
                                 current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
                                 current_user.save()
 
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Restaurant booking paid successfully.",
-                                    "data": serializer.data,
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    }
                                 }
 
                                 return Response(
                                     data=response_data, status=status.HTTP_200_OK
                                 )
                             else:
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Fail",
+                                    details="Restaurant booking failed.",
+                                )
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
@@ -167,13 +185,25 @@ class TableBooking(generics.CreateAPIView):
                                                 service_id=serializer.data["id"],
                                                 amount=amount,
                                             )
+                                            tx_status = TransactionStatus.objects.create(
+                                                status="Success",
+                                                details="Restaurant booking paid successfully.",
+                                            )
+                                            tag = ProductTagmanager.generate(service_type="RST-")
                                             current_user = RestaurantBooking.objects.get(user=authenticated_user)
                                             current_user.purchase = purchase
+                                            current_user.product_tag = tag
+                                            current_user.transaction_status = tx_status
                                             current_user.save()
 
                                             response_data = {
                                                 "status": "Success!",
-                                                "message": "Debit restaurant table booking.",
+                                                "message": "Restaurant booking paid successfully.",
+                                                "data": {
+                                                    "booking data": serializer.data,
+                                                    "payment method": payment_option,
+                                                    "product_tag": tag,
+                                                }
                                             }
 
                                             return Response(
@@ -294,13 +324,25 @@ class GymBooking(generics.CreateAPIView):
                                     service_id=serializer.data["id"],
                                     amount=amount,
                                 )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Gym Subscription paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="GYM-")
                                 current_user = GymSubcription.objects.get(user=authenticated_user)
                                 current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
                                 current_user.save()
 
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Gym booking paid successfully",
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    }
                                 }
 
                                 return Response(
@@ -375,15 +417,26 @@ class GymBooking(generics.CreateAPIView):
                                                 service_id=serializer.data["id"],
                                                 amount=amount,
                                             )
+                                            tx_status = TransactionStatus.objects.create(
+                                                status="Success",
+                                                details="Gym Subscription paid successfully.",
+                                            )
+                                            tag = ProductTagmanager.generate(service_type="GYM-")
                                             current_user = GymSubcription.objects.get(user=authenticated_user)
                                             current_user.purchase = purchase
+                                            current_user.product_tag = tag
+                                            current_user.transaction_status = tx_status
                                             current_user.save()
 
                                             response_data = {
                                                 "status": "Success!",
                                                 "message": "Gym booking paid successfully",
+                                                "data": {
+                                                    "booking data": serializer.data,
+                                                    "payment method": payment_option,
+                                                    "product_tag": tag,
+                                                }
                                             }
-
                                             return Response(
                                                 data=response_data,
                                                 status=status.HTTP_200_OK,
@@ -503,14 +556,25 @@ class CinemaBookingView(generics.CreateAPIView):
                                     service_id=serializer.data["id"],
                                     amount=amount,
                                 )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Cinema seats paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="CIN-")
                                 current_user = CinemaBooking.objects.get(user=authenticated_user)
                                 current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
                                 current_user.save()
 
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Cinema seats booking paid successfully.",
-                                    "data": serializer.data,
+                                   "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    }
                                 }
 
                                 return Response(
@@ -585,13 +649,25 @@ class CinemaBookingView(generics.CreateAPIView):
                                                 service_id=serializer.data["id"],
                                                 amount=amount,
                                             )
+                                            tx_status = TransactionStatus.objects.create(
+                                                status="Success",
+                                                details="Cinema seats paid successfully.",
+                                            )
+                                            tag = ProductTagmanager.generate(service_type="CIN-")
                                             current_user = CinemaBooking.objects.get(user=authenticated_user)
                                             current_user.purchase = purchase
+                                            current_user.product_tag = tag
+                                            current_user.transaction_status = tx_status
                                             current_user.save()
 
                                             response_data = {
                                                 "status": "Success!",
-                                                "message": "Debit for cinema seats booking.",
+                                                "message": "Cinema seats booking paid successfully.",
+                                            "data": {
+                                                    "booking data": serializer.data,
+                                                    "payment method": payment_option,
+                                                    "product_tag": tag,
+                                                }
                                             }
 
                                             return Response(
@@ -713,14 +789,25 @@ class BookCourierSercvice(generics.CreateAPIView):
                                     service_id=serializer.data["id"],
                                     amount=amount,
                                 )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Cinema seats paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="COU-")                                
                                 current_user = CourierService.objects.get(user=authenticated_user)
                                 current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
                                 current_user.save()
 
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Courier service booking paid successfully.",
-                                    "data": serializer.data,
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    }
                                 }
 
                                 return Response(
@@ -795,15 +882,26 @@ class BookCourierSercvice(generics.CreateAPIView):
                                                 service_id=serializer.data["id"],
                                                 amount=amount,
                                             )
+                                            tx_status = TransactionStatus.objects.create(
+                                                status="Success",
+                                                details="Courier service booking paid successfully.",
+                                            )
+                                            tag = ProductTagmanager.generate(service_type="COU-")                                
                                             current_user = CourierService.objects.get(user=authenticated_user)
                                             current_user.purchase = purchase
+                                            current_user.product_tag = tag
+                                            current_user.transaction_status = tx_status
                                             current_user.save()
 
                                             response_data = {
                                                 "status": "Success!",
-                                                "message": "Debit for courier service booking.",
+                                                "message": "Courier service booking paid successfully.",
+                                                "data": {
+                                                    "booking data": serializer.data,
+                                                    "payment method": payment_option,
+                                                    "product_tag": tag,
+                                                }
                                             }
-
                                             return Response(
                                                 data=response_data,
                                                 status=status.HTTP_200_OK,
@@ -912,14 +1010,24 @@ class BookConsumableSercvice(generics.CreateAPIView):
                 service_id=serializer.data["id"],
                 amount=price,
             )
+            tx_status = TransactionStatus.objects.create(
+                status="Success",
+                details="Coonsumable service booked successfully.",
+            )
+            tag = ProductTagmanager.generate(service_type="FMCG-") 
             current_user = ConsumableService.objects.get(user=request.user)
             current_user.purchase = purchase
+            current_user.product_tag = tag
+            current_user.transaction_status = tx_status
             current_user.save()
 
             response_data = {
                 "status": "success",
                 "message": "Service booked successfully!",
-                "data": serializer.data,
+                "data": {
+                    "booking data": serializer.data,
+                    "product_tag": tag,
+                }
             }
             return Response(data=response_data, status=status.HTTP_201_CREATED)
 
@@ -1024,17 +1132,57 @@ class BookLandTrip(generics.GenericAPIView):
 
                 match trip_pattern:
                     case "One Way":
+                        purchase = PurchaseModel.objects.create(
+                            user=authenticated_user,
+                            service_type="Land Travels Service.",
+                            service_id=serializer.data["id"],
+                            amount="",
+                        )
+                        tx_status = TransactionStatus.objects.create(
+                            status="Success",
+                            details="One way trip booked booked successfully.",
+                        )
+                        tag = ProductTagmanager.generate(service_type="LTS-")
+                        current_user = LandTravels.objects.get(user=request.user)
+                        current_user.purchase = purchase
+                        current_user.product_tag = tag
+                        current_user.transaction_status = tx_status
+                        current_user.save()
+
                         response = {
                             "status": "success!",
                             "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
-                            "data": data,
+                            "data": {
+                                "booking data": data,
+                                "product_tag": tag,
+                            }
                         }
                         return Response(data=response, status=status.HTTP_201_CREATED)
                     case "Round Trip":
+                        purchase = PurchaseModel.objects.create(
+                            user=authenticated_user,
+                            service_type="Land Travels Service.",
+                            service_id=serializer.data["id"],
+                            amount="",
+                        )
+                        tx_status = TransactionStatus.objects.create(
+                            status="Success",
+                            details="Round trip booked successfully.",
+                        )
+                        tag = ProductTagmanager.generate(service_type="LTS-")
+                        current_user = LandTravels.objects.get(user=request.user)
+                        current_user.purchase = purchase
+                        current_user.product_tag = tag
+                        current_user.transaction_status = tx_status
+                        current_user.save()
+
                         response = {
                             "status": "success!",
                             "message": f"You have successfully booked a round trip from {departure_state} to {destination} and {destination} to {departure_state}.",
-                            "data": data,
+                           "data": {
+                                "booking data": data,
+                                "product_tag": tag,
+                            }
                         }
                         return Response(data=response, status=status.HTTP_201_CREATED)
 
@@ -1142,14 +1290,24 @@ class BookHotel(generics.GenericAPIView):
                                     service_id=serializer.data["id"],
                                     amount=amount,
                                 )
-                                current_user = Hotels.objects.get(user=authenticated_user)
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Hotel service booking paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="LTS-")
+                                current_user = Hotels.objects.get(user=request.user)
                                 current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
                                 current_user.save()
 
                                 response_data = {
                                     "status": "Success!",
                                     "message": "Hotel service booking paid successfully.",
-                                    "data": serializer.data,
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "product_tag": tag,
+                                    }
                                 }
 
                                 return Response(
@@ -1223,13 +1381,24 @@ class BookHotel(generics.GenericAPIView):
                                                 service_id=serializer.data["id"],
                                                 amount=amount,
                                             )
-                                            current_user = Hotels.objects.get(user=authenticated_user)
+                                            tx_status = TransactionStatus.objects.create(
+                                                status="Success",
+                                                details="Hotel service booking paid successfully.",
+                                            )
+                                            tag = ProductTagmanager.generate(service_type="LTS-")
+                                            current_user = Hotels.objects.get(user=request.user)
                                             current_user.purchase = purchase
+                                            current_user.product_tag = tag
+                                            current_user.transaction_status = tx_status
                                             current_user.save()
 
                                             response_data = {
                                                 "status": "Success!",
-                                                "message": "Debit for hotel booking.",
+                                                "message": "Hotel service booking paid successfully.",
+                                                "data": {
+                                                    "booking data": serializer.data,
+                                                    "product_tag": tag,
+                                                }
                                             }
 
                                             return Response(
@@ -1271,7 +1440,7 @@ class ServiceRating(generics.GenericAPIView):
         `consumable`\n
         `land_travel`\n
         `hotel`\n
-    `rating`: This comes in numbers 1-5 depending on the quality of the service provided.
+    `rating`: This comes in numbers 1-5 depending on the quality of the service provided.\n
     `review`: The review is a written appraisal of the product comnsumed.
     """
 
@@ -1336,3 +1505,60 @@ class ServiceRating(generics.GenericAPIView):
                 data=serializer.errors, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class GetTransaction(generics.RetrieveAPIView):
+    """
+    GetTransaction is the GET request route used
+    to retrieve a transaction using product tag.
+    """
+    serializer_class = GetTransactionSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+
+    def get_queryset(self, request):
+        payment_tag = request.data['payment_tag']
+        prefix_length = 3
+
+        # Extract the prefix from the payment tag
+        prefix = payment_tag[:prefix_length]
+
+        # Define a dictionary mapping prefixes to model filters
+        model_filters = {
+            'RST': RestaurantBooking.objects.filter(payment_tag=payment_tag),
+            'GYM': GymSubcription.objects.filter(payment_tag__startswith=prefix),
+            'CIN': CinemaBooking.objects.filter(payment_tag__startswith=prefix),
+            'COU': CourierService.objects.filter(payment_tag__startswith=prefix),
+            'FMCG': ConsumableService.objects.filter(payment_tag__startswith=prefix),
+            'LTS': LandTravels.objects.filter(payment_tag__startswith=prefix),
+            'HOT': Hotels.objects.filter(payment_tag__startswith=prefix),
+        }
+
+        if prefix in model_filters:
+            self.queryset = model_filters[prefix]
+        else:
+            self.queryset = None
+
+        return self.queryset
+
+    def get_serializer_class(self):
+        prefix = self.request.path_info.split('/')[2].lower()
+
+        # Define a dictionary mapping prefixes to serializer classes
+        serializer_classes = {
+            'rst': RestaurantBookingSerializers,
+            'gym': GymSubcriptionSerializers,
+            'cin': CinemaBookingSerializers,
+            'cou': CourierBookingSerializers,
+            'fmcg': ConsumableSerializers,
+            'lts': LandTravelsSerilaizers,
+            'hot': HotelSerializers,
+        }
+
+        return serializer_classes.get(prefix)
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        if not response.data:
+            return Response(data={"error": "Transaction not found."}, status=status.HTTP_400_BAD_REQUEST)
+    
