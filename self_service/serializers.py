@@ -183,3 +183,9 @@ class CustomerRatingSerializer(serializers.ModelSerializer):
             "rating",
             "review",
         ]
+
+
+class GetTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = None
+        fields = ["payment_tag"]
