@@ -200,7 +200,7 @@ class CreateNGNAccount(generics.GenericAPIView):
             country="NG",
         )
 
-        if customer_data_resp.status_code == 200:
+        if customer_data_resp.json()["status"] == True:
             resp = customer_data_resp.json()
 
             # Update the customer instance with the new data.
