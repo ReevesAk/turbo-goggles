@@ -17,28 +17,35 @@ class BVNSerializer(serializers.Serializer):
         ]
 
 
-class CustomerUpgradeSerializers(serializers.ModelSerializer):
-    """Serailizers for Tier1 and Tier2 customer upgrade."""
+class CreateAccountSerializers(serializers.ModelSerializer):
+    """Serailizers for NGN account creation."""
+
+    class Meta:
+        model = Address
+        fields = [
+            "street",
+            "street2",
+            "city",
+            "state",
+            "postal_code",
+        ]
+
+
+class Tier2CustomerUpgradeSerializers(serializers.ModelSerializer):
+    """Serailizers for Tier2 customer upgrade."""
 
     type = serializers.CharField(max_length=150, write_only=True)
     image = serializers.CharField(max_length=150, write_only=True)
     number = serializers.CharField(max_length=100, write_only=True)
     country = serializers.CharField(max_length=68, write_only=True)
-    phone = serializers.CharField(max_length=68, write_only=True)
 
     class Meta:
         model = Address
         fields = [
-            "phone",
-            "street",
-            "street2",
-            "city",
-            "state",
             "type",
             "image",
             "number",
             "country",
-            "postal_code",
         ]
 
 

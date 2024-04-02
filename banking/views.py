@@ -1,6 +1,5 @@
 import requests
 import logging
-import json
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 from decouple import config
@@ -28,7 +27,8 @@ from drf_spectacular.utils import extend_schema
 from .serializers import (
     BankingStatusSerializer,
     BVNSerializer,
-    CustomerUpgradeSerializers,
+    CreateAccountSerializers,
+    Tier2CustomerUpgradeSerializers,
     CreateUSDAccountSerializers,
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
@@ -139,13 +139,13 @@ class VerifYBVN(generics.GenericAPIView):
                     title="BVN Verification.",
                     message="Your BVN Verifiction is successful.",
                 )
-                send_email(
-                    subject="BVN Verification.",
-                    body="This is to inform you that your BVN verifiction was successful.",
-                    sender=picadailys_email,
-                    recipients=authenticated_user.email,
-                    password=app_password,
-                )
+                # send_email(
+                #     subject="BVN Verification.",
+                #     body="This is to inform you that your BVN verifiction was successful.",
+                #     sender=picadailys_email,
+                #     recipients=authenticated_user.email,
+                #     password=app_password,
+                # )
                 response = {
                     "status": "success",
                     "message": "Bvn verification was successful",
@@ -170,124 +170,157 @@ class CreateNGNAccount(generics.GenericAPIView):
     CreateNGNAccount handles the POST request of creating a customer wallet in Naira.
     """
 
-    serializer_class = BankingStatusSerializer
+    serializer_class = CreateAccountSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
-    @extend_schema(
-        description="Create account view",
-        responses={200: {"description": "Create a Nigerian account"}},
-    )
     def post(self, request):
         authenticated_user = request.user
+        payload = request.data
 
         # TODO- Production query.
         # user_data = User.objects.get(email=authenticated_user.email)
 
         # sandbox testing.
-        user_data = BVNData.objects.get(user=authenticated_user)
+        try:
+            user_data = BVNData.objects.get(user=authenticated_user)
+        except BVNData.DoesNotExist:
+            return Response(
+                {"error": "BVN Data not found for this user."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        customer, created = CustomerData.objects.get_or_create(user=authenticated_user)
+
+        if not created:
+            # Create a customer entry on Maplerad.
+            customer_data_resp = Customer.create(
+                f_name=user_data.first_name,
+                l_name=user_data.last_name,
+                email=authenticated_user.email,
+                country="NG",
+            )
+            print(customer_data_resp.json())
+
+            if customer_data_resp.status_code == 201:
+                resp = customer_data_resp.json()
+                print(resp)
+                customer.first_name = resp["data"]["first_name"]
+                customer.last_name = resp["data"]["last_name"]
+                customer.email = resp["data"]["email"]
+                customer.country = resp["data"]["country"]
+                customer.customer_id = resp["data"]["id"]
+                customer.save()
+                print(customer_data_resp)
+            else:
+                return Response(
+                    data={
+                        "error": "Failed to create customer on Maplerad",
+                        "data": customer_data_resp.json(),
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        if Wallet.objects.filter(user=authenticated_user).exists():
+            return Response(
+                {"message": "User already has a wallet!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=payload)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            customer = CustomerData.objects.get(email=request.data.get("email"))
-        except CustomerData.DoesNotExist:
-            customer = CustomerData.objects.create(user=authenticated_user)
+            print("customer id:", customer.customer_id)
+            tier1_response = Customer.upgradeTier1(
+                id=customer.customer_id,
+                dob=user_data.date_of_birth,
+                phone=authenticated_user.phone_number,
+                street=payload.get("street"),
+                street2=payload.get("street2"),
+                city=payload.get("city"),
+                state=payload.get("state"),
+                postal_code=payload.get("postal_code"),
+                bvn=user_data.number,
+            )
 
-        # Create a customer entry on Maplerad.
-        customer_data_resp = Customer.create(
-            f_name=user_data.first_name,
-            l_name=user_data.last_name,
-            email=authenticated_user.email,
-            country="NG",
-        )
+            if tier1_response.status_code != 200:
+                print(tier1_response.json())
+                return Response(
+                    data={"error": "Failed to upgrade customer to Tier 1"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
-        if customer_data_resp.json()["status"] == True:
-            resp = customer_data_resp.json()
+            phone = Phone.objects.create(
+                user=customer,
+                country_code="+234",
+                phone_number=payload.get("phone"),
+            )
+            phone.save()
 
-            # Update the customer instance with the new data.
-            customer.first_name = resp["data"]["first_name"]
-            customer.last_name = resp["data"]["last_name"]
-            customer.email = resp["data"]["email"]
-            customer.country = resp["data"]["country"]
-            customer.customer_id = resp["data"]["id"]
-            customer.save()
+            address = Address.objects.create(
+                user=customer,
+                street=payload.get("street"),
+                street2=payload.get("street2"),
+                city=payload.get("city"),
+                state=payload.get("state"),
+                country="NG",
+                postal_code=payload.get("postal_code"),
+            )
+            address.save()
 
-        user_exist = Wallet.objects.get(user=authenticated_user).exists()
-        if user_exist:
-            existing_wallet = {
-                "customer_id": user_exist.customer_id,
-                "bank_name": user_exist.bank_name,
-                "currency": user_exist.currency,
+            resource = "collections/virtual-account"
+            payload = {
+                "customer_id": customer.customer_id,
+                "currency": "NGN",
+                "preferred_bank": "251",
+                "country": "NG",
             }
-            response_data = {
-                "message": "User already has a wallet!",
-                "data": existing_wallet,
-            }
-            return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
-
-        resource = "collections/virtual-account"
-        payload = {
-            "customer_id": user_exist.customer_id,
-            "currency": "NGN",
-            "preferred_bank": "251",
-            "country": "NG",
-        }
-        try:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
                 headers=headers,
             )
-            try:
-                # Check if the response contains valid JSON
-                response.json()
-            except json.JSONDecodeError:
-                # If JSON parsing fails, handle the error as needed
-                return Response(
-                    {"error": "Invalid JSON response from the external API"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-            if response.status_code == 200:
+            response_data = response.json()
+            if response.status_code == 201:
                 account_details = Wallet.objects.create(
                     user=authenticated_user,
-                    customer_id=user_exist.customer_id,
+                    customer_id=customer.customer_id,
                     currency="NGN",
-                    bank_name=response.json()["data"]["bank_name"],
-                    account_number=response.json()["data"]["account_number"],
+                    bank_name=response_data["data"]["bank_name"],
+                    account_number=response_data["data"]["account_number"],
                 )
                 account_details.save()
 
-                user_data.has_wallet = True
-                user_data.welcome_bonus = 1500.00
-                user_data.save()
+                authenticated_user.has_wallet = True
+                authenticated_user.welcome_bonus = 1500.00
+                authenticated_user.save()
 
                 UserNotification.objects.create(
                     user=authenticated_user,
                     title="Wallet Creation.",
                     message="Your NGN wallet creation is successful.",
                 )
-                send_email(
-                    subject="Wallet Creation.",
-                    body="This is to inform you that your Wallet creation was successful.",
-                    sender=picadailys_email,
-                    recipients=authenticated_user.email,
-                    password=app_password,
-                )
+                # send_email(
+                #     subject="Wallet Creation.",
+                #     body="This is to inform you that your Wallet creation was successful.",
+                #     sender=picadailys_email,
+                #     recipients=authenticated_user.email,
+                #     password=app_password,
+                # )
                 response_data = {
                     "status": "success",
-                    "message": "Congratulations your customer wallet has been created\
-                        successfully and you have been creidited with a bonus of 1500 that \
-                        could be used on the VAS section of our platform.",
-                    "data": response.json(),
+                    "message": "Congratulations your customer wallet has been created successfully and you have been credited with a bonus of 1500 that could be used on the VAS section of our platform.",
+                    "data": response_data,
                 }
-
                 return Response(data=response_data, status=status.HTTP_201_CREATED)
             else:
-                return Response(response.json(), status=response.status_code)
+                return Response(response_data, status=response.status_code)
 
         except requests.exceptions.RequestException as e:
             return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -571,7 +604,7 @@ class UpgradeAccount(generics.CreateAPIView):
     to Tier1 and Tier 2 respectfully.
     """
 
-    serializer_class = CustomerUpgradeSerializers
+    serializer_class = Tier2CustomerUpgradeSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
     parser_classes = (MultiPartParser, JSONParser)
@@ -584,7 +617,6 @@ class UpgradeAccount(generics.CreateAPIView):
             return Response(data="User is already upgraded")
 
         customer = CustomerData.objects.get(user=authenticated_user)
-        bvn = BVNData.objects.get(user=authenticated_user)
 
         serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
@@ -595,76 +627,45 @@ class UpgradeAccount(generics.CreateAPIView):
             )
             thread_upload.start()
 
-            tier1_response = Customer.upgradeTier1(
-                id=customer.customer_id,
-                dob=bvn.date_of_birth,
-                phone=bvn.phone_number,
-                street=payload.get("street"),
-                street2=payload.get("street2"),
-                city=payload.get("city"),
-                state=payload.get("state"),
-                postal_code=payload.get("postal_code"),
-                bvn=bvn.number,
+            tier2_response = Customer.upgradeTier2(
+                customer_id=customer.customer_id,
+                id_type=payload.get("type"),
+                id_img=self.uploaded_image_url,
+                id_no=payload.get("number"),
             )
-            if tier1_response.status_code == 200:
-                phone = Phone.objects.create(
+            tier2_status_code = tier2_response.status_code
+
+            if tier2_status_code == 200:
+                identity = Identity.objects.create(
                     user=customer,
-                    country_code="+234",
-                    phone_number=payload.get("phone"),
-                )
-                phone.save()
-                address = Address.objects.create(
-                    user=customer,
-                    street=payload.get("street"),
-                    street2=payload.get("street2"),
-                    city=payload.get("city"),
-                    state=payload.get("state"),
+                    type=payload.get("type"),
+                    image=self.uploaded_image_url,
+                    number=payload.get("number"),
                     country="NG",
-                    postal_code=payload.get("postal_code"),
                 )
-                address.save()
+                identity.save()
 
-                tier2_response = Customer.upgradeTier2(
-                    customer_id=customer.customer_id,
-                    id_type=payload.get("type"),
-                    id_img=self.uploaded_image_url,
-                    id_no=payload.get("number"),
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Account Upgrade.",
+                    message="This is to inform you that your account upgrade is successful.",
                 )
-                tier2_status_code = tier2_response.status_code
+                send_email(
+                    subject="Account Upgrade.",
+                    body="This is to inform you that your account upgrade was successful.",
+                    sender=picadailys_email,
+                    recipients=authenticated_user.email,
+                    password=app_password,
+                )
+                response = {
+                    "status": "success",
+                    "message": "User upgraded successfully!",
+                    "data": tier2_response.json(),
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
 
-                if tier2_status_code == 200:
-                    identity = Identity.objects.create(
-                        user=customer,
-                        type=payload.get("type"),
-                        image=self.uploaded_image_url,
-                        number=payload.get("number"),
-                        country="NG",
-                    )
-                    identity.save()
-
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Account Upgrade.",
-                        message="This is to inform you that your account upgrade is successful.",
-                    )
-                    send_email(
-                        subject="Account Upgrade.",
-                        body="This is to inform you that your account upgrade was successful.",
-                        sender=picadailys_email,
-                        recipients=authenticated_user.email,
-                        password=app_password,
-                    )
-                    response = {
-                        "status": "success",
-                        "message": "User upgraded successfully!",
-                        "data": tier2_response.json(),
-                    }
-                    return Response(data=response, status=status.HTTP_200_OK)
-
-                else:
-                    return Response(
-                        data=tier2_response.json(), status=tier2_status_code
-                    )
+            else:
+                return Response(data=tier2_response.json(), status=tier2_status_code)
 
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)

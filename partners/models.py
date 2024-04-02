@@ -2,7 +2,6 @@ from django.db import models
 
 from accounts.models import User
 
-from basemodel import BaseModel
 
 BUSINESS_CATEGORY = (
     ("Travel and Leisure", "Travel and Leisure"),
