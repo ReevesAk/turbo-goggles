@@ -135,8 +135,12 @@ class UserNotification(models.Model):
 
 class PurchaseModel(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="purchases")
-    service_type = models.CharField(max_length=150, null=True)  # Service type (e.g., Restaurant, Gym)
-    service_id = models.PositiveIntegerField(null=True)  # ID of the specific service purchased
+    service_type = models.CharField(
+        max_length=150, null=True
+    )  # Service type (e.g., Restaurant, Gym)
+    service_id = models.PositiveIntegerField(
+        null=True
+    )  # ID of the specific service purchased
     amount = models.FloatField(null=True)
     purchase_date = models.DateTimeField(auto_now_add=True)
 

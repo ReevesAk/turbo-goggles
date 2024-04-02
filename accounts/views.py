@@ -30,7 +30,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import GamificationModel
 from sms import Message
-from permissions import IsVerifiedUser, IsUserOrMember
+from permissions import IsUserOrMember
 
 
 class Register(generics.GenericAPIView):
@@ -106,9 +106,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             user = User.objects.get(id=user_id)
             # Send welcome message to user.
-            msg = "Welcome to Picadailys App...we are thrilled to have you onboard \
-                .Get ready to unlock a world of possibilities and seamless experiences. \
-                Thank you for choosing us!."
+            msg = "Welcome to Picadailys App...we are thrilled to have you onboard\
+                .Get ready to unlock a world of possibilities and seamless experiences.\
+                    Thank you for choosing us!."
             recipient = user.phone_number
 
             Message.send_otp(msg=str(msg), to=recipient)
@@ -226,13 +226,21 @@ class Login(APIView):
     """
 
     serializer_class = LoginSerializers
-    permission_classes = (IsVerifiedUser,)
 
     def post(self, request):
         phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
         user = authenticate(phone_number=phone_number, password=password)
+        if not user.is_verified:
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Please verify your account to login",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         if user:
             # Check if the user already has more than two device IDs.
             existing_device_count = DeviceId.objects.filter(user=user).count()
@@ -300,10 +308,13 @@ class ForgotPassword(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             phone_no = user_data["phone_number"][1:]
             try:
-                user = User.objects.get(phone_number=phone_no)
+                user = User.objects.get(phone_number=user_data["phone_number"])
             except User.DoesNotExist:
                 return Response(
-                    data={"detail": "A user with this phone number does not exist"},
+                    data={
+                        "status": "fail",
+                        "detail": "A user with this phone number does not exist",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 

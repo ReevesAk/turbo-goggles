@@ -44,29 +44,18 @@ class Customer:
     def create(f_name, l_name, email, country):
         resource = "customers"
         payload = {
-            "f_name": f_name,
-            "l_name": l_name,
+            "first_name": f_name,
+            "last_name": l_name,
             "email": email,
             "country": country,
         }
-
         try:
             response = requests.post(
                 url=base_url + resource,
                 json=payload,
                 headers=headers,
             )
-            if response.status_code == 200:
-                resp = response.json()
-                country = resp["data"]["country"]
-                email = resp["data"]["email"]
-
-                return response
-            else:
-                logging.error(
-                    f"Enroll customer API error: {response.status_code} - {response.text}"
-                )
-                return None
+            return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Enroll customer API request error: {str(e)}")
             return Response(
@@ -92,7 +81,7 @@ class Customer:
         }
 
         try:
-            response = requests.post(
+            response = requests.patch(
                 url=base_url + resource,
                 json=payload,
                 headers=headers,

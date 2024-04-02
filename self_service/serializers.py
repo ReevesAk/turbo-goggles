@@ -7,7 +7,7 @@ from .models import (
     CourierService,
     ConsumableService,
     LandTravels,
-    Hotels
+    Hotels,
 )
 from partners.models import CustomerRating
 
