@@ -190,17 +190,28 @@ class CreateNGNAccount(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        customer, created = CustomerData.objects.get_or_create(user=authenticated_user)
-
-        if not created:
+        try:
+            customer = CustomerData.objects.get(user=authenticated_user)
+            # Object exists, handle existing customer scenario
+            already_exist = {
+                "status": "fail",
+                "message": "Customer already exist.",
+                "detail": {
+                    "name": customer.first_name + " " + customer.last_name,
+                    "customer id": customer.customer_id
+                } 
+            }
+            return Response(data=already_exist, status=status.HTTP_400_BAD_REQUEST )
+        except CustomerData.DoesNotExist:
+            customer = CustomerData.objects.create(user=authenticated_user)
+            # Object exists, handle existing customer scenario
             # Create a customer entry on Maplerad.
             customer_data_resp = Customer.create(
-                f_name=user_data.first_name,
-                l_name=user_data.last_name,
+                f_name=authenticated_user.first_name,
+                l_name=authenticated_user.last_name,
                 email=authenticated_user.email,
                 country="NG",
             )
-            print(customer_data_resp.json())
 
             if customer_data_resp.status_code == 201:
                 resp = customer_data_resp.json()
@@ -235,7 +246,7 @@ class CreateNGNAccount(generics.GenericAPIView):
             print("customer id:", customer.customer_id)
             tier1_response = Customer.upgradeTier1(
                 id=customer.customer_id,
-                dob=user_data.date_of_birth,
+                dob="24-05-1983",
                 phone=authenticated_user.phone_number,
                 street=payload.get("street"),
                 street2=payload.get("street2"),
