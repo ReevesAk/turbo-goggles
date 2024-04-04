@@ -1605,13 +1605,13 @@ class GetTransaction(generics.RetrieveAPIView):
 
         # Define a dictionary mapping prefixes to serializer classes
         serializer_classes = {
-            "rst": RestaurantBookingSerializers,
-            "gym": GymSubcriptionSerializers,
-            "cin": CinemaBookingSerializers,
-            "cou": CourierBookingSerializers,
-            "fmcg": ConsumableSerializers,
-            "lts": LandTravelsSerilaizers,
-            "hot": HotelSerializers,
+            "RST": RestaurantBookingSerializers,
+            "GYM": GymSubcriptionSerializers,
+            "CIN": CinemaBookingSerializers,
+            "COU": CourierBookingSerializers,
+            "FMCG": ConsumableSerializers,
+            "LTS": LandTravelsSerilaizers,
+            "HOT": HotelSerializers,
         }
 
         return serializer_classes.get(prefix)

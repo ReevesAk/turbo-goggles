@@ -11,7 +11,7 @@ from django.db.models import Q
 
 from rest_framework import generics, exceptions
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
+from rest_framework import status, parsers
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -223,6 +223,7 @@ class ProfileImage(generics.CreateAPIView):
     serializer_class = ProfileImageSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
+    parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
     def create(self, request):
         serializer = ProfileImageSerializer(data=request.data)
