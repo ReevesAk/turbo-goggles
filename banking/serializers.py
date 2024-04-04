@@ -91,7 +91,7 @@ class CreateUSDAccountSerializers(serializers.ModelSerializer):
 class CreateWalletPinSerializer(serializers.ModelSerializer):
     """Serailizers for first time wallet pin setting."""
 
-    pin2 = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin2 = serializers.CharField(max_length=4, write_only=True)
 
     class Meta:
         model = Wallet
