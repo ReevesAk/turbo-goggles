@@ -45,6 +45,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False)
     done_survey = models.BooleanField(default=False)
     welcome_bonus = models.FloatField(null=True)
+    has_created_pin = models.BooleanField(null=True)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)

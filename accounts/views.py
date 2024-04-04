@@ -232,14 +232,6 @@ class Login(APIView):
         password = request.data.get("password")
 
         user = authenticate(phone_number=phone_number, password=password)
-        if not user.is_verified:
-            return Response(
-                data={
-                    "status": "fail",
-                    "message": "Please verify your account to login",
-                },
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
 
         if user:
             # Check if the user already has more than two device IDs.
@@ -274,6 +266,14 @@ class Login(APIView):
             #         data={"detail": "Otp sent to user's new device Id"},
             #         status=status.HTTP_200_OK,
             #     )
+            if not user.is_verified:
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Please verify your account to login",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
             UserNotification.objects.create(
                 user=user, title="Login.", message="Login successful."

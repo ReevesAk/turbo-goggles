@@ -841,6 +841,7 @@ class SetWalletPin(generics.CreateAPIView):
 
             # set the hashed_pin and save it in the 'pin' flag on the db.
             user.pin = hashed_pin
+            user.has_created_pin = True
             user.save()
 
             UserNotification.objects.create(
