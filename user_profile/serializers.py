@@ -31,6 +31,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_verified",
             "has_created_pin",
+            "has_bonus",
             "welcome_bonus"
         ]
 

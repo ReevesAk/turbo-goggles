@@ -306,6 +306,7 @@ class CreateNGNAccount(generics.GenericAPIView):
 
                 authenticated_user.has_wallet = True
                 authenticated_user.welcome_bonus = 1500.00
+                authenticated_user.has_bonus = True
                 authenticated_user.save()
 
                 UserNotification.objects.create(

@@ -1,7 +1,8 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils import timezone
-
 
 from .user_manager import CustomUserManager
 
@@ -44,8 +45,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_upgraded = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     done_survey = models.BooleanField(default=False)
-    welcome_bonus = models.FloatField(null=True)
-    has_created_pin = models.BooleanField(null=True)
+    welcome_bonus = models.FloatField(default=Decimal('0.00'))
+    has_bonus = models.BooleanField(default=False)
+    has_created_pin = models.BooleanField(default=False)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)
