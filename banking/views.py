@@ -842,21 +842,23 @@ class SetWalletPin(generics.CreateAPIView):
 
             # set the hashed_pin and save it in the 'pin' flag on the db.
             user.pin = hashed_pin
-            user.has_created_pin = True
             user.save()
+
+            authenticated_user.has_created_pin = True
+            authenticated_user.save()
 
             UserNotification.objects.create(
                 user=authenticated_user,
                 title="Wallet Pin.",
                 message="Wallet pin created successfully.",
             )
-            send_email(
-                subject="Wallet Pin.",
-                body="This is to inform you that your Wallet pin was created successful.",
-                sender=picadailys_email,
-                recipients=authenticated_user.email,
-                password=app_password,
-            )
+            # send_email(
+            #     subject="Wallet Pin.",
+            #     body="This is to inform you that your Wallet pin was created successful.",
+            #     sender=picadailys_email,
+            #     recipients=authenticated_user.email,
+            #     password=app_password,
+            # )
             response = {
                 "status": "success",
                 "message": "Wallet pin created succesfully!",
