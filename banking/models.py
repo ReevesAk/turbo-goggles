@@ -93,7 +93,7 @@ class Wallet(models.Model):
     identity_number = models.CharField(max_length=200, null=True)
     identity_issued_date = models.CharField(max_length=155, null=True)
     identity_expiration = models.CharField(max_length=155, null=True)
-    pin = models.CharField(max_length=50, null=True)
+    pin = models.CharField(max_length=155, null=True)
 
 
 class Cards(models.Model):
