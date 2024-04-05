@@ -7,6 +7,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 
 from .serializers import (
     RestaurantBookingSerializers,
@@ -48,6 +49,10 @@ SERVICES = (
     ("land_travel", "land_travel"),
     ("hotel", "hotel"),
 )
+
+
+class PaginationStyle(PageNumberPagination):       
+    page_size = 10
 
 
 class TableBooking(generics.CreateAPIView):
@@ -251,6 +256,7 @@ class TableBookingList(generics.ListAPIView):
     serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -259,6 +265,12 @@ class TableBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -494,6 +506,7 @@ class GymBookingList(generics.ListAPIView):
     serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -502,6 +515,12 @@ class GymBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -739,6 +758,7 @@ class CinemaBookingList(generics.ListAPIView):
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -747,6 +767,12 @@ class CinemaBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -991,6 +1017,12 @@ class CourierBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1090,6 +1122,7 @@ class ConsumableBookingList(generics.ListAPIView):
     serializer_class = ConsumableSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -1098,6 +1131,12 @@ class ConsumableBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1280,6 +1319,7 @@ class LandTripBookingList(generics.ListAPIView):
     serializer_class = LandTravelsSerilaizers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -1288,6 +1328,12 @@ class LandTripBookingList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

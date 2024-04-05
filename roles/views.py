@@ -9,6 +9,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 
 from drf_spectacular.utils import extend_schema
 
@@ -32,6 +33,10 @@ headers = {
     "content-Type": "application/json",
     "Authorization": "Bearer " + secret_key,
 }
+
+
+class PaginationStyle(PageNumberPagination):       
+    page_size = 10
 
 
 class RegisterSuperAdmin(generics.GenericAPIView):
@@ -208,6 +213,10 @@ class ListAdmin(generics.ListAPIView):
     serializer_class = ListAdminSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        return super().get_queryset()
 
 
 class DeleteAdmin(generics.DestroyAPIView):

@@ -5,6 +5,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 
 # In project imports.
 from .serializers import (
@@ -23,6 +24,9 @@ from wallets.controllers import Pin, Debit
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
+
+class PaginationStyle(PageNumberPagination):       
+    page_size = 20
 
 
 class CreateBrandAdvertsAccount(generics.GenericAPIView):
@@ -70,6 +74,7 @@ class ListAllBrandAds(generics.ListAPIView):
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         brand_ads = User.objects.filter(active_role="BrandAd")
@@ -77,6 +82,12 @@ class ListAllBrandAds(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

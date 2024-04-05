@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 from cloudinary import uploader as cloud
 
 # In project imports.
@@ -32,6 +33,10 @@ from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrRead
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
+
+
+class PaginationStyle(PageNumberPagination):       
+    page_size = 20
 
 
 # Create your views here.
@@ -71,6 +76,7 @@ class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         partners = User.objects.filter(active_role="Partner")
@@ -78,6 +84,12 @@ class ListAllPartners(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -287,6 +299,7 @@ class PartnerServiceList(generics.ListAPIView):
     permission_classes = [
         IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
     ]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
         user = self.request.user
@@ -295,6 +308,12 @@ class PartnerServiceList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -334,35 +353,56 @@ class DeletePartnerService(generics.DestroyAPIView):
 
 
 class AllPartnersServiceList(generics.ListAPIView):
-    """
-    AllPartnersServiceList lists all the services of
-    all authenticated Partners.
-    """
-
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+    pagination_class = PaginationStyle
+
+
+    def get_queryset(self):
+        """
+        Retrieves all Partner users.
+        """
+        return User.objects.filter(active_role="Partner").order_by('created_at')
 
     def list(self, request, *args, **kwargs):
-        partners = User.objects.filter(active_role="Partner")
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
         data = []
 
-        for partner in partners:
-            partner_data = {
-                "name": partner.business_name,
-                "services": PartnerServiceSerializer(
-                    PartnerServices.objects.filter(user=partner), many=True
-                ).data,
-            }
-            data.append(partner_data)
+        if page is not None:
+            # Apply pagination
+            for partner in page:
+                partner_data = {
+                    "name": partner.business_name,
+                    "services": PartnerServiceSerializer(
+                        PartnerServices.objects.filter(user=partner), many=True
+                    ).data,
+                }
+                data.append(partner_data)
+            serialized_data = self.get_paginated_response(data)
+        else:
+            # No pagination applied (small result set or no limit/offset provided)
+            for partner in queryset:
+                partner_data = {
+                    "name": partner.business_name,
+                    "services": PartnerServiceSerializer(
+                        PartnerServices.objects.filter(user=partner), many=True
+                    ).data,
+                }
+                data.append(partner_data)
+            serialized_data = Response(data, status=status.HTTP_200_OK)
 
-            response = {
-                "status": "success",
-                "message": "All Partners services fetched successfully!",
-                "data": data,
-            }
+        # Update response structure to include pagination information (if applicable)
+        response = {
+            "status": "success",
+            "message": "All Partners services fetched successfully!",
+            "data": serialized_data.data if hasattr(serialized_data, 'data') else serialized_data.content,  # Handle both paginated and non-paginated responses
+        }
+        if hasattr(serialized_data, 'pagination'):  # Add pagination details if available
+            response.update(serialized_data.pagination)
 
-        return Response(data=response, status=status.HTTP_200_OK)
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class GetPartnerDetails(generics.RetrieveAPIView):
