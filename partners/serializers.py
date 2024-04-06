@@ -8,7 +8,6 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
     VerifyCAC,
-    CustomerRating,
 )
 
 

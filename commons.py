@@ -51,17 +51,15 @@ class Message:
                 headers=headers,
                 json=payload,
             )
-            print(termii_base_url + resource)
-            print(payload)
             if response.status_code == 200:
                 return Response(response.json())
             else:
                 error_resp = "Error from server: " + str(response.json())
-                print(error_resp)
+
                 return Response(error_resp)
         except requests.exceptions.RequestException as e:
             error_msg = {"error": str(e)}
-            print(error_msg)
+
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -90,18 +88,17 @@ class Message:
                 headers=headers,
                 json=payload,
             )
-            print(termii_base_url + resource)
-            print(payload)
+
             if response.status_code == 200:
-                print()
+
                 return Response(response.json())
             else:
                 error_resp = "Error from server: " + str(response.json())
-                print(error_resp)
+
                 return Response(error_resp)
         except requests.exceptions.RequestException as e:
             error_msg = {"error": str(e)}
-            print(error_msg)
+
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

@@ -28,7 +28,7 @@ class Message:
             )
             return message
         except Exception as error_msg:
-            print(error_msg)
+
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -50,7 +50,7 @@ class Message:
             )
             return message
         except Exception as error_msg:
-            print(error_msg)
+
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

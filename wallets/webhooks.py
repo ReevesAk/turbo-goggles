@@ -1,3 +1,4 @@
+import logging
 import hmac
 import hashlib
 import json
@@ -25,6 +26,6 @@ def encrypt_webhook_data():
 
     # check signature authencity
     if signature == encrypted_data:
-        print("process")
+        logging.info("process")
     else:
-        print("discard!")
+        logging.info("discard!")

@@ -137,7 +137,6 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
 
             # Validate otp.
             user_id = otp_manager.validate_user_otp(received_otp)
-            print(user_id)
 
             if not user_id:
                 return Response(
