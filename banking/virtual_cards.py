@@ -100,6 +100,9 @@ class CreateCard(generics.CreateAPIView):
                             )
                             new_card.save()
 
+                            authenticated_user.has_card = True
+                            authenticated_user.save()
+
                             UserNotification.objects.create(
                                 user=authenticated_user,
                                 title="Card Creation.",

@@ -48,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     welcome_bonus = models.FloatField(default=Decimal('0.00'))
     has_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
+    has_card = models.BooleanField(default=False)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)

@@ -141,7 +141,8 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "updated_at",
             "business_verified",
             "has_created_pin",
-            "welcome_bonus"
+            "welcome_bonus",
+            "has_card",
         ]
 
 

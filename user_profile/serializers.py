@@ -32,7 +32,8 @@ class GetUserSerializer(serializers.ModelSerializer):
             "is_verified",
             "has_created_pin",
             "has_bonus",
-            "welcome_bonus"
+            "welcome_bonus",
+            "has_card"
         ]
 
 
