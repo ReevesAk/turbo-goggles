@@ -33,7 +33,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "has_created_pin",
             "has_bonus",
             "welcome_bonus",
-            "has_card"
+            "has_card",
         ]
 
 

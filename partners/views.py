@@ -35,7 +35,7 @@ picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
 
 
-class PaginationStyle(PageNumberPagination):       
+class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
@@ -358,12 +358,11 @@ class AllPartnersServiceList(generics.ListAPIView):
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
     pagination_class = PaginationStyle
 
-
     def get_queryset(self):
         """
         Retrieves all Partner users.
         """
-        return User.objects.filter(active_role="Partner").order_by('created_at')
+        return User.objects.filter(active_role="Partner").order_by("created_at")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -397,9 +396,13 @@ class AllPartnersServiceList(generics.ListAPIView):
         response = {
             "status": "success",
             "message": "All Partners services fetched successfully!",
-            "data": serialized_data.data if hasattr(serialized_data, 'data') else serialized_data.content,  # Handle both paginated and non-paginated responses
+            "data": serialized_data.data
+            if hasattr(serialized_data, "data")
+            else serialized_data.content,  # Handle both paginated and non-paginated responses
         }
-        if hasattr(serialized_data, 'pagination'):  # Add pagination details if available
+        if hasattr(
+            serialized_data, "pagination"
+        ):  # Add pagination details if available
             response.update(serialized_data.pagination)
 
         return Response(response, status=status.HTTP_200_OK)

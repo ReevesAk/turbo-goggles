@@ -14,13 +14,25 @@ from .models import (
 
 
 def check_provider(number):
-    mtn_numbers = ["0703", "0706", "0803", "0806", "0810", "0813", "0814", "0816", "0903", "0906", "0913"]
+    mtn_numbers = [
+        "0703",
+        "0706",
+        "0803",
+        "0806",
+        "0810",
+        "0813",
+        "0814",
+        "0816",
+        "0903",
+        "0906",
+        "0913",
+    ]
     glo_numbers = ["0705", "0805", "0807", "0811", "0815", "0905"]
     airtel_numbers = ["0701", "0708", "0802", "0808", "0812", "0902", "0907", "0912"]
     etisalat_numbers = ["0809", "0817", "0818", "0908", "0909"]
 
     if number.startswith(tuple(mtn_numbers)):
-        return ["mtn","mtn-data"]
+        return ["mtn", "mtn-data"]
     elif number.startswith(tuple(glo_numbers)):
         return ["glo", "glo-data"]
     elif number.startswith(tuple(airtel_numbers)):
@@ -88,11 +100,14 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
         if serviceID and number:
             provider, _ = check_provider(number)
             if serviceID != provider:
-                raise serializers.ValidationError(f"This number, {number} does not belong to the service provider, {serviceID}")
+                raise serializers.ValidationError(
+                    f"This number, {number} does not belong to the service provider, {serviceID}"
+                )
         else:
             serializers.ValidationError("serviceID and phone number are required")
 
         return attrs
+
 
 class DataSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for data subscription."""
@@ -153,9 +168,13 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         if serviceID and billersCode:
             _, provider_data = check_provider(billersCode)
             if serviceID != provider_data:
-                raise serializers.ValidationError(f"This number, {billersCode} does not belong to the service provider, {serviceID}")
+                raise serializers.ValidationError(
+                    f"This number, {billersCode} does not belong to the service provider, {serviceID}"
+                )
         else:
-            serializers.ValidationError("serviceID and billerscode(phone number) are required")
+            serializers.ValidationError(
+                "serviceID and billerscode(phone number) are required"
+            )
 
         return attrs
 

@@ -1,3 +1,4 @@
+import logging
 from decouple import config
 
 import cloudinary
@@ -24,5 +25,5 @@ def validate_url(to_validate: str) -> bool:
         validator(to_validate)
         return True
     except ValidationError as exception:
-        print(exception)
+        logging.error(exception)
         return False

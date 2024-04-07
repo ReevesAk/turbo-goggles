@@ -1,3 +1,4 @@
+import logging
 from decouple import config
 
 # Third party imports
@@ -15,7 +16,8 @@ from .serializers import (
     BrandSurveySerializers,
     AdBudgetSerializer,
 )
-from mail import send_email
+
+# from mail import send_email
 from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
@@ -25,7 +27,8 @@ from wallets.controllers import Pin, Debit
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
 
-class PaginationStyle(PageNumberPagination):       
+
+class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
@@ -100,7 +103,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
 
     def retrieve(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user
+        user = self.request.user
         serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -160,6 +163,7 @@ class BrandSurveyView(generics.CreateAPIView):
 
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as err:
+                logging.error(f"brand advert survey failed with {err}")
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -192,14 +196,14 @@ class BrandPromote(generics.CreateAPIView):
                             message=f"This is to inform you that your payment of {price} \
                                 for brand promotion is successful.",
                         )
-                        send_email(
-                            subject="Debit Transaction.",
-                            body=f"This is to inform you that your payment of {price} \
-                                for brand promotion is successful.",
-                            sender=picadailys_email,
-                            recipients=authenticated_user.email,
-                            password=app_password,
-                        )
+                        # send_email(
+                        #     subject="Debit Transaction.",
+                        #     body=f"This is to inform you that your payment of {price} \
+                        #         for brand promotion is successful.",
+                        #     sender=picadailys_email,
+                        #     recipients=authenticated_user.email,
+                        #     password=app_password,
+                        # )
                         response_data = {
                             "status": "Success!",
                             "message": "Brand advert promoted successfully",

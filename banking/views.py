@@ -111,8 +111,6 @@ class VerifYBVN(generics.GenericAPIView):
                         (user_data.get("phone_number"), "phone_number"),
                     ]
                 ):
-                    print(user_data.get("date_of_birth"))
-                    print(bvn_data["data"]["dob"])
                     return Response(
                         data={
                             "status": "fail",
@@ -198,10 +196,10 @@ class CreateNGNAccount(generics.GenericAPIView):
                 "message": "Customer already exist.",
                 "detail": {
                     "name": customer.first_name + " " + customer.last_name,
-                    "customer id": customer.customer_id
-                } 
+                    "customer id": customer.customer_id,
+                },
             }
-            return Response(data=already_exist, status=status.HTTP_400_BAD_REQUEST )
+            return Response(data=already_exist, status=status.HTTP_400_BAD_REQUEST)
         except CustomerData.DoesNotExist:
             customer = CustomerData.objects.create(user=authenticated_user)
             # Object exists, handle existing customer scenario
@@ -215,14 +213,14 @@ class CreateNGNAccount(generics.GenericAPIView):
 
             if customer_data_resp.status_code == 201:
                 resp = customer_data_resp.json()
-                print(resp)
+
                 customer.first_name = resp["data"]["first_name"]
                 customer.last_name = resp["data"]["last_name"]
                 customer.email = resp["data"]["email"]
                 customer.country = resp["data"]["country"]
                 customer.customer_id = resp["data"]["id"]
                 customer.save()
-                print(customer_data_resp)
+
             else:
                 return Response(
                     data={
@@ -243,7 +241,6 @@ class CreateNGNAccount(generics.GenericAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            print("customer id:", customer.customer_id)
             tier1_response = Customer.upgradeTier1(
                 id=customer.customer_id,
                 dob="24-05-1983",
@@ -257,7 +254,6 @@ class CreateNGNAccount(generics.GenericAPIView):
             )
 
             if tier1_response.status_code != 200:
-                print(tier1_response.json())
                 return Response(
                     data={"error": "Failed to upgrade customer to Tier 1"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,

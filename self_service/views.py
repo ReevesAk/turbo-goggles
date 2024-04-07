@@ -51,7 +51,7 @@ SERVICES = (
 )
 
 
-class PaginationStyle(PageNumberPagination):       
+class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 

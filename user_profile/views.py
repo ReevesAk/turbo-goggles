@@ -1,3 +1,5 @@
+import logging
+
 from sms import Message
 from permissions import IsSuperAdmin, IsUserOrMember
 import hmac
@@ -422,13 +424,13 @@ class WebhookView(generics.GenericAPIView):
 
         if signature == encrypted_data:
             # Process the webhook data
-            print("Processing webhook data:", payload)
+            logging.info("Processing webhook data:", payload)
             return Response(
                 {"detail": "Webhook data processed successfully!"},
                 status=status.HTTP_200_OK,
             )
         else:
-            print("Discarding webhook data due to invalid signature.")
+            logging.info("Discarding webhook data due to invalid signature.")
             return Response(
                 {"detail": "Invalid signature, webhook data discarded."},
                 status=status.HTTP_400_BAD_REQUEST,

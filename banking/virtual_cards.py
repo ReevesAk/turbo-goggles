@@ -4,7 +4,8 @@ from decouple import config
 
 from sms import Message
 from permissions import IsPartnerUserOrMember
-from mail import send_email
+
+# from mail import send_email
 
 # Third party imports.
 from rest_framework import generics
@@ -57,103 +58,122 @@ class CreateCard(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            fx_resp = Forex.generate_quote()
-            if fx_resp.status_code == 200:
-                fx_rate = fx_resp.json()["data"]["rate"]
+            currency = request.data.get("currency")
+            match currency:
+                case "USD":
+                    fx_resp = Forex.generate_quote()
+                    if fx_resp.status_code == 200:
+                        fx_rate = fx_resp.json()["data"]["rate"]
 
-                dollars = 3
-                naira_value = dollars / fx_rate
+                        dollars = 3
+                        naira_value = dollars / fx_rate
 
-            # Inititate a debit on the customer's account for card creation.
-            debit_response = Account.Debit(
-                amount=naira_value, reason="Debit for card request."
-            )
-            if debit_response == 200:
-                resource = "issuing"
-                payload = {
-                    "customer_id": id,
-                    "currency": request.data.get("currency"),
-                    "type": request.data.get("type"),
-                    "auto_approve": True,
-                    "brand": request.data.get("brand"),
-                }
-                pin = request.data.get("pin")
-                wallet = Wallet.objects.get(user=authenticated_user)
-                is_pin_correct = Pin.verify(
-                    user=authenticated_user, pin=pin, hashed_pin=wallet.pin
-                )
-                if is_pin_correct:
-                    try:
-                        response = requests.post(
-                            url=base_url + resource,
-                            json=payload,
-                            headers=headers,
+                    # Inititate a debit on the customer's account for card creation.
+                    debit_response = Account.Debit(
+                        amount=naira_value, reason="Debit for card request."
+                    )
+                    if debit_response == 200:
+                        resource = "issuing"
+                        payload = {
+                            "customer_id": id,
+                            "currency": request.data.get("currency"),
+                            "type": request.data.get("type"),
+                            "auto_approve": True,
+                            "brand": request.data.get("brand"),
+                        }
+                        pin = request.data.get("pin")
+                        wallet = Wallet.objects.get(user=authenticated_user)
+                        is_pin_correct = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=wallet.pin
                         )
-                        if response.status_code == 200:
-                            new_card = Cards.objects.create(
-                                user=customer,
-                                customer="USD",
-                                type="VIRTUAL",
-                                auto_approve=True,
-                                id=response.json()["data"]["card_id"],
-                                brand=request.data.get("brand"),
-                            )
-                            new_card.save()
+                        if is_pin_correct:
+                            try:
+                                response = requests.post(
+                                    url=base_url + resource,
+                                    json=payload,
+                                    headers=headers,
+                                )
+                                if response.status_code == 200:
+                                    new_card = Cards.objects.create(
+                                        user=customer,
+                                        customer="USD",
+                                        type="VIRTUAL",
+                                        auto_approve=True,
+                                        id=response.json()["data"]["card_id"],
+                                        brand=request.data.get("brand"),
+                                    )
+                                    new_card.save()
 
-                            authenticated_user.has_card = True
-                            authenticated_user.save()
+                                    authenticated_user.has_card = True
+                                    authenticated_user.save()
 
-                            UserNotification.objects.create(
-                                user=authenticated_user,
-                                title="Card Creation.",
-                                message="You have successfully created a virtual dollar card.",
-                            )
-                            send_email(
-                                subject="Card Creation.",
-                                body="You have successfully created a virtual dollar card.",
-                                sender=picadailys_email,
-                                recipients=authenticated_user.email,
-                                password=app_password,
-                            )
-                            recipient = authenticated_user.phone_number[1:]
-                            Message.send_msg(
-                                msg="Congratulations, you have successfully created a virtual dollar card.",
-                                to=recipient,
-                            )
-                            resp = {
-                                "message": "Card creation request in progress, you will be notified when it is approved.",
-                                "data": response.json(),
-                            }
-                            return Response(data=resp, status=status.HTTP_200_OK)
+                                    UserNotification.objects.create(
+                                        user=authenticated_user,
+                                        title="Card Creation.",
+                                        message="You have successfully created a virtual dollar card.",
+                                    )
+                                    # send_email(
+                                    #     subject="Card Creation.",
+                                    #     body="You have successfully created a virtual dollar card.",
+                                    #     sender=picadailys_email,
+                                    #     recipients=authenticated_user.email,
+                                    #     password=app_password,
+                                    # )
+                                    recipient = authenticated_user.phone_number[1:]
+                                    Message.send_msg(
+                                        msg="Congratulations, you have successfully created a virtual dollar card.",
+                                        to=recipient,
+                                    )
+                                    resp = {
+                                        "message": "Card creation request in progress, you will be notified when it is approved.",
+                                        "data": response.json(),
+                                    }
+                                    return Response(
+                                        data=resp, status=status.HTTP_200_OK
+                                    )
+                                else:
+                                    return Response(
+                                        data=response.json(),
+                                        status=response.status_code,
+                                    )
+
+                            except requests.exceptions.RequestException as e:
+                                logging.error(
+                                    f"Create a USD card API request error: {str(e)}"
+                                )
+                                return Response(
+                                    {"error": str(e)},
+                                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                )
                         else:
                             return Response(
-                                data=response.json(), status=response.status_code
+                                data={"message": "Incorrect pin"},
+                                status=status.HTTP_401_UNAUTHORIZED,
                             )
-
-                    except requests.exceptions.RequestException as e:
-                        logging.error(f"Create a USD card API request error: {str(e)}")
-                        return Response(
-                            {"error": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    else:
+                        # initiate a credit refund to the customer after failed transaction.
+                        _ = Account.Credit(
+                            accNo=authenticated_user.accountNumber,
+                            amount=naira_value,
+                            reason="Refund for failed card creation",
                         )
-                else:
+                        resp = {
+                            "status": "fail",
+                            "message": "A refund will be issued shortly.",
+                            "data": debit_response.json(),
+                        }
+                        return Response(data=resp, status=debit_response.status_code)
+                case "NGN":
+                    pass
+
+                case _:
                     return Response(
-                        data={"message": "Incorrect pin"},
-                        status=status.HTTP_401_UNAUTHORIZED,
+                        data={
+                            "status": "fail",
+                            "data": "Wrong selection! Available options are ```USD``` and ```NGN```",
+                        }
                     )
-            else:
-                # initiate a credit refund to the customer after failed transaction.
-                _ = Account.Credit(
-                    accNo=authenticated_user.accountNumber,
-                    amount=naira_value,
-                    reason="Refund for failed card creation",
-                )
-                resp = {
-                    "status": "fail",
-                    "message": "A refund will be issued shortly.",
-                    "data": debit_response.json(),
-                }
-                return Response(data=resp, status=debit_response.status_code)
+
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -286,13 +306,13 @@ class FreezeCard(generics.GenericAPIView):
                         title="Freeze Card.",
                         message="Your request to freeze your virtual card is successful.",
                     )
-                    send_email(
-                        subject="Freeze Card.",
-                        body="Your request to freeze your virtual card is successful.",
-                        sender=picadailys_email,
-                        recipients=authenticated_user.email,
-                        password=app_password,
-                    )
+                    # send_email(
+                    #     subject="Freeze Card.",
+                    #     body="Your request to freeze your virtual card is successful.",
+                    #     sender=picadailys_email,
+                    #     recipients=authenticated_user.email,
+                    #     password=app_password,
+                    # )
                     recipient = authenticated_user.phone_number[1:]
                     Message.send_msg(
                         msg="This is to inform you that your request to freeze your virtual card is successful.\
@@ -345,13 +365,13 @@ class UnfreezeCard(generics.GenericAPIView):
                         title="Unfreeze Creation.",
                         message="Your request to unfreeze your virtual card is successful.",
                     )
-                    send_email(
-                        subject="Unfreeze Card.",
-                        body="Your request to unfreeze your virtual card is successful.",
-                        sender=picadailys_email,
-                        recipients=authenticated_user.email,
-                        password=app_password,
-                    )
+                    # send_email(
+                    #     subject="Unfreeze Card.",
+                    #     body="Your request to unfreeze your virtual card is successful.",
+                    #     sender=picadailys_email,
+                    #     recipients=authenticated_user.email,
+                    #     password=app_password,
+                    # )
                     recipient = authenticated_user.phone_number[1:]
                     Message.send_msg(
                         msg="This is to inform you that your request to unfreeze your virtual card is successful.",

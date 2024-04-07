@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from django.utils import timezone
 import random
@@ -39,12 +40,12 @@ class OTPManager:
             if timezone.now() >= otp_obj.expires_at:
                 user_id = otp_obj.user_id
                 otp_obj.delete()
-                print(f"Valid OTP: {otp}, User ID: {user_id}")
+                logging.info(f"Valid OTP: {otp}, User ID: {user_id}")
                 return user_id
             else:
-                print(f"Expired OTP: {otp}")
+                logging.info(f"Expired OTP: {otp}")
         except OTP.DoesNotExist:
-            print(f"Invalid OTP: {otp}")
+            logging.info(f"Invalid OTP: {otp}")
             return None
 
     def delete_user_otp(self, otp: str):

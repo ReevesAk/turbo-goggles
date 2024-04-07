@@ -45,7 +45,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_upgraded = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     done_survey = models.BooleanField(default=False)
-    welcome_bonus = models.FloatField(default=Decimal('0.00'))
+    welcome_bonus = models.FloatField(default=Decimal("0.00"))
     has_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
     has_card = models.BooleanField(default=False)
