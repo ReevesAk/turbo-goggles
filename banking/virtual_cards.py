@@ -72,8 +72,8 @@ class CreateCard(generics.CreateAPIView):
                 resource = "issuing"
                 payload = {
                     "customer_id": id,
-                    "currency": "USD",
-                    "type": "VIRTUAL",
+                    "currency": request.data.get("currency"),
+                    "type": request.data.get("type"),
                     "auto_approve": True,
                     "brand": request.data.get("brand"),
                 }

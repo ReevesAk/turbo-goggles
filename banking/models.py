@@ -21,7 +21,17 @@ CARD_BRAND = (
     ("MASTERCARD", "MASTERCARD"),
 )
 
+CARD_TYPE = (
+    ("VIRTUAL", "VIRTUAL"),
+    ("PHYSICAL", "PHYSICAL"),
+)
+
 CURRENCY = (
+    ("NGN", "NGN"),
+    ("USD", "USD"),
+)
+
+CARD_CURRENCY = (
     ("NGN", "NGN"),
     ("USD", "USD"),
 )
@@ -99,8 +109,8 @@ class Wallet(models.Model):
 class Cards(models.Model):
     user = models.OneToOneField(to=CustomerData, on_delete=models.CASCADE)
     card_id = models.CharField(max_length=255, null=True)
-    currency = models.CharField(max_length=150, null=True)
-    type = models.CharField(max_length=50, null=True)
+    currency = models.CharField(choices=CARD_CURRENCY, max_length=150, null=True)
+    type = models.CharField(choices=CARD_TYPE, max_length=100, null=True)
     auto_approve = models.BooleanField(default=True)
     brand = models.CharField(choices=CARD_BRAND, max_length=100, null=True)
     amount = models.FloatField(null=True)

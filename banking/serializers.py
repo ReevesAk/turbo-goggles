@@ -118,7 +118,7 @@ class CreateCardSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Cards
-        fields = ("pin", "type")
+        fields = ("pin", "type", "brand", "currency")
 
 
 class FundCardSerializers(serializers.ModelSerializer):
