@@ -91,7 +91,7 @@ class CreateUSDAccountSerializers(serializers.ModelSerializer):
 class CreateWalletPinSerializer(serializers.ModelSerializer):
     """Serailizers for first time wallet pin setting."""
 
-    pin2 = serializers.CharField(max_length=4, write_only=True)
+    pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Wallet
@@ -104,7 +104,7 @@ class VerifyPinOTPSerializer(serializers.Serializer):
 
 class ResetPinSerializer(serializers.ModelSerializer):
     otp = serializers.CharField(max_length=50, min_length=4)
-    pin2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Wallet
@@ -114,7 +114,7 @@ class ResetPinSerializer(serializers.ModelSerializer):
 class CreateCardSerializers(serializers.ModelSerializer):
     """Serailizers for creating an order for USD ."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Cards
@@ -124,7 +124,7 @@ class CreateCardSerializers(serializers.ModelSerializer):
 class FundCardSerializers(serializers.ModelSerializer):
     """Serailizers for funding a card."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Cards
@@ -134,7 +134,7 @@ class FundCardSerializers(serializers.ModelSerializer):
 class FreezeCardSerializers(serializers.ModelSerializer):
     """Serailizers for freezing a card."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Cards
@@ -144,7 +144,7 @@ class FreezeCardSerializers(serializers.ModelSerializer):
 class UnfreezeCardSerializers(serializers.ModelSerializer):
     """Serailizers for unfreezing a card."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Cards
@@ -154,7 +154,7 @@ class UnfreezeCardSerializers(serializers.ModelSerializer):
 class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
     """Serailizers for making bank transfer within Nigeria from maplerad balance."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Transfer
@@ -170,7 +170,7 @@ class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
 class TransferWithinPicadailysSerializers(serializers.ModelSerializer):
     """Serailizers for making picadailys transfers."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Transfer
@@ -185,7 +185,7 @@ class TransferWithinPicadailysSerializers(serializers.ModelSerializer):
 class InternationalTransfersSerializers(serializers.ModelSerializer):
     """Serailizers for making international transfers."""
 
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Transfer
@@ -231,7 +231,7 @@ class ExchangeSerializer(serializers.ModelSerializer):
 
 
 class NGNToUSDConversionSerializer(serializers.ModelSerializer):
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = Transfer

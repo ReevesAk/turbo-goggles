@@ -15,15 +15,15 @@ from partners.models import CustomerRating
 class RestaurantBookingSerializers(serializers.ModelSerializer):
     "serializers for booking a restaurant table."
 
-    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    amount = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    amount = serializers.CharField(max_length=255, write_only=True)
+    number = serializers.CharField(max_length=50, write_only=True)
+    expiryMonth = serializers.CharField(max_length=50, write_only=True)
+    expiryYear = serializers.CharField(max_length=50, write_only=True)
+    card_pin = serializers.CharField(max_length=4, write_only=True)
+    cvv = serializers.CharField(max_length=3, write_only=True)
+    tokenId = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, write_only=True)
 
     class Meta:
         model = RestaurantBooking
@@ -48,15 +48,15 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
 class GymSubcriptionSerializers(serializers.ModelSerializer):
     "serializers for subscribing to a gym."
 
-    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    amount = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    amount = serializers.CharField(max_length=255, write_only=True)
+    number = serializers.CharField(max_length=50, write_only=True)
+    expiryMonth = serializers.CharField(max_length=50, write_only=True)
+    expiryYear = serializers.CharField(max_length=50, write_only=True)
+    card_pin = serializers.CharField(max_length=4, write_only=True)
+    cvv = serializers.CharField(max_length=3, write_only=True)
+    tokenId = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, write_only=True)
 
     class Meta:
         model = GymSubcription
@@ -81,15 +81,15 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
 class CinemaBookingSerializers(serializers.ModelSerializer):
     "serializers for booking cinema seats."
 
-    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    amount = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    amount = serializers.CharField(max_length=255, write_only=True)
+    number = serializers.CharField(max_length=50, write_only=True)
+    expiryMonth = serializers.CharField(max_length=50, write_only=True)
+    expiryYear = serializers.CharField(max_length=50, write_only=True)
+    card_pin = serializers.CharField(max_length=4, write_only=True)
+    cvv = serializers.CharField(max_length=3, write_only=True)
+    tokenId = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, write_only=True)
 
     class Meta:
         model = CinemaBooking
@@ -114,14 +114,15 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
 class CourierBookingSerializers(serializers.ModelSerializer):
     "serializers for booking courier service."
 
-    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    number = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryMonth = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    expiryYear = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    card_pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    cvv = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    tokenId = serializers.CharField(max_length=4, min_length=6, write_only=True)
-    token = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    amount = serializers.CharField(max_length=255, write_only=True)
+    number = serializers.CharField(max_length=50, write_only=True)
+    expiryMonth = serializers.CharField(max_length=50, write_only=True)
+    expiryYear = serializers.CharField(max_length=50, write_only=True)
+    card_pin = serializers.CharField(max_length=4, write_only=True)
+    cvv = serializers.CharField(max_length=3, write_only=True)
+    tokenId = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, write_only=True)
 
     class Meta:
         model = CourierService

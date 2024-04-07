@@ -195,7 +195,7 @@ class BrandSurveySerializers(serializers.ModelSerializer):
 class AdBudgetSerializer(serializers.ModelSerializer):
     """Serializers for Advert budget."""
 
-    pin = serializers.CharField(max_length=4, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = AdBudget
