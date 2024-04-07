@@ -115,7 +115,6 @@ class CourierBookingSerializers(serializers.ModelSerializer):
     "serializers for booking courier service."
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    amount = serializers.CharField(max_length=255, write_only=True)
     number = serializers.CharField(max_length=50, write_only=True)
     expiryMonth = serializers.CharField(max_length=50, write_only=True)
     expiryYear = serializers.CharField(max_length=50, write_only=True)
