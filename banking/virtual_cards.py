@@ -152,8 +152,10 @@ class CreateCard(generics.CreateAPIView):
                             )
                     else:
                         # initiate a credit refund to the customer after failed transaction.
+                        current_user = Wallet.objects.get(user=authenticated_user)
+
                         _ = Account.Credit(
-                            accNo=authenticated_user.accountNumber,
+                            accNo=current_user.account_number,
                             amount=naira_value,
                             reason="Refund for failed card creation",
                         )
