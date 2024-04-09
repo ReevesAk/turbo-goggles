@@ -23,6 +23,7 @@ from .transfers import (
     TransferWithinPicadailys,
     InternationalTransfer,
     VerifyTransfer,
+    FundWalletWithCard,
 )
 from .fx import GetQuotation, ConvertToDollar
 
@@ -70,6 +71,9 @@ urlpatterns = [
         "transfer/verify-tx/<int:transfer_id>/",
         VerifyTransfer.as_view(),
         name="verify_transfer",
+    ),
+    path(
+        "transfer/fund_with_card/", FundWalletWithCard.as_view(), name="fund_with_card"
     ),
     # Fx Endpoints.
     path(
