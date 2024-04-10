@@ -40,6 +40,7 @@ from accounts.models import UserNotification
 from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
 from .controllers import BVN, Customer
 
+from permissions import hasWallet
 
 base_url = config("MAPLERAD_BASE_URL")
 secret_key = config("MAPLERAD_SECRET_KEY")
@@ -384,7 +385,7 @@ class GetCustomersWallets(generics.RetrieveAPIView):
 
     serializer_class = BankingStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember, hasWallet)
 
     @extend_schema(
         description="Get customer wallet view",
