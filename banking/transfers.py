@@ -20,10 +20,14 @@ from .serializers import (
     TransferWithinPicadailysSerializers,
     InternationalTransfersSerializers,
     VerifyTransferSerializer,
+    FundWithCardSerializer,
 )
 from accounts.models import UserNotification
 from .helpers import Pin
 from .controllers import Transfer
+from .payments import UseCard
+from .models import PayWithCard, Wallet
+
 
 base_url = config("MAPLERAD_BASE_URL")
 secret_key = config("MAPLERAD_SECRET_KEY")
@@ -32,6 +36,94 @@ headers = {
     "content-Type": "application/json",
     "Authorization": "Bearer " + secret_key,
 }
+
+
+class FundWalletWithCard(generics.GenericAPIView):
+    """
+    FundWalletWithCard handles the POST request of funding your
+    picadailys Naira account with card.
+    """
+
+    serializer_class = FundWithCardSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, hasWallet)
+
+    def post(self, request):
+        user_data = request.data
+        authenticated_user = request.user
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            pin = request.data.get("pin")
+            amount = request.data.get("amount")
+
+            verification = Pin.verify(user=authenticated_user, pin=pin)
+            if verification:
+                initialize_response = UseCard.initialize_payment(
+                    amount=amount,
+                    customerName=authenticated_user.firstname
+                    + authenticated_user.last_name,
+                    customerEmail=authenticated_user.email,
+                    paymentDescription="Fund wallet with card",
+                )
+                if initialize_response.status_code == 200:
+                    resp = initialize_response.json()["responseBody"]
+                    init_pay = PayWithCard.objects.create(
+                        user=authenticated_user,
+                        transactionReference=resp["transactionReference"],
+                        paymentReference=resp["paymentReference"],
+                        customerName=authenticated_user.firstname
+                        + authenticated_user.last_name,
+                        customerEmail=authenticated_user.email,
+                        redirectUrl=resp["checkoutUrl"],
+                    )
+                    charge_from_card_resp = UseCard.charge(
+                        transactionReference=init_pay.transactionReference,
+                        number=request.data.get("number"),
+                        expiryMonth=request.data.get("expiry_month"),
+                        expiryYear=request.data.get("expiry_year"),
+                        pin=request.data.get("card_pin"),
+                        cvv=request.data.get("cvv"),
+                    )
+                    if charge_from_card_resp.status_code == 200:
+                        resp = initialize_response.json()["responseBody"]
+                        validate_card = UseCard.validate_otp(
+                            init_pay.transactionReference,
+                            tokenId=request.data.get("tokenId"),
+                            token=request.data.get("token"),
+                        )
+                        user_wallet = Wallet.objects.get(user=authenticated_user)
+                        if validate_card.status_code == 200:
+                            local_transfer_response = Transfer.local(
+                                amount=amount,
+                                bank_code="251",
+                                reason="Fund wallet with card",
+                                account_number=user_wallet.account_number,
+                            )
+                            if local_transfer_response.status_code == 200:
+                                response = {
+                                    "status": "success",
+                                    "message": f"Wallet has been funded with {amount} successfilly.",
+                                    "data": local_transfer_response.json(),
+                                }
+                                return Response(
+                                    data=response, status=status.HTTP_200_OK
+                                )
+                        else:
+                            return Response(
+                                data=validate_card.json(),
+                                status=validate_card.status_code,
+                            )
+                    else:
+                        return Response(
+                            data=charge_from_card_resp.json(),
+                            status=charge_from_card_resp.status_code,
+                        )
+                else:
+                    return Response(
+                        data=initialize_response.json(),
+                        status=initialize_response.status_code,
+                    )
 
 
 class TransferWithinPicadailys(generics.GenericAPIView):

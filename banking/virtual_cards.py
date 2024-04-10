@@ -78,7 +78,7 @@ class CreateCard(generics.CreateAPIView):
                             "customer_id": id,
                             "currency": request.data.get("currency"),
                             "type": request.data.get("type"),
-                            "auto_approve": True,
+                            "auto_approve": "true",
                             "brand": request.data.get("brand"),
                         }
                         pin = request.data.get("pin")
@@ -155,7 +155,7 @@ class CreateCard(generics.CreateAPIView):
                         current_user = Wallet.objects.get(user=authenticated_user)
 
                         _ = Account.Credit(
-                            accNo=current_user.account_number,
+                            acct_no=current_user.account_number,
                             amount=naira_value,
                             reason="Refund for failed card creation",
                         )

@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel
+from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel, PayWithCard
 
 
 class BVNSerializer(serializers.Serializer):
@@ -238,4 +238,24 @@ class NGNToUSDConversionSerializer(serializers.ModelSerializer):
         fields = [
             "pin",
             "amount",
+        ]
+
+
+class FundWithCardSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    tokenId = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, write_only=True)
+
+    class Meta:
+        model = PayWithCard
+        fields = [
+            "pin",
+            "amount",
+            "number",
+            "expiry_month",
+            "expiry_year",
+            "card_pin",
+            "cvv",
+            "tokenId",
+            "token",
         ]

@@ -235,7 +235,7 @@ class Transfer:
     def picadailys(amount, reason, currency, account_number):
         resource = "transfers"
         payload = {
-            "bank_code": "C34",
+            "bank_code": "251",
             "account_number": account_number,
             "currency": currency,
             "amount": amount,
