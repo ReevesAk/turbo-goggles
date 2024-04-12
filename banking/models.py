@@ -147,6 +147,7 @@ class PayWithCard(models.Model):
     transactionReference = models.CharField(max_length=155, null=True)
     paymentReference = models.CharField(max_length=155, null=True)
     customerName = models.CharField(max_length=155, null=True)
+    amount = models.CharField(max_length=155, null=True)
     customerEmail = models.CharField(max_length=155, null=True)
     redirectUrl = models.CharField(max_length=255, null=True)
     number = models.CharField(max_length=100, null=True)
