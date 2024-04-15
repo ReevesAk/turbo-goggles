@@ -2,6 +2,7 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 
@@ -13,25 +14,43 @@ from .serializers import (
 from accounts.models import UserNotification
 
 
+class PaginationStyle(PageNumberPagination):
+    page_size = 20
+
+
 class GetAllNotifications(generics.ListAPIView):
     """
     GetAllNotifications is the GET request handler that allows a user to
-    receieve all notifications.
+    receive all notifications.
     """
 
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializers
-    ordering_fields = ["-created_at"]
-
-    def get_queryset(self):
-        user = self.request.user  # Access authorized user from request
-        return UserNotification.objects.filter(user=user).order_by("-created_at")
+    queryset = UserNotification.objects.all().order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        notifications = self.get_queryset().filter(user=request.user)
+        user_data = request.user
+
+        data = []
+        for notification in notifications:
+            data.append(
+                {
+                    "notification_id": notification.id,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "is_read": notification.is_read,
+                    "created_at": notification.created_at,
+                }
+            )
+
+        response = {
+            "status": "success",
+            "message": f"All notifications for {user_data.first_name} {user_data.last_name} fetched successfully!",
+            "data": data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class GetSingleNotification(generics.RetrieveAPIView):
@@ -48,21 +67,36 @@ class GetSingleNotification(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            notification = self.get_object()
+            user_notifcation = self.get_object()
 
             # Check if the notification belongs to the authenticated user
-            if notification.user != request.user:
+            if user_notifcation.user != request.user:
                 return Response(
-                    {"detail": "You are not authorized to view this notification."},
+                    {
+                        "status": "fail",
+                        "message": "You are not authorized to view this notification.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            serializer = self.get_serializer(notification)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            ntfn_id = kwargs["id"]
+            notifcation = UserNotification.objects.get(id=ntfn_id)
+            response = {
+                "status": "success.",
+                "message": "Notification retrieved successfully!.",
+                "title": notifcation.title,
+                "data": {
+                    "notification_id": ntfn_id,
+                    "message": notifcation.message,
+                    "is_read": notifcation.is_read,
+                    "created_at": notifcation.created_at,
+                },
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
 
         except UserNotification.DoesNotExist:
             return Response(
-                {"detail": "Notification not found."},
+                {"status": "fail", "message": "Notification not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
