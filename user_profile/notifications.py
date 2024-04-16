@@ -13,6 +13,7 @@ from .serializers import (
 )
 from accounts.models import UserNotification
 
+
 class PaginationStyle(PageNumberPagination):
     page_size = 20
 
@@ -22,6 +23,7 @@ class GetAllNotifications(generics.ListAPIView):
     GetAllNotifications is the GET request handler that allows a user to
     receive all notifications.
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializers
@@ -33,21 +35,22 @@ class GetAllNotifications(generics.ListAPIView):
 
         data = []
         for notification in notifications:
-            data.append({
-                "notification_id": notification.id,
-                "title": notification.title,
-                "message": notification.message,
-                "is_read": notification.is_read,
-                "created_at": notification.created_at,
-            })
+            data.append(
+                {
+                    "notification_id": notification.id,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "is_read": notification.is_read,
+                    "created_at": notification.created_at,
+                }
+            )
 
         response = {
             "status": "success",
             "message": f"All notifications for {user_data.first_name} {user_data.last_name} fetched successfully!",
-            "data": data
+            "data": data,
         }
         return Response(response, status=status.HTTP_200_OK)
-
 
 
 class GetSingleNotification(generics.RetrieveAPIView):
@@ -69,7 +72,10 @@ class GetSingleNotification(generics.RetrieveAPIView):
             # Check if the notification belongs to the authenticated user
             if user_notifcation.user != request.user:
                 return Response(
-                    {"status": "fail", "message": "You are not authorized to view this notification."},
+                    {
+                        "status": "fail",
+                        "message": "You are not authorized to view this notification.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -84,7 +90,7 @@ class GetSingleNotification(generics.RetrieveAPIView):
                     "message": notifcation.message,
                     "is_read": notifcation.is_read,
                     "created_at": notifcation.created_at,
-                }
+                },
             }
             return Response(data=response, status=status.HTTP_200_OK)
 
@@ -93,6 +99,7 @@ class GetSingleNotification(generics.RetrieveAPIView):
                 {"status": "fail", "message": "Notification not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
 
 class ClearNotifications(generics.DestroyAPIView):
     """
