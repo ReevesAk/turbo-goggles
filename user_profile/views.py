@@ -67,10 +67,10 @@ class SwitchToUser(generics.RetrieveAPIView):
 
         try:
             account_types = AccountType.objects.filter(user=user)
-            # Check if any AccountType has "BrandAd" in user_type
-            is_partner = any(acct.user_type == "User" for acct in account_types)
+            # Check if any AccountType has "User" in user_type
+            is_user = any(acct.user_type == "User" for acct in account_types)
 
-            if not is_partner:
+            if not is_user:
                 data = {
                     "status": "fail",
                     "message": "Oops, you haven't registered as a User yet.",
@@ -182,9 +182,9 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         try:
             account_types = AccountType.objects.filter(user=user)
             # Check if any AccountType has "BrandAd" in user_type
-            is_partner = any(acct.user_type == "BrandAd" for acct in account_types)
+            is_brandAd = any(acct.user_type == "BrandAd" for acct in account_types)
 
-            if not is_partner:
+            if not is_brandAd:
                 data = {
                     "status": "fail",
                     "message": "Oops, you haven't registered as a BrandAd yet.",
