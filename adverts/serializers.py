@@ -12,25 +12,13 @@ from .models import CreateAd, AdBudget
 class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
 
-    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    # device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
         fields = [
             "id",
-            "device_id",
             "whoareyou",
-            "name",
-            "address",
-            "email",
-            "brand_type",
-            "country",
-            "brand_name",
-            "description",
-            "services",
-            "state",
-            "city",
-            "website",
             "facebook",
             "twitter",
             "instagram",
@@ -38,28 +26,20 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        whoareyou = attrs.get("whoareyou", "")
-        brand_type = attrs.get("brand_type", "")
+        # whoareyou = attrs.get("whoareyou", "")
 
-        if whoareyou:
-            whoareyou_exists = User.objects.filter(whoareyou=whoareyou).exists()
-            if whoareyou_exists:
-                raise serializers.ValidationError(
-                    f"whoareyou: {whoareyou} has already been used"
-                )
-        else:
-            raise serializers.ValidationError(
-                "whoareyou: whoareyou field can not be empty"
-            )
+        # if whoareyou:
+        #     whoareyou_exists = User.objects.filter(whoareyou=whoareyou).exists()
+        #     if whoareyou_exists:
+        #         raise serializers.ValidationError(
+        #             f"whoareyou: {whoareyou} has already been used"
+        #         )
+        # else:
+        #     raise serializers.ValidationError(
+        #         "whoareyou: whoareyou field can not be empty"
+        #     )
 
-        if brand_type:
-            pass
-        else:
-            raise serializers.ValidationError(
-                "brand_type: brand_type field can not be empty"
-            )
-
-        urls = ["facebook", "twitter", "instagram", "telegram", "website"]
+        urls = ["facebook", "twitter", "instagram", "telegram"]
         url_validator = URLValidator()
 
         for field_name in urls:
@@ -76,26 +56,13 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        user = User.objects.create(
-            name=validated_data["name"],
+        user = User.objects.update(
             whoareyou=validated_data["whoareyou"],
-            address=validated_data["address"],
-            brand_type=validated_data["brand_type"],
-            brand_name=validated_data["brand_name"],
-            description=validated_data["description"],
-            services=validated_data["services"],
-            country=validated_data["country"],
-            state=validated_data["state"],
-            city=validated_data["city"],
-            website=validated_data["website"],
             facebook=validated_data["facebook"],
             twitter=validated_data["twitter"],
             instagram=validated_data["instagram"],
             telegram=validated_data["telegram"],
         )
-
-        user.set_password(validated_data["password"])
-        user.save()
 
         return user
 

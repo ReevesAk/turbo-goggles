@@ -53,20 +53,24 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 message="Brand advert account created Successfully.",
             )
             brand_user = User.objects.get(email=authenticated_user.email)
-            brand_user.has_promoted = True
 
             AccountType.objects.create(
-                user=user,
+                user=brand_user,
                 user_type="BrandAd",
             )
             brand_user.active_role = "BrandAd"
             brand_user.save()
 
-            user_data = serializer.data
             response = {
                 "status": "success",
                 "message": "Brand advert account created Successfully.",
-                "data": user_data,
+                "data": {
+                    "whoareyou": request.data.get("whoareyou"),
+                    "facebook": request.data.get("facebook"),
+                    "twitter": request.data.get("twitter"),
+                    "instagram": request.data.get("instagram"),
+                    "telegram": request.data.get("telegram"),
+                },
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:

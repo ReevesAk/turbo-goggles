@@ -126,6 +126,7 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
+            "profile_img_url",
             "email",
             "country",
             "active_role",
