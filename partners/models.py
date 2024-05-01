@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 from accounts.models import User
 
@@ -40,6 +41,7 @@ class PartnerServices(models.Model):
 
 
 class CustomerRating(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     service = models.ForeignKey(
         PartnerServices, on_delete=models.CASCADE, related_name="customer_rating"
     )
