@@ -396,9 +396,11 @@ class AllPartnersServiceList(generics.ListAPIView):
         response = {
             "status": "success",
             "message": "All Partners services fetched successfully!",
-            "data": serialized_data.data
-            if hasattr(serialized_data, "data")
-            else serialized_data.content,  # Handle both paginated and non-paginated responses
+            "data": (
+                serialized_data.data
+                if hasattr(serialized_data, "data")
+                else serialized_data.content
+            ),  # Handle both paginated and non-paginated responses
         }
         if hasattr(
             serialized_data, "pagination"

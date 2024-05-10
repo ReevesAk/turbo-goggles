@@ -164,7 +164,6 @@ class VerifYBVN(generics.GenericAPIView):
 
 
 class CreateNGNAccount(generics.GenericAPIView):
-
     """
     CreateNGNAccount handles the POST request of creating a customer wallet in Naira.
     """
@@ -334,7 +333,6 @@ class CreateNGNAccount(generics.GenericAPIView):
 
 
 class GetCustomer(generics.RetrieveAPIView):
-
     """
     GetCustomer handles the GET request of retrieving a
     customer's wallet information.
@@ -377,7 +375,6 @@ class GetCustomer(generics.RetrieveAPIView):
 
 
 class GetCustomersWallets(generics.RetrieveAPIView):
-
     """
     GetCustomersAccounts handles the GET request of retrieving all
     the accounts created by a customer.
@@ -420,7 +417,6 @@ class GetCustomersWallets(generics.RetrieveAPIView):
 
 
 class GetVirtualAccountDetails(generics.RetrieveAPIView):
-
     """
     GetVirtualAccountDetails handles the GET request of retrieving all
     the details of a virtual account. Call this endpoint to update the virtual
@@ -463,7 +459,6 @@ class GetVirtualAccountDetails(generics.RetrieveAPIView):
 
 
 class CustomerTransctionHistory(generics.RetrieveAPIView):
-
     """
     CustomerTransctionHistory handles the GET request of retrieving all
     transactions a customer has made.
@@ -508,7 +503,6 @@ class CustomerTransctionHistory(generics.RetrieveAPIView):
 
 
 class UpdateCustomer(generics.RetrieveAPIView):
-
     """
     UpdateCustomer handles the PATCH request of updating
     customer information.
@@ -607,7 +601,6 @@ class UpdateCustomer(generics.RetrieveAPIView):
 
 
 class UpgradeAccount(generics.CreateAPIView):
-
     """
     UpgradeAccount handles the POST request of upgrading a customer
     to Tier1 and Tier 2 respectfully.

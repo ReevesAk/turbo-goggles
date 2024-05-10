@@ -40,7 +40,6 @@ app_password = config("EMAIL_HOST_PASSWORD")
 
 
 class CreateCard(generics.CreateAPIView):
-
     """
     CreateCard handles the POST request of creating a USD card request.
     """

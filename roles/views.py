@@ -173,7 +173,6 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
 
 
 class GetAllCustomers(generics.RetrieveAPIView):
-
     """
     GetAllCustomers handles the GET request of retrieving all availalble
     customers wallet information.
