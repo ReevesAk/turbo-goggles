@@ -355,7 +355,9 @@ class DeletePartnerService(generics.DestroyAPIView):
 class AllPartnersServiceList(generics.ListAPIView):
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+    permission_classes = permission_classes = [
+        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
+    ]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
