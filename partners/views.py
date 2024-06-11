@@ -75,7 +75,7 @@ class CreatePartner(generics.GenericAPIView):
 class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
+    permission_classes = [IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
