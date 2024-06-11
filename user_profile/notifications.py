@@ -155,7 +155,7 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
 
 class DeleteNotification(generics.DestroyAPIView):
     """
-    DeleteNotification is the DELETE request handler that allows a user to delete their post.
+    DeleteNotification is the DELETE request handler that allows a user to delete their notification.
     """
 
     queryset = UserNotification.objects.all()

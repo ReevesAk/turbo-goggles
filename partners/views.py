@@ -28,7 +28,7 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
-from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrReadOnly
+from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrReadOnly, IsPartnerUserOrMember
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -356,7 +356,7 @@ class AllPartnersServiceList(generics.ListAPIView):
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = permission_classes = [
-        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
+        IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin)
     ]
     pagination_class = PaginationStyle
 
