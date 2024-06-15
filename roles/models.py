@@ -25,3 +25,13 @@ class Points(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     gamification = models.ForeignKey(to=GamificationModel, on_delete=models.CASCADE)
     balance = models.FloatField(null=True)
+
+
+class Applications(models.Model):
+    name = models.CharField(max_length=255, null=True)
+    email = models.EmailField(max_length=255, null=True)
+    role = models.CharField(max_length=150, null=True)
+    cover_letter = models.CharField(max_length=255, null=True)
+    certificates = models.CharField(max_length=255, null=True)
+    portfolio = models.CharField(max_length=200, null=True, blank=True)
+    cv = models.CharField(max_length=255, null=True)

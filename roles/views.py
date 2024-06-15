@@ -1,17 +1,22 @@
 import requests
 import logging
 from decouple import config
+from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 # Third party imports.
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
 from drf_spectacular.utils import extend_schema
+
+from cloudinary import uploader as cloud
 
 # In project imports.
 from .serializers import (
@@ -20,7 +25,9 @@ from .serializers import (
     RegisterOtherAdminRoleSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
+    ApplicationsSerializers,
 )
+from .models import Applications
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message
@@ -244,3 +251,73 @@ class DeleteAdmin(generics.DestroyAPIView):
                 f"Admin with '{email}' does not exist.",
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class JobApplications(generics.CreateAPIView):
+    """
+    JobApplications handles the POST request of job applications to Picadailys.
+    """
+
+    serializer_class = ApplicationsSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (AllowAny,)
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
+
+    def post(self, request):
+        serializer = ApplicationsSerializers(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            cert_uploads = request.data.getlist("certificates")
+            cert_urls = []
+
+            with ThreadPoolExecutor() as executor:
+                # Submit image upload tasks to the thread pool.
+                cover_letter = executor.submit(
+                    self.upload_image, request.data.get("cover_letter")
+                )
+                cv_upload = executor.submit(self.upload_image, request.data.get("cv"))
+
+                # Wait for both uploads to complete
+                letter_url = cover_letter.result()
+                cv_url = cv_upload.result()
+
+            try:
+                serializer.validated_data["user"] = request.user
+                serializer.save()
+
+                for upload in cert_uploads:
+                    upload_result = cloud.upload(file=upload)
+                    cert_url = upload_result["url"]
+                    cert_urls.append(cert_url)
+
+                    Applications.objects.create(
+                        name=request.data.get["name"],
+                        email=request.data.get["email"],
+                        role=request.data.get["role"],
+                        cover_letter=letter_url,
+                        portfolio=request.data.get["portfolio"],
+                        certificates=cert_url,
+                        cv=cv_url,
+                    )
+
+                    response = {
+                        "status": "success",
+                        "message": "Job application sent!",
+                        "certificates": cert_url,
+                        "data": serializer.data,
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+
+            except Exception as err:
+                return Response(
+                    {"error": "An error occurred: {}".format(err)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_doc_url = doc_image["url"]
