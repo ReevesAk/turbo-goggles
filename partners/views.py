@@ -28,7 +28,13 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
-from permissions import IsPartner, IsPartnerAdmin, IsUserOrMember, IsOwnerOrReadOnly, IsPartnerUserOrMember
+from permissions import (
+    IsPartner,
+    IsPartnerAdmin,
+    IsUserOrMember,
+    IsOwnerOrReadOnly,
+    IsPartnerUserOrMember,
+)
 
 
 picadailys_email = config("EMAIL_HOST_USER")

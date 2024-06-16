@@ -4,7 +4,7 @@ from rest_framework import serializers
 # In project imports.
 from accounts.models import User
 
-from .models import GamificationModel
+from .models import GamificationModel, Applications
 
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
@@ -152,3 +152,17 @@ class ReviewTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = GamificationModel
         fields = ["user_id", "remarks", "pts"]
+
+
+class ApplicationsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Applications
+        fields = [
+            "name",
+            "email",
+            "role",
+            "cover_letter",
+            "portfolio",
+            "certificates",
+            "cv",
+        ]
