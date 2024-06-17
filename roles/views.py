@@ -270,18 +270,25 @@ class JobApplications(generics.CreateAPIView):
         serializer = ApplicationsSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             cert_uploads = request.data.getlist("certificates")
+
             cert_urls = []
 
-            with ThreadPoolExecutor() as executor:
-                # Submit image upload tasks to the thread pool.
-                cover_letter = executor.submit(self.upload_image, request.data.get("cover_letter"))
-                cv_upload = executor.submit(self.upload_image, request.data.get("cv"))
-
-                # Wait for both uploads to complete
-                letter_url = cover_letter.result()
-                cv_url = cv_upload.result()
 
             try:
+
+                for upload in cert_uploads:
+                    upload_result = cloud.upload(upload)
+                    cert_url = upload_result["url"]
+                    cert_urls.append(cert_url)
+
+                letter_upload = request.data.get("cover_letter")
+                upload_letter = cloud.upload(letter_upload)
+                letter_url = upload_letter["url"]
+
+                cv_upload = request.data.get("cv")
+                upload_cv = cloud.upload(cv_upload)
+                cv_url = upload_cv["url"]
+
                 # Save the application data without the user field
                 application = Applications.objects.create(
                     name=request.data.get("name"),
@@ -292,11 +299,6 @@ class JobApplications(generics.CreateAPIView):
                     certificates=",".join(cert_urls),  # Save as comma-separated string if multiple
                     cv=cv_url,
                 )
-
-                for upload in cert_uploads:
-                    upload_result = cloud.upload(upload)
-                    cert_url = upload_result["url"]
-                    cert_urls.append(cert_url)
 
                 # Update the certificates field after creating the instance
                 application.certificates = ",".join(cert_urls)
