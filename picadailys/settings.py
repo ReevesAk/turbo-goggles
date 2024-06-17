@@ -141,8 +141,14 @@ USE_TZ = False
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
-STORAGES = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STORAGES = {
+    'default': {
+        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -200,7 +206,6 @@ cloudinary.config(
     api_key=conf("CLOUDINARY_API_KEY"),
     api_secret=conf("CLOUDINARY_API_SECRET"),
 )
-STORAGES = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 TESTING = 'test' in sys.argv[1:]
 if TESTING:
