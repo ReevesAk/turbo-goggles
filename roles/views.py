@@ -274,9 +274,7 @@ class JobApplications(generics.CreateAPIView):
 
             with ThreadPoolExecutor() as executor:
                 # Submit image upload tasks to the thread pool.
-                cover_letter = executor.submit(
-                    self.upload_image, request.data.get("cover_letter")
-                )
+                cover_letter = executor.submit(self.upload_image, request.data.get("cover_letter"))
                 cv_upload = executor.submit(self.upload_image, request.data.get("cv"))
 
                 # Wait for both uploads to complete
@@ -284,31 +282,40 @@ class JobApplications(generics.CreateAPIView):
                 cv_url = cv_upload.result()
 
             try:
-                serializer.validated_data["user"] = request.user
-                serializer.save()
+                # Save the application data without the user field
+                application = Applications.objects.create(
+                    name=request.data.get("name"),
+                    email=request.data.get("email"),
+                    role=request.data.get("role"),
+                    cover_letter=letter_url,
+                    portfolio=request.data.get("portfolio"),
+                    certificates=",".join(cert_urls),  # Save as comma-separated string if multiple
+                    cv=cv_url,
+                )
 
                 for upload in cert_uploads:
-                    upload_result = cloud.upload(file=upload)
+                    upload_result = cloud.upload(upload)
                     cert_url = upload_result["url"]
                     cert_urls.append(cert_url)
 
-                    Applications.objects.create(
-                        name=request.data.get["name"],
-                        email=request.data.get["email"],
-                        role=request.data.get["role"],
-                        cover_letter=letter_url,
-                        portfolio=request.data.get["portfolio"],
-                        certificates=cert_url,
-                        cv=cv_url,
-                    )
+                # Update the certificates field after creating the instance
+                application.certificates = ",".join(cert_urls)
+                application.save()
 
-                    response = {
-                        "status": "success",
-                        "message": "Job application sent!",
-                        "certificates": cert_url,
-                        "data": serializer.data,
-                    }
-                    return Response(data=response, status=status.HTTP_201_CREATED)
+                response = {
+                    "status": "success",
+                    "message": "Job application sent!",
+                    "data": {
+                        "name": request.data.get("name"),
+                        "email": request.data.get("email"),
+                        "role": request.data.get("role"),
+                        "cover_letter": letter_url,
+                        "portfolio": request.data.get("portfolio"),
+                        "certificates": cert_urls,
+                        "cv": cv_url
+                    },
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
 
             except Exception as err:
                 return Response(

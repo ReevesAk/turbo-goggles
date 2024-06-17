@@ -155,6 +155,11 @@ class ReviewTaskSerializer(serializers.ModelSerializer):
 
 
 class ApplicationsSerializers(serializers.ModelSerializer):
+
+    cover_letter = serializers.FileField(max_length=155)
+    certificates = serializers.FileField(max_length=155)
+    cv = serializers.FileField(max_length=155)
+
     class Meta:
         model = Applications
         fields = [
