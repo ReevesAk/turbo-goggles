@@ -16,7 +16,6 @@ from decouple import config as conf
 import os, sys
 import dj_database_url
 import cloudinary
-from corshe
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
