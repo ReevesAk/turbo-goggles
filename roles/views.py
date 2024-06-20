@@ -2,12 +2,11 @@ import requests
 import logging
 from decouple import config
 from threading import Thread
-from concurrent.futures import ThreadPoolExecutor
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 # Third party imports.
-from rest_framework import generics, status
+from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -17,6 +16,13 @@ from rest_framework.pagination import PageNumberPagination
 from drf_spectacular.utils import extend_schema
 
 from cloudinary import uploader as cloud
+
+
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 
 # In project imports.
 from .serializers import (
@@ -259,7 +265,6 @@ class JobApplications(generics.CreateAPIView):
     """
 
     serializer_class = ApplicationsSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (AllowAny,)
     parser_classes = (
         MultiPartParser,
@@ -330,3 +335,33 @@ class JobApplications(generics.CreateAPIView):
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)
         self.uploaded_doc_url = doc_image["url"]
+
+
+class JobApplicationDetail(generics.ListAPIView):
+    """
+    Retrieve a single job application based on the email.
+    """
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        email = self.kwargs.get('email')
+        email.lower()
+        if email is None:
+            raise exceptions.NotFound("Email parameter is required.")
+        
+        applications = Applications.objects.filter(email=email)
+        if not applications.exists():
+            raise exceptions.NotFound("No job applications with this email exist.")
+        
+        return applications
+
+
+class JobApplicationList(generics.ListAPIView):
+    """
+    List all job applications.
+    """
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = [AllowAny]

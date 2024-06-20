@@ -7,6 +7,8 @@ from .views import (
     GetAllCustomers,
     DeleteAdmin,
     JobApplications,
+    JobApplicationList,
+    JobApplicationDetail,
 )
 
 from .tasks import (
@@ -49,4 +51,6 @@ urlpatterns = [
     path("task/review-task", ReviewTask.as_view(), name="review_task"),
     # Applications endpoints.
     path("career/job-aplication", JobApplications.as_view(), name="job_aplications"),
+    path("career/get-applications/", JobApplicationList.as_view(), name='application-list'),
+    path("career/applications/<str:email>/", JobApplicationDetail.as_view(), name='application-detail'),
 ]
