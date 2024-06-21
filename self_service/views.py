@@ -6,6 +6,7 @@ from mail import send_email
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -77,7 +78,7 @@ class TableBooking(generics.CreateAPIView):
                         case "WALLET":
                             debit_response = Account.Debit(
                                 amount=amount,
-                                description="Debit restaurant table booking.",
+                                reason="Debit restaurant table booking.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -326,7 +327,7 @@ class GymBooking(generics.CreateAPIView):
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
-                                amount=amount, description="Debit for gym booking."
+                                amount=amount, reason="Debit for gym booking."
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -577,7 +578,7 @@ class CinemaBookingView(generics.CreateAPIView):
                         case "WALLET":
                             debit_response = Account.Debit(
                                 amount=amount,
-                                description="Debit for cinema seats booking.",
+                                reason="Debit for cinema seats booking.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -829,7 +830,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                         case "WALLET":
                             debit_response = Account.Debit(
                                 amount=amount,
-                                description="Debit for booking courier service.",
+                                reason="Debit for booking courier service.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -1174,7 +1175,7 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
 
 class BookLandTrip(generics.GenericAPIView):
     """
-    BookLandTrip is an POST request route for booking a land trip, one way or round trip.
+    BookLandTrip is a POST request route for booking a land trip, one way or round trip.
     """
 
     serializer_class = LandTravelsSerilaizers
@@ -1182,23 +1183,23 @@ class BookLandTrip(generics.GenericAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def post(self, request):
-        serializer = CourierBookingSerializers(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                trip_pattern = request.data.get("trip_pattern")
                 payload = request.data
 
-                trip_date = (payload["trip_date"],)
-                departure_state = (payload["departure_state"],)
-                terminal = (payload["terminal"],)
-                destination = (payload["destination"],)
-                no_of_adults = (payload["no_of_adults"],)
-                no_of_children = (payload["no_of_children"],)
-                trip_type = (payload["trip_type"],)
+                trip_date = payload["trip_date"]
+                departure_state = payload["departure_state"]
+                terminal = payload["terminal"]
+                destination = payload["destination"]
+                no_of_adults = payload["no_of_adults"]
+                no_of_children = payload["no_of_children"]
+                trip_type = payload["trip_type"]
                 trip_pattern = payload["trip_pattern"]
 
-                LandTravels.objects.create(
+                # Create the LandTravels object
+                land_travel = LandTravels.objects.create(
                     user=authenticated_user,
                     trip_date=trip_date,
                     departure_state=departure_state,
@@ -1211,73 +1212,77 @@ class BookLandTrip(generics.GenericAPIView):
                 )
 
                 data = {
-                    "trip_date": request.data.get("trip_date"),
-                    "departure_state": request.data.get("departure_state"),
-                    "terminal": request.data.get("terminal"),
-                    "destination": request.data.get("destination"),
-                    "no_of_children": request.data.get("no_of_children"),
-                    "trip_type": request.data.get("trip_type"),
-                    "trip_pattern": request.data.get("trip_pattern"),
+                    "trip_date": trip_date,
+                    "departure_state": departure_state,
+                    "terminal": terminal,
+                    "destination": destination,
+                    "no_of_adults": no_of_adults,
+                    "no_of_children": no_of_children,
+                    "trip_type": trip_type,
+                    "trip_pattern": trip_pattern,
                 }
 
-                match trip_pattern:
-                    case "One Way":
-                        purchase = PurchaseModel.objects.create(
-                            user=authenticated_user,
-                            service_type="Land Travels Service.",
-                            service_id=serializer.data["id"],
-                            amount="",
-                        )
-                        tx_status = TransactionStatus.objects.create(
-                            status="Success",
-                            details="One way trip booked booked successfully.",
-                        )
-                        tag = ProductTagmanager.generate(service_type="LTS-")
-                        current_user = LandTravels.objects.get(user=request.user)
-                        current_user.purchase = purchase
-                        current_user.product_tag = tag
-                        current_user.transaction_status = tx_status
-                        current_user.save()
+                if trip_pattern == "One Way":
+                    purchase = PurchaseModel.objects.create(
+                        user=authenticated_user,
+                        service_type="Land Travels Service.",
+                        service_id=land_travel.id,
+                        amount=0,
+                    )
+                    tx_status = TransactionStatus.objects.create(
+                        status="Success",
+                        details="One way trip booked successfully.",
+                    )
+                    tag = ProductTagmanager.generate(service_type="LTS-")
+                    land_travel.purchase = purchase
+                    land_travel.product_tag = tag
+                    land_travel.transaction_status = tx_status
+                    land_travel.save()
 
-                        response = {
-                            "status": "success!",
-                            "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
-                            "data": {
-                                "booking data": data,
-                                "product_tag": tag,
-                            },
-                        }
-                        return Response(data=response, status=status.HTTP_201_CREATED)
-                    case "Round Trip":
-                        purchase = PurchaseModel.objects.create(
-                            user=authenticated_user,
-                            service_type="Land Travels Service.",
-                            service_id=serializer.data["id"],
-                            amount="",
-                        )
-                        tx_status = TransactionStatus.objects.create(
-                            status="Success",
-                            details="Round trip booked successfully.",
-                        )
-                        tag = ProductTagmanager.generate(service_type="LTS-")
-                        current_user = LandTravels.objects.get(user=request.user)
-                        current_user.purchase = purchase
-                        current_user.product_tag = tag
-                        current_user.transaction_status = tx_status
-                        current_user.save()
+                    response = {
+                        "status": "success!",
+                        "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
+                        "data": {
+                            "booking data": data,
+                            "product_tag": tag,
+                        },
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
 
-                        response = {
-                            "status": "success!",
-                            "message": f"You have successfully booked a round trip from {departure_state} to {destination} and {destination} to {departure_state}.",
-                            "data": {
-                                "booking data": data,
-                                "product_tag": tag,
-                            },
-                        }
-                        return Response(data=response, status=status.HTTP_201_CREATED)
+                elif trip_pattern == "Round Trip":
+                    purchase = PurchaseModel.objects.create(
+                        user=authenticated_user,
+                        service_type="Land Travels Service.",
+                        service_id=land_travel.id,
+                        amount="",
+                    )
+                    tx_status = TransactionStatus.objects.create(
+                        status="Success",
+                        details="Round trip booked successfully.",
+                    )
+                    tag = ProductTagmanager.generate(service_type="LTS-")
+                    land_travel.purchase = purchase
+                    land_travel.product_tag = tag
+                    land_travel.transaction_status = tx_status
+                    land_travel.save()
+
+                    response = {
+                        "status": "success!",
+                        "message": f"You have successfully booked a round trip from {departure_state} to {destination} and back.",
+                        "data": {
+                            "booking data": data,
+                            "product_tag": tag,
+                        },
+                    }
+                    return Response(data=response, status=status.HTTP_201_CREATED)
+
+                else:
+                    raise NotFound("Invalid selection")
 
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data={"error": str(err)}, status=status.HTTP_400_BAD_REQUEST
+                )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1364,7 +1369,7 @@ class BookHotel(generics.GenericAPIView):
                         case "WALLET":
                             debit_response = Account.Debit(
                                 amount=amount,
-                                description="Debit for hotel booking.",
+                                reason="Debit for hotel booking.",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(

@@ -20,7 +20,7 @@ from cloudinary import uploader as cloud
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
@@ -278,9 +278,7 @@ class JobApplications(generics.CreateAPIView):
 
             cert_urls = []
 
-
             try:
-
                 for upload in cert_uploads:
                     upload_result = cloud.upload(upload)
                     cert_url = upload_result["url"]
@@ -301,7 +299,9 @@ class JobApplications(generics.CreateAPIView):
                     role=request.data.get("role"),
                     cover_letter=letter_url,
                     portfolio=request.data.get("portfolio"),
-                    certificates=",".join(cert_urls),  # Save as comma-separated string if multiple
+                    certificates=",".join(
+                        cert_urls
+                    ),  # Save as comma-separated string if multiple
                     cv=cv_url,
                 )
 
@@ -319,7 +319,7 @@ class JobApplications(generics.CreateAPIView):
                         "cover_letter": letter_url,
                         "portfolio": request.data.get("portfolio"),
                         "certificates": cert_urls,
-                        "cv": cv_url
+                        "cv": cv_url,
                     },
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
@@ -341,20 +341,21 @@ class JobApplicationDetail(generics.ListAPIView):
     """
     Retrieve a single job application based on the email.
     """
+
     queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        email = self.kwargs.get('email')
+        email = self.kwargs.get("email")
         email.lower()
         if email is None:
             raise exceptions.NotFound("Email parameter is required.")
-        
+
         applications = Applications.objects.filter(email=email)
         if not applications.exists():
             raise exceptions.NotFound("No job applications with this email exist.")
-        
+
         return applications
 
 
@@ -362,6 +363,7 @@ class JobApplicationList(generics.ListAPIView):
     """
     List all job applications.
     """
+
     queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = [AllowAny]

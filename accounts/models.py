@@ -145,7 +145,7 @@ class PurchaseModel(models.Model):
     service_id = models.PositiveIntegerField(
         null=True
     )  # ID of the specific service purchased
-    amount = models.FloatField(null=True)
+    amount = models.FloatField(null=True, blank=True)
     purchase_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
