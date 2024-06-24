@@ -312,9 +312,9 @@ class JobApplications(generics.CreateAPIView):
                 email = request.data.get("email", "N/A")
                 role = request.data.get("role", "N/A")
 
-                content = f'name: {name}, email: {email}, role: {role}, cv: {cv_url}, cover letter: {letter_url}, certificates: {application.certificates}'
+                content = f'name: {name}, email: {email}, cv: {cv_upload}, cover letter: {letter_upload}, certificates: {application.certificates}'
 
-                sendMail(content=content)
+                sendMail(content=content, subject=role)
 
                 # Update the certificates field after creating the instance
                 application.certificates = ",".join(cert_urls)

@@ -4,12 +4,12 @@ from sendgrid.helpers.mail import Mail
 from decouple import config
 
 
-def sendMail(content):
+def sendMail(content, subject):
 
     message = Mail(
         from_email="care@picadailys.com",
         to_emails="career@picadailys.com",
-        subject='Customer Care Role Application.',
+        subject=subject,
         html_content=content,
     )
 
