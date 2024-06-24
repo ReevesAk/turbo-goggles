@@ -17,6 +17,8 @@ from drf_spectacular.utils import extend_schema
 
 from cloudinary import uploader as cloud
 
+from .helpers import sendMail
+
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
@@ -304,6 +306,15 @@ class JobApplications(generics.CreateAPIView):
                     ),  # Save as comma-separated string if multiple
                     cv=cv_url,
                 )
+
+                # send application to careers@picadailys.com.
+                name = request.data.get("name", "N/A")
+                email = request.data.get("email", "N/A")
+                role = request.data.get("role", "N/A")
+
+                content = f'name: {name}, email: {email}, role: {role}, cv: {cv_url}, cover letter: {letter_url}, certificates: {application.certificates}'
+
+                sendMail(content=content)
 
                 # Update the certificates field after creating the instance
                 application.certificates = ",".join(cert_urls)
