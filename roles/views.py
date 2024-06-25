@@ -312,7 +312,13 @@ class JobApplications(generics.CreateAPIView):
                 email = request.data.get("email", "N/A")
                 role = request.data.get("role", "N/A")
 
-                content = f'name: {name}, email: {email}, cv: {cv_upload}, cover letter: {letter_upload}, certificates: {application.certificates}'
+                content = f"""
+                    name: {name}, 
+                    email: {email}, 
+                    CV: [View CV]({cv_url}), 
+                    cover letter: [View Cover Letter]({letter_url}), 
+                    certificates: {application.certificates}
+                """
 
                 sendMail(content=content, subject=role)
 
