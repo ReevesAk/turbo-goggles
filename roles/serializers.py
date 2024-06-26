@@ -94,6 +94,12 @@ class AdminDeletionSerializer(serializers.ModelSerializer):
         fields = ["email"]
 
 
+class DisableAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["email", "password"]
+
+
 class UpdateAdminRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

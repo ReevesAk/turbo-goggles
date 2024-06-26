@@ -1,9 +1,21 @@
 import requests
 import logging
 from decouple import config
-from threading import Thread
+from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+
+# In project imports.
+from .serializers import (
+    StatusSerializer,
+    RegisterSuperAdminSerializer,
+    RegisterOtherAdminRoleSerializer,
+    AdminDeletionSerializer,
+    ListAdminSerializer,
+    ApplicationsSerializers,
+    DisableAdminSerializer,
+)
+from .models import Applications
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -19,27 +31,17 @@ from cloudinary import uploader as cloud
 
 from .helpers import sendMail
 
+from accounts.models import User, UserNotification
+from accounts.otp import otp_manager
+from commons import Message
+from permissions import IsSuperAdmin
+
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
 
-
-# In project imports.
-from .serializers import (
-    StatusSerializer,
-    RegisterSuperAdminSerializer,
-    RegisterOtherAdminRoleSerializer,
-    AdminDeletionSerializer,
-    ListAdminSerializer,
-    ApplicationsSerializers,
-)
-from .models import Applications
-from accounts.models import User, UserNotification
-from accounts.otp import otp_manager
-from commons import Message
-from permissions import IsSuperAdmin
 
 base_url = config("MAPLERAD_BASE_URL")
 secret_key = config("MAPLERAD_SECRET_KEY")
@@ -187,6 +189,42 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         )
 
 
+class DisableAdminrole(generics.RetrieveUpdateAPIView):
+    """
+    DisableAdminrole handles the POST request of disabling
+    an admin user.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = DisableAdminSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        email = self.request.data.get("email")
+        password = self.request.data.get("password")
+
+        try:
+            user = User.objects.filter(Q(email=email)).exists()
+
+            if check_password(password=password, encoded=request.user.password):
+                user.is_disabled = True
+                user.save()
+
+            resp = {
+                "status": "success",
+                "message": "Admin disabbles successfully",
+                "data": user.is_disabled,
+            }
+            return Response(data=resp, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response(
+                f"Admin with '{email}' does not exist.",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
 class GetAllCustomers(generics.RetrieveAPIView):
     """
     GetAllCustomers handles the GET request of retrieving all availalble
@@ -314,9 +352,9 @@ class JobApplications(generics.CreateAPIView):
 
                 content = f"""
                     name: {name}, 
-                    email: {email}, 
-                    CV: [View CV]({cv_url}), 
-                    cover letter: [View Cover Letter]({letter_url}), 
+                    email: {email},
+                    CV: [View CV]({cv_url}),
+                    cover letter: [View Cover Letter]({letter_url}),
                     certificates: {application.certificates}
                 """
 

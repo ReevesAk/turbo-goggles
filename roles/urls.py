@@ -3,6 +3,7 @@ from .views import (
     RegisterSuperAdmin,
     CreateOtherAdmin,
     UpdateAdminRole,
+    DisableAdminrole,
     ListAdmin,
     GetAllCustomers,
     DeleteAdmin,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("create-new-admin/", CreateOtherAdmin.as_view(), name="create_new_admin"),
     path("update-admin-role/", UpdateAdminRole.as_view(), name="update_admin_role"),
     path("list-admin-users/", ListAdmin.as_view(), name="list_admin_users"),
+    path("disabble-admin/", DisableAdminrole.as_view(), name="disable_admin"),
     path("get-all-customers/", GetAllCustomers.as_view(), name="get_all_customers"),
     path("delete-admin/", DeleteAdmin.as_view(), name="delete_admin_users"),
     # Gamification Tasks endpoints.
