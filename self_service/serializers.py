@@ -156,6 +156,7 @@ class LandTravelsSerilaizers(serializers.ModelSerializer):
         fields = [
             "id",
             "trip_date",
+            "return_date",
             "departure_state",
             "terminal",
             "destination",

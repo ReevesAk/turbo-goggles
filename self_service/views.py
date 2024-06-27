@@ -1190,6 +1190,7 @@ class BookLandTrip(generics.GenericAPIView):
                 payload = request.data
 
                 trip_date = payload["trip_date"]
+                return_date = payload["return_date"]
                 departure_state = payload["departure_state"]
                 terminal = payload["terminal"]
                 destination = payload["destination"]
@@ -1201,9 +1202,10 @@ class BookLandTrip(generics.GenericAPIView):
                 # Create the LandTravels object
                 land_travel = LandTravels.objects.create(
                     user=authenticated_user,
-                    trip_date=trip_date,
                     departure_state=departure_state,
                     terminal=terminal,
+                    trip_date=trip_date,
+                    return_date=return_date,
                     destination=destination,
                     no_of_adults=no_of_adults,
                     no_of_children=no_of_children,
@@ -1213,6 +1215,7 @@ class BookLandTrip(generics.GenericAPIView):
 
                 data = {
                     "trip_date": trip_date,
+                    "return_date": return_date,
                     "departure_state": departure_state,
                     "terminal": terminal,
                     "destination": destination,
@@ -1240,7 +1243,7 @@ class BookLandTrip(generics.GenericAPIView):
                     land_travel.save()
 
                     response = {
-                        "status": "success!",
+                        "status": "success",
                         "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
                         "data": {
                             "booking data": data,

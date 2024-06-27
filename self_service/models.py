@@ -132,7 +132,8 @@ class LandTravels(ItemPurchaseBaseModel):
         related_name="landtravel_purchase",
         null=True,
     )
-    trip_date = models.DateField()
+    trip_date = models.DateField(null=True, blank=True)
+    return_date = models.DateField(null=True, blank=True)
     departure_state = models.CharField(max_length=150, null=True)
     terminal = models.CharField(max_length=150, null=True)
     destination = models.CharField(max_length=150, null=True)
