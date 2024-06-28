@@ -1356,7 +1356,7 @@ class BookHotel(generics.GenericAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def post(self, request):
-        serializer = CourierBookingSerializers(data=request.data)
+        serializer = Hotels(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
@@ -1557,7 +1557,7 @@ class ServiceRating(generics.GenericAPIView):
         `land_travel`\n
         `hotel`\n
     `rating`: This comes in numbers 1-5 depending on the quality of the service provided.\n
-    `review`: The review is a written appraisal of the product comnsumed.
+    `review`: The review is a written appraisal of the product consumed.
     """
 
     serializer_class = CustomerRatingSerializer

@@ -84,7 +84,7 @@ class IsPartner(permissions.BasePermission):
 class IsPartnerUserOrMember(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["Partner", "User", "Member"]
+        required_user_types = ["Partner", "User", "Member", "BrandAd"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
