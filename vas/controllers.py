@@ -40,6 +40,7 @@ def airtime(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = airtime_response.json().get("transactionId", "")
                 tx.tx_reference = airtime_instance.tx_reference
+                tx.tx_type = "Airtime"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for airtime purchase."
                 tx.rwd = new_rewards
@@ -103,6 +104,7 @@ def data(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = data_response.json().get("transactionId", "")
                 tx.tx_reference = data_instance.tx_reference
+                tx.tx_type = "Data"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for data subscription."
                 tx.rwd = new_rewards
@@ -166,6 +168,7 @@ def electricity(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = electricity_response.json().get("transactionId", "")
                 tx.tx_reference = electricity_instance.tx_reference
+                tx.tx_type = "Electricity"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for electricity payment."
                 tx.rwd = new_rewards
@@ -231,6 +234,7 @@ def NewTvSub(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = new_tv_response.json().get("transactionId", "")
                 tx.tx_reference = new_tv_sub_instance.tx_reference
+                tx.tx_type = "Leisure"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for new tv subscription payment."
                 tx.rwd = new_rewards
@@ -293,6 +297,7 @@ def RenewTvSub(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = renew_tv_response.json().get("transactionId", "")
                 tx.tx_reference = renew_tv_sub_instance.tx_reference
+                tx.tx_type = "Leisure"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for tv subscription renewal."
                 tx.rwd = new_rewards
@@ -360,6 +365,7 @@ def international_topup(user, serializer, reason, user_data):
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = intl_topup_response.json().get("transactionId", "")
                 tx.tx_reference = intl_topup_instnace.tx_reference
+                tx.tx_type = "Airtime"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for international airtime recharge."
                 tx.rwd = new_rewards
@@ -423,6 +429,7 @@ def waec_reg(user, serializer, reason, user_data):
                 tx.tx_id = waec_response.json().get("transactionId", "")
                 tx.tx_reference = waec_payment_instance.tx_reference
                 tx.amount = user_data.get("amount", 0)
+                tx.tx_type = "Education"
                 tx.description = "Debit for waec registration."
                 tx.rwd = new_rewards
                 tx.save()
@@ -488,6 +495,7 @@ def VehicleInsurance(user, serializer, reason, user_data):
                     "transactionId", ""
                 )
                 tx.tx_reference = vehicle_insurance_instance.tx_reference
+                tx.tx_type = "Insurance"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for vehicular insurance."
                 tx.rwd = new_rewards
@@ -562,6 +570,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
                     "transactionId", ""
                 )
                 tx.tx_reference = accident_insurance_instance.tx_reference
+                tx.tx_type = "Insurance"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for accident insurance."
                 tx.rwd = new_rewards
@@ -635,6 +644,7 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
                 )
                 tx.tx_reference = home_insurance_instance.tx_reference
                 tx.amount = user_data.get("amount", 0)
+                tx.tx_type = "Insurance"
                 tx.description = "Debit for home cover insurance."
                 tx.rwd = new_rewards
                 tx.save()
@@ -717,6 +727,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
                     "transactionId", ""
                 )
                 tx.tx_reference = health_insurance_instance.tx_reference
+                tx.tx_type = "Health"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for health insurance."
                 tx.rwd = new_rewards

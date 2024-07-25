@@ -38,9 +38,12 @@ TRANSACTION_TYPE = (
     ("Electricity", "Electricity"),
     ("Hotel", "Hotel"),
     ("Travel", "Travel"),
+    ("Education", "Education"),
     ("Leisure", "Leisure"),
     ("Consumables", "Consumables"),
-    ("Food", "Food")
+    ("Food", "Food"),
+    ("Health", "Health")
+    ("Insurance", "Insurance")
 )
 
 
