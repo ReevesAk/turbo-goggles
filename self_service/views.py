@@ -1356,7 +1356,7 @@ class BookHotel(generics.GenericAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def post(self, request):
-        serializer = Hotels(data=request.data)
+        serializer = HotelSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
@@ -1366,7 +1366,7 @@ class BookHotel(generics.GenericAPIView):
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if is_verified:
                     # Inititate a debit on a users' account.
-                    amount = request.data.get("price_per_kg")
+                    amount = request.data.get("amount")
                     payment_option = request.data.get("payment_option")
                     match payment_option:
                         case "WALLET":
