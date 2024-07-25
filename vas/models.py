@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 from basemodel import ItemPurchaseBaseModel
 from accounts.models import User
@@ -47,6 +48,7 @@ ELECTRICITY_SERVICE_ID_CHOICES = (
 
 class AirtimeTopup(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
         choices=AIRTIME_SERVICE_ID_CHOICES, max_length=150, null=True
@@ -63,6 +65,7 @@ class AirtimeTopup(ItemPurchaseBaseModel):
 
 class DataSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
         choices=DATA_SERVICE_ID_CHOICES, max_length=150, null=True
@@ -75,6 +78,7 @@ class DataSubscription(ItemPurchaseBaseModel):
 
 class ElectricityBill(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
         choices=ELECTRICITY_SERVICE_ID_CHOICES, max_length=150, null=True
@@ -90,6 +94,7 @@ class ElectricityBill(ItemPurchaseBaseModel):
 
 class TvSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
         choices=TV_SERVICE_ID_CHOICES, max_length=150, null=True
@@ -104,6 +109,7 @@ class TvSubscription(ItemPurchaseBaseModel):
 
 class WaecRegistration(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     amount = models.CharField(max_length=150, null=True)
@@ -114,6 +120,7 @@ class WaecRegistration(ItemPurchaseBaseModel):
 
 class HomeCoverInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     billersCode = models.CharField(max_length=150, null=True)
@@ -127,6 +134,7 @@ class HomeCoverInsurance(ItemPurchaseBaseModel):
 
 class AccidentInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     billersCode = models.CharField(max_length=150, null=True)
@@ -142,6 +150,7 @@ class AccidentInsurance(ItemPurchaseBaseModel):
 
 class VehicleInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     billersCode = models.CharField(max_length=150, null=True)
@@ -160,6 +169,7 @@ class VehicleInsurance(ItemPurchaseBaseModel):
 
 class HealthInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
     billersCode = models.CharField(max_length=150, null=True)

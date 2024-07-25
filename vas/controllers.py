@@ -26,7 +26,7 @@ def airtime(user, serializer, reason, user_data):
         UserNotification.objects.create(
             user=user,
             title="Airtime purchase.",
-            message=f"This is to inform you that you have made a purchase of {amount} naira airtime",
+            message=f"This is to inform you that you have made a purchase of {amount} naira airtime.",
         )
 
         # Check is user is a memeber then assign rewards.
