@@ -20,7 +20,7 @@ def airtime(user, serializer, reason, user_data):
     )
 
     if airtime_response.status_code == 200:
-        serializer.save()
+        airtime_instance = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -30,25 +30,28 @@ def airtime(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = airtime_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for airtime purchase."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = airtime_response.json().get("transactionId", "")
+                tx.tx_reference = airtime_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for airtime purchase."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -79,7 +82,7 @@ def data(user, serializer, reason, user_data):
         variation_code=user_data["variation_code"],
     )
     if data_response.status_code == 200:
-        serializer.save()
+        data_instance = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -90,25 +93,28 @@ def data(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = data_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for data subscription."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = data_response.json().get("transactionId", "")
+                tx.tx_reference = data_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for data subscription."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -139,7 +145,7 @@ def electricity(user, serializer, reason, user_data):
         variation_code=user_data["variation_code"],
     )
     if electricity_response.status_code == 200:
-        serializer.save()
+        electricity_instance = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -150,25 +156,28 @@ def electricity(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = electricity_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for electricity payment."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = electricity_response.json().get("transactionId", "")
+                tx.tx_reference = electricity_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for electricity payment."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -201,7 +210,7 @@ def NewTvSub(user, serializer, reason, user_data):
         quantity=user_data["quantity"],
     )
     if new_tv_response.status_code == 200:
-        serializer.save()
+        new_tv_sub_instance = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -212,25 +221,28 @@ def NewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = new_tv_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for new tv subscription payment."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = new_tv_response.json().get("transactionId", "")
+                tx.tx_reference = new_tv_sub_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for new tv subscription payment."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -260,7 +272,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         subscription_type=user_data["subscription_type"],
     )
     if renew_tv_response.status_code == 200:
-        serializer.save()
+        renew_tv_sub_instance = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -271,25 +283,28 @@ def RenewTvSub(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = renew_tv_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for tv subscription renewal."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = renew_tv_response.json().get("transactionId", "")
+                tx.tx_reference = renew_tv_sub_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for tv subscription renewal."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -324,7 +339,7 @@ def international_topup(user, serializer, reason, user_data):
         product_type_id=user_data["product_type_id"],
     )
     if intl_topup_response.status_code == 200:
-        serializer.save()
+        intl_topup_instnace = serializer.save()
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -335,25 +350,28 @@ def international_topup(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = intl_topup_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for international airtime recharge."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = intl_topup_response.json().get("transactionId", "")
+                tx.tx_reference = intl_topup_instnace.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for international airtime recharge."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -383,7 +401,7 @@ def waec_reg(user, serializer, reason, user_data):
         quantity=user_data["quantity"],
     )
     if waec_response.status_code == 200:
-        serializer.save()
+        waec_payment_instance = serializer.save()
         amount = waec_response.json()["amount"]
 
         UserNotification.objects.create(
@@ -394,25 +412,28 @@ def waec_reg(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = waec_response.json().get("transactionId", "")
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for waec registration."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = waec_response.json().get("transactionId", "")
+                tx.tx_reference = waec_payment_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for waec registration."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -451,31 +472,34 @@ def VehicleInsurance(user, serializer, reason, user_data):
         Contact_Address=user_data["contact_address"],
     )
     if vehicle_insurance_response.status_code == 200:
-        serializer.save()
+        vehicle_insurance_instance = serializer.save()
         amount = vehicle_insurance_response.json()["amount"]
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = vehicle_insurance_response.json().get(
-                            "transactionId", ""
-                        )
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for vehicular insurance."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = vehicle_insurance_response.json().get(
+                    "transactionId", ""
+                )
+                tx.tx_reference = vehicle_insurance_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for vehicular insurance."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -515,7 +539,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
         business_occupation=user_data["business_occupation"],
     )
     if accident_insurance_response.status_code == 200:
-        serializer.save()
+        accident_insurance_instance = serializer.save()
         amount = accident_insurance_response.json()["amount"]
 
         UserNotification.objects.create(
@@ -526,27 +550,30 @@ def AccidentInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = accident_insurance_response.json().get(
-                            "transactionId", ""
-                        )
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for accident insurance."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = accident_insurance_response.json().get(
+                    "transactionId", ""
+                )
+                tx.tx_reference = accident_insurance_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for accident insurance."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -584,7 +611,7 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
         business_occupation=user_data["business_occupation"],
     )
     if home_cover_insurance_response.status_code == 200:
-        serializer.save()
+        home_insurance_instance = serializer.save()
         amount = home_cover_insurance_response.json()["amount"]
 
         UserNotification.objects.create(
@@ -595,27 +622,30 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = home_cover_insurance_response.json().get(
-                            "transactionId", ""
-                        )
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for home cover insurance."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = home_cover_insurance_response.json().get(
+                    "transactionId", ""
+                )
+                tx.tx_reference = home_insurance_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for home cover insurance."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
@@ -664,7 +694,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         extra_info=user_data["extra_info"],
     )
     if health_insurance_response.status_code == 200:
-        serializer.save()
+        health_insurance_instance = serializer.save()
         amount = health_insurance_response.json()["amount"]
 
         UserNotification.objects.create(
@@ -675,27 +705,30 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         )
 
         # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member":
-            if amount >= 100:
-                new_rewards = Allocate.reward(amount=amount)
-                try:
-                    with transaction.atomic():
-                        tx, _ = TxModel.objects.get_or_create(user=user)
-                        tx.tx_id = health_insurance_response.json().get(
-                            "transactionId", ""
-                        )
-                        tx.amount = user_data.get("amount", 0)
-                        tx.description = "Debit for health insurance."
-                        tx.rwd = new_rewards
-                        tx.save()
+        if user.active_role == "Member" and amount >= 100:
+            new_rewards = Allocate.reward(amount=amount)
+        else:
+            new_rewards = 0
 
-                        rwd, _ = Rewards.objects.get_or_create(user=user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx
-                        rwd.save()
+        try:
+            with transaction.atomic():
+                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx.tx_id = health_insurance_response.json().get(
+                    "transactionId", ""
+                )
+                tx.tx_reference = health_insurance_instance.tx_reference
+                tx.amount = user_data.get("amount", 0)
+                tx.description = "Debit for health insurance."
+                tx.rwd = new_rewards
+                tx.save()
 
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
+                rwd, _ = Rewards.objects.get_or_create(user=user)
+                rwd.balance += new_rewards
+                rwd.transaction = tx
+                rwd.save()
+
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
 
         response_data = {
             "status": "Success",
