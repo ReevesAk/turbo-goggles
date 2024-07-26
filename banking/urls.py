@@ -26,6 +26,7 @@ from .transfers import (
     FundWalletWithCard,
 )
 from .fx import GetQuotation, ConvertToDollar
+from .tx import AllTransactions
 
 urlpatterns = [
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
@@ -80,4 +81,7 @@ urlpatterns = [
         "fx/convert-to-dollar", ConvertToDollar.as_view(), name="transfer_con_to_doll"
     ),
     path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
+
+    # Transactions Endpoints.
+    path("transactions/get-all", AllTransactions.as_view(), name="get-all-transactions"),
 ]

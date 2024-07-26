@@ -42,7 +42,7 @@ TRANSACTION_TYPE = (
     ("Leisure", "Leisure"),
     ("Consumables", "Consumables"),
     ("Food", "Food"),
-    ("Health", "Health")
+    ("Health", "Health"),
     ("Insurance", "Insurance")
 )
 

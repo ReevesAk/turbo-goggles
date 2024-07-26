@@ -1,6 +1,8 @@
 # Third party imports.
 from rest_framework import serializers
 
+from accounts.models import TxModel
+
 # In project imports.
 from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel, PayWithCard
 
@@ -258,4 +260,18 @@ class FundWithCardSerializer(serializers.ModelSerializer):
             "cvv",
             "tokenId",
             "token",
+        ]
+
+
+class TxModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TxModel
+        fields = [
+            "tx_reference",
+            "tx_type",
+            "tx_id",
+            "amount",
+            "description",
+            "rwd",
+            "date",
         ]
