@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
@@ -26,6 +27,23 @@ BRAND_TYPE = (
     ("Individual", "Individual"),
     ("Company", "Company"),
     ("Business", "Business"),
+)
+
+TRANSACTION_TYPE = (
+    ("Transfer to Picadailys Account", "Transfer to Picadailys Account"),
+    ("Transfer to Bank Account", "Transfer to Bank Account"),
+    ("Data", "Data"),
+    ("Airtime", "Airtime"),
+    ("Data", "Data"),
+    ("Electricity", "Electricity"),
+    ("Hotel", "Hotel"),
+    ("Travel", "Travel"),
+    ("Education", "Education"),
+    ("Leisure", "Leisure"),
+    ("Consumables", "Consumables"),
+    ("Food", "Food"),
+    ("Health", "Health"),
+    ("Insurance", "Insurance")
 )
 
 
@@ -113,8 +131,10 @@ class OTP(models.Model):
 
 class TxModel(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    tx_reference = models.CharField(max_length=100, null=True)
+    tx_type = models.CharField(choices=TRANSACTION_TYPE, max_length=200, null=True)
     tx_id = models.CharField(max_length=255, null=True)
-    amount = models.FloatField(null=True)
+    amount = models.FloatField(default=Decimal("0.00"), null=True)
     description = models.CharField(max_length=255, null=True)
     rwd = models.FloatField(null=True)
     date = models.DateTimeField(auto_now_add=True)

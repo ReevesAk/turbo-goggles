@@ -1421,11 +1421,11 @@ class BookHotel(generics.GenericAPIView):
                                 )
                             else:
                                 response_data = {
-                                    "status": "fail!",
+                                    "status": "fail",
                                     "details": debit_response.json(),
                                 }
                                 return Response(
-                                    data=response_data, status=status.HTTP_200_OK
+                                    data=response_data, status=status.HTTP_400_BAD_REQUEST
                                 )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(

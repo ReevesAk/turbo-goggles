@@ -77,6 +77,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "use_bonus",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
     def validate(self, attrs):
@@ -131,6 +132,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "use_bonus",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
     def validate(self, attrs):
@@ -188,6 +190,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "use_bonus",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -227,6 +230,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -267,6 +271,7 @@ class IntlAirtimeSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -303,6 +308,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -348,6 +354,7 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -390,6 +397,7 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -430,6 +438,7 @@ class HomeCoverInsuranceSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
@@ -472,6 +481,7 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
             "token",
             "use_points",
             "use_rewards",
+            "tx_reference",
         ]
 
 
