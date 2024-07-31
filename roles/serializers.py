@@ -8,15 +8,16 @@ from .models import GamificationModel, Applications
 
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
-    """Serailizers for our super admin first time registration"""
+    """Serializer for super admin first-time registration"""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
         fields = [
             "id",
-            "active_role",
+            "device_id",
             "phone_number",
             "email",
             "password",
@@ -26,23 +27,32 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email", "")
+        password = attrs.get("password", "")
+        password2 = attrs.get("password2", "")
 
-        if email:
-            email_exists = User.objects.filter(email=email).exists()
-            if email_exists:
-                raise serializers.ValidationError("Email has already been used")
-        else:
-            raise serializers.ValidationError("email: email field can not be empty")
+        # Validate that email is provided and not already in use
+        if not email:
+            raise serializers.ValidationError({"email": "Email field cannot be empty."})
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "Email has already been used."})
+        
+        # Validate that passwords match
+        if password != password2:
+            raise serializers.ValidationError({"password": "Passwords do not match."})
 
-        return super().validate(attrs)
+        return attrs
 
     def create(self, validated_data):
+        # Remove password2 from validated_data as it's not a field in the User model
+        validated_data.pop('password2')
+        
+        # Create the user with the provided email and phone number
         user = User.objects.create(
             email=validated_data["email"],
-            active_role=validated_data["active_role"],
             phone_number=validated_data["phone_number"],
         )
-
+        
+        # Set and save the password securely
         user.set_password(validated_data["password"])
         user.save()
 
@@ -86,6 +96,12 @@ class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
+
+
+class AdminLoginSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["email", "password"]
 
 
 class AdminDeletionSerializer(serializers.ModelSerializer):

@@ -225,10 +225,10 @@ class Login(APIView):
     serializer_class = LoginSerializers
 
     def post(self, request):
-        phone_number = request.data.get("phone_number")
+        login = request.data.get("phone_number")
         password = request.data.get("password")
 
-        user = authenticate(phone_number=phone_number, password=password)
+        user = authenticate(phone_number=login, password=password)
 
         if user:
             # Check if the user already has more than two device IDs.
