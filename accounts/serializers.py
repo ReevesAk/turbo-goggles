@@ -7,7 +7,7 @@ from roles.models import GamificationModel
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serailizers for our User first time registration"""
+    """Serailizers for our User first time registration."""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)

@@ -3,12 +3,14 @@ import logging
 from decouple import config
 from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
+from django.contrib.auth import authenticate
 from django.db.models import Q
 
 # In project imports.
 from .serializers import (
     StatusSerializer,
     RegisterSuperAdminSerializer,
+    AdminLoginSerializers,
     RegisterOtherAdminRoleSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
@@ -16,10 +18,13 @@ from .serializers import (
     DisableAdminSerializer,
 )
 from .models import Applications
+from accounts.models import DeviceId, AccountType
+from accounts.tokens import create_jwt_pair_for_user
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
@@ -59,68 +64,152 @@ class PaginationStyle(PageNumberPagination):
 class RegisterSuperAdmin(generics.GenericAPIView):
     """
     RegisterSuperAdmin handles the POST request of registering a superuser,
-    It takes in email, phone, active_role, password and password2.
-    Sends an otp to phone for validation.
+    It takes in email, phone, active_role, password, and password2.
+    Sends an OTP to the phone for validation.
     """
 
     serializer_class = RegisterSuperAdminSerializer
 
     def post(self, request):
-        active_role = "SuperAdmin"
+        # Check if a SuperAdmin already exists
+        # if User.objects.filter(active_role="SuperAdmin").exists():
+        #     return Response(
+        #         data="Registration is not allowed. Super admin already exists.",
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
 
-        if User.objects.filter(active_role=active_role).exists():
-            # Super admin exists, block user registration
-            return Response(
-                data="User registration is not allowed. Super admin already exists.",
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        else:
-            user = request.data
-            serializer = self.serializer_class(data=user)
-            if serializer.is_valid(raise_exception=True):
-                if serializer.data["password"] != serializer.data["password2"]:
-                    return Response(
-                        data={"error": "Passwords do not match!"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                current_user = serializer.save()
 
-                serializer.save()
+                # Set the user's role and create AccountType
+                current_user.active_role = "SuperAdmin"
+                current_user.save()
 
-                # Create and send OTP.
-                otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-                msg = "Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {}.".format(
-                    otp
+                AccountType.objects.create(
+                    user=current_user,
+                    user_type="SuperAdmin",
                 )
-                recipient = serializer.data["phone_number"]
 
-                response = Message.send_otp(msg=str(msg), to=recipient)
+                # Create and send OTP
+                otp = otp_manager.create_otp(user_id=str(current_user.id))
+                print(current_user.id)
+                msg = f"Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {otp}."
+                recipient = current_user.phone_number
 
-                try:
-                    user_data = serializer.data
+                # Send OTP message
+                Message.send_otp(msg=msg, to=recipient)
 
-                    UserNotification.objects.create(
-                        user=str(serializer.data["id"]),
-                        title="Create SuperUser.",
-                        message="SuperUser Created Successfully.",
-                    )
-                    response = {
-                        "status": "success",
-                        "message": "SuperUser Created Successfully. Check your phone for an OTP",
-                        "data": user_data,
-                    }
-                    return Response(data=response, status=status.HTTP_201_CREATED)
-                except Exception as err:
-                    return Response(
-                        {
-                            "status": "fail",
-                            "message": err,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-            else:
+                # Log the creation of the SuperUser
+                UserNotification.objects.create(
+                    user=current_user,
+                    title="Create SuperUser.",
+                    message="SuperUser Created Successfully.",
+                )
+
+                response = {
+                    "status": "success",
+                    "message": "SuperUser Created Successfully. Check your phone for an OTP",
+                    "data": serializer.data,
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+
+            except Exception as err:
                 return Response(
-                    data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    {
+                        "status": "fail",
+                        "message": str(err),
+                    },
+                    status=status.HTTP_409_CONFLICT,
                 )
+
+        return Response(
+            data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class LoginAdmin(APIView):
+    """LoginAPIView handles the POST request of logging in
+    a verified user with valid login credentials.
+    {"phone_number": "8129187363", "password": "13092830"}.
+    """
+
+    serializer_class = AdminLoginSerializers
+
+    def post(self, request):
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                data={"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        user = authenticate(phone_number=user.phone_number, password=password)
+
+        if user:
+            # Check if the user already has more than two device IDs.
+            existing_device_count = DeviceId.objects.filter(user=user).count()
+            if existing_device_count >= 2:
+                if existing_device_count == 3:
+                    # Delete the oldest device (based on creation timestamp)
+                    oldest_device = DeviceId.objects.filter(user=user).earliest(
+                        "created_at"
+                    )
+                    oldest_device.delete()
+                return Response(
+                    data={
+                        "error": "User cannot login on more than two devices, older deviceID deleted."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # # check if the user has logged in more than one device.
+            # for device in existing_device_count:
+            #     if not device:
+            #     # Create and send OTP.
+            #     otp = otp_manager.create_otp(user_id=str(user.id))
+            #     msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
+            #         otp
+            #     )
+            #     recipient = user.phone_number
+
+            #     response = Message.send_msg(msg=str(msg), to=recipient)
+
+            #     return Response(
+            #         data={"detail": "Otp sent to user's new device Id"},
+            #         status=status.HTTP_200_OK,
+            #     )
+            if not user.is_verified:
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Please verify your account to login",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            UserNotification.objects.create(
+                user=user, title="Login.", message="Login successful."
+            )
+
+            # Create JWT tokens
+            tokens = create_jwt_pair_for_user(user)
+            response = {
+                "status": "success",
+                "message": "Login successful",
+                "tokens": tokens,
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                data={"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class CreateOtherAdmin(generics.CreateAPIView):
