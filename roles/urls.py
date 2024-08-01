@@ -10,6 +10,9 @@ from .views import (
     JobApplications,
     JobApplicationList,
     JobApplicationDetail,
+    VerifiedUsersCount,
+    VerifiedBrandAdsCount,
+    VerifiedPartnersCount
 )
 
 from .tasks import (
@@ -31,6 +34,9 @@ urlpatterns = [
     path("disable-admin/", DisableAdminrole.as_view(), name="disable_admin"),
     path("get-all-customers/", GetAllCustomers.as_view(), name="get_all_customers"),
     path("delete-admin/", DeleteAdmin.as_view(), name="delete_admin_users"),
+    path("verified-users/", VerifiedUsersCount.as_view(), name="verified-users-list"),
+    path("verified-brandAds/", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"),
+    path("verified-partners/", VerifiedPartnersCount.as_view(), name="verified-partners-list"),
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(

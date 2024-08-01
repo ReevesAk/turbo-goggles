@@ -17,6 +17,9 @@ from .serializers import (
     ApplicationsSerializers,
     DisableAdminSerializer,
 )
+from user_profile.serializers import GetUserSerializer
+from partners.serializers import PartnerProfileSerializer
+from adverts.serializers import BrandAdProfileSerializers
 from .models import Applications
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
@@ -511,3 +514,78 @@ class JobApplicationList(generics.ListAPIView):
     queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = [AllowAny]
+
+
+class VerifiedUsersCount(generics.ListAPIView):
+    serializer_class = GetUserSerializer
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        return User.objects.filter(is_verified=True).order_by('id')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return Response(
+            data={
+                "status": "success",
+                "message": "Verified users retrieved successfully",
+                "verified_users_count": queryset.count(),
+                "verified_users": serialized_users.data 
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class VerifiedPartnersCount(generics.ListAPIView):
+    serializer_class = PartnerProfileSerializer
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        return User.objects.filter(business_verified=True).order_by('created_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return Response(
+            data={
+                "status": "success",
+                "message": "Verified Partners retrieved successfully",
+                "verified_business_count": queryset.count(),
+                "verified_businesses": serialized_users.data 
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class VerifiedBrandAdsCount(generics.ListAPIView):
+    serializer_class = BrandAdProfileSerializers
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        return User.objects.filter(has_promoted=True).order_by('created_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return Response(
+            data={
+                "status": "success",
+                "message": "Promoted Ads retrieved successfully",
+                "promotedAds_count": queryset.count(),
+                "promotedAds": serialized_users.data 
+            },
+            status=status.HTTP_200_OK
+        )
