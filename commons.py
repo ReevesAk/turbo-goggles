@@ -4,6 +4,8 @@ import requests
 
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.renderers import JSONRenderer
+import inflection
 
 from decouple import config
 
@@ -141,3 +143,12 @@ class Pay:
             pts.balance = 0
             pts.save()
             return "Not Enough", deducted_amount
+
+
+class CamelCaseJSONRenderer(JSONRenderer):
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        if isinstance(data, dict):
+            data = {inflection.camelize(key, False): value for key, value in data.items()}
+        elif isinstance(data, list):
+            data = [{inflection.camelize(key, False): value for key, value in item.items()} for item in data]
+        return super().render(data, accepted_media_type, renderer_context)
