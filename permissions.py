@@ -200,3 +200,10 @@ class hasWallet(permissions.BasePermission):
                 raise ValidationError("You need to have a wallet to conduct this transaction.")
 
         raise ValidationError("Authentication is required to access this resource.")
+
+
+class IsNotDisabled(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.user.is_disabled:
+            raise PermissionDenied("Access denied. Your account is disabled.")
+        return True

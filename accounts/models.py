@@ -50,6 +50,7 @@ TRANSACTION_TYPE = (
 class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
+    full_name = models.CharField(max_length=255, null=True, blank=True)  
     password = models.CharField(max_length=255, null=True)
     phone_number = models.CharField(max_length=20, unique=True, null=True)
     email = models.CharField(max_length=80, unique=True)

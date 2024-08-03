@@ -43,7 +43,7 @@ from .helpers import sendMail, sendMailToUsers
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
-from permissions import IsSuperAdmin
+from permissions import IsSuperAdmin, IsNotDisabled
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -305,6 +305,7 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
+    authentication_classes = [JWTAuthentication]
 
     def get_object(self):
         email = self.request.data.get("email")
@@ -378,7 +379,8 @@ class GetAllCustomers(generics.RetrieveAPIView):
 
     serializer_class = StatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
+    authentication_classes = [JWTAuthentication]
 
     @extend_schema(
         description="Get all customers",
@@ -403,17 +405,6 @@ class GetAllCustomers(generics.RetrieveAPIView):
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-
-
-class ListAdmin(generics.ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
-    pagination_class = PaginationStyle
-
-    def get_queryset(self):
-        return super().get_queryset()
 
 
 class DeleteAdmin(generics.DestroyAPIView):
@@ -570,8 +561,14 @@ class JobApplicationList(generics.ListAPIView):
 
 
 class VerifiedUsersCount(generics.ListAPIView):
+    """
+    VerifiedUsersCount is the GET request to retrieve the count
+    of all verified users.
+    """
+
     serializer_class = GetUserSerializer
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
+    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -595,8 +592,14 @@ class VerifiedUsersCount(generics.ListAPIView):
 
 
 class VerifiedPartnersCount(generics.ListAPIView):
+    """
+    VerifiedPartnersCount is the GET request to retrieve the count
+    of all verified Partners.
+    """
+
     serializer_class = PartnerProfileSerializer
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
+    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -620,8 +623,14 @@ class VerifiedPartnersCount(generics.ListAPIView):
 
 
 class VerifiedBrandAdsCount(generics.ListAPIView):
+    """
+    VerifiedBrandAdsCount is the GET request to retrieve the count
+    of all verified promoted brandads.
+    """
+
     serializer_class = BrandAdProfileSerializers
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
+    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -639,6 +648,41 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
                     "message": "Promoted Ads retrieved successfully",
                     "promotedAds_count": queryset.count(),
                     "promotedAds": serialized_users.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
+class GetAllAdminUsers(generics.ListAPIView):
+    """
+    GetAllAdminUsers is the GET request to retrieve the count
+    of all admin users.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = ListAdminSerializer
+    # authentication_classes = [JWTAuthentication]
+    # permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        admin_users = User.objects.filter(
+            accounttype__user_type__icontains='Admin'
+        ).distinct().order_by("accounttype__created_at")
+        return admin_users
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "All admin users retrieved successfully",
+                    "No of Admin Users": queryset.count(),
+                    "Admin user object": serialized_users.data,
                 },
                 status=status.HTTP_200_OK,
             )
