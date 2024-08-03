@@ -11,7 +11,7 @@ from .serializers import (
     StatusSerializer,
     RegisterSuperAdminSerializer,
     AdminLoginSerializers,
-    RegisterOtherAdminRoleSerializer,
+    AddAdminSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
     ApplicationsSerializers,
@@ -37,11 +37,11 @@ from drf_spectacular.utils import extend_schema
 
 from cloudinary import uploader as cloud
 
-from .helpers import sendMail
+from .helpers import sendMail, sendMailToUsers
 
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
-from commons import Message
+from commons import Message, CamelCaseJSONRenderer
 from permissions import IsSuperAdmin
 
 
@@ -59,6 +59,8 @@ headers = {
     "Authorization": "Bearer " + secret_key,
 }
 
+logger = logging.getLogger(__name__)
+
 
 class PaginationStyle(PageNumberPagination):
     page_size = 10
@@ -72,6 +74,7 @@ class RegisterSuperAdmin(generics.GenericAPIView):
     """
 
     serializer_class = RegisterSuperAdminSerializer
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
         # Check if a SuperAdmin already exists
@@ -215,7 +218,7 @@ class LoginAdmin(APIView):
             )
 
 
-class CreateOtherAdmin(generics.CreateAPIView):
+class AddAdmin(generics.CreateAPIView):
     """
     Create a new admin.
     Only superadmins can create new admins.
@@ -224,19 +227,32 @@ class CreateOtherAdmin(generics.CreateAPIView):
     """
 
     queryset = User.objects.all()
-    serializer_class = RegisterOtherAdminRoleSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    serializer_class = AddAdminSerializer
+    # authentication_classes = [JWTAuthentication]
+    # permission_classes = (IsAuthenticated, IsSuperAdmin)
 
-    def perform_create(self, serializer):
+    def post(self, request):
+        serializer = AddAdminSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            user_data = RegisterSuperAdminSerializer(user).data
+            user_data = AddAdminSerializer(user).data
+
+            signup_link = f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
+            body = f"Use this link: {signup_link} to complete your registration."
+
+            # Send link to mailbox
+            sendMailToUsers(
+                subject="Admin role registration",
+                content=body,
+                email=user.email
+            )
+
             resp = {
                 "status": "Success",
-                "message": "{} Created Successfully.".format(user.data["active_role"]),
+                "message": "Created Successfully, a link has been sent to your mail",
                 "data": user_data,
             }
+            print("Response Data:", resp)
             return Response(
                 data=resp,
                 status=status.HTTP_201_CREATED,

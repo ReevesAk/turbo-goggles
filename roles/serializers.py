@@ -5,6 +5,7 @@ from rest_framework import serializers
 from accounts.models import User
 
 from .models import GamificationModel, Applications
+from accounts.models import USER_CATEGORY_CHOICES, AccountType
 
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
@@ -59,17 +60,21 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
         return user
 
 
-class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
+class AddAdminSerializer(serializers.ModelSerializer):
     """Serailizers for other admin roles first time registration."""
+
+    active_role = serializers.ListField(
+        child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES),
+        write_only=True
+    )
 
     class Meta:
         model = User
         fields = [
             "id",
             "active_role",
-            "phone_number",
+            "name",
             "email",
-            "password",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 
@@ -86,15 +91,13 @@ class RegisterOtherAdminRoleSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        user = User.objects.create(
-            email=validated_data["email"],
-            active_role=validated_data["active_role"],
-            phone_number=validated_data["phone_number"],
-        )
-
-        user.set_password(validated_data["password"])
-        user.save()
-
+        user_types = validated_data.pop('active_role', []) 
+        user = super().create(validated_data)
+        
+        # Create multiple AccountType entries
+        for user_type in user_types:
+            AccountType.objects.create(user=user, user_type=user_type)
+        
         return user
 
 
