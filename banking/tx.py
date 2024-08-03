@@ -16,7 +16,7 @@ from vas.models import (
     HealthInsurance,
     VehicleInsurance,
     AccidentInsurance,
-    HomeCoverInsurance
+    HomeCoverInsurance,
 )
 
 from banking.serializers import TxModelSerializer
@@ -28,7 +28,7 @@ from vas.serializers import (
     HealthInsuranceSerializer,
     VehicleInsuranceSerializer,
     AccidentInsuranceSerializer,
-    HomeCoverInsuranceSerializer
+    HomeCoverInsuranceSerializer,
 )
 
 
@@ -67,116 +67,129 @@ class RetrieveTransaction(generics.GenericAPIView):
 
         try:
             # Attempt to retrieve from AirtimeTopup
-            airtime_instance = AirtimeTopup.objects.filter(user=user, tx_reference=tx_reference).first()
+            airtime_instance = AirtimeTopup.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if airtime_instance:
                 serializer = AirtimeTopupSerializer(airtime_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from DataSubscription
-            data_instance = DataSubscription.objects.filter(user=user, tx_reference=tx_reference).first()
+            data_instance = DataSubscription.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if data_instance:
                 serializer = DataSubscriptionSerializer(data_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from TvSubscription.
-            tvSub_instance = TvSubscription.objects.filter(user=user, tx_reference=tx_reference).first()
+            tvSub_instance = TvSubscription.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if tvSub_instance:
                 serializer = TvSubscriptionSerializer(tvSub_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from WaecRegistration.
-            waec_reg_instance = WaecRegistration.objects.filter(user=user, tx_reference=tx_reference).first()
+            waec_reg_instance = WaecRegistration.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if waec_reg_instance:
                 serializer = WaecRegistrationSerializer(waec_reg_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from HealthInsurance.
-            health_insurance_instance = HealthInsurance.objects.filter(user=user, tx_reference=tx_reference).first()
+            health_insurance_instance = HealthInsurance.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if health_insurance_instance:
                 serializer = HealthInsuranceSerializer(health_insurance_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from VehicleInsurance.
-            vehicle_insurance_instance = VehicleInsurance.objects.filter(user=user, tx_reference=tx_reference).first()
+            vehicle_insurance_instance = VehicleInsurance.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if vehicle_insurance_instance:
                 serializer = VehicleInsuranceSerializer(vehicle_insurance_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from TvSubscription.
-            tvSub_instance = AccidentInsurance.objects.filter(user=user, tx_reference=tx_reference).first()
+            tvSub_instance = AccidentInsurance.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if tvSub_instance:
                 serializer = AccidentInsuranceSerializer(tvSub_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Attempt to retrieve from HomeCoverInsurance.
-            home_cover_instance = HomeCoverInsurance.objects.filter(user=user, tx_reference=tx_reference).first()
+            home_cover_instance = HomeCoverInsurance.objects.filter(
+                user=user, tx_reference=tx_reference
+            ).first()
             if home_cover_instance:
                 serializer = HomeCoverInsuranceSerializer(home_cover_instance)
                 return Response(
-                    data= {
+                    data={
                         "status": "success",
                         "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data
+                        "data": serializer.data,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # If none of the above, return 404
             return Response(
-                data={
-                    "status": "fail",
-                    "detail": "Transaction not found."
-                },
-                status=status.HTTP_404_NOT_FOUND
+                data={"status": "fail", "detail": "Transaction not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         except Exception as e:

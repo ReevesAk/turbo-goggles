@@ -1425,7 +1425,8 @@ class BookHotel(generics.GenericAPIView):
                                     "details": debit_response.json(),
                                 }
                                 return Response(
-                                    data=response_data, status=status.HTTP_400_BAD_REQUEST
+                                    data=response_data,
+                                    status=status.HTTP_400_BAD_REQUEST,
                                 )
                         case "CARD":
                             initialize_response = UseCard.initialize_payment(

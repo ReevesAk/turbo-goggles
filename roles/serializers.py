@@ -36,7 +36,7 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"email": "Email field cannot be empty."})
         if User.objects.filter(email=email).exists():
             raise serializers.ValidationError({"email": "Email has already been used."})
-        
+
         # Validate that passwords match
         if password != password2:
             raise serializers.ValidationError({"password": "Passwords do not match."})
@@ -45,14 +45,14 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Remove password2 from validated_data as it's not a field in the User model
-        validated_data.pop('password2')
-        
+        validated_data.pop("password2")
+
         # Create the user with the provided email and phone number
         user = User.objects.create(
             email=validated_data["email"],
             phone_number=validated_data["phone_number"],
         )
-        
+
         # Set and save the password securely
         user.set_password(validated_data["password"])
         user.save()
@@ -64,8 +64,7 @@ class AddAdminSerializer(serializers.ModelSerializer):
     """Serailizers for other admin roles first time registration."""
 
     active_role = serializers.ListField(
-        child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES),
-        write_only=True
+        child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES), write_only=True
     )
 
     class Meta:
@@ -91,13 +90,13 @@ class AddAdminSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        user_types = validated_data.pop('active_role', []) 
+        user_types = validated_data.pop("active_role", [])
         user = super().create(validated_data)
-        
+
         # Create multiple AccountType entries
         for user_type in user_types:
             AccountType.objects.create(user=user, user_type=user_type)
-        
+
         return user
 
 
@@ -108,17 +107,13 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "phone_number",
-            "password",
-            "password2"
-        ]
+        fields = ["phone_number", "password", "password2"]
         extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, attrs):
         password = attrs.get("password", "")
         password2 = attrs.get("password2", "")
-        
+
         if password != password2:
             raise serializers.ValidationError({"password": "Passwords do not match."})
 
@@ -129,7 +124,7 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
         password = validated_data.get("password", None)
 
         instance.phone_number = phone_number
-        
+
         if password:
             instance.set_password(password)
 

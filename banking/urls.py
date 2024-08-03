@@ -81,9 +81,13 @@ urlpatterns = [
         "fx/convert-to-dollar", ConvertToDollar.as_view(), name="transfer_con_to_doll"
     ),
     path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
-
     # Transactions Endpoints.
-    path("transactions/get-all", AllTransactions.as_view(), name="get-all-transactions"),
-    path("transactions/get-single/<uuid:tx_reference>/", RetrieveTransaction.as_view(), name='retrieve-transaction'),
+    path(
+        "transactions/get-all", AllTransactions.as_view(), name="get-all-transactions"
+    ),
+    path(
+        "transactions/get-single/<uuid:tx_reference>/",
+        RetrieveTransaction.as_view(),
+        name="retrieve-transaction",
+    ),
 ]
-

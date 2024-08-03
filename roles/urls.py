@@ -31,7 +31,7 @@ from .tasks import (
 urlpatterns = [
     path("register-super-admin", RegisterSuperAdmin.as_view(), name="resgiter_admin"),
     path("add-admin", AddAdmin.as_view(), name="create_new_admin"),
-    path('add-admin-contd/<str:user_id>/', AdAdminContd.as_view(), name='admin-update'),
+    path("add-admin-contd/<str:user_id>/", AdAdminContd.as_view(), name="admin-update"),
     path("admin-login", LoginAdmin.as_view(), name="admin_login"),
     path("update-admin-role", UpdateAdminRole.as_view(), name="update_admin_role"),
     path("list-admin-users", ListAdmin.as_view(), name="list_admin_users"),
@@ -39,8 +39,14 @@ urlpatterns = [
     path("get-all-customers", GetAllCustomers.as_view(), name="get_all_customers"),
     path("delete-admin", DeleteAdmin.as_view(), name="delete_admin_users"),
     path("verified-users", VerifiedUsersCount.as_view(), name="verified-users-list"),
-    path("verified-brandAds", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"),
-    path("verified-partners", VerifiedPartnersCount.as_view(), name="verified-partners-list"),
+    path(
+        "verified-brandAds", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"
+    ),
+    path(
+        "verified-partners",
+        VerifiedPartnersCount.as_view(),
+        name="verified-partners-list",
+    ),
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(

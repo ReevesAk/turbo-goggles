@@ -1,5 +1,4 @@
 from decimal import Decimal
-import uuid
 
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
@@ -43,7 +42,7 @@ TRANSACTION_TYPE = (
     ("Consumables", "Consumables"),
     ("Food", "Food"),
     ("Health", "Health"),
-    ("Insurance", "Insurance")
+    ("Insurance", "Insurance"),
 )
 
 

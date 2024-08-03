@@ -491,9 +491,7 @@ def VehicleInsurance(user, serializer, reason, user_data):
         try:
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = vehicle_insurance_response.json().get(
-                    "transactionId", ""
-                )
+                tx.tx_id = vehicle_insurance_response.json().get("transactionId", "")
                 tx.tx_reference = vehicle_insurance_instance.tx_reference
                 tx.tx_type = "Insurance"
                 tx.amount = user_data.get("amount", 0)
@@ -566,9 +564,7 @@ def AccidentInsurance(user, serializer, reason, user_data):
         try:
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = accident_insurance_response.json().get(
-                    "transactionId", ""
-                )
+                tx.tx_id = accident_insurance_response.json().get("transactionId", "")
                 tx.tx_reference = accident_insurance_instance.tx_reference
                 tx.tx_type = "Insurance"
                 tx.amount = user_data.get("amount", 0)
@@ -639,9 +635,7 @@ def HomeCoverInsurance(user, serializer, reason, user_data):
         try:
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = home_cover_insurance_response.json().get(
-                    "transactionId", ""
-                )
+                tx.tx_id = home_cover_insurance_response.json().get("transactionId", "")
                 tx.tx_reference = home_insurance_instance.tx_reference
                 tx.amount = user_data.get("amount", 0)
                 tx.tx_type = "Insurance"
@@ -723,9 +717,7 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         try:
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = health_insurance_response.json().get(
-                    "transactionId", ""
-                )
+                tx.tx_id = health_insurance_response.json().get("transactionId", "")
                 tx.tx_reference = health_insurance_instance.tx_reference
                 tx.tx_type = "Health"
                 tx.amount = user_data.get("amount", 0)
