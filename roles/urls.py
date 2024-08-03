@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     RegisterSuperAdmin,
     AddAdmin,
+    AdAdminContd,
     UpdateAdminRole,
     DisableAdminrole,
     ListAdmin,
@@ -30,6 +31,7 @@ from .tasks import (
 urlpatterns = [
     path("register-super-admin", RegisterSuperAdmin.as_view(), name="resgiter_admin"),
     path("add-admin", AddAdmin.as_view(), name="create_new_admin"),
+    path('add-admin-contd/<str:user_id>/', AdAdminContd.as_view(), name='admin-update'),
     path("admin-login", LoginAdmin.as_view(), name="admin_login"),
     path("update-admin-role", UpdateAdminRole.as_view(), name="update_admin_role"),
     path("list-admin-users", ListAdmin.as_view(), name="list_admin_users"),

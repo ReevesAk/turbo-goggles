@@ -11,6 +11,7 @@ from .serializers import (
     StatusSerializer,
     RegisterSuperAdminSerializer,
     AdminLoginSerializers,
+    AddAdminContdSerializer,
     AddAdminSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
@@ -228,8 +229,8 @@ class AddAdmin(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = AddAdminSerializer
-    # authentication_classes = [JWTAuthentication]
-    # permission_classes = (IsAuthenticated, IsSuperAdmin)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request):
         serializer = AddAdminSerializer(data=request.data)
@@ -262,6 +263,47 @@ class AddAdmin(generics.CreateAPIView):
             raise ValidationError(
                 message=serializer.errors, code=status.HTTP_400_BAD_REQUEST
             )
+
+
+class AdAdminContd(generics.UpdateAPIView):
+    """
+    AdAdminContd is a POST request that handles the signup completion.
+    """
+
+    serializer_class = AddAdminContdSerializer
+    permission_classes = [AllowAny]
+
+    def get_object(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = User.objects.get(Q(id=user_id))
+            return user
+        except User.DoesNotExist:
+            return None
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance is None:
+            return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AddAdminContdSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "User registration completed successfully.",
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+            data={
+                "status": "error",
+                "message": serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class UpdateAdminRole(generics.RetrieveUpdateAPIView):

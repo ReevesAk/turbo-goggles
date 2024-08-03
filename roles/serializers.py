@@ -101,6 +101,42 @@ class AddAdminSerializer(serializers.ModelSerializer):
         return user
 
 
+class AddAdminContdSerializer(serializers.ModelSerializer):
+    """Serailizers for other admin roles first time registration."""
+
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "phone_number",
+            "password",
+            "password2"
+        ]
+        extra_kwargs = {"password": {"write_only": True}}
+
+    def validate(self, attrs):
+        password = attrs.get("password", "")
+        password2 = attrs.get("password2", "")
+        
+        if password != password2:
+            raise serializers.ValidationError({"password": "Passwords do not match."})
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        phone_number = validated_data.get("phone_number", instance.phone_number)
+        password = validated_data.get("password", None)
+
+        instance.phone_number = phone_number
+        
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
+
+
 class AdminLoginSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
