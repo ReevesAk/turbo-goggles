@@ -158,6 +158,7 @@ class UpdateAdminRoleSerializer(serializers.ModelSerializer):
 
 class ListAdminSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -165,12 +166,16 @@ class ListAdminSerializer(serializers.ModelSerializer):
             "id",
             "full_name",
             "email",
+            "status",
             "user_type",
         ]
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
         return list(obj.accounttype_set.values_list('user_type', flat=True))
+
+    def get_status(self, obj):
+            return "Disabled" if obj.is_disabled else "Active"
 
 
 class StatusSerializer(serializers.Serializer):
@@ -232,4 +237,14 @@ class ApplicationsSerializers(serializers.ModelSerializer):
             "portfolio",
             "certificates",
             "cv",
+        ]
+
+
+class SwitchRolesSerializers(serializers.ModelSerializer):
+    user_type = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "user_type"
         ]

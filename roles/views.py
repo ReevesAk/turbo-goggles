@@ -17,6 +17,7 @@ from .serializers import (
     ListAdminSerializer,
     ApplicationsSerializers,
     DisableAdminSerializer,
+    SwitchRolesSerializers,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -686,3 +687,57 @@ class GetAllAdminUsers(generics.ListAPIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+
+class SwitchRoles(generics.RetrieveAPIView):
+    """
+    SwitchRoles is the PUT request method for updating and switching
+    amongst assigned admin roles.
+    """
+
+    serializer_class = SwitchRolesSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        return self.request.user
+
+    def put(self, request):
+        current_user = self.get_object()
+        new_role = request.data.get("user_type")
+
+        try:
+            account_types = AccountType.objects.filter(user=current_user)
+
+            # Check if the user has the role they want to switch to
+            if not account_types.filter(user_type=new_role).exists():
+
+                data = {
+                    "status": "fail",
+                    "message": f"Sorry, you have not been assigned the role of {new_role}.",
+                    "data": current_user.active_role,
+                }
+                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
+        except AccountType.DoesNotExist:
+            raise exceptions.ValidationError("AccountType for the user does not exist.")
+
+        # Handle already switched to the desired role
+        if current_user.active_role == new_role:
+            data = {
+                "status": "success",
+                "message": f"You are already on the {new_role} screen.",
+                "data": current_user.active_role,
+            }
+            return Response(data=data, status=status.HTTP_200_OK)
+
+        # User has the requested account type, switch the role
+        current_user.active_role = new_role
+        current_user.save()
+
+        data = {
+            "status": "success",
+            "message": f"Account type switched to {new_role} successfully.",
+            "data": current_user.active_role,
+        }
+        return Response(data=data, status=status.HTTP_200_OK)
