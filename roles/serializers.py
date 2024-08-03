@@ -63,7 +63,7 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
 class AddAdminSerializer(serializers.ModelSerializer):
     """Serailizers for other admin roles first time registration."""
 
-    active_role = serializers.ListField(
+    roles = serializers.ListField(
         child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES), write_only=True
     )
 
@@ -71,8 +71,8 @@ class AddAdminSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "active_role",
-            "name",
+            "roles",
+            "full_name",
             "email",
         ]
         extra_kwargs = {"password": {"write_only": True}}
@@ -90,7 +90,7 @@ class AddAdminSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        user_types = validated_data.pop("active_role", [])
+        user_types = validated_data.pop("roles", [])
         user = super().create(validated_data)
 
         # Create multiple AccountType entries
@@ -157,13 +157,20 @@ class UpdateAdminRoleSerializer(serializers.ModelSerializer):
 
 
 class ListAdminSerializer(serializers.ModelSerializer):
+    user_type = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id",
+            "full_name",
             "email",
-            "active_role",
+            "user_type",
         ]
+
+    def get_user_type(self, obj):
+        # Fetch user_type values from AccountType model related to the user
+        return list(obj.accounttype_set.values_list('user_type', flat=True))
 
 
 class StatusSerializer(serializers.Serializer):

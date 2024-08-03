@@ -27,3 +27,4 @@ class UserDoesNotExist(APIException):
     status_code = 400
     default_detail = 'User does not exist.'
     default_code = 'user_does_not_exist.'
+    
