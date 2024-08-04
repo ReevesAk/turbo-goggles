@@ -15,6 +15,7 @@ from .views import (
     VerifiedBrandAdsCount,
     VerifiedPartnersCount,
     LoginAdmin,
+    SwitchRoles,
 )
 
 from .tasks import (
@@ -79,4 +80,5 @@ urlpatterns = [
         JobApplicationDetail.as_view(),
         name="application-detail",
     ),
+    path("switch-roles", SwitchRoles.as_view(), name="switch_roles")
 ]
