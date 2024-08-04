@@ -705,39 +705,44 @@ class SwitchRoles(generics.RetrieveAPIView):
     def put(self, request):
         current_user = self.get_object()
         new_role = request.data.get("user_type")
+    
+        serializer = AddAdminSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True): 
 
-        try:
-            account_types = AccountType.objects.filter(user=current_user)
+            try:
+                account_types = AccountType.objects.filter(user=current_user)
 
-            # Check if the user has the role they want to switch to
-            if not account_types.filter(user_type=new_role).exists():
+                # Check if the user has the role they want to switch to
+                if not account_types.filter(user_type=new_role).exists():
 
+                    data = {
+                        "status": "fail",
+                        "message": f"Sorry, you have not been assigned the role of {new_role}.",
+                        "data": current_user.active_role,
+                    }
+                    return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+
+            except AccountType.DoesNotExist:
+                raise exceptions.ValidationError("AccountType for the user does not exist.")
+
+            # Handle already switched to the desired role
+            if current_user.active_role == new_role:
                 data = {
-                    "status": "fail",
-                    "message": f"Sorry, you have not been assigned the role of {new_role}.",
+                    "status": "success",
+                    "message": f"You are already on the {new_role} screen.",
                     "data": current_user.active_role,
                 }
-                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=data, status=status.HTTP_200_OK)
 
-        except AccountType.DoesNotExist:
-            raise exceptions.ValidationError("AccountType for the user does not exist.")
+            # User has the requested account type, switch the role
+            current_user.active_role = new_role
+            current_user.save()
 
-        # Handle already switched to the desired role
-        if current_user.active_role == new_role:
             data = {
                 "status": "success",
-                "message": f"You are already on the {new_role} screen.",
+                "message": f"Account type switched to {new_role} successfully.",
                 "data": current_user.active_role,
             }
             return Response(data=data, status=status.HTTP_200_OK)
-
-        # User has the requested account type, switch the role
-        current_user.active_role = new_role
-        current_user.save()
-
-        data = {
-            "status": "success",
-            "message": f"Account type switched to {new_role} successfully.",
-            "data": current_user.active_role,
-        }
-        return Response(data=data, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
