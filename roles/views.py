@@ -44,7 +44,7 @@ from .helpers import sendMail, sendMailToUsers
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled
+from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -142,6 +142,7 @@ class LoginAdmin(APIView):
     """
 
     serializer_class = AdminLoginSerializers
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
         email = request.data.get("email")
@@ -230,6 +231,7 @@ class AddAdmin(generics.CreateAPIView):
     serializer_class = AddAdminSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
         serializer = AddAdminSerializer(data=request.data)
@@ -271,6 +273,7 @@ class AdAdminContd(generics.UpdateAPIView):
 
     serializer_class = AddAdminContdSerializer
     permission_classes = [AllowAny]
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_object(self):
         user_id = self.kwargs.get("user_id")
@@ -307,6 +310,7 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     authentication_classes = [JWTAuthentication]
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_object(self):
         email = self.request.data.get("email")
@@ -346,6 +350,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     serializer_class = DisableAdminSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
         email = self.request.data.get("email")
@@ -382,6 +387,7 @@ class GetAllCustomers(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
     authentication_classes = [JWTAuthentication]
+    renderer_classes = [CamelCaseJSONRenderer]
 
     @extend_schema(
         description="Get all customers",
@@ -412,6 +418,7 @@ class DeleteAdmin(generics.DestroyAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def delete(self, request, *args, **kwargs):
         email = self.request.data.get("email")
@@ -571,6 +578,7 @@ class VerifiedUsersCount(generics.ListAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
     authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         return User.objects.filter(is_verified=True).order_by("id")
@@ -602,6 +610,7 @@ class VerifiedPartnersCount(generics.ListAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
     authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         return User.objects.filter(business_verified=True).order_by("created_at")
@@ -633,6 +642,7 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
     authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         return User.objects.filter(has_promoted=True).order_by("created_at")
@@ -665,6 +675,7 @@ class GetAllAdminUsers(generics.ListAPIView):
     # authentication_classes = [JWTAuthentication]
     # permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         admin_users = User.objects.filter(
@@ -697,7 +708,8 @@ class SwitchRoles(generics.RetrieveAPIView):
 
     serializer_class = SwitchRolesSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsAdmin)
+    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_object(self):
         return self.request.user

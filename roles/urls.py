@@ -28,6 +28,8 @@ from .tasks import (
     ReviewTask,
 )
 
+from .partners import GetAllPartnersUsers
+
 
 urlpatterns = [
     path("register-super-admin", RegisterSuperAdmin.as_view(), name="resgiter_admin"),
@@ -80,5 +82,6 @@ urlpatterns = [
         JobApplicationDetail.as_view(),
         name="application-detail",
     ),
-    path("switch-roles", SwitchRoles.as_view(), name="switch_roles")
+    path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
+    path("partnerAdmin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners")
 ]
