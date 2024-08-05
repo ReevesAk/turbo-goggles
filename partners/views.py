@@ -34,7 +34,9 @@ from permissions import (
     IsUserOrMember,
     IsOwnerOrReadOnly,
     IsPartnerUserOrMember,
+    IsSuperAdmin
 )
+from roles.helpers import sendMailToUsers
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -81,7 +83,7 @@ class CreatePartner(generics.GenericAPIView):
 class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin)]
+    permission_classes = [IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -533,13 +535,11 @@ class VerifyCAC(generics.GenericAPIView):
                             title="Business Verification.",
                             message="This is to inform you that the verification of your business is successful.",
                         )
-                        # send_email(
-                        #     subject="Business Verification.",
-                        #     body="This is to inform you that the verification of your business was successful.",
-                        #     sender=picadailys_email,
-                        #     recipients=current_user.email,
-                        #     password=app_password,
-                        # )
+                        sendMailToUsers(
+                            subject="Business Verification.",
+                            content="This is to inform you that the verification of your business was successful.",
+                            email=current_user.email,
+                        )
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         error_response = {

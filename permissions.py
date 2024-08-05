@@ -207,3 +207,19 @@ class IsNotDisabled(permissions.BasePermission):
         if request.user.is_disabled:
             raise PermissionDenied("Access denied. Your account is disabled.")
         return True
+
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Define the admin roles you want to allow
+        admin_roles = ["AdAdmin", "SuperAdmin", "TaskAdmin", "MembersAdmin", "UserAdmin", "PartnersAdmin", "ContentAdmin", "IntegrationAdmin", "WalletAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user's active role is in the list of allowed admin roles
+            if request.user.active_role in admin_roles:
+                return True
+            else:
+                raise ValidationError("Only admin users can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")
+    

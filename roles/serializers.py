@@ -248,3 +248,33 @@ class SwitchRolesSerializers(serializers.ModelSerializer):
         fields = [
             "user_type"
         ]
+
+
+class ListPartnerUsersSerializer(serializers.ModelSerializer):
+    user_type = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    acc_balance = serializers.CharField(required=False, default=2000000.00, read_only=True)
+    full_name = serializers.CharField(required=False, read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "full_name",
+            "email",
+            "acc_balance",
+            "status",
+            "user_type",
+            "business_category",
+            "business_name"
+        ]
+
+    def get_user_type(self, obj):
+        # Fetch user_type values from AccountType model related to the user
+        return list(obj.accounttype_set.values_list('user_type', flat=True))
+
+    def get_status(self, obj):
+            return "Disabled" if obj.is_disabled else "Active"
+
+    def get_full_name(self, obj):
+        return f"{obj.firstname} {obj.lastname}".strip()
