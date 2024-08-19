@@ -16,6 +16,7 @@ from .serializers import (
     AdminDeletionSerializer,
     ListAdminSerializer,
     ApplicationsSerializers,
+    GetApplicationsSerializers,
     DisableAdminSerializer,
     SwitchRolesSerializers,
 )
@@ -564,7 +565,7 @@ class JobApplicationList(generics.ListAPIView):
     """
 
     queryset = Applications.objects.all()
-    serializer_class = ApplicationsSerializers
+    serializer_class = GetApplicationsSerializers
     permission_classes = [AllowAny]
 
 

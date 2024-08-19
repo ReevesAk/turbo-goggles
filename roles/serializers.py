@@ -239,6 +239,19 @@ class ApplicationsSerializers(serializers.ModelSerializer):
             "cv",
         ]
 
+class GetApplicationsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Applications
+        fields = [
+            "name",
+            "email",
+            "role",
+            "cover_letter",
+            "portfolio",
+            "certificates",
+            "cv",
+        ]
+
 
 class SwitchRolesSerializers(serializers.ModelSerializer):
     user_type = serializers.CharField(max_length=68, min_length=6, write_only=True)
