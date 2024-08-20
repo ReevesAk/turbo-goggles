@@ -694,8 +694,8 @@ class GetAllAdminUsers(generics.ListAPIView):
                 data={
                     "status": "success",
                     "message": "All admin users retrieved successfully",
-                    "No of Admin Users": queryset.count(),
-                    "Admin user object": serialized_users.data,
+                    "num_of_admin_users": queryset.count(),
+                    "admin_users": serialized_users.data,
                 },
                 status=status.HTTP_200_OK,
             )
