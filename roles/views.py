@@ -5,6 +5,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 # In project imports.
 from .serializers import (
@@ -535,6 +536,34 @@ class JobApplications(generics.CreateAPIView):
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)
         self.uploaded_doc_url = doc_image["url"]
+
+
+class DeleteJobApplication(generics.DestroyAPIView):
+    """
+    Deletes a single job application entry by ID.
+    """
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = (AllowAny,)
+
+    def delete(self, request, pk, *args, **kwargs):
+        application = get_object_or_404(Applications, pk=pk)
+
+        # Optionally, you could perform some logic before deletion
+        try:
+            application.delete()
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "Job application deleted successfully",
+                },
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        except Exception as err:
+            return Response(
+                {"error": f"An error occurred: {err}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class JobApplicationDetail(generics.ListAPIView):

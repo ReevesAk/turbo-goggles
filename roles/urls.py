@@ -11,6 +11,7 @@ from .views import (
     JobApplications,
     JobApplicationList,
     JobApplicationDetail,
+    DeleteJobApplication,
     VerifiedUsersCount,
     VerifiedBrandAdsCount,
     VerifiedPartnersCount,
@@ -82,6 +83,7 @@ urlpatterns = [
         JobApplicationDetail.as_view(),
         name="application-detail",
     ),
+    path("career/applications/<int:pk>/delete/", DeleteJobApplication.as_view(), name="delete-application"),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     path("partnerAdmin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners")
 ]
