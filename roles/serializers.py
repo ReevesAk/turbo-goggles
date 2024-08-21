@@ -243,6 +243,7 @@ class GetApplicationsSerializers(serializers.ModelSerializer):
     class Meta:
         model = Applications
         fields = [
+            "id",
             "name",
             "email",
             "role",
