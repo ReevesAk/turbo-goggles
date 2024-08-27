@@ -279,9 +279,27 @@ class AdAdminContd(generics.UpdateAPIView):
 
     def get_object(self):
         user_id = self.kwargs.get("user_id")
+
         try:
             user = User.objects.get(Q(id=user_id))
-            return user
+
+            admin_types = [
+                "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", 
+                "UserAdmin", "PartnersAdmin", "ContentAdmin", 
+                "IntegrationAdmin", "WalletAdmin"
+            ]
+            is_admin = AccountType.objects.filter(
+                user=user, user_type__in=admin_types
+            ).exists()
+            
+            if is_admin:
+                return user
+            else:
+                return Response(
+                    data={"status": "fail", "error": "User exists, but is not an admin."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         except User.DoesNotExist:
             return None
 
@@ -491,20 +509,20 @@ class JobApplications(generics.CreateAPIView):
                     cv=cv_url,
                 )
 
-                # send application to careers@picadailys.com.
-                name = request.data.get("name", "N/A")
-                email = request.data.get("email", "N/A")
-                role = request.data.get("role", "N/A")
+                # # send application to careers@picadailys.com.
+                # name = request.data.get("name", "N/A")
+                # email = request.data.get("email", "N/A")
+                # role = request.data.get("role", "N/A")
 
-                content = f"""
-                    name: {name},
-                    email: {email},
-                    CV: [View CV]({cv_url}),
-                    cover letter: [View Cover Letter]({letter_url}),
-                    certificates: {application.certificates}
-                """
+                # content = f"""
+                #     name: {name},
+                #     email: {email},
+                #     CV: [View CV]({cv_url}),
+                #     cover letter: [View Cover Letter]({letter_url}),
+                #     certificates: {application.certificates}
+                # """
 
-                sendMail(content=content, subject=role)
+                # sendMail(content=content, subject=role)
 
                 # Update the certificates field after creating the instance
                 application.certificates = ",".join(cert_urls)

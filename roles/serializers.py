@@ -4,7 +4,7 @@ from rest_framework import serializers
 # In project imports.
 from accounts.models import User
 
-from .models import GamificationModel, Applications
+from .models import GamificationModel, Applications, RestrictPartnerAccount
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 
 
@@ -292,3 +292,15 @@ class ListPartnerUsersSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return f"{obj.firstname} {obj.lastname}".strip()
+
+
+class RestrictPartnersSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = RestrictPartnerAccount
+        fields = [
+            "id",
+            "reason",
+            "minimum_debit",
+            "maximum_debit",
+            "post_per_day"
+        ]
