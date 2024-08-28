@@ -29,7 +29,7 @@ from .tasks import (
     ReviewTask,
 )
 
-from .partners import GetAllPartnersUsers
+from .partners import GetAllPartnersUsers, RestrictPartnerAccount
 
 
 urlpatterns = [
@@ -85,5 +85,7 @@ urlpatterns = [
     ),
     path("career/applications/<int:pk>/delete/", DeleteJobApplication.as_view(), name="delete-application"),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
-    path("partnerAdmin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners")
+    # Partner endpoints.
+    path("partner-admin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners"),
+    path("partner-admin/restrict-partner", RestrictPartnerAccount.as_view(), name="restrict_partner")
 ]

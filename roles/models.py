@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 import uuid
 
@@ -35,3 +37,15 @@ class Applications(models.Model):
     certificates = models.CharField(max_length=255, null=True)
     portfolio = models.CharField(max_length=200, null=True, blank=True)
     cv = models.CharField(max_length=255, null=True)
+
+
+class RestrictPartnerAccount(models.Model):
+    user  = models.ForeignKey(
+        to=User,
+        on_delete=models.CASCADE
+    )
+    reason = models.TextField(null=True)
+    minimum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
+    maximum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
+    post_per_day = models.IntegerField(null=True, blank=True)
+    is_restricted = models.BooleanField(default=False, null=True)
