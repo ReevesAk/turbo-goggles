@@ -30,6 +30,7 @@ from .tasks import (
 )
 
 from .partners import GetAllPartnersUsers, RestrictPartnerAccount
+from .brand import RestrictBrandAdAccount
 
 
 urlpatterns = [
@@ -87,5 +88,7 @@ urlpatterns = [
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
     path("partner-admin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners"),
-    path("partner-admin/restrict-partner", RestrictPartnerAccount.as_view(), name="restrict_partner")
+    path("partner-admin/restrict-partner", RestrictPartnerAccount.as_view(), name="restrict_partner"),
+    # BrandAd endpoints.
+    path("brand-admin/restrict-brandAd", RestrictBrandAdAccount.as_view(), name="restrict_brandAd")
 ]
