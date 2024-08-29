@@ -509,20 +509,20 @@ class JobApplications(generics.CreateAPIView):
                     cv=cv_url,
                 )
 
-                # # send application to careers@picadailys.com.
-                # name = request.data.get("name", "N/A")
-                # email = request.data.get("email", "N/A")
-                # role = request.data.get("role", "N/A")
+                # send application to careers@picadailys.com.
+                name = request.data.get("name", "N/A")
+                email = request.data.get("email", "N/A")
+                role = request.data.get("role", "N/A")
 
-                # content = f"""
-                #     name: {name},
-                #     email: {email},
-                #     CV: [View CV]({cv_url}),
-                #     cover letter: [View Cover Letter]({letter_url}),
-                #     certificates: {application.certificates}
-                # """
+                content = f"""
+                    name: {name},
+                    email: {email},
+                    CV: [View CV]({cv_url}),
+                    cover letter: [View Cover Letter]({letter_url}),
+                    certificates: {application.certificates}
+                """
 
-                # sendMail(content=content, subject=role)
+                sendMail(content=content, subject=role)
 
                 # Update the certificates field after creating the instance
                 application.certificates = ",".join(cert_urls)
