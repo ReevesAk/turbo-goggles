@@ -4,7 +4,12 @@ from rest_framework import serializers
 # In project imports.
 from accounts.models import User
 
-from .models import GamificationModel, Applications, RestrictPartnerAccount, RestrictBrandAdAccount
+from .models import (
+    GamificationModel,
+    Applications,
+    RestrictPartnerAccount,
+    RestrictBrandAdAccount,
+)
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 
 
@@ -172,10 +177,10 @@ class ListAdminSerializer(serializers.ModelSerializer):
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
-        return list(obj.accounttype_set.values_list('user_type', flat=True))
+        return list(obj.accounttype_set.values_list("user_type", flat=True))
 
     def get_status(self, obj):
-            return "Disabled" if obj.is_disabled else "Active"
+        return "Disabled" if obj.is_disabled else "Active"
 
 
 class StatusSerializer(serializers.Serializer):
@@ -239,6 +244,7 @@ class ApplicationsSerializers(serializers.ModelSerializer):
             "cv",
         ]
 
+
 class GetApplicationsSerializers(serializers.ModelSerializer):
     class Meta:
         model = Applications
@@ -259,15 +265,15 @@ class SwitchRolesSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "user_type"
-        ]
+        fields = ["user_type"]
 
 
 class ListPartnerUsersSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    acc_balance = serializers.CharField(required=False, default=2000000.00, read_only=True)
+    acc_balance = serializers.CharField(
+        required=False, default=2000000.00, read_only=True
+    )
     full_name = serializers.CharField(required=False, read_only=True)
 
     class Meta:
@@ -280,15 +286,15 @@ class ListPartnerUsersSerializer(serializers.ModelSerializer):
             "status",
             "user_type",
             "business_category",
-            "business_name"
+            "business_name",
         ]
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
-        return list(obj.accounttype_set.values_list('user_type', flat=True))
+        return list(obj.accounttype_set.values_list("user_type", flat=True))
 
     def get_status(self, obj):
-            return "Disabled" if obj.is_disabled else "Active"
+        return "Disabled" if obj.is_disabled else "Active"
 
     def get_full_name(self, obj):
         return f"{obj.firstname} {obj.lastname}".strip()
@@ -297,22 +303,10 @@ class ListPartnerUsersSerializer(serializers.ModelSerializer):
 class RestrictPartnersSerializers(serializers.ModelSerializer):
     class Meta:
         model = RestrictPartnerAccount
-        fields = [
-            "id",
-            "reason",
-            "minimum_debit",
-            "maximum_debit",
-            "post_per_day"
-        ]
+        fields = ["id", "reason", "minimum_debit", "maximum_debit", "post_per_day"]
 
 
 class RestrictBrandAdSerializers(serializers.ModelSerializer):
     class Meta:
         model = RestrictBrandAdAccount
-        fields = [
-            "id",
-            "reason",
-            "minimum_debit",
-            "maximum_debit",
-            "post_per_day"
-        ]
+        fields = ["id", "reason", "minimum_debit", "maximum_debit", "post_per_day"]

@@ -40,10 +40,7 @@ class Applications(models.Model):
 
 
 class RestrictPartnerAccount(models.Model):
-    user  = models.ForeignKey(
-        to=User,
-        on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     reason = models.TextField(null=True)
     minimum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
     maximum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
@@ -52,10 +49,7 @@ class RestrictPartnerAccount(models.Model):
 
 
 class RestrictBrandAdAccount(models.Model):
-    user  = models.ForeignKey(
-        to=User,
-        on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     reason = models.TextField(null=True)
     minimum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
     maximum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)

@@ -3,7 +3,6 @@ import logging
 # In project imports.
 from .serializers import (
     RestrictBrandAdSerializers,
-
 )
 from .models import RestrictBrandAdAccount
 
@@ -23,6 +22,7 @@ class RestrictBrandAdAccount(generics.CreateAPIView):
     RestrictBrandAdAccount is the POST requests that handles the
     restricting of brand Ads accounts.
     """
+
     serializer_class = RestrictBrandAdSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin)
@@ -33,13 +33,15 @@ class RestrictBrandAdAccount(generics.CreateAPIView):
 
         try:
             partner = User.objects.get(id=user_id)
-            
+
             account_types = AccountType.objects.filter(id=user_id)
             # Check if any AccountType has "BrandAd" in user_type
             is_partner = any(acct.user_type == "BrandAd" for acct in account_types)
 
             if not is_partner:
-                raise exceptions.ValidationError("User as not regsitered as a brand ad.")
+                raise exceptions.ValidationError(
+                    "User as not regsitered as a brand ad."
+                )
 
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid(raise_exception=True):
@@ -48,23 +50,23 @@ class RestrictBrandAdAccount(generics.CreateAPIView):
                     reason=request.data.get("reason"),
                     minimum_debit=request.data.get("minimum_debit"),
                     maximum_debit=request.data.get("maximum_debit"),
-                    post_per_day=request.data.get("post_per_day"),                    
+                    post_per_day=request.data.get("post_per_day"),
                 )
                 # Set the is_restricted flag to true.
                 brand_account.is_restricted = True
                 brand_account.save()
 
                 return Response(
-                        {
-                            "status": "success",
-                            "message": "BrandAd account restricted successfully.",
-                            "data": {
-                                "partner_account_id": brand_account.id,
-                                "user_detail": serializer.data
-                            },
+                    {
+                        "status": "success",
+                        "message": "BrandAd account restricted successfully.",
+                        "data": {
+                            "partner_account_id": brand_account.id,
+                            "user_detail": serializer.data,
                         },
-                        status=status.HTTP_201_CREATED,
-                    )
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
         except User.DoesNotExist:
             return Response(
                 {
