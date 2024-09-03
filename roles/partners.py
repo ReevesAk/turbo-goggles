@@ -1,5 +1,3 @@
-import logging
-
 # In project imports.
 from .serializers import (
     ListPartnerUsersSerializer,
@@ -53,11 +51,12 @@ class GetAllPartnersUsers(generics.ListAPIView):
             )
 
 
-class RestrictPartnerAccount(generics.CreateAPIView):
+class RestrictPartnerAccountView(generics.CreateAPIView):
     """
     RestrictPartnerAccount is the POST requests that handles the
     restricting of partner accounts.
     """
+
     serializer_class = RestrictPartnersSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled, IsPartnerAdmin)
@@ -68,7 +67,7 @@ class RestrictPartnerAccount(generics.CreateAPIView):
 
         try:
             partner = User.objects.get(id=user_id)
-            
+
             account_types = AccountType.objects.filter(id=user_id)
             # Check if any AccountType has "Partner" in user_type
             is_partner = any(acct.user_type == "Partner" for acct in account_types)
@@ -83,23 +82,23 @@ class RestrictPartnerAccount(generics.CreateAPIView):
                     reason=request.data.get("reason"),
                     minimum_debit=request.data.get("minimum_debit"),
                     maximum_debit=request.data.get("maximum_debit"),
-                    post_per_day=request.data.get("post_per_day"),                    
+                    post_per_day=request.data.get("post_per_day"),
                 )
                 # Set the is_restricted flag to true.
                 partner_account.is_restricted = True
                 partner_account.save()
 
                 return Response(
-                        {
-                            "status": "success",
-                            "message": "Partner account restricted successfully.",
-                            "data": {
-                                "partner_account_id": partner_account.id,
-                                "user_detail": serializer.data
-                            },
+                    {
+                        "status": "success",
+                        "message": "Partner account restricted successfully.",
+                        "data": {
+                            "partner_account_id": partner_account.id,
+                            "user_detail": serializer.data,
                         },
-                        status=status.HTTP_201_CREATED,
-                    )
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
         except User.DoesNotExist:
             return Response(
                 {

@@ -34,7 +34,7 @@ from permissions import (
     IsUserOrMember,
     IsOwnerOrReadOnly,
     IsPartnerUserOrMember,
-    IsSuperAdmin
+    IsSuperAdmin,
 )
 from roles.helpers import sendMailToUsers
 
@@ -83,7 +83,9 @@ class CreatePartner(generics.GenericAPIView):
 class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin | IsSuperAdmin)]
+    permission_classes = [
+        IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin | IsSuperAdmin)
+    ]
     pagination_class = PaginationStyle
 
     def get_queryset(self):

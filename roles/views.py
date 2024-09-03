@@ -284,20 +284,29 @@ class AdAdminContd(generics.UpdateAPIView):
             user = User.objects.get(Q(id=user_id))
 
             admin_types = [
-                "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", 
-                "UserAdmin", "PartnersAdmin", "ContentAdmin", 
-                "IntegrationAdmin", "WalletAdmin"
+                "SuperAdmin",
+                "TaskAdmin",
+                "AdAdmin",
+                "MembersAdmin",
+                "UserAdmin",
+                "PartnersAdmin",
+                "ContentAdmin",
+                "IntegrationAdmin",
+                "WalletAdmin",
             ]
             is_admin = AccountType.objects.filter(
                 user=user, user_type__in=admin_types
             ).exists()
-            
+
             if is_admin:
                 return user
             else:
                 return Response(
-                    data={"status": "fail", "error": "User exists, but is not an admin."}, 
-                    status=status.HTTP_403_FORBIDDEN
+                    data={
+                        "status": "fail",
+                        "error": "User exists, but is not an admin.",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
         except User.DoesNotExist:
@@ -560,6 +569,7 @@ class DeleteJobApplication(generics.DestroyAPIView):
     """
     Deletes a single job application entry by ID.
     """
+
     queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = (AllowAny,)
@@ -726,9 +736,11 @@ class GetAllAdminUsers(generics.ListAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
-        admin_users = User.objects.filter(
-            accounttype__user_type__icontains='Admin'
-        ).distinct().order_by("accounttype__created_at")
+        admin_users = (
+            User.objects.filter(accounttype__user_type__icontains="Admin")
+            .distinct()
+            .order_by("accounttype__created_at")
+        )
         return admin_users
 
     def list(self, request, *args, **kwargs):
@@ -765,16 +777,14 @@ class SwitchRoles(generics.RetrieveAPIView):
     def put(self, request):
         current_user = self.get_object()
         new_role = request.data.get("user_type")
-    
-        serializer = AddAdminSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True): 
 
+        serializer = AddAdminSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
             try:
                 account_types = AccountType.objects.filter(user=current_user)
 
                 # Check if the user has the role they want to switch to
                 if not account_types.filter(user_type=new_role).exists():
-
                     data = {
                         "status": "fail",
                         "message": f"Sorry, you have not been assigned the role of {new_role}.",
@@ -783,7 +793,9 @@ class SwitchRoles(generics.RetrieveAPIView):
                     return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
             except AccountType.DoesNotExist:
-                raise exceptions.ValidationError("AccountType for the user does not exist.")
+                raise exceptions.ValidationError(
+                    "AccountType for the user does not exist."
+                )
 
             # Handle already switched to the desired role
             if current_user.active_role == new_role:

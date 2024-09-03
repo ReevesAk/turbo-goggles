@@ -29,7 +29,7 @@ from .tasks import (
     ReviewTask,
 )
 
-from .partners import GetAllPartnersUsers, RestrictPartnerAccount
+from .partners import GetAllPartnersUsers, RestrictPartnerAccountView
 from .brand import RestrictBrandAdAccount
 
 
@@ -84,11 +84,27 @@ urlpatterns = [
         JobApplicationDetail.as_view(),
         name="application-detail",
     ),
-    path("career/applications/<int:pk>/delete/", DeleteJobApplication.as_view(), name="delete-application"),
+    path(
+        "career/applications/<int:pk>/delete/",
+        DeleteJobApplication.as_view(),
+        name="delete-application",
+    ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
-    path("partner-admin/get-all-partners", GetAllPartnersUsers.as_view(), name="get_all_partners"),
-    path("partner-admin/restrict-partner", RestrictPartnerAccount.as_view(), name="restrict_partner"),
+    path(
+        "partner-admin/get-all-partners",
+        GetAllPartnersUsers.as_view(),
+        name="get_all_partners",
+    ),
+    path(
+        "partner-admin/restrict-partner",
+        RestrictPartnerAccountView.as_view(),
+        name="restrict_partner",
+    ),
     # BrandAd endpoints.
-    path("brand-admin/restrict-brandAd", RestrictBrandAdAccount.as_view(), name="restrict_brandAd")
+    path(
+        "brand-admin/restrict-brandAd",
+        RestrictBrandAdAccount.as_view(),
+        name="restrict_brandAd",
+    ),
 ]

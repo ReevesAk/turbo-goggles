@@ -119,7 +119,10 @@ class UpdatePartnerServiceSerializer(serializers.ModelSerializer):
 
 class PartnerProfileSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' profile."""
-    acc_balance = serializers.CharField(required=False, default=2000000.00, read_only=True)
+
+    acc_balance = serializers.CharField(
+        required=False, default=2000000.00, read_only=True
+    )
 
     class Meta:
         model = User
