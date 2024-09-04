@@ -310,3 +310,40 @@ class RestrictBrandAdSerializers(serializers.ModelSerializer):
     class Meta:
         model = RestrictBrandAdAccount
         fields = ["id", "reason", "minimum_debit", "maximum_debit", "post_per_day"]
+
+
+class ListBrandAdSerializer(serializers.ModelSerializer):
+    user_type = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    full_name = serializers.CharField(required=False, read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "full_name",
+            "email",
+            "user_type",
+            "address",
+            "brand_type",
+            "services",
+            "state",
+            "city",
+            "website",
+            "facebook",
+            "twitter",
+            "instagram",
+            "telegram",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_user_type(self, obj):
+        # Fetch user_type values from AccountType model related to the user
+        return list(obj.accounttype_set.values_list("user_type", flat=True))
+
+    def get_status(self, obj):
+        return "Disabled" if obj.is_disabled else "Active"
+
+    def get_full_name(self, obj):
+        return f"{obj.firstname} {obj.lastname}".strip()
