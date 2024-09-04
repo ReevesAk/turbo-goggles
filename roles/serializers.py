@@ -325,6 +325,7 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
             "email",
             "user_type",
             "address",
+            "status",
             "brand_type",
             "services",
             "state",

@@ -87,7 +87,7 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListBrandAdSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
+    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin)
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
 
