@@ -15,6 +15,7 @@ from .views import (
     CustomerTransctionHistory,
     UpdateCustomer,
     GetAllBanks,
+    NotificationView,
 )
 
 from .virtual_cards import CreateCard, PayWithCard, FreezeCard, UnfreezeCard
@@ -29,6 +30,7 @@ from .fx import GetQuotation, ConvertToDollar
 from .tx import AllTransactions, RetrieveTransaction
 
 urlpatterns = [
+    path("notification", NotificationView.as_view(), name="notification"),
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
     path("create-ngn-account", CreateNGNAccount.as_view(), name="ngn_create_account"),
     path("upgrade-account", UpgradeAccount.as_view(), name="upgrade_account"),
