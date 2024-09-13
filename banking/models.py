@@ -174,7 +174,7 @@ class BankingNotificationModel(models.Model):
     accountNumber = models.CharField(max_length=100, null=True)
     reference = models.CharField(max_length=150, null=True)
     narration = models.TextField(null=True)
-    dateTime = models.DateTimeField(null=True)
+    dateTime = models.CharField(max_length=150, null=True)
     amount = models.FloatField(null=True)
     transactiontype = models.CharField(max_length=50, null=True)
     accountBalance = models.FloatField(null=True)
