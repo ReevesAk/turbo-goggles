@@ -25,6 +25,7 @@ from drf_spectacular.utils import extend_schema
 
 # In-projects imports.
 from .serializers import (
+    BankNtfnSerializer,
     BankingStatusSerializer,
     BVNSerializer,
     CreateAccountSerializers,
@@ -330,6 +331,28 @@ class CreateNGNAccount(generics.GenericAPIView):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class NotificationView(generics.CreateAPIView):
+    """
+    NotificationView handles the POST request of receiving a
+    customer's transaction detail.
+    """
+
+    serializer_class = BankNtfnSerializer
+
+    def post(self, request):
+        user_data = request.data
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            response_data = {
+                "status": "Successful",
+                "message": "Transaction created successfully.",
+            }
+            return Response(data=response_data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetCustomer(generics.RetrieveAPIView):

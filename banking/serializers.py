@@ -4,7 +4,7 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel, PayWithCard
+from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel, PayWithCard, BankingNotificationModel
 
 
 class BVNSerializer(serializers.Serializer):
@@ -274,4 +274,18 @@ class TxModelSerializer(serializers.ModelSerializer):
             "description",
             "rwd",
             "date",
+        ]
+
+
+class BankNtfnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankingNotificationModel
+        fields = [
+            "accountNumber",
+            "reference",
+            "narration",
+            "dateTime",
+            "amount",
+            "transactiontype",
+            "accountBalance"
         ]
