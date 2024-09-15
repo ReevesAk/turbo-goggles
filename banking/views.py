@@ -20,6 +20,7 @@ from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.pagination import PageNumberPagination
 
 from drf_spectacular.utils import extend_schema
 
@@ -38,7 +39,15 @@ from .serializers import (
     VirtaulAccountDetailsSerializer,
 )
 from accounts.models import UserNotification
-from .models import Wallet, Address, Identity, Phone, BVNData, CustomerData
+from .models import (
+    Wallet,
+    Address,
+    Identity,
+    Phone,
+    BVNData,
+    CustomerData,
+    BankingNotificationModel,
+)
 from .controllers import BVN, Customer
 
 from permissions import hasWallet
@@ -53,6 +62,10 @@ headers = {
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
+
+
+class PaginationStyle(PageNumberPagination):
+    page_size = 20
 
 
 class VerifYBVN(generics.GenericAPIView):
@@ -343,6 +356,29 @@ class NotificationView(generics.CreateAPIView):
 
     def post(self, request):
         user_data = request.data
+        account_number = user_data.get("accountNumber")
+        transactiontype = user_data.get("transactiontype")
+        narration = user_data.get("narration")
+
+        try:
+            user = Wallet.objects.get(account_number=account_number)
+        except Wallet.DoesNotExist:
+            return Response(
+                {"error": "User with this account number does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        match transactiontype:
+            case "cr":
+                UserNotification.objects.create(
+                    user=user, title="Credit Transaction", message=narration
+                )
+            case "db":
+                UserNotification.objects.create(
+                    user=user, title="Debit Transaction", message=narration
+                )
+            case _:
+                pass
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):

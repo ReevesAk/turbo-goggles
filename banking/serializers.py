@@ -4,7 +4,16 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import BVNData, Address, Wallet, Cards, Transfer, ForexModel, PayWithCard, BankingNotificationModel
+from .models import (
+    BVNData,
+    Address,
+    Wallet,
+    Cards,
+    Transfer,
+    ForexModel,
+    PayWithCard,
+    BankingNotificationModel,
+)
 
 
 class BVNSerializer(serializers.Serializer):
@@ -287,5 +296,5 @@ class BankNtfnSerializer(serializers.ModelSerializer):
             "dateTime",
             "amount",
             "transactiontype",
-            "accountBalance"
+            "accountBalance",
         ]
