@@ -3,8 +3,6 @@ from django.urls import path
 from .views import (
     VerifYBVN,
     CreateNGNAccount,
-    UpgradeAccount,
-    CreateUSDAccount,
     SetWalletPin,
     ForgotWalletPin,
     PinResendOTP,
@@ -33,8 +31,6 @@ urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
     path("create-ngn-account", CreateNGNAccount.as_view(), name="ngn_create_account"),
-    path("upgrade-account", UpgradeAccount.as_view(), name="upgrade_account"),
-    path("create-USD-account", CreateUSDAccount.as_view(), name="create-_USD_account"),
     path("set-wallet-pin", SetWalletPin.as_view(), name="set_wallet_pin"),
     path("forgot-wallet-pin", ForgotWalletPin.as_view(), name="forgot_wallet_pin"),
     path("resend-otp", PinResendOTP.as_view(), name="resend-otp"),

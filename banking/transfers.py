@@ -24,7 +24,6 @@ from .serializers import (
 )
 from accounts.models import UserNotification
 from .helpers import Pin
-from .controllers import Transfer
 from .payments import UseCard
 from .models import PayWithCard, Wallet
 

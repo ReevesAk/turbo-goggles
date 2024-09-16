@@ -46,7 +46,6 @@ from .models import (
     Phone,
     BVNData,
     CustomerData,
-    BankingNotificationModel,
 )
 from .controllers import BVN, Customer
 
@@ -122,8 +121,8 @@ class VerifYBVN(generics.GenericAPIView):
                 if all(
                     data != bvn_data["data"][field]
                     for data, field in [
-                        (user_data.get("date_of_birth"), "dob"),
-                        (user_data.get("phone_number"), "phone_number"),
+                        (user_data.get("date_of_birth"), "DOB"),
+                        (user_data.get("phone_number"), "Phone"),
                     ]
                 ):
                     return Response(
@@ -135,10 +134,10 @@ class VerifYBVN(generics.GenericAPIView):
                     )
 
                 # Update the user's BVN instance with the new data.
-                bvn.first_name = bvn_data["data"]["first_name"]
-                bvn.last_name = bvn_data["data"]["last_name"]
-                bvn.date_of_birth = bvn_data["data"]["dob"]
-                bvn.phone_number = bvn_data["data"]["phone_number"]
+                bvn.first_name = bvn_data["FirstName"]
+                bvn.last_name = bvn_data["LastName"]
+                bvn.date_of_birth = bvn_data["DOB"]
+                bvn.phone_number = bvn_data["Phone"]
                 bvn.number = user_data.get("bvn")
                 bvn.save()
 
@@ -163,7 +162,7 @@ class VerifYBVN(generics.GenericAPIView):
                     "status": "success",
                     "message": "Bvn verification was successful",
                     "bvn data": {
-                        "first_name": bvn_data["data"]["first_name"],
+                        "first_name": bvn_data["FirstName"],
                         "last_name": bvn_data["data"]["last_name"],
                         "date_of_birth": bvn_data["data"]["dob"],
                         "phone_number": bvn_data["data"]["phone_number"],
@@ -657,200 +656,6 @@ class UpdateCustomer(generics.RetrieveAPIView):
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)
         self.uploaded_image_url = doc_image["url"]
-
-
-class UpgradeAccount(generics.CreateAPIView):
-    """
-    UpgradeAccount handles the POST request of upgrading a customer
-    to Tier1 and Tier 2 respectfully.
-    """
-
-    serializer_class = Tier2CustomerUpgradeSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
-    parser_classes = (MultiPartParser, JSONParser)
-
-    def post(self, request):
-        authenticated_user = request.user
-        payload = request.data
-
-        if authenticated_user.is_upgraded is True:
-            return Response(data="User is already upgraded")
-
-        customer = CustomerData.objects.get(user=authenticated_user)
-
-        serializer = self.serializer_class(data=payload)
-        if serializer.is_valid(raise_exception=True):
-            # Start a separate thread for image upload
-            thread_upload = Thread(
-                target=self.upload_image,
-                args=(payload.get("image"),),
-            )
-            thread_upload.start()
-
-            tier2_response = Customer.upgradeTier2(
-                customer_id=customer.customer_id,
-                id_type=payload.get("type"),
-                id_img=self.uploaded_image_url,
-                id_no=payload.get("number"),
-            )
-            tier2_status_code = tier2_response.status_code
-
-            if tier2_status_code == 200:
-                identity = Identity.objects.create(
-                    user=customer,
-                    type=payload.get("type"),
-                    image=self.uploaded_image_url,
-                    number=payload.get("number"),
-                    country="NG",
-                )
-                identity.save()
-
-                UserNotification.objects.create(
-                    user=authenticated_user,
-                    title="Account Upgrade.",
-                    message="This is to inform you that your account upgrade is successful.",
-                )
-                send_email(
-                    subject="Account Upgrade.",
-                    body="This is to inform you that your account upgrade was successful.",
-                    sender=picadailys_email,
-                    recipients=authenticated_user.email,
-                    password=app_password,
-                )
-                response = {
-                    "status": "success",
-                    "message": "User upgraded successfully!",
-                    "data": tier2_response.json(),
-                }
-                return Response(data=response, status=status.HTTP_200_OK)
-
-            else:
-                return Response(data=tier2_response.json(), status=tier2_status_code)
-
-    def upload_image(self, image_data):
-        doc_image = cloud.upload(file=image_data)
-        self.uploaded_image_url = doc_image["url"]
-
-
-class CreateUSDAccount(generics.CreateAPIView):
-    """
-    CreateUSDAccount handles the POST request of creating a customer wallet in USD.
-    """
-
-    serializer_class = CreateUSDAccountSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
-
-    def post(self, request):
-        authenticated_user = request.user
-        user_data = request.data
-
-        wallet = Wallet.objects.get(user=authenticated_user).exists()
-        if wallet.currency == "USD":
-            existing_wallet = {
-                "customer_id": wallet.customer_id,
-                "first_name": wallet.first_name,
-                "last_name": wallet.last_name,
-                "currency": wallet.currency,
-            }
-            response_data = {
-                "status": "fail",
-                "message": "User already has a dollar wallet!",
-                "data": existing_wallet,
-            }
-            return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if the user has an NGN wallet
-        has_ngn_wallet = Wallet.objects.filter(
-            user=authenticated_user, currency="NGN"
-        ).exists()
-
-        if not has_ngn_wallet:
-            response_data = {
-                "status": "fail",
-                "message": "User must have an NGN wallet before creating a USD wallet!",
-            }
-            return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
-
-        resource = "collections/virtual-account"
-
-        serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            with ThreadPoolExecutor() as executor:
-                # Submit image upload tasks to the thread pool.
-                utility_upload = executor.submit(
-                    self.upload_image, user_data.get("utility_bill")
-                )
-                bank_statement = executor.submit(
-                    self.upload_image, user_data.get("bank_statement")
-                )
-
-                # Wait for both uploads to complete
-                utility_upload_url = utility_upload.result()
-                bank_statement_url = bank_statement.result()
-
-            payload = {
-                "customer_id": wallet.customer_id,
-                "currency": "USD",
-                "preferred_bank": "631",
-                "meta": {
-                    "occupation": user_data.get("occupation"),
-                    "bank_statement": bank_statement_url,
-                    "identity_type": "PASSPORT",
-                    "identity_issued_date": user_data.get("identity_issued_date"),
-                    "identity_expiration": user_data.get("identity_expiration"),
-                    "utility_bill": utility_upload_url,
-                },
-            }
-            try:
-                response = requests.post(
-                    url=base_url + resource,
-                    json=payload,
-                    headers=headers,
-                )
-                if response.status_code == 200:
-                    # Update wallet fields to save dollar wallet data.
-                    wallet.occupation = user_data.get("occupation")
-                    wallet.utility_bill = utility_upload_url
-                    wallet.bank_statement = bank_statement_url
-                    wallet.identity_number = user_data.get("identity_number")
-                    wallet.identity_issued_date = user_data.get("identity_issued_date")
-                    wallet.identity_expiration = user_data.get("identity_expiration")
-                    wallet.save()
-
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Wallet Creation.",
-                        message="Your dollar account was created successfully.",
-                    )
-                    send_email(
-                        subject="Wallet Creation.",
-                        body="This is to inform you that your dollar account was successfully.",
-                        sender=picadailys_email,
-                        recipients=authenticated_user.email,
-                        password=app_password,
-                    )
-
-                    response_data = {
-                        "status": "success",
-                        "message": "Creation of dollar wallet successful",
-                        "data": response.json(),
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(response.json(), status=response.status_code)
-            except requests.exceptions.RequestException as e:
-                logging.error(f"Creation of dollar wallet API request error: {str(e)}")
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-    def upload_image(self, image_data):
-        # Implement image upload logic here
-        # For example, using a utility function
-        uploaded_image = cloud.upload(file=image_data)
-        return uploaded_image["url"]
 
 
 class SetWalletPin(generics.CreateAPIView):
