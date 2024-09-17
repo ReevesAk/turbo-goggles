@@ -6,14 +6,17 @@ from accounts.models import TxModel
 # In project imports.
 from .models import (
     BVNData,
-    Address,
-    Wallet,
-    Cards,
-    Transfer,
-    ForexModel,
-    PayWithCard,
-    BankingNotificationModel,
+    AccountCreation,
+    BankingNotificationModel
 )
+
+
+class BankingStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+
+class QuotationSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
 
 
 class BVNSerializer(serializers.Serializer):
@@ -28,84 +31,13 @@ class BVNSerializer(serializers.Serializer):
         ]
 
 
-class CreateAccountSerializers(serializers.ModelSerializer):
-    """Serailizers for NGN account creation."""
-
-    class Meta:
-        model = Address
-        fields = [
-            "street",
-            "street2",
-            "city",
-            "state",
-            "postal_code",
-        ]
-
-
-class Tier2CustomerUpgradeSerializers(serializers.ModelSerializer):
-    """Serailizers for Tier2 customer upgrade."""
-
-    type = serializers.CharField(max_length=150, write_only=True)
-    image = serializers.CharField(max_length=150, write_only=True)
-    number = serializers.CharField(max_length=100, write_only=True)
-    country = serializers.CharField(max_length=68, write_only=True)
-
-    class Meta:
-        model = Address
-        fields = [
-            "type",
-            "image",
-            "number",
-            "country",
-        ]
-
-
-class UpdateCustomerSerializers(serializers.ModelSerializer):
-    """Serailizers for updating customer information.."""
-
-    first_name = serializers.CharField(max_length=150, write_only=True)
-    last_name = serializers.CharField(max_length=150, write_only=True)
-    type = serializers.CharField(max_length=150, write_only=True)
-    image = serializers.CharField(max_length=150, write_only=True)
-    number = serializers.CharField(max_length=100, write_only=True)
-    country = serializers.CharField(max_length=68, write_only=True)
-    phone = serializers.CharField(max_length=68, write_only=True)
-
-    class Meta:
-        model = Address
-        fields = [
-            "first_name",
-            "last_name",
-            "phone",
-            "type",
-            "image",
-            "number",
-            "country",
-        ]
-
-
-class CreateUSDAccountSerializers(serializers.ModelSerializer):
-    """Serailizers for creating a USD wallet."""
-
-    class Meta:
-        model = Wallet
-        fields = [
-            "occupation",
-            "utility_bill",
-            "bank_statement",
-            "identity_number",
-            "identity_issued_date",
-            "identity_expiration",
-        ]
-
-
 class CreateWalletPinSerializer(serializers.ModelSerializer):
     """Serailizers for first time wallet pin setting."""
 
     pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
-        model = Wallet
+        model = AccountCreation
         fields = ["id", "pin", "pin2"]
 
 
@@ -118,158 +50,8 @@ class ResetPinSerializer(serializers.ModelSerializer):
     pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
-        model = Wallet
+        model = AccountCreation
         fields = ("otp", "pin", "pin2")
-
-
-class CreateCardSerializers(serializers.ModelSerializer):
-    """Serailizers for creating an order for USD ."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Cards
-        fields = ("pin", "type", "brand", "currency")
-
-
-class FundCardSerializers(serializers.ModelSerializer):
-    """Serailizers for funding a card."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Cards
-        fields = ("pin", "amount")
-
-
-class FreezeCardSerializers(serializers.ModelSerializer):
-    """Serailizers for freezing a card."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Cards
-        fields = ("pin", "amount")
-
-
-class UnfreezeCardSerializers(serializers.ModelSerializer):
-    """Serailizers for unfreezing a card."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Cards
-        fields = ("pin", "amount")
-
-
-class TransferWithinNigeriaSerializers(serializers.ModelSerializer):
-    """Serailizers for making bank transfer within Nigeria from maplerad balance."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Transfer
-        fields = [
-            "pin",
-            "bank_code",
-            "acct_number",
-            "amount",
-            "reason",
-        ]
-
-
-class TransferWithinPicadailysSerializers(serializers.ModelSerializer):
-    """Serailizers for making picadailys transfers."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Transfer
-        fields = [
-            "pin",
-            "acct_number",
-            "amount",
-            "reason",
-        ]
-
-
-class InternationalTransfersSerializers(serializers.ModelSerializer):
-    """Serailizers for making international transfers."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Transfer
-        fields = [
-            "pin",
-            "acct_number",
-            "amount",
-            "reason",
-            "postal_code",
-            "id_type",
-            "number",
-            "issued_at",
-            "issued_date",
-            "expiration_date",
-            "receiver_first_name",
-            "receiver_last_name",
-            "receiver_phone_number",
-            "receiver_country",
-            "receiver_address",
-        ]
-
-
-class BankingStatusSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
-
-class VirtaulAccountDetailsSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
-
-class VerifyTransferSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
-
-class QuotationSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
-
-class ExchangeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ForexModel
-        fields = ["amount"]
-
-
-class NGNToUSDConversionSerializer(serializers.ModelSerializer):
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-
-    class Meta:
-        model = Transfer
-        fields = [
-            "pin",
-            "amount",
-        ]
-
-
-class FundWithCardSerializer(serializers.ModelSerializer):
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    tokenId = serializers.CharField(max_length=255, write_only=True)
-    token = serializers.CharField(max_length=255, write_only=True)
-
-    class Meta:
-        model = PayWithCard
-        fields = [
-            "pin",
-            "amount",
-            "number",
-            "expiry_month",
-            "expiry_year",
-            "card_pin",
-            "cvv",
-            "tokenId",
-            "token",
-        ]
 
 
 class TxModelSerializer(serializers.ModelSerializer):

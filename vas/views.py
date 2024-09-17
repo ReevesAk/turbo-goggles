@@ -26,7 +26,6 @@ from .serializers import (
 )
 from banking.controllers import Account
 from banking.payments import UseCard
-from banking.models import PayWithCard
 from permissions import VasPermission
 from wallets.controllers import Pin
 from .controllers import (
