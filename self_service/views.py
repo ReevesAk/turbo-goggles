@@ -36,7 +36,7 @@ from accounts.models import UserNotification, PurchaseModel
 from wallets.controllers import Pin
 from banking.controllers import Account
 from banking.payments import UseCard
-from banking.models import PayWithCard
+
 
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
