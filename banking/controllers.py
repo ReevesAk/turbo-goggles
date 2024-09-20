@@ -53,6 +53,75 @@ class BVN:
 
 class Account:
     @staticmethod
+    def Open(
+        addr,
+        tc,
+        acc_type,
+        religion,
+        ms,
+        gn,
+        branch,
+        bvn,
+        state,
+        lga,
+        country,
+        alt_email,
+        alt_phone,
+        current_addr,
+        utility,
+        passport,
+        identity,
+        signature,
+        nin,
+    ):
+        resource = "individual_account_api"
+        payload = {
+            "address": addr,
+            "tc": tc,
+            "accountType": acc_type,
+            "religion": religion,
+            "ms": ms,
+            "gn": gn,
+            "branch": branch,
+            "bvn": bvn,
+            "state": state,
+            "lga": lga,
+            "country": country,
+            "altEmail": alt_email,
+            "altPhone": alt_phone,
+            "currentAddress": current_addr,
+            "NIN": nin,
+        }
+
+        files = {
+            "utility": utility,
+            "identity": identity,
+            "passport": passport,
+            "signature": signature,
+        }
+
+        bearer_token = login()
+        headers = {
+            "accept": "application/json",
+            "content-Type": "application/json",
+            "Authorization": bearer_token,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                headers=headers,
+                files=files
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"BVN API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
     def Debit(amount, reason):
         resource = "transfers"
         payload = {

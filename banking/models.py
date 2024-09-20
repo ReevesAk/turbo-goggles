@@ -111,7 +111,9 @@ class BVNData(models.Model):
 
 class AccountCreation(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
+    customer_numnber = models.CharField(max_length=50, null=True)
     account_number = models.CharField(max_length=100, null=True)
+    acct_name = models.CharField(max_length=100, null=True)
     sex = models.CharField(max_length=6, choices=SEX, null=True)
     title = models.CharField(max_length=50, choices=TITLE, null=True)
     marital_status = models.CharField(max_length=50, choices=MARITAL_STATUS, null=True)
