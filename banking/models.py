@@ -2,6 +2,77 @@ from django.db import models
 
 from accounts.models import User
 
+TITLE = (
+    ("0", "OTHERS"),
+    ("1", "MR"),
+    ("2", "MRS"),
+    ("3", "MESSRS"),
+    ("4", "MISS"),
+    ("5", "MS"),
+    ("6", "PROF"),
+    ("7", "JUSTICE"),
+    ("8", "JUDGE"),
+    ("9", "DR"),
+    ("10", "ENG."),
+    ("11", "HAJ"),
+    ("12", "SHEIKH"),
+    ("13", "ALHAJI"),
+    ("14", "OBA"),
+    ("15", "ARCH"),
+    ("16", "BARRISTER"),
+    ("17", "REVEREND"),
+    ("18", "MONSIGNOR"),
+    ("19", "HIS BISHOP"),
+    ("20", "PATRIARCH"),
+    ("21", "BROTHER"),
+    ("22", "HER MAJESTY"),
+    ("23", "H.R.H."),
+    ("24", "HONOURABLE"),
+    ("25", "SENATOR"),
+    ("26", "H.EX."),
+    ("27", "HIS MAJESTY"),
+    ("28", "MR & MRS"),
+    ("29", "REV FR"),
+    ("30", "AIR VICE MASHAL"),
+    ("31", "ARC"),
+    ("32", "ARCH BISHOP"),
+    ("33", "BISHOP"),
+    ("34", "CAPTAIN"),
+    ("35", "CHIEF"),
+    ("36", "CHIEF (DR)"),
+    ("37", "CHIEF (MRS)"),
+    ("38", "COLONEL"),
+    ("39", "DAME"),
+    ("40", "DEACON"),
+    ("41", "DEACONESS"),
+    ("42", "GENERAL"),
+    ("43", "HIGH PRIEST"),
+    ("44", "KING"),
+    ("45", "LADY"),
+    ("46", "LOLO"),
+    ("47", "MAJOR"),
+    ("48", "MALLAM"),
+    ("49", "OTUNBA"),
+    ("50", "PASTOR"),
+    ("51", "PASTOR (MRS)"),
+    ("52", "PRINCE"),
+    ("53", "PRINCESS"),
+    ("54", "QUEEN"),
+    ("55", "SIR"),
+    ("56", "SIR & LADY"),
+    ("57", "ENGR DR."),
+    ("58", "CARDINAL"),
+    ("99", "OTHERS"),
+)
+
+MARITAL_STATUS = (
+    ("1", "Single"),
+    ("2", "Married"),
+    ("3", "Divorced"),
+    ("4", "Widow"),
+    ("4", "Widower"),
+    ("5", "Seperated"),
+)
 
 NGN_ID_TYPE = (
     ("NIN", "NIN"),
@@ -18,32 +89,20 @@ USD_ID_TYPE = (
 
 CARD_BRAND = (("VISA", "VISA"), ("MASTERCARD", "MASTERCARD"), ("VERVE", "VERVE"))
 
-CARD_TYPE = (
-    ("VIRTUAL", "VIRTUAL"),
-    ("PHYSICAL", "PHYSICAL"),
-)
-
 CURRENCY = (
     ("NGN", "NGN"),
     ("USD", "USD"),
 )
 
-CARD_CURRENCY = (
-    ("NGN", "NGN"),
-    ("USD", "USD"),
-)
-
-INTERNATIONAL_TRANSFER_SCHEME = (
-    ("DOM", "DOM"),
-    ("CASHPICKUP", "CASHPICKUP"),
-    ("BANKACCOUNT", "BANKACCOUNT"),
-    ("MOBILEMONEY", "MOBILEMONEY"),
+SEX = (
+    ("1", "Male"),
+    ("2", "Female"),
 )
 
 
 class BVNData(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
-    number = models.CharField(max_length=155, null=True, unique=True)
+    bvn = models.CharField(max_length=155, null=True, unique=True)
     first_name = models.CharField(max_length=155, null=True)
     last_name = models.CharField(max_length=155, null=True)
     date_of_birth = models.CharField(max_length=155, null=True)
@@ -51,18 +110,20 @@ class BVNData(models.Model):
 
 
 class AccountCreation(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    customer_id = models.CharField(max_length=200, null=True)
-    bank_name = models.CharField(max_length=150, null=True)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     account_number = models.CharField(max_length=100, null=True)
-    currency = models.CharField(max_length=150, null=True)
-    occupation = models.CharField(max_length=150, null=True)
-    utility_bill = models.CharField(max_length=255, null=True)
-    bank_statement = models.CharField(max_length=255, null=True)
-    identity_type = models.CharField(max_length=150, null=True)
-    identity_number = models.CharField(max_length=200, null=True)
-    identity_issued_date = models.CharField(max_length=155, null=True)
-    identity_expiration = models.CharField(max_length=155, null=True)
+    sex = models.CharField(max_length=6, choices=SEX, null=True)
+    title = models.CharField(max_length=50, choices=TITLE, null=True)
+    marital_status = models.CharField(max_length=50, choices=MARITAL_STATUS, null=True)
+    lga = models.CharField(max_length=100, null=True)
+    state = models.CharField(max_length=100, null=True)
+    religion = models.CharField(max_length=100, null=True)
+    nin = models.CharField(max_length=100, null=True)
+    address = models.CharField(max_length=150, null=True)
+    utility = models.CharField(max_length=255, null=True)
+    passport = models.CharField(max_length=255, null=True)
+    identity = models.CharField(max_length=150, null=True)
+    signature = models.CharField(max_length=255, null=True)
     pin = models.CharField(max_length=155, null=True)
 
 

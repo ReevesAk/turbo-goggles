@@ -12,8 +12,8 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from rest_framework.exceptions import NotFound
-from rest_framework.parsers import MultiPartParser, JSONParser
+# from rest_framework.exceptions import NotFound
+# from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -22,11 +22,12 @@ from drf_spectacular.utils import extend_schema
 # In-projects imports.
 from .serializers import (
     BVNSerializer,
+    AccountCreationSerializers,
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
     ResetPinSerializer,
     BankNtfnSerializer,
-    BankingStatusSerializer
+    BankingStatusSerializer,
 )
 from accounts.models import UserNotification
 from .models import (
@@ -136,21 +137,15 @@ class VerifYBVN(generics.GenericAPIView):
                     title="BVN Verification.",
                     message="Your BVN Verifiction is successful.",
                 )
-                # send_email(
-                #     subject="BVN Verification.",
-                #     body="This is to inform you that your BVN verifiction was successful.",
-                #     sender=picadailys_email,
-                #     recipients=authenticated_user.email,
-                #     password=app_password,
-                # )
+
                 response = {
                     "status": "success",
                     "message": "Bvn verification was successful",
                     "bvn data": {
                         "first_name": bvn_data["FirstName"],
-                        "last_name": bvn_data["data"]["last_name"],
-                        "date_of_birth": bvn_data["data"]["dob"],
-                        "phone_number": bvn_data["data"]["phone_number"],
+                        "last_name": bvn_data["LastName"],
+                        "date_of_birth": bvn_data["DOB"],
+                        "phone_number": bvn_data["Phone"],
                         "number": user_data.get("bvn"),
                     },
                 }
@@ -159,6 +154,20 @@ class VerifYBVN(generics.GenericAPIView):
                 return Response(data=bvn_response.json(), status=bvn_status_code)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CreateBankAccount(generics.GenericAPIView):
+    """
+    CreateBankAccount handles the POST request of receiving a
+    customer's transaction detail.
+    """
+
+    serializer_class = AccountCreationSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+
+    def post(self, request):
+        pass
 
 
 class NotificationView(generics.CreateAPIView):

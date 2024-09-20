@@ -4,11 +4,7 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import (
-    BVNData,
-    AccountCreation,
-    BankingNotificationModel
-)
+from .models import BVNData, AccountCreation, BankingNotificationModel
 
 
 class BankingStatusSerializer(serializers.Serializer):
@@ -19,7 +15,7 @@ class QuotationSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 
-class BVNSerializer(serializers.Serializer):
+class BVNSerializer(serializers.ModelSerializer):
     """Serailizers for our verify user bvn."""
 
     class Meta:
@@ -28,6 +24,30 @@ class BVNSerializer(serializers.Serializer):
             "id",
             "bvn",
             "date_of_birth",
+        ]
+
+
+class AccountCreationSerializers(serializers.ModelSerializer):
+    """Serailizers for creating a bank account for users."""
+
+    utility = serializers.FileField(max_length=155)
+    passport = serializers.FileField(max_length=155)
+    signature = serializers.FileField(max_length=155)
+
+    class Meta:
+        model = AccountCreation
+        fields = [
+            "id",
+            "lga",
+            "state",
+            "religion",
+            "nin",
+            "gender",
+            "address",
+            "utility",
+            "passport",
+            "identity",
+            "signature",
         ]
 
 
