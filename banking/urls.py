@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     VerifYBVN,
+    CreateBankAccount,
     SetWalletPin,
     ForgotWalletPin,
     PinResendOTP,
@@ -15,6 +16,7 @@ from .tx import AllTransactions, RetrieveTransaction
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
     path("verify-bvn/", VerifYBVN.as_view(), name="verify_bvn"),
+    path("open-acount/", CreateBankAccount.as_view(), name="open_account"),
     path("set-wallet-pin", SetWalletPin.as_view(), name="set_wallet_pin"),
     path("forgot-wallet-pin", ForgotWalletPin.as_view(), name="forgot_wallet_pin"),
     path("resend-otp", PinResendOTP.as_view(), name="resend-otp"),

@@ -27,11 +27,12 @@ class BVNSerializer(serializers.ModelSerializer):
         ]
 
 
-class AccountCreationSerializers(serializers.ModelSerializer):
+class BankAccountCreationSerializers(serializers.ModelSerializer):
     """Serailizers for creating a bank account for users."""
 
     utility = serializers.FileField(max_length=155)
     passport = serializers.FileField(max_length=155)
+    identity = serializers.FileField(max_length=155)
     signature = serializers.FileField(max_length=155)
 
     class Meta:
@@ -42,7 +43,7 @@ class AccountCreationSerializers(serializers.ModelSerializer):
             "state",
             "religion",
             "nin",
-            "gender",
+            "sex",
             "address",
             "utility",
             "passport",
