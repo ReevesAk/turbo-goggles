@@ -1,6 +1,6 @@
 from decouple import config
 from accounts.otp import otp_manager
-from permissions import IsPartnerUserOrMember
+from permissions import IsPartnerUserOrMember, IsBrandAd
 from mail import send_email
 from cloudinary import uploader as cloud
 from commons import Message
@@ -12,8 +12,9 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+
 # from rest_framework.exceptions import NotFound
-# from rest_framework.parsers import MultiPartParser, JSONParser
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -22,7 +23,7 @@ from drf_spectacular.utils import extend_schema
 # In-projects imports.
 from .serializers import (
     BVNSerializer,
-    AccountCreationSerializers,
+    BankAccountCreationSerializers,
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
     ResetPinSerializer,
@@ -34,7 +35,7 @@ from .models import (
     AccountCreation,
     BVNData,
 )
-from .controllers import BVN
+from .controllers import BVN, Account
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -167,12 +168,97 @@ class CreateBankAccount(generics.GenericAPIView):
     customer's transaction detail.
     """
 
-    serializer_class = AccountCreationSerializers
+    serializer_class = BankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember, IsBrandAd)
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
 
     def post(self, request):
-        pass
+        serializer = BankAccountCreationSerializers(data=request.data)
+        authenticated_user = request.user
+        if serializer.is_valid(raise_exception=True):
+            try:
+                utility_upload = request.data.get("utility")
+                upload_utility = cloud.upload(utility_upload)
+                utility_url = upload_utility["url"]
+
+                passport_upload = request.data.get("passport")
+                upload_passport = cloud.upload(passport_upload)
+                passport_url = upload_passport["url"]
+
+                identity_upload = request.data.get("identity")
+                upload_id = cloud.upload(identity_upload)
+                identity_url = upload_id["url"]
+
+                signature_upload = request.data.get("signature")
+                upload_signature = cloud.upload(signature_upload)
+                signature_url = upload_signature["url"]
+
+            except Exception as err:
+                return Response(
+                    {"error": "An error occurred: {}".format(err)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            bvn_data = BVNData.objects.get(user=request.user)
+            acc_response = Account.Open(
+                addr=request.data.get("address"),
+                tc=request.data.get("tc"),
+                acc_type="65",
+                religion=request.data.get("religion"),
+                ms=request.data.get("ms"),
+                gn=request.data.get("gn"),
+                branch="203",
+                bvn=bvn_data.bvn,
+                state=request.data.get("state"),
+                lga=request.data.get("lga"),
+                country=request.data.get("country"),
+                altEmail=authenticated_user.email,
+                currentAddress=request.data.get("address"),
+                utility=utility_url,
+                identity=identity_url,
+                passport=passport_url,
+                signature=signature_url,
+                nin=request.data.get("nin"),
+            )
+
+            if acc_response.status_code == 200:
+                AccountCreation.objects.create(
+                    account_number=acc_response.json()["AccountNUBAN"],
+                    customer_numnber=acc_response.json()["CustomerNumber"],
+                    acct_name=acc_response.json()["AccountName"],
+                    sex=request.data.get("gn"),
+                    title=request.data.get("tc"),
+                    marital_status=request.data.get("ms"),
+                    lga=request.data.get("lga"),
+                    state=request.data.get("state"),
+                    religion=request.data.get("religion"),
+                    nin=request.data.get("nin"),
+                    address=request.data.get("address"),
+                    utility=utility_url,
+                    identity=identity_url,
+                    passport=passport_url,
+                    signature=signature_url,
+                )
+                resp = {
+                    "status": "success",
+                    "message": "Open Account Operation successful!",
+                    "accountNumber": acc_response.json()["AccountNUBAN"],
+                    "accountName": acc_response.json()["AccountName"],
+                }
+                return Response(data=resp, status=status.HTTP_201_CREATED)
+            else:
+                return Response(data=acc_response.json(), status=acc_response.status_code)
+
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def upload_files(self, doc_file):
+        document = cloud.upload(file=doc_file)
+        self.uploaded_doc_url = document["url"]
 
 
 class NotificationView(generics.CreateAPIView):
