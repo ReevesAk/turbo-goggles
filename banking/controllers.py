@@ -68,11 +68,11 @@ class Account:
         alt_email,
         alt_phone,
         current_addr,
-        utility,
-        passport,
-        identity,
-        signature,
         nin,
+        utility=None,  # Allow None for optional fields
+        identity=None,
+        passport=None,
+        signature=None,
     ):
         resource = "individual_account_api"
         payload = {
@@ -93,17 +93,20 @@ class Account:
             "NIN": nin,
         }
 
-        files = {
-            "utility": utility,
-            "identity": identity,
-            "passport": passport,
-            "signature": signature,
-        }
+        # Add file data if provided
+        files = {}
+        if utility:
+            files["utility"] = utility
+        if identity:
+            files["identity"] = identity
+        if passport:
+            files["passport"] = passport
+        if signature:
+            files["signature"] = signature
 
         bearer_token = login()
         headers = {
             "accept": "application/json",
-            "content-Type": "application/json",
             "Authorization": bearer_token,
         }
 
@@ -112,7 +115,7 @@ class Account:
                 url=base_url + resource,
                 json=payload,
                 headers=headers,
-                files=files
+                files=files,  # Include files dictionary if present
             )
             return response
         except requests.exceptions.RequestException as e:

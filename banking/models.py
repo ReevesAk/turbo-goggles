@@ -99,12 +99,7 @@ SEX = (
     ("2", "Female"),
 )
 
-RELIGION = (
-    ("1", "Christianity"),
-    ("2", "Islam"),
-    ("3", "Others"),
-    ("4", "Hindu")
-)
+RELIGION = (("1", "Christianity"), ("2", "Islam"), ("3", "Others"), ("4", "Hindu"))
 
 
 class BVNData(models.Model):

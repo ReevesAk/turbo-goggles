@@ -92,7 +92,7 @@ class VerifYBVN(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            number = BVNData.objects.filter(number=user_data.get("bvn")).exists()
+            number = BVNData.objects.filter(bvn=user_data.get("bvn")).exists()
             num = request.data.get("bvn")
             if number:
                 return Response(
@@ -111,7 +111,7 @@ class VerifYBVN(generics.GenericAPIView):
 
                 # Check if the user's date of birth matches the ones on BVN.
                 if all(
-                    data != bvn_data["data"][field]
+                    data != bvn_data[field]
                     for data, field in [
                         (user_data.get("date_of_birth"), "DOB"),
                         (user_data.get("phone_number"), "Phone"),
@@ -152,7 +152,7 @@ class VerifYBVN(generics.GenericAPIView):
                         "last_name": bvn_data["LastName"],
                         "date_of_birth": bvn_data["DOB"],
                         "phone_number": bvn_data["Phone"],
-                        "number": user_data.get("bvn"),
+                        "bvn": user_data.get("bvn"),
                     },
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
@@ -170,7 +170,7 @@ class CreateBankAccount(generics.GenericAPIView):
 
     serializer_class = BankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartnerUserOrMember, IsBrandAd)
+    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -218,10 +218,10 @@ class CreateBankAccount(generics.GenericAPIView):
                 country=request.data.get("country"),
                 altEmail=authenticated_user.email,
                 currentAddress=request.data.get("address"),
-                utility=utility_url,
-                identity=identity_url,
-                passport=passport_url,
-                signature=signature_url,
+                utility=request.data.get("utility"),
+                identity=request.data.get("identity"),
+                passport=request.data.get("passport"),
+                signature=request.data.get("signature"),
                 nin=request.data.get("nin"),
             )
 
@@ -251,7 +251,9 @@ class CreateBankAccount(generics.GenericAPIView):
                 }
                 return Response(data=resp, status=status.HTTP_201_CREATED)
             else:
-                return Response(data=acc_response.json(), status=acc_response.status_code)
+                return Response(
+                    data=acc_response.json(), status=acc_response.status_code
+                )
 
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
