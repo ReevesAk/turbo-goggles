@@ -54,6 +54,11 @@ class PaginationStyle(PageNumberPagination):
 
 
 class VerifYBVN(generics.GenericAPIView):
+    """
+    VerifYBVN handles the POST request of verifying a
+    customer's bvn. It accepts DOB in this format: 30-Dec-1650.
+    """
+
     serializer_class = BVNSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)

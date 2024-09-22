@@ -99,6 +99,13 @@ SEX = (
     ("2", "Female"),
 )
 
+RELIGION = (
+    ("1", "Christianity"),
+    ("2", "Islam"),
+    ("3", "Others"),
+    ("4", "Hindu")
+)
+
 
 class BVNData(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
@@ -117,7 +124,7 @@ class AccountCreation(models.Model):
     marital_status = models.CharField(max_length=50, choices=MARITAL_STATUS, null=True)
     lga = models.CharField(max_length=100, null=True)
     state = models.CharField(max_length=100, null=True)
-    religion = models.CharField(max_length=100, null=True)
+    religion = models.CharField(max_length=100, choices=RELIGION, null=True)
     nin = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=150, null=True)
     utility = models.CharField(max_length=255, null=True)
