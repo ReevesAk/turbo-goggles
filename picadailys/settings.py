@@ -13,7 +13,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 from decouple import config as conf
-import os, sys
+import os
+import sys
 import dj_database_url
 import cloudinary
 
@@ -58,6 +59,7 @@ INSTALLED_APPS = [
     "partners",
     "wallets",
     "vas",
+    "fmcg",
     "user_profile",
     "self_service",
     "banking",
