@@ -30,7 +30,7 @@ COMPANY = (
 
 # Create your models here.
 class Product(BaseModel):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    image_url = models.CharField(max_length=150, null=True)
     name = models.CharField(max_length=150, null=True)
     category = models.CharField(choices=PRODUCT_CATEGORY, max_length=100, null=True)
     company = models.CharField(choices=COMPANY, max_length=100, null=True)
