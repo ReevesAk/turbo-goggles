@@ -1,3 +1,5 @@
+from django.shortcuts import get_object_or_404
+
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.response import Response
@@ -7,8 +9,8 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from .models import PRODUCT_CATEGORY, COMPANY, Product
-from .serializers import ProductSerializers
+from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem
+from .serializers import ProductSerializers, AddToCartSerializers, RemoveFromCartSerializers
 
 from cloudinary import uploader as cloud
 
@@ -185,3 +187,96 @@ class ProductDetails(generics.RetrieveAPIView):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class AddToCart(generics.CreateAPIView):
+    """
+    Add a product to the cart. If the product is already in the cart,
+    update the quantity.
+    """
+    serializer_class = AddToCartSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_cart(self, user):
+        """
+        Get or create a cart for the user.
+        """
+        cart, created = Cart.objects.get_or_create(
+            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
+        )
+        return cart
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        user_data = request.data
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            product_id = kwargs("product_id")
+            quantity = request.data.get("quantity", 1)
+
+            # Fetch the product
+            product = get_object_or_404(Product, id=product_id)
+
+            # Get or create the cart
+            cart = self.get_cart(user)
+
+            # Check if the product is already in the user's cart
+            cart_item, created = CartItem.objects.get_or_create(
+                user=user, product=product,
+                defaults={'quantity': quantity, 'price': product.price}
+            )
+
+            if not created:
+                # If the product is already in the cart, update the quantity
+                cart_item.quantity += quantity
+                cart_item.save()
+
+            return Response({
+                "status": "success",
+                "message": "Product added to cart.",
+                "cart_item": {
+                    "cart_id": cart.cart_id,
+                    "product": product.name,
+                    "quantity": cart_item.quantity,
+                    "price": cart_item.price,
+                    "total_price": cart_item.get_total_price()
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RemoveFromCart(generics.DestroyAPIView):
+    """
+    Remove a product from the cart.
+    """
+
+    serializer_class = RemoveFromCartSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_cart(self, user):
+        """
+        Get or create a cart for the user.
+        """
+        cart, created = Cart.objects.get_or_create(
+            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
+        )
+        return cart
+
+    def delete(self, request, *args, **kwargs):
+        user = request.user
+        product_id = kwargs("product_id")
+
+        # Fetch the product and cart item
+        product = get_object_or_404(Product, id=product_id)
+        cart_item = get_object_or_404(CartItem, user=user, product=product)
+
+        cart_item.delete()
+
+        return Response({
+            "status": "success",
+            "message": "Product removed from cart."
+        }, status=status.HTTP_204_NO_CONTENT)

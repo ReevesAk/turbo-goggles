@@ -20,3 +20,18 @@ class ProductSerializers(serializers.ModelSerializer):
             "quantity",
             "description"
         ]
+
+
+class AddToCartSerializers(serializers.ModelSerializer):
+    """Serializers for addig a product an FMCG product to cart."""
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "quantity"
+        ]
+
+
+class RemoveFromCartSerializers(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
