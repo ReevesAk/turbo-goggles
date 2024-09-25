@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import Product
+from .models import Product, FmcgRating
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -51,3 +51,13 @@ class RetrieveCartProductsSerializers(serializers.ModelSerializer):
 
 class RemoveFromCartSerializers(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class FmcgRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FmcgRating
+        fields = [
+            "id",
+            "rating",
+            "review",
+        ]

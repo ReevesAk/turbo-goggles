@@ -54,3 +54,12 @@ class CartItem(BaseModel):
 
     def get_total_price(self):
         return self.quantity * self.price
+
+
+class FmcgRating(BaseModel):
+    service = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="fmcg_rating"
+    )
+    rating = models.CharField(null=True, blank=True)
+    review = models.TextField(null=True, blank=True)
+    slug = models.SlugField(default="", max_length=155, null=False)
