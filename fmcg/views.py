@@ -191,8 +191,8 @@ class ProductDetails(generics.RetrieveAPIView):
 
 class AddToCart(generics.CreateAPIView):
     """
-    Add a product to the cart. If the product is already in the cart,
-    update the quantity.
+    AddToCart is the POST request handler of adding a product to cart.
+    If the product is already in the cart, update the quantity.
     """
     serializer_class = AddToCartSerializers
     authentication_classes = [JWTAuthentication]
@@ -202,7 +202,7 @@ class AddToCart(generics.CreateAPIView):
         """
         Get or create a cart for the user.
         """
-        cart, created = Cart.objects.get_or_create(
+        cart, _ = Cart.objects.get_or_create(
             cart_id=f"cart_{user.id}",  # Generates a unique cart_id
         )
         return cart
@@ -216,10 +216,8 @@ class AddToCart(generics.CreateAPIView):
             product_id = kwargs("product_id")
             quantity = request.data.get("quantity", 1)
 
-            # Fetch the product
             product = get_object_or_404(Product, id=product_id)
 
-            # Get or create the cart
             cart = self.get_cart(user)
 
             # Check if the product is already in the user's cart
@@ -248,9 +246,47 @@ class AddToCart(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class RetrieveCartProducts(generics.RetrieveAPIView):
+    """
+    RetrieveCartProducts is the GET request handler for retrieving all
+    items in the user's cart.
+    """
+
+    serializer_class = AddToCartSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        cart_items = CartItem.objects.filter(user=user)
+
+        if not cart_items.exists():
+            return Response({
+                "status": "success",
+                "message": "Your cart is empty.",
+                "data": []
+            }, status=status.HTTP_200_OK)
+
+        # Prepare cart item data
+        cart_data = []
+        for item in cart_items:
+            cart_data.append({
+                "product": item.product.name,
+                "quantity": item.quantity,
+                "price_per_unit": item.price,
+                "total_price": item.get_total_price()
+            })
+
+        return Response({
+            "status": "success",
+            "message": "Cart items retrieved successfully.",
+            "cart_items": cart_data
+        }, status=status.HTTP_200_OK)
+
+
 class RemoveFromCart(generics.DestroyAPIView):
     """
-    Remove a product from the cart.
+    RemoveFromCart is the DELETE request handler that removes a product from the cart.
     """
 
     serializer_class = RemoveFromCartSerializers
