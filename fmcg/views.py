@@ -9,8 +9,14 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem
-from .serializers import ProductSerializers, AddToCartSerializers, RemoveFromCartSerializers, RetrieveCartProductsSerializers
+from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating
+from .serializers import (
+    ProductSerializers,
+    AddToCartSerializers,
+    RemoveFromCartSerializers,
+    RetrieveCartProductsSerializers,
+    FmcgRatingSerializer
+)
 
 from cloudinary import uploader as cloud
 
@@ -321,3 +327,51 @@ class RemoveFromCart(generics.DestroyAPIView):
             "status": "success",
             "message": "Product removed from cart."
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+class FmcgRatingView(generics.GenericAPIView):
+    """
+    FmcgRatingView is the POST request that allows a customer to rate a
+    products purchased on fmcg.
+
+    `rating`: This comes in numbers 1-5 depending on the quality of the product purchased.\n
+    `review`: The review is a written appraisal of the product consumed.
+    """
+
+    serializer_class = FmcgRatingSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            user = request.user
+            product_id = kwargs.get("id")
+
+            try:
+                # Fetch the product based on product_id
+                product = Product.objects.get(id=product_id)
+
+                # Check if the user has already rated the product
+                existing_rating = FmcgRating.objects.filter(product=product, user=user).first()
+                if existing_rating:
+                    return Response(
+                        data={"error": "You have already rated this product."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Save the rating linked to the product
+                serializer.save(product=product, user=user)
+
+                return Response(
+                    {"success": "Product rating added successfully."},
+                    status=status.HTTP_201_CREATED,
+                )
+
+            except Product.DoesNotExist:
+                return Response(
+                    data={"error": "This product does not exist in the store."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
