@@ -280,9 +280,13 @@ class UpdateUserProfile(generics.UpdateAPIView):
         return self.request.user
 
     def update(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=payload, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
@@ -301,8 +305,12 @@ class ChangePassword(generics.UpdateAPIView):
     permission_classes = (IsAuthenticated,)
 
     def update(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=payload)
 
         if serializer.is_valid():
             old_password = serializer.validated_data["old_password"]
@@ -447,7 +455,11 @@ class PostMemberSurvey(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsUserOrMember)
 
     def create(self, request):
-        serializer = MemberSurverySerializers(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = MemberSurverySerializers(data=payload)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
 
@@ -562,8 +574,11 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
 
     def get(self, request):
         authenticated_user = request.user
-        user_data = request.data
-        serializer = self.get_serializer(data=request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=user_data)
         if serializer.is_valid(raise_exception=True):
             user_reward = Rewards.objects.get(user=authenticated_user)
 

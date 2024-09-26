@@ -66,7 +66,10 @@ class TableBooking(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                user_data = request.data
+                user_data = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
                 pin = request.data.get("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
@@ -316,7 +319,10 @@ class GymBooking(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                user_data = request.data
+                user_data = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
                 pin = request.data.get("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
@@ -566,7 +572,10 @@ class CinemaBookingView(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                user_data = request.data
+                user_data = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
                 pin = request.data.get("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
@@ -818,7 +827,10 @@ class BookCourierSercvice(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                user_data = request.data
+                user_data = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
                 pin = request.data.get("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
@@ -1066,7 +1078,11 @@ class BookConsumableSercvice(generics.CreateAPIView):
     queryset = ConsumableService.objects.all()
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             serializer.save()  # Save booking details.
 
@@ -1187,7 +1203,10 @@ class BookLandTrip(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                payload = request.data
+                payload = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
 
                 trip_date = payload["trip_date"]
                 return_date = payload["return_date"]
@@ -1360,7 +1379,10 @@ class BookHotel(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                user_data = request.data
+                user_data = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in request.data.items()
+                }
                 pin = request.data.get("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)

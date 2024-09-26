@@ -43,7 +43,10 @@ class Register(generics.GenericAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -90,8 +93,11 @@ class PhoneVerifyOTP(generics.GenericAPIView):
     serializer_class = VerifyOTPSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
 
@@ -128,8 +134,11 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
     serializer_class = VerifyOTPSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
 
@@ -162,8 +171,11 @@ class ResendOTP(generics.GenericAPIView):
     serializer_class = ResendOTPSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             phone_number = serializer.data["phone_number"][1:]
 
@@ -195,8 +207,11 @@ class PasswordResendOTP(generics.GenericAPIView):
     serializer_class = ResendOTPSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             phone_number = serializer.data["phone_number"][1:]
 
@@ -225,6 +240,10 @@ class Login(APIView):
     serializer_class = LoginSerializers
 
     def post(self, request):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         login = request.data.get("phone_number")
         password = request.data.get("password")
 
@@ -300,7 +319,10 @@ class ForgotPassword(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             phone_no = user_data["phone_number"][1:]
@@ -342,7 +364,11 @@ class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
 
     def create(self, request):
-        serializer = self.get_serializer(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
 
         user_data = serializer.validated_data
@@ -402,7 +428,12 @@ class SubmitGamification(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsUserOrMember)
 
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             task_id = serializer.validated_data["task_id"]
 
@@ -444,8 +475,12 @@ class Logout(APIView):
         responses={200: {"description": "Logout message"}},
     )
     def post(self, request):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         try:
-            refresh_token = request.data["refresh_token"]
+            refresh_token = payload["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
 

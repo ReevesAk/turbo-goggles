@@ -58,7 +58,10 @@ class CreatePartner(generics.GenericAPIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         authenticated_user = request.user
 
         serializer = self.serializer_class(data=user_data)
@@ -139,7 +142,10 @@ class CreatePartnerService(generics.CreateAPIView):
     def create(self, request):
         serializer = PartnerServiceSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            current_user = request.user
+            current_user = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in request.data.items()
+            }
             if current_user.business_verified is True:
                 service_uploads = request.data.getlist("service_photos")
                 trainer_uploads = request.data.getlist("trainer_photo")
@@ -239,10 +245,12 @@ class UpdatePartnerService(generics.UpdateAPIView):
     )
 
     def update(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         partner_service = self.get_object()
-        serializer = self.get_serializer(
-            partner_service, data=request.data, partial=True
-        )
+        serializer = self.get_serializer(partner_service, data=payload, partial=True)
         if serializer.is_valid(raise_exception=True):
             service_uploads = request.data.getlist("service_photos")
             trainer_uploads = request.data.getlist("trainer_photo")
@@ -500,17 +508,20 @@ class VerifyCAC(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsPartner)
 
     def post(self, request):
-        user = request.data
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         current_user = request.user
 
-        user["users"] = current_user.id
+        payload["users"] = current_user.id
 
         resource = "https://searchapp.cac.gov.ng/searchapp/api/public-search/company-business-name-it"
         payload = {
-            "searchTerm": user["cac"],
+            "searchTerm": payload["cac"],
         }
 
-        serializer = self.serializer_class(data=user)
+        serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
             serializer.save(users=current_user)
             try:
@@ -521,7 +532,7 @@ class VerifyCAC(generics.GenericAPIView):
 
                 if response.status_code == 200:
                     resp = response.json()["data"][0]
-                    business_name = user["business_name"].upper()
+                    business_name = payload["business_name"].upper()
                     if business_name == resp["approvedName"]:
                         response_data = {
                             "status": "success",

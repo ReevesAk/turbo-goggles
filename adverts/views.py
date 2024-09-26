@@ -36,7 +36,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
     serializer_class = CreateBrandAdvertSeriailizers
 
     def post(self, request):
-        user = request.data
+        user = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         authenticated_user = request.user
         serializer = self.serializer_class(data=user)
         if serializer.is_valid(raise_exception=True):
@@ -179,7 +182,11 @@ class BrandPromote(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
-        serializer = AdBudgetSerializer(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = AdBudgetSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
