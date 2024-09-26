@@ -23,13 +23,29 @@ class ProductSerializers(serializers.ModelSerializer):
 
 
 class AddToCartSerializers(serializers.ModelSerializer):
-    """Serializers for addig a product an FMCG product to cart."""
+    """Serializers for adding a product an FMCG product to cart."""
 
     class Meta:
         model = Product
         fields = [
             "id",
             "quantity"
+        ]
+
+
+class RetrieveCartProductsSerializers(serializers.ModelSerializer):
+    """Serializers for retrieving cart products."""
+
+    total_price = serializers.CharField(max_length=50, min_length=4)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "quantity",
+            "price",
+            "total_price",
         ]
 
 

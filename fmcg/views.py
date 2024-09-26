@@ -10,7 +10,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem
-from .serializers import ProductSerializers, AddToCartSerializers, RemoveFromCartSerializers
+from .serializers import ProductSerializers, AddToCartSerializers, RemoveFromCartSerializers, RetrieveCartProductsSerializers
 
 from cloudinary import uploader as cloud
 
@@ -252,36 +252,41 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     items in the user's cart.
     """
 
-    serializer_class = AddToCartSerializers
+    serializer_class = RetrieveCartProductsSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         user = request.user
+        user_data = request.data
         cart_items = CartItem.objects.filter(user=user)
 
-        if not cart_items.exists():
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            if not cart_items.exists():
+                return Response({
+                    "status": "success",
+                    "message": "Your cart is empty.",
+                    "data": []
+                }, status=status.HTTP_200_OK)
+
+            # Prepare cart item data
+            cart_data = []
+            for item in cart_items:
+                cart_data.append({
+                    "product": item.product.name,
+                    "quantity": item.quantity,
+                    "price_per_unit": item.price,
+                    "total_price": item.get_total_price()
+                })
+
             return Response({
                 "status": "success",
-                "message": "Your cart is empty.",
-                "data": []
+                "message": "Cart items retrieved successfully.",
+                "cart_items": cart_data
             }, status=status.HTTP_200_OK)
-
-        # Prepare cart item data
-        cart_data = []
-        for item in cart_items:
-            cart_data.append({
-                "product": item.product.name,
-                "quantity": item.quantity,
-                "price_per_unit": item.price,
-                "total_price": item.get_total_price()
-            })
-
-        return Response({
-            "status": "success",
-            "message": "Cart items retrieved successfully.",
-            "cart_items": cart_data
-        }, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RemoveFromCart(generics.DestroyAPIView):
