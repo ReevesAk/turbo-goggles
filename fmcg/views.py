@@ -76,7 +76,7 @@ class AddProduct(generics.GenericAPIView):
     )
 
     def post(self, request):
-        user_data = request.data
+        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -215,7 +215,7 @@ class AddToCart(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        user_data = request.data
+        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -264,7 +264,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        user_data = request.data
+        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
         cart_items = CartItem.objects.filter(user=user)
 
         serializer = self.serializer_class(data=user_data)
@@ -343,7 +343,8 @@ class FmcgRatingView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        serializer = self.get_serializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             user = request.user
             product_id = kwargs.get("id")

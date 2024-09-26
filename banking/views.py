@@ -65,7 +65,10 @@ class VerifYBVN(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         authenticated_user = request.user
 
         if authenticated_user.is_bvn_verified:
@@ -177,7 +180,11 @@ class CreateBankAccount(generics.GenericAPIView):
     )
 
     def post(self, request):
-        serializer = BankAccountCreationSerializers(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = BankAccountCreationSerializers(data=payload)
         authenticated_user = request.user
         if serializer.is_valid(raise_exception=True):
             try:
@@ -270,9 +277,14 @@ class NotificationView(generics.CreateAPIView):
     """
 
     serializer_class = BankNtfnSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         account_number = user_data.get("accountNumber")
         transactiontype = user_data.get("transactiontype")
         narration = user_data.get("narration")
@@ -281,7 +293,7 @@ class NotificationView(generics.CreateAPIView):
             user = AccountCreation.objects.get(account_number=account_number)
         except AccountCreation.DoesNotExist:
             return Response(
-                {"error": "User with this account number does not exist."},
+                data={"error": "User with this account number does not exist."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -319,7 +331,10 @@ class SetWalletPin(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request, *args, **kwargs):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         authenticated_user = request.user
 
         try:
@@ -455,9 +470,12 @@ class PinVerifyOTP(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
-        user = request.data
-        user_data = request.user
-        serializer = self.serializer_class(data=user)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        user = request.user
+        serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
 
@@ -472,7 +490,7 @@ class PinVerifyOTP(generics.GenericAPIView):
 
             # Send welcome message to user.
             msg = "User is verified... You can reset now your pin!"
-            recipient = user_data.phone_number
+            recipient = user.phone_number
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
@@ -487,7 +505,10 @@ class ResetPin(generics.CreateAPIView):
 
     def create(self, request):
         authenticated_user = request.user
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         serializer = self.get_serializer(data=request.data)
 
         try:

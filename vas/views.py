@@ -63,15 +63,18 @@ class AirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
         pin = request.data.get("pin")
         payment_option = request.data.get("payment_option")
-        use_bonus = request.data.get("use_bonus")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        use_bonus = user_data.get("use_bonus")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -246,7 +249,10 @@ class DataSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
         pin = request.data.get("pin")
@@ -389,13 +395,16 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
         responses={200: {"description": "Verify meter number"}},
     )
     def post(self, request):
-        user = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
 
         resource = "merchant-verify"
         payload = {
-            "serviceID": user["serviceID"],
-            "type": user["type"],
-            "billersCode": user["billersCode"],
+            "serviceID": user_data["serviceID"],
+            "type": user_data["type"],
+            "billersCode": user_data["billersCode"],
         }
 
         verify_meter_headers = {
@@ -439,11 +448,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         user_data = request.data
         user = request.user
 
-        pin = request.data.get("pin")
-        use_bonus = request.data.get("use_bonus")
-        amount = request.data.get("amount")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
+        pin = user_data.get("pin")
+        use_bonus = user_data.get("use_bonus")
+        amount = user_data.get("amount")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -711,13 +720,16 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -831,13 +843,16 @@ class RenewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -1130,11 +1145,14 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         pin = request.data.get("pin")
         verification = Pin.verify_pin(user=user, pin=pin)
@@ -1294,13 +1312,16 @@ class WaecRegistration(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -1459,13 +1480,16 @@ class VehicleInsuranceView(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -1624,13 +1648,16 @@ class AccidentInsuranceView(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -1791,13 +1818,16 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:
@@ -2000,13 +2030,16 @@ class HealthInsuranceView(generics.GenericAPIView):
     parser_classes = (MultiPartParser, JSONParser)
 
     def post(self, request):
-        user_data = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         user = request.user
 
-        pin = request.data.get("pin")
-        use_points = request.data.get("use_points")
-        use_rewards = request.data.get("use_rewards")
-        amount = request.data.get("amount")
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
 
         verification = Pin.verify_pin(user=user, pin=pin)
         if verification:

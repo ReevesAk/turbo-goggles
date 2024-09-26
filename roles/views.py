@@ -14,6 +14,7 @@ from .serializers import (
     AdminLoginSerializers,
     AddAdminContdSerializer,
     AddAdminSerializer,
+    UpdateAdminRoleSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
     ApplicationsSerializers,
@@ -88,7 +89,11 @@ class RegisterSuperAdmin(generics.GenericAPIView):
         #         status=status.HTTP_403_FORBIDDEN,
         #     )
 
-        serializer = self.serializer_class(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 current_user = serializer.save()
@@ -147,6 +152,10 @@ class LoginAdmin(APIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         email = request.data.get("email")
         password = request.data.get("password")
 
@@ -236,7 +245,11 @@ class AddAdmin(generics.CreateAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
-        serializer = AddAdminSerializer(data=request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = AddAdminSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
             user_data = AddAdminSerializer(user).data
@@ -270,7 +283,7 @@ class AddAdmin(generics.CreateAPIView):
 
 class AdAdminContd(generics.UpdateAPIView):
     """
-    AdAdminContd is a POST request that handles the signup completion.
+    AdAdminContd is a POST request that handles the admin signup completion.
     """
 
     serializer_class = AddAdminContdSerializer
@@ -313,11 +326,15 @@ class AdAdminContd(generics.UpdateAPIView):
             return None
 
     def update(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         instance = self.get_object()
         if instance is None:
             return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
 
-        serializer = AddAdminContdSerializer(data=request.data)
+        serializer = AddAdminContdSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             return Response(
                 data={
@@ -335,7 +352,7 @@ class AdAdminContd(generics.UpdateAPIView):
 
 
 class UpdateAdminRole(generics.RetrieveUpdateAPIView):
-    serializer_class = AdminDeletionSerializer
+    serializer_class = UpdateAdminRoleSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     authentication_classes = [JWTAuthentication]
@@ -382,6 +399,10 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         email = self.request.data.get("email")
         password = self.request.data.get("password")
 
@@ -450,6 +471,10 @@ class DeleteAdmin(generics.DestroyAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def delete(self, request, *args, **kwargs):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         email = self.request.data.get("email")
 
         try:
@@ -730,8 +755,8 @@ class GetAllAdminUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    # authentication_classes = [JWTAuthentication]
-    # permission_classes = (IsAuthenticated, IsSuperAdmin)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
 
@@ -775,6 +800,10 @@ class SwitchRoles(generics.RetrieveAPIView):
         return self.request.user
 
     def put(self, request):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         current_user = self.get_object()
         new_role = request.data.get("user_type")
 
