@@ -15,7 +15,8 @@ from .serializers import (
     AddToCartSerializers,
     RemoveFromCartSerializers,
     RetrieveCartProductsSerializers,
-    FmcgRatingSerializer
+    FmcgRatingSerializer,
+    FmcgRatingListSerializer
 )
 
 from cloudinary import uploader as cloud
@@ -376,3 +377,30 @@ class FmcgRatingView(generics.GenericAPIView):
                 )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetFmcgReview(generics.ListAPIView):
+    """
+    GetFmcgReview is the GET request handler that retrieves all the reviews on a product.
+    """
+
+    serializer_class = FmcgRatingListSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_id')
+        queryset = FmcgRating.objects.filter(product=product_id)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -61,3 +61,14 @@ class FmcgRatingSerializer(serializers.ModelSerializer):
             "rating",
             "review",
         ]
+
+
+class FmcgRatingListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FmcgRating
+        fields = [
+            "id",
+            "product",
+            "rating",
+            "review",
+        ]
