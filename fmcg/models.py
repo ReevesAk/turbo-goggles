@@ -15,6 +15,28 @@ PRODUCT_CATEGORY = (
     ("Magaraine", "Magarine")
 )
 
+Flour_category = (
+    ("Bua IRS", "Bua IRS"),
+    ("Golden penny classic", "Golden penny classic"),
+    ("Pure prima", "Pure prima"),
+    ("Happy bake", "Happy bake"),
+    ("Royal Bake", "Royal Bake"),
+    ("Dangote APF", "Dangote APF"),
+    ("Dangote DBF", "Dangote DBF"),
+    ("Bakewell", "Bakewell"),
+    ("Mix & Bake", "Mix & Bake"),
+    ("Crown flour", "Crown flour")
+)
+
+Sugar_category = (
+    ("Bua sugar 50kg", "Bua sugar 50kg"),
+    ("Dangote sugar 50kg", "Dangote sugar 50kg"),
+    ("Dangote sugar 500g", "Dangote sugar 500g"),
+    ("Golden penny sugar 50kg", "Golden penny sugar 50kg"),
+    ("Golden penny sugar 1kg", "Golden penny sugar 1kg"),
+    ("Golden penny sugar 500g", "Golden penny sugar 500g")
+)
+
 COMPANY = (
     ("BUA", "BUA"),
     ("Dangote", "Dangote"),
@@ -32,6 +54,7 @@ class Product(BaseModel):
     name = models.CharField(max_length=150, null=True)
     description = models.TextField(null=True)
     category = models.CharField(choices=PRODUCT_CATEGORY, max_length=100, null=True)
+    subcategory = models.CharField(max_length=100, null=True)
     company = models.CharField(choices=COMPANY, max_length=100, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)

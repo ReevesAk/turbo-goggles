@@ -23,6 +23,27 @@ def login():
         logging.DEBUG(e)
 
 
+def verifybvn(bvn):
+    bearer_token = login()
+    resource = "https://test1.providusbank.com/api/v3/account/ops/external/validate_bvn"
+    payload = {"BVN": bvn}
+    headers = {
+        "accept": "application/json",
+        "content-Type": "application/json",
+        "Authorization": bearer_token,
+    }
+    try:
+        response = requests.post(
+            url=resource,
+            json=payload,
+            headers=headers,
+        )
+        print(response.json())
+        print(response.json()["Phone"])
+    except Exception as e:
+        print(e)
+
+
 class BVN:
     @staticmethod
     def verify(bvn):
@@ -65,16 +86,17 @@ class Account:
         state,
         lga,
         country,
-        alt_email,
-        alt_phone,
-        current_addr,
+        altEmail,
+        altPhone,
+        currentAddress,
+        passport,
+        identity,
+        utility,
+        signature,
         nin,
-        utility=None,  # Allow None for optional fields
-        identity=None,
-        passport=None,
-        signature=None,
     ):
-        resource = "individual_account_api"
+        resource = "https://test1.providusbank.com/api/v3/account/ops/external/individual_account_api"
+        print(bvn)
         payload = {
             "address": addr,
             "tc": tc,
@@ -87,24 +109,36 @@ class Account:
             "state": state,
             "lga": lga,
             "country": country,
-            "altEmail": alt_email,
-            "altPhone": alt_phone,
-            "currentAddress": current_addr,
+            "alt_email": altEmail,
+            "alt_phone": altPhone,
+            "currentAddress": currentAddress,
             "NIN": nin,
         }
+        print(payload)
 
-        # Add file data if provided
-        files = {}
-        if utility:
-            files["utility"] = utility
-        if identity:
-            files["identity"] = identity
-        if passport:
-            files["passport"] = passport
-        if signature:
-            files["signature"] = signature
+        # Convert the TemporaryUploadedFile to a BufferedReader
+        def convert_to_buffered_reader(temp_file):
+            # Write the temporary file to disk
+            with open(temp_file.name, "wb") as f:
+                for chunk in temp_file.chunks():
+                    f.write(chunk)
+            # Open it as a BufferedReader
+            return open(temp_file.name, "rb")
+
+        passport_buffer = convert_to_buffered_reader(passport)
+        identity_buffer = convert_to_buffered_reader(identity)
+        utility_buffer = convert_to_buffered_reader(utility)
+        signature_buffer = convert_to_buffered_reader(signature)
+
+        files = {
+            "passport": ("passport.png", passport_buffer, "image/png"),
+            "identity": ("identity.png", identity_buffer, "image/png"),
+            "utility": ("utility.png", utility_buffer, "image/png"),
+            "signature": ("signature.png", signature_buffer, "image/png"),
+        }
 
         bearer_token = login()
+        verifybvn(bvn=bvn)
         headers = {
             "accept": "application/json",
             "Authorization": bearer_token,
@@ -112,14 +146,11 @@ class Account:
 
         try:
             response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
-                files=files,  # Include files dictionary if present
+                url=resource, json=payload, headers=headers, files=files
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"BVN API request error: {str(e)}")
+            logging.error(f"Account creation API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

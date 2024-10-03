@@ -124,10 +124,6 @@ class AccountCreation(models.Model):
     religion = models.CharField(max_length=100, choices=RELIGION, null=True)
     nin = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=150, null=True)
-    utility = models.CharField(max_length=255, null=True)
-    passport = models.CharField(max_length=255, null=True)
-    identity = models.CharField(max_length=150, null=True)
-    signature = models.CharField(max_length=255, null=True)
     pin = models.CharField(max_length=155, null=True)
 
 

@@ -1,8 +1,9 @@
+import logging
+import requests
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import IsPartnerUserOrMember, IsBrandAd
 from mail import send_email
-from cloudinary import uploader as cloud
 from commons import Message
 
 from django.contrib.auth.hashers import make_password
@@ -35,7 +36,7 @@ from .models import (
     AccountCreation,
     BVNData,
 )
-from .controllers import BVN, Account
+from .controllers import BVN, Account, login, verifybvn
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -184,33 +185,19 @@ class CreateBankAccount(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+
+        passport = request.FILES.get("passport")
+        identity = request.FILES.get("identity")
+        utility = request.FILES.get("utility")
+        signature = request.FILES.get("signature")
+
         serializer = BankAccountCreationSerializers(data=payload)
-        authenticated_user = request.user
-        if serializer.is_valid(raise_exception=True):
-            try:
-                utility_upload = request.data.get("utility")
-                upload_utility = cloud.upload(utility_upload)
-                utility_url = upload_utility["url"]
+        if not serializer.is_valid():
+            logging.error(f"Validation Errors: {serializer.errors}")
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                passport_upload = request.data.get("passport")
-                upload_passport = cloud.upload(passport_upload)
-                passport_url = upload_passport["url"]
-
-                identity_upload = request.data.get("identity")
-                upload_id = cloud.upload(identity_upload)
-                identity_url = upload_id["url"]
-
-                signature_upload = request.data.get("signature")
-                upload_signature = cloud.upload(signature_upload)
-                signature_url = upload_signature["url"]
-
-            except Exception as err:
-                return Response(
-                    {"error": "An error occurred: {}".format(err)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            bvn_data = BVNData.objects.get(user=request.user)
+        try:
+            # _ = BVNData.objects.get(user=request.user)
             acc_response = Account.Open(
                 addr=request.data.get("address"),
                 tc=request.data.get("tc"),
@@ -219,17 +206,18 @@ class CreateBankAccount(generics.GenericAPIView):
                 ms=request.data.get("ms"),
                 gn=request.data.get("gn"),
                 branch="203",
-                bvn=bvn_data.bvn,
+                bvn=request.data.get("bvn"),
                 state=request.data.get("state"),
                 lga=request.data.get("lga"),
                 country=request.data.get("country"),
-                altEmail=authenticated_user.email,
-                currentAddress=request.data.get("address"),
-                utility=request.data.get("utility"),
-                identity=request.data.get("identity"),
-                passport=request.data.get("passport"),
-                signature=request.data.get("signature"),
-                nin=request.data.get("nin"),
+                altEmail=request.data.get("altEmail"),
+                altPhone=request.data.get("altPhone"),
+                currentAddress=request.data.get("currentAdress"),
+                nin=request.data.get("NIN"),
+                passport=passport,
+                identity=identity,
+                utility=utility,
+                signature=signature,
             )
 
             if acc_response.status_code == 200:
@@ -243,16 +231,12 @@ class CreateBankAccount(generics.GenericAPIView):
                     lga=request.data.get("lga"),
                     state=request.data.get("state"),
                     religion=request.data.get("religion"),
-                    nin=request.data.get("nin"),
+                    nin=request.data.get("NIN"),
                     address=request.data.get("address"),
-                    utility=utility_url,
-                    identity=identity_url,
-                    passport=passport_url,
-                    signature=signature_url,
                 )
                 resp = {
                     "status": "success",
-                    "message": "Open Account Operation successful!",
+                    "message": "Open Account Operation was successful!",
                     "accountNumber": acc_response.json()["AccountNUBAN"],
                     "accountName": acc_response.json()["AccountName"],
                 }
@@ -261,13 +245,11 @@ class CreateBankAccount(generics.GenericAPIView):
                 return Response(
                     data=acc_response.json(), status=acc_response.status_code
                 )
-
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def upload_files(self, doc_file):
-        document = cloud.upload(file=doc_file)
-        self.uploaded_doc_url = document["url"]
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Account creation API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class NotificationView(generics.CreateAPIView):

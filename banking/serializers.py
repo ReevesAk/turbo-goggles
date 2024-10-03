@@ -30,10 +30,17 @@ class BVNSerializer(serializers.ModelSerializer):
 class BankAccountCreationSerializers(serializers.ModelSerializer):
     """Serailizers for creating a bank account for users."""
 
-    # utility = serializers.FileField(max_length=155)
-    # passport = serializers.FileField(max_length=155)
-    # identity = serializers.FileField(max_length=155)
-    # signature = serializers.FileField(max_length=155)
+    passport = serializers.FileField(required=True)
+    identity = serializers.FileField(required=True)
+    utility = serializers.FileField(required=True)
+    signature = serializers.FileField(required=True)
+    # tc = serializers.CharField(max_length=4, write_only=True, required=True)
+    # accountType = serializers.CharField(max_length=4, write_only=True, required=True)
+    # ms = serializers.CharField(max_length=4, write_only=True, required=True)
+    # country = serializers.CharField(max_length=4, write_only=True, required=True)
+    # alt_email = serializers.CharField(max_length=4, write_only=True, required=True)
+    # alt_phone = serializers.CharField(max_length=4, write_only=True, required=True)
+    # currentAddress = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
         model = AccountCreation
