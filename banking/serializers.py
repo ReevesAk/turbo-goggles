@@ -4,7 +4,7 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import BVNData, AccountCreation, BankingNotificationModel
+from .models import BVNData, AccountCreation, BankingNotificationModel, TransferModel
 
 
 class BankingStatusSerializer(serializers.Serializer):
@@ -107,4 +107,62 @@ class BankNtfnSerializer(serializers.ModelSerializer):
             "amount",
             "transactiontype",
             "accountBalance",
+        ]
+
+
+class GetProvidusAccountSerializer(serializers.Serializer):
+    class Meta:
+        fields = [
+            "accountNumber",
+        ]
+
+
+class GetAccountSerializer(serializers.Serializer):
+    class Meta:
+        fields = [
+            "accountNumber",
+            "bankCode"
+        ]
+
+
+class IntraBankTransfersSerializer(serializers.ModelSerializer):
+    transaction_reference = serializers.CharField(max_length=50, write_only=True, required=True)
+    narration = serializers.CharField(max_length=50, write_only=True, required=True)
+    credit_account = serializers.CharField(max_length=50, write_only=True, required=True)
+    debit_account = serializers.CharField(max_length=50, write_only=True, required=True)
+
+    class Meta:
+        model = TransferModel
+        fields = [
+            "id",
+            "credit_account",
+            "debit_account",
+            "narration",
+            "transaction_amount"
+            "transaction_reference"
+        ]
+
+
+class InterBankTransfersSerializer(serializers.ModelSerializer):
+    transaction_reference = serializers.CharField(max_length=50, write_only=True, required=True)
+    narration = serializers.CharField(max_length=50, write_only=True, required=True)
+
+    class Meta:
+        model = TransferModel
+        fields = [
+            "id",
+            "beneficiary_account_name",
+            "beneficiary_account_number",
+            "beneficiary_bank",
+            "source_account_name",
+            "narration",
+            "transaction_amount"
+            "transaction_reference"
+        ]
+
+
+class GetTransferStatusSerializer(serializers.Serializer):
+    class Meta:
+        fields = [
+            "transaction_reference",
         ]

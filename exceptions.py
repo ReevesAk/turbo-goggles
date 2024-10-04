@@ -14,7 +14,7 @@ class Customexceptions(APIException):
             detail=_("The requested item '{}' was not found.").format(item_not_found),
             code='item_not_found',
         )
-    
+
     @staticmethod
     def server_error(cls, item_error):
         return cls(
@@ -27,4 +27,3 @@ class UserDoesNotExist(APIException):
     status_code = 400
     default_detail = 'User does not exist.'
     default_code = 'user_does_not_exist.'
-    

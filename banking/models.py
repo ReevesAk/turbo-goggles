@@ -1,6 +1,8 @@
+from decimal import Decimal
+
 from django.db import models
 
-from accounts.models import User
+from accounts.models import User, TxModel
 
 TITLE = (
     ("0", "OTHERS"),
@@ -148,3 +150,21 @@ class BankingNotificationModel(models.Model):
     amount = models.FloatField(null=True)
     transactiontype = models.CharField(max_length=50, null=True)
     accountBalance = models.FloatField(null=True)
+
+
+class TransferModel(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    tx = models.ForeignKey(
+        to=TxModel, on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    beneficiary_account_name = models.CharField(max_length=100, null=True)
+    beneficiary_account_number = models.CharField(max_length=100, null=True)
+    source_account_name = models.CharField(max_length=150, null=True)
+    beneficiary_bank = models.CharField(max_length=50, null=True)
+    transaction_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    available_balance = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )

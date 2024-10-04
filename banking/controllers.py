@@ -8,6 +8,9 @@ from rest_framework.response import Response
 username = config("USERNAME")
 password = config("PASSWORD")
 base_url = config("PROVIDUS_BASEURL")
+tf_base_url = config("TRANSFERS_URL")
+tf_username = config("TRANSFERS_USERNAME")
+tf_password = config("TRANSFERS_PASSWORD")
 
 
 def login():
@@ -265,6 +268,213 @@ class Forex:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Forex exchange request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class Transfers:
+    @staticmethod
+    def getAllBanks():
+        resource = "GetNIPBanks"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.get(
+                url=tf_base_url + resource, headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get all banks API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def getProvidusAccount(acct_num):
+        resource = "GetProvidusAccount"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "accountNumber": acct_num,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get Providus account API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def getAccount(acct_num, bank_code):
+        resource = "GetNIPAccount"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "accountNumber": acct_num,
+            "beneficiaryBank": bank_code,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get account API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def Intra_bank_transfer(
+        creditAccount,
+        debitAccount,
+        transactionAmount,
+        narration,
+        transactionReference,
+    ):
+        resource = "ProvidusFundTransfer"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "creditAccount": creditAccount,
+            "debitAccount": debitAccount,
+            "currencyCode": "NGN",
+            "transactionAmount": transactionAmount,
+            "narration": narration,
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Transfer from Picadailys to Picadailys API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def IntraBankStatus(
+        transactionReference,
+    ):
+        resource = "GetProvidusTransactionStatus"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get transfers status API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def Inter_bank_transfer(
+        beneficiaryAccountName,
+        transactionAmount,
+        narration,
+        beneficiaryBank,
+        transactionReference,
+        beneficiaryAccountNumber
+    ):
+        resource = "NIPFundTransfer"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "beneficiaryAccountName": beneficiaryAccountName,
+            "transactionAmount": transactionAmount,
+            "currencyCode": "NGN",
+            "narration": narration,
+            "sourceAccountName": "Nnamdi Adebayo Hamzat",
+            "beneficiaryAccountNumber": beneficiaryAccountNumber,
+            "beneficiaryBank": beneficiaryBank,
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Transfer to other banks API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
+    def InterBankStatus(
+        transactionReference,
+    ):
+        resource = "GetNIPTransactionStatus"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password
+        }
+
+        try:
+            response = requests.post(
+                url=tf_base_url + resource,
+                headers=headers,
+                json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get transfers status API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
