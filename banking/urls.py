@@ -11,7 +11,13 @@ from .views import (
     NotificationView,
 )
 from .transfers import (
-    GetAllBanks,GetProvidusAccount, GetAccount, IntraBankTransfer, InterBankTransfer, InterBankTransactionStatus,IntraBankTransactionStatus
+    GetAllBanks,
+    GetProvidusAccount,
+    GetAccount,
+    IntraBankTransfer,
+    InterBankTransfer,
+    InterBankTransactionStatus,
+    IntraBankTransactionStatus,
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
@@ -38,10 +44,22 @@ urlpatterns = [
     ),
     # Transfer Endpoints.
     path("transfers/get-all-banks", GetAllBanks.as_view(), name="get_all_banks"),
-    path("transfers/get-providus-account", GetProvidusAccount.as_view(), name="get_providus_account"),
+    path(
+        "transfers/get-providus-account",
+        GetProvidusAccount.as_view(),
+        name="get_providus_account",
+    ),
     path("transfers/get-account", GetAccount.as_view(), name="get_account"),
     path("transfers/intra-bank", IntraBankTransfer.as_view(), name="intra_bank"),
-    path("transfers/intra-bank/<int:tx_reference>/status", IntraBankTransactionStatus.as_view(), name="intra_bank_status"),
+    path(
+        "transfers/intra-bank/<int:tx_reference>/status",
+        IntraBankTransactionStatus.as_view(),
+        name="intra_bank_status",
+    ),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
-    path("transfers/inter-bank/<int:tx_reference>/status", InterBankTransactionStatus.as_view(), name="inter_bank_status"),
+    path(
+        "transfers/inter-bank/<int:tx_reference>/status",
+        InterBankTransactionStatus.as_view(),
+        name="inter_bank_status",
+    ),
 ]

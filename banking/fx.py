@@ -1,8 +1,3 @@
-import requests
-import logging
-
-from permissions import hasWallet
-
 # Third party imports.
 from rest_framework import generics
 from rest_framework.response import Response
@@ -12,8 +7,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from drf_spectacular.utils import extend_schema
 
-from .controllers import Forex, Account
-from .helpers import Pin
+from .controllers import Forex
 
 from .serializers import (
     QuotationSerializer,

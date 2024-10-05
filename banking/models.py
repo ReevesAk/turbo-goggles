@@ -154,10 +154,7 @@ class BankingNotificationModel(models.Model):
 
 class TransferModel(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    tx = models.ForeignKey(
-        to=TxModel, on_delete=models.SET_NULL,
-        null=True, blank=True
-    )
+    tx = models.ForeignKey(to=TxModel, on_delete=models.SET_NULL, null=True, blank=True)
     beneficiary_account_name = models.CharField(max_length=100, null=True)
     beneficiary_account_number = models.CharField(max_length=100, null=True)
     source_account_name = models.CharField(max_length=150, null=True)

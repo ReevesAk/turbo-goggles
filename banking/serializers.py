@@ -119,16 +119,17 @@ class GetProvidusAccountSerializer(serializers.Serializer):
 
 class GetAccountSerializer(serializers.Serializer):
     class Meta:
-        fields = [
-            "accountNumber",
-            "bankCode"
-        ]
+        fields = ["accountNumber", "bankCode"]
 
 
 class IntraBankTransfersSerializer(serializers.ModelSerializer):
-    transaction_reference = serializers.CharField(max_length=50, write_only=True, required=True)
+    transaction_reference = serializers.CharField(
+        max_length=50, write_only=True, required=True
+    )
     narration = serializers.CharField(max_length=50, write_only=True, required=True)
-    credit_account = serializers.CharField(max_length=50, write_only=True, required=True)
+    credit_account = serializers.CharField(
+        max_length=50, write_only=True, required=True
+    )
     debit_account = serializers.CharField(max_length=50, write_only=True, required=True)
 
     class Meta:
@@ -139,12 +140,14 @@ class IntraBankTransfersSerializer(serializers.ModelSerializer):
             "debit_account",
             "narration",
             "transaction_amount",
-            "transaction_reference"
+            "transaction_reference",
         ]
 
 
 class InterBankTransfersSerializer(serializers.ModelSerializer):
-    transaction_reference = serializers.CharField(max_length=50, write_only=True, required=True)
+    transaction_reference = serializers.CharField(
+        max_length=50, write_only=True, required=True
+    )
     narration = serializers.CharField(max_length=50, write_only=True, required=True)
 
     class Meta:
@@ -157,7 +160,7 @@ class InterBankTransfersSerializer(serializers.ModelSerializer):
             "source_account_name",
             "narration",
             "transaction_amount",
-            "transaction_reference"
+            "transaction_reference",
         ]
 
 

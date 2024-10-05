@@ -36,7 +36,7 @@ from .models import (
     AccountCreation,
     BVNData,
 )
-from .controllers import BVN, Account, login, verifybvn
+from .controllers import BVN, Account
 
 
 base_url = config("MAPLERAD_BASE_URL")

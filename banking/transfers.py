@@ -1,6 +1,5 @@
 from django.http import Http404
 
-import logging
 from permissions import IsPartnerUserOrMember, IsBrandAd
 from commons import generate_txId
 
@@ -17,7 +16,12 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.models import TxModel
 from .controllers import Transfers
 from .models import TransferModel
-from .serializers import GetProvidusAccountSerializer, GetAccountSerializer, InterBankTransfersSerializer, IntraBankTransfersSerializer
+from .serializers import (
+    GetProvidusAccountSerializer,
+    GetAccountSerializer,
+    InterBankTransfersSerializer,
+    IntraBankTransfersSerializer,
+)
 
 
 class GetAllBanks(APIView):
@@ -35,11 +39,13 @@ class GetAllBanks(APIView):
             resp = {
                 "status": "success",
                 "message": "All financial institutions retrieved successfully.",
-                "data": all_banks_resp.json()
+                "data": all_banks_resp.json(),
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(data=all_banks_resp.json(), status=all_banks_resp.status_code)
+            return Response(
+                data=all_banks_resp.json(), status=all_banks_resp.status_code
+            )
 
 
 class GetProvidusAccount(generics.CreateAPIView):
@@ -67,7 +73,7 @@ class GetProvidusAccount(generics.CreateAPIView):
                 resp = {
                     "status": "success",
                     "message": "Account retrieve operation successful.",
-                    "data": acc_resp.json()
+                    "data": acc_resp.json(),
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
@@ -93,14 +99,13 @@ class GetAccount(generics.CreateAPIView):
         serializer = GetAccountSerializer(data=payload)
         if serializer.is_valid:
             acc_resp = Transfers.getAccount(
-                acct_num=payload["accountNumber"],
-                bank_code=payload["bankCode"]
+                acct_num=payload["accountNumber"], bank_code=payload["bankCode"]
             )
             if acc_resp.status_code == 200:
                 resp = {
                     "status": "success",
                     "message": "Account retrieve operation successful.",
-                    "data": acc_resp.json()
+                    "data": acc_resp.json(),
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
@@ -163,7 +168,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     "narration": payload["narration"],
                     "beneficiaryBank": "Providus Bank",
                     "transactionReference": payload["transaction_reference"],
-                }
+                },
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
@@ -197,7 +202,7 @@ class InterBankTransfer(generics.CreateAPIView):
             narration=payload["narration"],
             beneficiaryBank=payload["beneficiary_bank"],
             transactionReference=payload["transaction_reference"],
-            beneficiaryAccountNumber=payload["beneficiary_account_number"]
+            beneficiaryAccountNumber=payload["beneficiary_account_number"],
         )
         tx_id = generate_txId()
         if transfer_resp.status_code == 200:
@@ -229,7 +234,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     "narration": payload["narration"],
                     "beneficiaryBank": payload["beneficiary_bank"],
                     "transactionReference": payload["transaction_reference"],
-                }
+                },
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
@@ -244,7 +249,7 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
     """
 
     def get(self, request, *args, **kwargs):
-        tx_reference = kwargs.get('tx_reference')
+        tx_reference = kwargs.get("tx_reference")
         if not tx_reference:
             raise Http404("Transaction reference not found")
 
@@ -268,7 +273,7 @@ class InterBankTransactionStatus(generics.GenericAPIView):
     """
 
     def get(self, request, *args, **kwargs):
-        tx_reference = kwargs.get('tx_reference')
+        tx_reference = kwargs.get("tx_reference")
         if not tx_reference:
             raise Http404("Transaction reference not found")
 

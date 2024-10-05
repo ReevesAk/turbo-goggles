@@ -284,7 +284,8 @@ class Transfers:
 
         try:
             response = requests.get(
-                url=tf_base_url + resource, headers=headers,
+                url=tf_base_url + resource,
+                headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -303,14 +304,12 @@ class Transfers:
         payload = {
             "accountNumber": acct_num,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -330,14 +329,12 @@ class Transfers:
             "accountNumber": acct_num,
             "beneficiaryBank": bank_code,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -367,18 +364,18 @@ class Transfers:
             "narration": narration,
             "transactionReference": transactionReference,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Transfer from Picadailys to Picadailys API request error: {str(e)}")
+            logging.error(
+                f"Transfer from Picadailys to Picadailys API request error: {str(e)}"
+            )
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -395,14 +392,12 @@ class Transfers:
         payload = {
             "transactionReference": transactionReference,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -418,7 +413,7 @@ class Transfers:
         narration,
         beneficiaryBank,
         transactionReference,
-        beneficiaryAccountNumber
+        beneficiaryAccountNumber,
     ):
         resource = "NIPFundTransfer"
         headers = {
@@ -435,14 +430,12 @@ class Transfers:
             "beneficiaryBank": beneficiaryBank,
             "transactionReference": transactionReference,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -463,14 +456,12 @@ class Transfers:
         payload = {
             "transactionReference": transactionReference,
             "userName": tf_username,
-            "password": tf_password
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource,
-                headers=headers,
-                json=payload
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:

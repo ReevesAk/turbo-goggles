@@ -1,9 +1,7 @@
 import json
 import hashlib
 from base64 import b64decode
-import requests
 from Crypto.Cipher import AES
-from Crypto import Cipher
 from Crypto.Util.Padding import pad
 from decouple import config
 
