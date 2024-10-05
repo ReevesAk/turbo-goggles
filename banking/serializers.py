@@ -138,7 +138,7 @@ class IntraBankTransfersSerializer(serializers.ModelSerializer):
             "credit_account",
             "debit_account",
             "narration",
-            "transaction_amount"
+            "transaction_amount",
             "transaction_reference"
         ]
 
