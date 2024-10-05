@@ -28,6 +28,11 @@ def upload_to(instance, filename):
     return "profile/{filename}".format(filename=filename)
 
 
+def generate_txId():
+    tx_id = random.randint(100000000000000, 999999999999999)
+    return tx_id
+
+
 class Message:
     @staticmethod
     def send_otp(msg, to):

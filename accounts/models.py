@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from .user_manager import CustomUserManager
 
+
 USER_CATEGORY_CHOICES = (
     ("SuperAdmin", "SuperAdmin"),
     ("User", "User"),
