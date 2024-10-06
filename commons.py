@@ -1,6 +1,10 @@
 import math
 import random
 import requests
+import logging
+
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -109,6 +113,21 @@ class Message:
             return Response(
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def send_email(content, email, subject):
+        message = Mail(
+            from_email="care@picadailys.com",
+            to_emails=email,
+            subject=subject,
+            html_content=content,
+        )
+
+        try:
+            sg = SendGridAPIClient(config("SENDGRID_API_KEY"))
+            response = sg.send(message)
+            logging.info(response.status_code)
+        except Exception as e:
+            logging.error(e.message)
 
 
 class Allocate:

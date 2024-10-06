@@ -1,6 +1,5 @@
 from permissions import IsUserOrMember, IsSuperAdmin
 from decouple import config
-from mail import send_email
 
 # Third party imports
 from rest_framework import generics, status

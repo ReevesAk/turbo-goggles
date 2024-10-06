@@ -42,8 +42,6 @@ from drf_spectacular.utils import extend_schema
 
 from cloudinary import uploader as cloud
 
-from .helpers import sendMail, sendMailToUsers
-
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
@@ -260,7 +258,7 @@ class AddAdmin(generics.CreateAPIView):
             body = f"Use this link: {signup_link} to complete your registration."
 
             # Send link to mailbox
-            sendMailToUsers(
+            Message.send_email(
                 subject="Admin role registration", content=body, email=user.email
             )
 

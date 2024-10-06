@@ -3,7 +3,6 @@ import requests
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import IsPartnerUserOrMember, IsBrandAd
-from mail import send_email
 from commons import Message
 
 from django.contrib.auth.hashers import make_password
