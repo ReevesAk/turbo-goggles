@@ -1,7 +1,7 @@
 from django.http import Http404
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
-from commons import generate_txId
+from commons import generate_txId, Message
 
 # Third party imports.
 from rest_framework import generics
@@ -15,7 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # In-projects imports.
 from accounts.models import TxModel
 from .controllers import Transfers
-from .models import TransferModel
+from .models import TransferModel, BankingNotificationModel
 from .serializers import (
     GetProvidusAccountSerializer,
     GetAccountSerializer,
@@ -157,6 +157,15 @@ class IntraBankTransfer(generics.CreateAPIView):
                 beneficiary_account_number=payload["credit_account"],
                 source_account_name=authenticated_user.full_name,
                 transaction_amount=payload["transaction_amount"],
+            )
+            amount = payload["transaction_amount"]
+            account = TransferModel.objects.get(user=authenticated_user)
+            message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+            # send email notification to the User.
+            Message.send_email(
+                subject="Debit Transaction.",
+                content=message,
+                email=authenticated_user.email
             )
             resp = {
                 "status": "success",
