@@ -36,7 +36,6 @@ from permissions import (
     IsPartnerUserOrMember,
     IsSuperAdmin,
 )
-from roles.helpers import sendMailToUsers
 
 
 picadailys_email = config("EMAIL_HOST_USER")
