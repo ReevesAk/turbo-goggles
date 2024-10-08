@@ -72,23 +72,23 @@ class VerifYBVN(generics.GenericAPIView):
         }
         authenticated_user = request.user
 
-        if authenticated_user.is_bvn_verified:
-            bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
-            data = {
-                "First Name": bvn_deets.first_name,
-                "Last Name": bvn_deets.last_name,
-                "Phone_no": bvn_deets.phone_number,
-                "Date of Birth": bvn_deets.date_of_birth,
-                "Bvn": user_data.get("bvn"),
-            }
-            return Response(
-                data={
-                    "status": "success",
-                    "message": "User has already verified BVN",
-                    "Bvn data": data,
-                },
-                status=status.HTTP_202_ACCEPTED,
-            )
+        # if authenticated_user.is_bvn_verified:
+        #     bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
+        #     data = {
+        #         "First Name": bvn_deets.first_name,
+        #         "Last Name": bvn_deets.last_name,
+        #         "Phone_no": bvn_deets.phone_number,
+        #         "Date of Birth": bvn_deets.date_of_birth,
+        #         "Bvn": user_data.get("bvn"),
+        #     }
+        #     return Response(
+        #         data={
+        #             "status": "success",
+        #             "message": "User has already verified BVN",
+        #             "Bvn data": data,
+        #         },
+        #         status=status.HTTP_202_ACCEPTED,
+        #     )
         try:
             bvn = BVNData.objects.get(user=authenticated_user)
         except BVNData.DoesNotExist:
@@ -181,6 +181,7 @@ class CreateBankAccount(generics.GenericAPIView):
     )
 
     def post(self, request):
+        current_user = request.user
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
@@ -197,7 +198,6 @@ class CreateBankAccount(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # _ = BVNData.objects.get(user=request.user)
             acc_response = Account.Open(
                 addr=request.data.get("address"),
                 tc=request.data.get("tc"),
@@ -222,6 +222,7 @@ class CreateBankAccount(generics.GenericAPIView):
 
             if acc_response.status_code == 200:
                 AccountCreation.objects.create(
+                    user=current_user,
                     account_number=acc_response.json()["AccountNUBAN"],
                     customer_numnber=acc_response.json()["CustomerNumber"],
                     acct_name=acc_response.json()["AccountName"],
@@ -234,11 +235,17 @@ class CreateBankAccount(generics.GenericAPIView):
                     nin=request.data.get("NIN"),
                     address=request.data.get("address"),
                 )
+                UserNotification.objects.create(
+                    user=current_user,
+                    title="Virtual Account Creation 🎉",
+                    message="Congratulations! 🎊🎉 Your virtual account has been created successfully. 🥳",
+                )
                 resp = {
                     "status": "success",
                     "message": "Open Account Operation was successful!",
                     "accountNumber": acc_response.json()["AccountNUBAN"],
                     "accountName": acc_response.json()["AccountName"],
+                    "CustomerNumber": acc_response.json()["CustomerNumber"],
                 }
                 return Response(data=resp, status=status.HTTP_201_CREATED)
             else:
@@ -330,7 +337,7 @@ class GetAccountBalance(generics.GenericAPIView):
         response = {
             "status": "success",
             "message": "Account balance retreieve operation succesful.",
-            "data": serializer.data
+            "data": serializer.data,
         }
         return Response(data=response, status=status.HTTP_200_OK)
 
