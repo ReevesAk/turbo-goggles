@@ -110,6 +110,17 @@ class BankNtfnSerializer(serializers.ModelSerializer):
         ]
 
 
+class AccountBalanceSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        model = AccountCreation
+        fields = [
+            "acct_name",
+            "balance",
+        ]
+
+
 class GetProvidusAccountSerializer(serializers.Serializer):
     class Meta:
         fields = [

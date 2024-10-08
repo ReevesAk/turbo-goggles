@@ -9,6 +9,7 @@ from .views import (
     PinVerifyOTP,
     ResetPin,
     NotificationView,
+    GetAccountBalance,
 )
 from .transfers import (
     GetAllBanks,
@@ -24,6 +25,7 @@ from .tx import AllTransactions, RetrieveTransaction
 
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
+    path("account-balance", GetAccountBalance.as_view(), name="account_balance"),
     path("verify-bvn", VerifYBVN.as_view(), name="verify_bvn"),
     path("open-acount", CreateBankAccount.as_view(), name="open_account"),
     path("set-wallet-pin", SetWalletPin.as_view(), name="set_wallet_pin"),

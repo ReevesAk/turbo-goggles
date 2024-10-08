@@ -1,4 +1,5 @@
 import logging
+import json
 import requests
 from decouple import config
 
@@ -147,9 +148,10 @@ class Account:
             "Authorization": bearer_token,
         }
 
+        data = {'data': json.dumps(payload)}
         try:
             response = requests.post(
-                url=resource, json=payload, headers=headers, files=files
+                url=resource, data=data, headers=headers, files=files, timeout=180
             )
             return response
         except requests.exceptions.RequestException as e:

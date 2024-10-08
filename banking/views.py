@@ -29,6 +29,7 @@ from .serializers import (
     ResetPinSerializer,
     BankNtfnSerializer,
     BankingStatusSerializer,
+    AccountBalanceSerializer,
 )
 from accounts.models import UserNotification
 from .models import (
@@ -278,6 +279,9 @@ class NotificationView(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        user.balance = user_data["accountBalance"]
+        user.save()
+
         match transactiontype:
             case "cr":
                 UserNotification.objects.create(
@@ -299,6 +303,36 @@ class NotificationView(generics.CreateAPIView):
             return Response(data=response_data, status=status.HTTP_201_CREATED)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetAccountBalance(generics.GenericAPIView):
+    """
+    GetAccountBalance handles the GET request of retrieving a
+    customer's account balance.
+    """
+
+    serializer_class = AccountBalanceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+
+        acct_details = AccountCreation.objects.filter(user=user).exists()
+        if not acct_details:
+            resp = {
+                "status": "fail",
+                "message": "customer does not have an account.",
+            }
+            return Response(data=resp, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AccountBalanceSerializer(acct_details)
+        response = {
+            "status": "success",
+            "message": "Account balance retreieve operation succesful.",
+            "data": serializer.data
+        }
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class SetWalletPin(generics.CreateAPIView):

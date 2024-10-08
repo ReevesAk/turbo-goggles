@@ -15,7 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # In-projects imports.
 from accounts.models import TxModel
 from .controllers import Transfers
-from .models import TransferModel, BankingNotificationModel
+from .models import TransferModel
 from .serializers import (
     GetProvidusAccountSerializer,
     GetAccountSerializer,
