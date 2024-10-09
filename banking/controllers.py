@@ -141,26 +141,26 @@ class Account:
             )
 
     @staticmethod
-    def Debit(amount, reason):
-        resource = "transfers"
-        payload = {
-            "bank_code": "C34",
-            "account_number": "6192168285",
-            "amount": amount,
-            "reason": reason,
-        }
-        bearer_token = login()
+    def Debit(debitAccount, amount, reason, transactionReference):
+        resource = "ProvidusFundTransfer"
         headers = {
-            "accept": "application/json",
-            "content-Type": "application/json",
-            "Authorization": bearer_token,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "creditAccount": "6504533161",  # Placeholder for picadailys account number
+            "debitAccount": debitAccount,
+            "currencyCode": "NGN",
+            "transactionAmount": amount,
+            "narration": reason,
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
 
