@@ -27,27 +27,6 @@ def login():
         logging.DEBUG(e)
 
 
-def verifybvn(bvn):
-    bearer_token = login()
-    resource = "https://test1.providusbank.com/api/v3/account/ops/external/validate_bvn"
-    payload = {"BVN": bvn}
-    headers = {
-        "accept": "application/json",
-        "content-Type": "application/json",
-        "Authorization": bearer_token,
-    }
-    try:
-        response = requests.post(
-            url=resource,
-            json=payload,
-            headers=headers,
-        )
-        print(response.json())
-        print(response.json()["Phone"])
-    except Exception as e:
-        print(e)
-
-
 class BVN:
     @staticmethod
     def verify(bvn):
@@ -99,8 +78,7 @@ class Account:
         signature,
         nin,
     ):
-        resource = "https://test1.providusbank.com/api/v3/account/ops/external/individual_account_api"
-        print(bvn)
+        resource = "individual_account_api"
         payload = {
             "address": addr,
             "tc": tc,
@@ -113,12 +91,11 @@ class Account:
             "state": state,
             "lga": lga,
             "country": country,
-            "alt_email": altEmail,
-            "alt_phone": altPhone,
+            "altEmail": altEmail,
+            "altPhone": altPhone,
             "currentAddress": currentAddress,
             "NIN": nin,
         }
-        print(payload)
 
         # Convert the TemporaryUploadedFile to a BufferedReader
         def convert_to_buffered_reader(temp_file):
@@ -142,16 +119,19 @@ class Account:
         }
 
         bearer_token = login()
-        verifybvn(bvn=bvn)
         headers = {
             "accept": "application/json",
             "Authorization": bearer_token,
         }
 
-        data = {'data': json.dumps(payload)}
+        data = {"data": json.dumps(payload)}
         try:
             response = requests.post(
-                url=resource, data=data, headers=headers, files=files, timeout=180
+                url=base_url + resource,
+                data=data,
+                headers=headers,
+                files=files,
+                timeout=180,
             )
             return response
         except requests.exceptions.RequestException as e:

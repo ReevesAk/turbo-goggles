@@ -165,7 +165,7 @@ class IntraBankTransfer(generics.CreateAPIView):
             Message.send_email(
                 subject="Debit Transaction.",
                 content=message,
-                email=authenticated_user.email
+                email=authenticated_user.email,
             )
             resp = {
                 "status": "success",
