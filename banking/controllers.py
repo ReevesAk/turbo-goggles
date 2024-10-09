@@ -171,26 +171,26 @@ class Account:
             )
 
     @staticmethod
-    def Credit(acct_no, amount, reason):
-        resource = "transfers"
-        payload = {
-            "bank_code": "C34",
-            "account_number": acct_no,
-            "amount": amount,
-            "reason": reason,
-        }
-        bearer_token = login()
+    def Credit(acct_no, amount, reason, transactionReference):
+        resource = "ProvidusFundTransfer"
         headers = {
-            "accept": "application/json",
-            "content-Type": "application/json",
-            "Authorization": bearer_token,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "creditAccount": acct_no,
+            "debitAccount": "6504533161",  # Picadailys account
+            "currencyCode": "NGN",
+            "transactionAmount": amount,
+            "narration": reason,
+            "transactionReference": transactionReference,
+            "userName": tf_username,
+            "password": tf_password,
         }
 
         try:
             response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
+                url=tf_base_url + resource, headers=headers, json=payload
             )
             return response
 
