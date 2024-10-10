@@ -73,22 +73,22 @@ class VerifYBVN(generics.GenericAPIView):
         authenticated_user = request.user
 
         # if authenticated_user.is_bvn_verified:
-        #     bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
-        #     data = {
-        #         "First Name": bvn_deets.first_name,
-        #         "Last Name": bvn_deets.last_name,
-        #         "Phone_no": bvn_deets.phone_number,
-        #         "Date of Birth": bvn_deets.date_of_birth,
-        #         "Bvn": user_data.get("bvn"),
-        #     }
-        #     return Response(
-        #         data={
-        #             "status": "success",
-        #             "message": "User has already verified BVN",
-        #             "Bvn data": data,
-        #         },
-        #         status=status.HTTP_202_ACCEPTED,
-        #     )
+        # bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
+        # data = {
+        #     "First Name": bvn_deets.first_name,
+        #     "Last Name": bvn_deets.last_name,
+        #     "Phone_no": bvn_deets.phone_number,
+        #     "Date of Birth": bvn_deets.date_of_birth,
+        #     "Bvn": user_data.get("bvn"),
+        # }
+        # return Response(
+        #     data={
+        #         "status": "success",
+        #         "message": "User has already verified BVN",
+        #         "Bvn data": data,
+        #     },
+        #     status=status.HTTP_202_ACCEPTED,
+        # )
         try:
             bvn = BVNData.objects.get(user=authenticated_user)
         except BVNData.DoesNotExist:
@@ -197,6 +197,7 @@ class CreateBankAccount(generics.GenericAPIView):
             logging.error(f"Validation Errors: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        bvn_data = BVNData.objects.get(user=current_user)
         try:
             acc_response = Account.Open(
                 addr=request.data.get("address"),
@@ -206,13 +207,13 @@ class CreateBankAccount(generics.GenericAPIView):
                 ms=request.data.get("ms"),
                 gn=request.data.get("gn"),
                 branch="203",
-                bvn=request.data.get("bvn"),
+                bvn=bvn_data.bvn,
                 state=request.data.get("state"),
                 lga=request.data.get("lga"),
                 country=request.data.get("country"),
-                altEmail=request.data.get("altEmail"),
-                altPhone=request.data.get("altPhone"),
-                currentAddress=request.data.get("currentAdress"),
+                altEmail=request.data.get("alt_email"),
+                altPhone=request.data.get("alt_phone"),
+                currentAddress=request.data.get("address"),
                 nin=request.data.get("NIN"),
                 passport=passport,
                 identity=identity,
@@ -221,6 +222,7 @@ class CreateBankAccount(generics.GenericAPIView):
             )
 
             if acc_response.status_code == 200:
+                print(acc_response.json())
                 AccountCreation.objects.create(
                     user=current_user,
                     account_number=acc_response.json()["AccountNUBAN"],

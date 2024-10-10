@@ -34,13 +34,13 @@ class BankAccountCreationSerializers(serializers.ModelSerializer):
     identity = serializers.FileField(required=True)
     utility = serializers.FileField(required=True)
     signature = serializers.FileField(required=True)
-    # tc = serializers.CharField(max_length=4, write_only=True, required=True)
-    # accountType = serializers.CharField(max_length=4, write_only=True, required=True)
-    # ms = serializers.CharField(max_length=4, write_only=True, required=True)
-    # country = serializers.CharField(max_length=4, write_only=True, required=True)
-    # alt_email = serializers.CharField(max_length=4, write_only=True, required=True)
-    # alt_phone = serializers.CharField(max_length=4, write_only=True, required=True)
-    # currentAddress = serializers.CharField(max_length=4, write_only=True, required=True)
+    tc = serializers.CharField(max_length=4, write_only=True, required=True)
+    gn = serializers.CharField(max_length=4, write_only=True, required=True)
+    accountType = serializers.CharField(max_length=4, write_only=True, required=True)
+    ms = serializers.CharField(max_length=4, write_only=True, required=True)
+    country = serializers.CharField(max_length=100, write_only=True, required=True)
+    alt_email = serializers.CharField(max_length=100, write_only=True, required=True)
+    alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
 
     class Meta:
         model = AccountCreation
@@ -48,6 +48,13 @@ class BankAccountCreationSerializers(serializers.ModelSerializer):
             "id",
             "lga",
             "state",
+            "tc",
+            "gn",
+            "accountType",
+            "country",
+            "ms",
+            "alt_email",
+            "alt_phone",
             "religion",
             "nin",
             "sex",

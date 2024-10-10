@@ -112,8 +112,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         # Inititate a debit on the customer's account.
                         debit_response = Account.Debit(
                             debitAccount=user_details.account_number,
-                            amount=new_amount, reason="Debit for airtime recharge.",
-                            transactionReference=""
+                            amount=new_amount,
+                            reason="Debit for airtime recharge.",
+                            transactionReference="",
                         )
 
                         if debit_response.status_code == 200:
@@ -134,13 +135,18 @@ class AirTimeTopUp(generics.GenericAPIView):
                             # Attempt to refund the debited amount.
                             credit_response = Account.Credit(
                                 acct_no=user_details.account_number,
-                                amount=new_amount, transactionReference="",
+                                amount=new_amount,
+                                transactionReference="",
                                 reason="Refund for failed airtime recharge.",
                             )
                             if credit_response == 200:
-                                logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                                logging.info(
+                                    f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                                )
                             else:
-                                logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                                logging.error(
+                                    f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                                )
                             return Response(
                                 data=debit_response.json(),
                                 status=debit_response.status_code,
@@ -311,8 +317,9 @@ class DataSubscription(generics.GenericAPIView):
                         # Inititate a debit on the customer's account.
                         debit_response = Account.Debit(
                             debitAccount=user_details.account_number,
-                            amount=new_amount, reason="Debit for data subscription.",
-                            transactionReference=""
+                            amount=new_amount,
+                            reason="Debit for data subscription.",
+                            transactionReference="",
                         )
 
                         if debit_response.status_code == 200:
@@ -333,13 +340,18 @@ class DataSubscription(generics.GenericAPIView):
                             # Attempt to refund the debited amount.
                             credit_response = Account.Credit(
                                 acct_no=user_details.account_number,
-                                amount=new_amount, transactionReference="",
+                                amount=new_amount,
+                                transactionReference="",
                                 reason="Refund for failed data subscription.",
                             )
                             if credit_response == 200:
-                                logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                                logging.info(
+                                    f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                                )
                             else:
-                                logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                                logging.error(
+                                    f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                                )
                             return Response(
                                 data=debit_response.json(),
                                 status=debit_response.status_code,
@@ -516,7 +528,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             debitAccount=user_details.account_number,
                             amount=new_amount,
                             reason="Debit for electricity bill payment.",
-                            transactionReference=""
+                            transactionReference="",
                         )
                         if debit_response == 200:
                             serializer = self.serializer_class(data=user_data)
@@ -536,13 +548,18 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             # Attempt to refund the debited amount.
                             credit_response = Account.Credit(
                                 acct_no=user_details.account_number,
-                                amount=new_amount, transactionReference="",
+                                amount=new_amount,
+                                transactionReference="",
                                 reason="Refund for failed electricity bill payment.",
                             )
                             if credit_response == 200:
-                                logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                                logging.info(
+                                    f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                                )
                             else:
-                                logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                                logging.error(
+                                    f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                                )
                             return Response(
                                 data=debit_response.json(),
                                 status=debit_response.status_code,
@@ -790,8 +807,9 @@ class NewTvSubscription(generics.GenericAPIView):
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
                         debitAccount=user_details.account_number,
-                        amount=new_amount, reason="Debit for Tv subscription.",
-                        transactionReference=""
+                        amount=new_amount,
+                        reason="Debit for Tv subscription.",
+                        transactionReference="",
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
@@ -810,13 +828,18 @@ class NewTvSubscription(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed  tv subscription.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -925,8 +948,9 @@ class RenewTvSubscription(generics.GenericAPIView):
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
                         debitAccount=user_details.account_number,
-                        amount=new_amount, reason="Debit for tv subscription renewal.",
-                        transactionReference=""
+                        amount=new_amount,
+                        reason="Debit for tv subscription renewal.",
+                        transactionReference="",
                     )
                     if debit_response.status_code == 200:
                         serializer = self.serializer_class(data=user_data)
@@ -945,13 +969,18 @@ class RenewTvSubscription(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed tv subscription.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -1236,9 +1265,10 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for international airtime recharge.",
-                        transactionReference=""
+                        transactionReference="",
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
@@ -1257,13 +1287,18 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed international aitime topup.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -1415,9 +1450,10 @@ class WaecRegistration(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for waec registration.",
-                        transactionReference=""
+                        transactionReference="",
                     )
                     if debit_response == 200:
                         serializer = self.serializer_class(data=user_data)
@@ -1436,13 +1472,18 @@ class WaecRegistration(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed waec registration.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -1594,9 +1635,10 @@ class VehicleInsuranceView(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for vehicle insurance.",
-                        transactionReference=""
+                        transactionReference="",
                     )
 
                     if debit_response.status_code == 200:
@@ -1616,13 +1658,18 @@ class VehicleInsuranceView(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed vehicle insurance.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -1773,9 +1820,10 @@ class AccidentInsuranceView(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for accident inssurance.",
-                        transactionReference=""
+                        transactionReference="",
                     )
 
                     if debit_response.status_code == 200:
@@ -1795,13 +1843,18 @@ class AccidentInsuranceView(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed accident insurance.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -1954,9 +2007,10 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for home cover insurance registration.",
-                        transactionReference=""
+                        transactionReference="",
                     )
 
                     if debit_response.status_code == 200:
@@ -1976,13 +2030,18 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed home cover insurance.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -2177,9 +2236,10 @@ class HealthInsuranceView(generics.GenericAPIView):
 
                     user_details = AccountCreation.objects.get(user=user)
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number, amount=new_amount,
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
                         reason="Debit for health insurance.",
-                        transactionReference=""
+                        transactionReference="",
                     )
 
                     if debit_response.status_code == 200:
@@ -2205,13 +2265,18 @@ class HealthInsuranceView(generics.GenericAPIView):
                     else:
                         credit_response = Account.Credit(
                             acct_no=user_details.account_number,
-                            amount=new_amount, transactionReference="",
+                            amount=new_amount,
+                            transactionReference="",
                             reason="Refund for failed health insurance.",
                         )
                         if credit_response == 200:
-                            logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
                         else:
-                            logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}")
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,

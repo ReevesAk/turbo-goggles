@@ -105,7 +105,7 @@ RELIGION = (("1", "Christianity"), ("2", "Islam"), ("3", "Others"), ("4", "Hindu
 
 
 class BVNData(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     bvn = models.CharField(max_length=155, null=True, unique=True)
     first_name = models.CharField(max_length=155, null=True)
     last_name = models.CharField(max_length=155, null=True)
@@ -114,7 +114,7 @@ class BVNData(models.Model):
 
 
 class AccountCreation(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
     customer_numnber = models.CharField(max_length=50, null=True)
     account_number = models.CharField(max_length=100, null=True)
     acct_name = models.CharField(max_length=100, null=True)
