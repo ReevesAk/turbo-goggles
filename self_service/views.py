@@ -1,5 +1,4 @@
 from permissions import IsUserOrMember, IsSuperAdmin
-from decouple import config
 
 # Third party imports
 from rest_framework import generics, status
@@ -34,11 +33,8 @@ from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
 from wallets.controllers import Pin
 from banking.controllers import Account
-from banking.payments import UseCard
+from banking.models import AccountCreation
 
-
-picadailys_email = config("EMAIL_HOST_USER")
-app_password = config("EMAIL_HOST_PASSWORD")
 
 SERVICES = (
     ("restaurant", "restaurant"),
@@ -69,18 +65,21 @@ class TableBooking(generics.CreateAPIView):
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in request.data.items()
                 }
-                pin = request.data.get("pin")
+                pin = user_data("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if is_verified:
                     # Inititate a debit on a users' account.
                     amount = request.data.get("amount")
-                    payment_option = request.data.get("payment_option")
+                    payment_option = user_data("payment_option")
+                    user_details = AccountCreation.objects.get(user=authenticated_user)
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
+                                debitAccount=user_details.account_number,
                                 amount=amount,
-                                reason="Debit restaurant table booking.",
+                                reason="Debit restaurant table booking",
+                                transactionReference="",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -89,14 +88,8 @@ class TableBooking(generics.CreateAPIView):
                                     message=f"Payment of {amount} for restaurant table booking\
                                         was successful.",
                                 )
-                                send_email(
-                                    subject="Debit Transaction.",
-                                    body=f"Payment of {amount} for restaurant table booking\
-                                        was successful.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                # send transactional email.
+
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
                                     user=authenticated_user,
@@ -144,109 +137,7 @@ class TableBooking(generics.CreateAPIView):
                                 )
 
                         case "CARD":
-                            initialize_response = UseCard.initialize_payment(
-                                amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname
-                                + authenticated_user.last_name,
-                                customerEmail=authenticated_user.email,
-                                paymentDescription="Debit restaurant table booking",
-                            )
-                            if initialize_response.status_code == 200:
-                                resp = initialize_response.json()["responseBody"]
-                                init_pay = PayWithCard.objects.create(
-                                    user=authenticated_user,
-                                    transactionReference=resp["transactionReference"],
-                                    paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname
-                                    + authenticated_user.last_name,
-                                    customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"],
-                                )
-                                charge_from_card_resp = UseCard.charge(
-                                    transactionReference=init_pay.transactionReference,
-                                    number=request.data.get("number"),
-                                    expiryMonth=request.data.get("expiryMonth"),
-                                    expiryYear=request.data.get("expiryYear"),
-                                    pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv"),
-                                )
-                                if charge_from_card_resp.status_code == 200:
-                                    resp = initialize_response.json()["responseBody"]
-                                    validate_card = UseCard.validate_otp(
-                                        init_pay.transactionReference,
-                                        tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token"),
-                                    )
-                                    if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(
-                                            data=user_data
-                                        )
-                                        if serializer.is_valid(raise_exception=True):
-                                            UserNotification.objects.create(
-                                                user=request.user,
-                                                title="Brand Account.",
-                                                message=f"Payment of {amount} for restaurant table booking\
-                                                    was successful.",
-                                            )
-                                            serializer.save()
-                                            purchase = PurchaseModel.objects.create(
-                                                user=authenticated_user,
-                                                service_type="Restaurant Booking.",
-                                                service_id=serializer.data["id"],
-                                                amount=amount,
-                                            )
-                                            tx_status = TransactionStatus.objects.create(
-                                                status="Success",
-                                                details="Restaurant booking paid successfully.",
-                                            )
-                                            tag = ProductTagmanager.generate(
-                                                service_type="RST-"
-                                            )
-                                            current_user = (
-                                                RestaurantBooking.objects.get(
-                                                    user=authenticated_user
-                                                )
-                                            )
-                                            current_user.purchase = purchase
-                                            current_user.product_tag = tag
-                                            current_user.transaction_status = tx_status
-                                            current_user.save()
-
-                                            response_data = {
-                                                "status": "Success!",
-                                                "message": "Restaurant booking paid successfully.",
-                                                "data": {
-                                                    "booking data": serializer.data,
-                                                    "payment method": payment_option,
-                                                    "product_tag": tag,
-                                                },
-                                            }
-
-                                            return Response(
-                                                data=response_data,
-                                                status=status.HTTP_200_OK,
-                                            )
-
-                                        else:
-                                            return Response(
-                                                data=serializer.errors,
-                                                status=status.HTTP_400_BAD_REQUEST,
-                                            )
-                                    else:
-                                        return Response(
-                                            data=validate_card.json(),
-                                            status=validate_card.status_code,
-                                        )
-                                else:
-                                    return Response(
-                                        data=charge_from_card_resp.json(),
-                                        status=charge_from_card_resp.status_code,
-                                    )
-                            else:
-                                return Response(
-                                    data=initialize_response.json(),
-                                    status=initialize_response.status_code,
-                                )
+                            pass
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -328,11 +219,15 @@ class GymBooking(generics.CreateAPIView):
                 if is_verified:
                     # Inititate a debit on users' account.
                     amount = request.data.get("amount")
-                    payment_option = request.data.get("payment_option")
+                    payment_option = user_data("payment_option")
+                    user_details = AccountCreation.objects.get(user=authenticated_user)
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
-                                amount=amount, reason="Debit for gym booking."
+                                debitAccount=user_details.account_number,
+                                amount=amount,
+                                reason="Debit for gym subscription.",
+                                transactionReference="",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -341,14 +236,8 @@ class GymBooking(generics.CreateAPIView):
                                     message=f"Payment of {amount} for gym booking\
                                         was successful.",
                                 )
-                                send_email(
-                                    subject="Debit Transaction.",
-                                    body=f"Payment of {amount} for gym booking\
-                                        was successful.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                # send transactional email.
+
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
                                     user=authenticated_user,
@@ -392,114 +281,7 @@ class GymBooking(generics.CreateAPIView):
                                 )
 
                         case "CARD":
-                            initialize_response = UseCard.initialize_payment(
-                                amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname
-                                + authenticated_user.last_name,
-                                customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for gym booking.",
-                            )
-                            if initialize_response.status_code == 200:
-                                resp = initialize_response.json()["responseBody"]
-                                init_pay = PayWithCard.objects.create(
-                                    user=authenticated_user,
-                                    transactionReference=resp["transactionReference"],
-                                    paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname
-                                    + authenticated_user.last_name,
-                                    customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"],
-                                )
-                                charge_from_card_resp = UseCard.charge(
-                                    transactionReference=init_pay.transactionReference,
-                                    number=request.data.get("number"),
-                                    expiryMonth=request.data.get("expiryMonth"),
-                                    expiryYear=request.data.get("expiryYear"),
-                                    pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv"),
-                                )
-                                if charge_from_card_resp.status_code == 200:
-                                    resp = initialize_response.json()["responseBody"]
-                                    validate_card = UseCard.validate_otp(
-                                        init_pay.transactionReference,
-                                        tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token"),
-                                    )
-                                    if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(
-                                            data=user_data
-                                        )
-                                        if serializer.is_valid(raise_exception=True):
-                                            UserNotification.objects.create(
-                                                user=request.user,
-                                                title="Brand Account.",
-                                                message=f"Payment of {amount} for gym booking\
-                                                    was successful.",
-                                            )
-                                            send_email(
-                                                subject="Debit Transaction.",
-                                                body=f"Payment of {amount} for gym booking\
-                                                    was successful.",
-                                                sender=picadailys_email,
-                                                recipients=authenticated_user.email,
-                                                password=app_password,
-                                            )
-                                            serializer.save()
-                                            purchase = PurchaseModel.objects.create(
-                                                user=authenticated_user,
-                                                service_type="Gym Subscription.",
-                                                service_id=serializer.data["id"],
-                                                amount=amount,
-                                            )
-                                            tx_status = TransactionStatus.objects.create(
-                                                status="Success",
-                                                details="Gym Subscription paid successfully.",
-                                            )
-                                            tag = ProductTagmanager.generate(
-                                                service_type="GYM-"
-                                            )
-                                            current_user = GymSubcription.objects.get(
-                                                user=authenticated_user
-                                            )
-                                            current_user.purchase = purchase
-                                            current_user.product_tag = tag
-                                            current_user.transaction_status = tx_status
-                                            current_user.save()
-
-                                            response_data = {
-                                                "status": "Success!",
-                                                "message": "Gym booking paid successfully",
-                                                "data": {
-                                                    "booking data": serializer.data,
-                                                    "payment method": payment_option,
-                                                    "product_tag": tag,
-                                                },
-                                            }
-                                            return Response(
-                                                data=response_data,
-                                                status=status.HTTP_200_OK,
-                                            )
-
-                                        else:
-                                            return Response(
-                                                data=serializer.errors,
-                                                status=status.HTTP_400_BAD_REQUEST,
-                                            )
-                                    else:
-                                        return Response(
-                                            data=validate_card.json(),
-                                            status=validate_card.status_code,
-                                        )
-                                else:
-                                    return Response(
-                                        data=charge_from_card_resp.json(),
-                                        status=charge_from_card_resp.status_code,
-                                    )
-                            else:
-                                return Response(
-                                    data=initialize_response.json(),
-                                    status=initialize_response.status_code,
-                                )
+                            pass
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -575,18 +357,21 @@ class CinemaBookingView(generics.CreateAPIView):
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in request.data.items()
                 }
-                pin = request.data.get("pin")
+                pin = user_data("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if is_verified:
                     # Inititate a debit on a users' account.
                     amount = request.data.get("amount")
-                    payment_option = request.data.get("payment_option")
+                    payment_option = user_data("payment_option")
+                    user_details = AccountCreation.objects.get(user=authenticated_user)
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
+                                debitAccount=user_details.account_number,
                                 amount=amount,
                                 reason="Debit for cinema seats booking.",
+                                transactionReference="",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -595,14 +380,8 @@ class CinemaBookingView(generics.CreateAPIView):
                                     message=f"Payment of {amount} for cinema seats booking\
                                         was successful.",
                                 )
-                                send_email(
-                                    subject="Debit Transaction.",
-                                    body=f"Payment of {amount} for cinema seats booking\
-                                        was successful.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                # send transactional email.
+
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
                                     user=authenticated_user,
@@ -646,115 +425,7 @@ class CinemaBookingView(generics.CreateAPIView):
                                 )
 
                         case "CARD":
-                            initialize_response = UseCard.initialize_payment(
-                                amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname
-                                + authenticated_user.last_name,
-                                customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for cinema seats booking.",
-                            )
-                            if initialize_response.status_code == 200:
-                                resp = initialize_response.json()["responseBody"]
-                                init_pay = PayWithCard.objects.create(
-                                    user=authenticated_user,
-                                    transactionReference=resp["transactionReference"],
-                                    paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname
-                                    + authenticated_user.last_name,
-                                    customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"],
-                                )
-                                charge_from_card_resp = UseCard.charge(
-                                    transactionReference=init_pay.transactionReference,
-                                    number=request.data.get("number"),
-                                    expiryMonth=request.data.get("expiryMonth"),
-                                    expiryYear=request.data.get("expiryYear"),
-                                    pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv"),
-                                )
-                                if charge_from_card_resp.status_code == 200:
-                                    resp = initialize_response.json()["responseBody"]
-                                    validate_card = UseCard.validate_otp(
-                                        init_pay.transactionReference,
-                                        tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token"),
-                                    )
-                                    if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(
-                                            data=user_data
-                                        )
-                                        if serializer.is_valid(raise_exception=True):
-                                            UserNotification.objects.create(
-                                                user=request.user,
-                                                title="Debit Transaction.",
-                                                message=f"Payment of {amount} for cinema seats booking\
-                                                    was successful.",
-                                            )
-                                            send_email(
-                                                subject="Debit Transaction.",
-                                                body=f"Payment of {amount} for cinema seats booking\
-                                                    was successful.",
-                                                sender=picadailys_email,
-                                                recipients=authenticated_user.email,
-                                                password=app_password,
-                                            )
-                                            serializer.save()
-                                            purchase = PurchaseModel.objects.create(
-                                                user=authenticated_user,
-                                                service_type="Cinema Booking.",
-                                                service_id=serializer.data["id"],
-                                                amount=amount,
-                                            )
-                                            tx_status = TransactionStatus.objects.create(
-                                                status="Success",
-                                                details="Cinema seats paid successfully.",
-                                            )
-                                            tag = ProductTagmanager.generate(
-                                                service_type="CIN-"
-                                            )
-                                            current_user = CinemaBooking.objects.get(
-                                                user=authenticated_user
-                                            )
-                                            current_user.purchase = purchase
-                                            current_user.product_tag = tag
-                                            current_user.transaction_status = tx_status
-                                            current_user.save()
-
-                                            response_data = {
-                                                "status": "Success!",
-                                                "message": "Cinema seats booking paid successfully.",
-                                                "data": {
-                                                    "booking data": serializer.data,
-                                                    "payment method": payment_option,
-                                                    "product_tag": tag,
-                                                },
-                                            }
-
-                                            return Response(
-                                                data=response_data,
-                                                status=status.HTTP_200_OK,
-                                            )
-
-                                        else:
-                                            return Response(
-                                                data=serializer.errors,
-                                                status=status.HTTP_400_BAD_REQUEST,
-                                            )
-                                    else:
-                                        return Response(
-                                            data=validate_card.json(),
-                                            status=validate_card.status_code,
-                                        )
-                                else:
-                                    return Response(
-                                        data=charge_from_card_resp.json(),
-                                        status=charge_from_card_resp.status_code,
-                                    )
-                            else:
-                                return Response(
-                                    data=initialize_response.json(),
-                                    status=initialize_response.status_code,
-                                )
+                            pass
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -830,18 +501,21 @@ class BookCourierSercvice(generics.CreateAPIView):
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in request.data.items()
                 }
-                pin = request.data.get("pin")
+                pin = user_data("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if is_verified:
                     # Inititate a debit on a users' account.
                     amount = request.data.get("price_per_kg")
                     payment_option = request.data.get("payment_option")
+                    user_detail = AccountCreation.objects.get(user=authenticated_user)
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
+                                debitAccount=user_detail.account_number,
                                 amount=amount,
                                 reason="Debit for booking courier service.",
+                                transactionReference="",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -850,14 +524,8 @@ class BookCourierSercvice(generics.CreateAPIView):
                                     message=f"Payment of {amount} for courier service booking\
                                         was successful.",
                                 )
-                                send_email(
-                                    subject="Debit Transaction.",
-                                    body=f"Payment of {amount} for courier service booking\
-                                        was successful.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                # send transactional email.
+
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
                                     user=authenticated_user,
@@ -901,114 +569,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 )
 
                         case "CARD":
-                            initialize_response = UseCard.initialize_payment(
-                                amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname
-                                + authenticated_user.last_name,
-                                customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for booking courier service.",
-                            )
-                            if initialize_response.status_code == 200:
-                                resp = initialize_response.json()["responseBody"]
-                                init_pay = PayWithCard.objects.create(
-                                    user=authenticated_user,
-                                    transactionReference=resp["transactionReference"],
-                                    paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname
-                                    + authenticated_user.last_name,
-                                    customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"],
-                                )
-                                charge_from_card_resp = UseCard.charge(
-                                    transactionReference=init_pay.transactionReference,
-                                    number=request.data.get("number"),
-                                    expiryMonth=request.data.get("expiryMonth"),
-                                    expiryYear=request.data.get("expiryYear"),
-                                    pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv"),
-                                )
-                                if charge_from_card_resp.status_code == 200:
-                                    resp = initialize_response.json()["responseBody"]
-                                    validate_card = UseCard.validate_otp(
-                                        init_pay.transactionReference,
-                                        tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token"),
-                                    )
-                                    if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(
-                                            data=user_data
-                                        )
-                                        if serializer.is_valid(raise_exception=True):
-                                            UserNotification.objects.create(
-                                                user=request.user,
-                                                title="Debit Transaction.",
-                                                message=f"Payment of {amount} for courier service booking\
-                                                    was successful.",
-                                            )
-                                            send_email(
-                                                subject="Debit Transaction.",
-                                                body=f"Payment of {amount} for courier  service booking\
-                                                    was successful.",
-                                                sender=picadailys_email,
-                                                recipients=authenticated_user.email,
-                                                password=app_password,
-                                            )
-                                            serializer.save()
-                                            purchase = PurchaseModel.objects.create(
-                                                user=authenticated_user,
-                                                service_type="Courier Service.",
-                                                service_id=serializer.data["id"],
-                                                amount=amount,
-                                            )
-                                            tx_status = TransactionStatus.objects.create(
-                                                status="Success",
-                                                details="Courier service booking paid successfully.",
-                                            )
-                                            tag = ProductTagmanager.generate(
-                                                service_type="COU-"
-                                            )
-                                            current_user = CourierService.objects.get(
-                                                user=authenticated_user
-                                            )
-                                            current_user.purchase = purchase
-                                            current_user.product_tag = tag
-                                            current_user.transaction_status = tx_status
-                                            current_user.save()
-
-                                            response_data = {
-                                                "status": "Success!",
-                                                "message": "Courier service booking paid successfully.",
-                                                "data": {
-                                                    "booking data": serializer.data,
-                                                    "payment method": payment_option,
-                                                    "product_tag": tag,
-                                                },
-                                            }
-                                            return Response(
-                                                data=response_data,
-                                                status=status.HTTP_200_OK,
-                                            )
-
-                                        else:
-                                            return Response(
-                                                data=serializer.errors,
-                                                status=status.HTTP_400_BAD_REQUEST,
-                                            )
-                                    else:
-                                        return Response(
-                                            data=validate_card.json(),
-                                            status=validate_card.status_code,
-                                        )
-                                else:
-                                    return Response(
-                                        data=charge_from_card_resp.json(),
-                                        status=charge_from_card_resp.status_code,
-                                    )
-                            else:
-                                return Response(
-                                    data=initialize_response.json(),
-                                    status=initialize_response.status_code,
-                                )
+                            pass
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -1089,18 +650,12 @@ class BookConsumableSercvice(generics.CreateAPIView):
 
             UserNotification.objects.create(
                 user=request.user,
-                title="Debit Transaction.",
+                title="Consumables booking.",
                 message=f"Booking of {price} for consumable service booking\
                     was successful.",
             )
-            send_email(
-                subject="Product bbooking.",
-                body=f"Booking of {price} for your consumable  service booking\
-                    was successful.",
-                sender=picadailys_email,
-                recipients=request.data.get("contact"),
-                password=app_password,
-            )
+            # send transactional email.
+
             serializer.save()
             purchase = PurchaseModel.objects.create(
                 user=request.user,
@@ -1382,18 +937,21 @@ class BookHotel(generics.GenericAPIView):
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in request.data.items()
                 }
-                pin = request.data.get("pin")
+                pin = user_data("pin")
 
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if is_verified:
                     # Inititate a debit on a users' account.
                     amount = request.data.get("amount")
                     payment_option = request.data.get("payment_option")
+                    user_detail = AccountCreation.objects.get(user=authenticated_user)
                     match payment_option:
                         case "WALLET":
                             debit_response = Account.Debit(
+                                debitAccount=user_detail.account_number,
                                 amount=amount,
                                 reason="Debit for hotel booking.",
+                                transactionReference="",
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
@@ -1402,14 +960,8 @@ class BookHotel(generics.GenericAPIView):
                                     message=f"Payment of {amount} for hotel booking\
                                         was successful.",
                                 )
-                                send_email(
-                                    subject="Debit Transaction.",
-                                    body=f"Payment of {amount} for hotel booking\
-                                        was successful.",
-                                    sender=picadailys_email,
-                                    recipients=authenticated_user.email,
-                                    password=app_password,
-                                )
+                                # send transactional email.
+
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
                                     user=authenticated_user,
@@ -1450,114 +1002,7 @@ class BookHotel(generics.GenericAPIView):
                                     status=status.HTTP_400_BAD_REQUEST,
                                 )
                         case "CARD":
-                            initialize_response = UseCard.initialize_payment(
-                                amount=request.data.get("amount"),
-                                customerName=authenticated_user.firstname
-                                + authenticated_user.last_name,
-                                customerEmail=authenticated_user.email,
-                                paymentDescription="Debit for hotel booking.",
-                            )
-                            if initialize_response.status_code == 200:
-                                resp = initialize_response.json()["responseBody"]
-                                init_pay = PayWithCard.objects.create(
-                                    user=authenticated_user,
-                                    transactionReference=resp["transactionReference"],
-                                    paymentReference=resp["paymentReference"],
-                                    customerName=authenticated_user.firstname
-                                    + authenticated_user.last_name,
-                                    customerEmail=authenticated_user.email,
-                                    redirectUrl=resp["checkoutUrl"],
-                                )
-                                charge_from_card_resp = UseCard.charge(
-                                    transactionReference=init_pay.transactionReference,
-                                    number=request.data.get("number"),
-                                    expiryMonth=request.data.get("expiryMonth"),
-                                    expiryYear=request.data.get("expiryYear"),
-                                    pin=request.data.get("card_pin"),
-                                    cvv=request.data.get("cvv"),
-                                )
-                                if charge_from_card_resp.status_code == 200:
-                                    resp = initialize_response.json()["responseBody"]
-                                    validate_card = UseCard.validate_otp(
-                                        init_pay.transactionReference,
-                                        tokenId=request.data.get("tokenId"),
-                                        token=request.data.get("token"),
-                                    )
-                                    if validate_card.status_code == 200:
-                                        serializer = self.serializer_class(
-                                            data=user_data
-                                        )
-                                        if serializer.is_valid(raise_exception=True):
-                                            UserNotification.objects.create(
-                                                user=request.user,
-                                                title="Debit Transaction.",
-                                                message=f"Payment of {amount} for hotel booking\
-                                                    was successful.",
-                                            )
-                                            send_email(
-                                                subject="Debit Transaction.",
-                                                body=f"Payment of {amount} for hotel booking\
-                                                    was successful.",
-                                                sender=picadailys_email,
-                                                recipients=authenticated_user.email,
-                                                password=app_password,
-                                            )
-                                            serializer.save()
-                                            purchase = PurchaseModel.objects.create(
-                                                user=authenticated_user,
-                                                service_type="Hotel Service.",
-                                                service_id=serializer.data["id"],
-                                                amount=amount,
-                                            )
-                                            tx_status = TransactionStatus.objects.create(
-                                                status="Success",
-                                                details="Hotel service booking paid successfully.",
-                                            )
-                                            tag = ProductTagmanager.generate(
-                                                service_type="LTS-"
-                                            )
-                                            current_user = Hotels.objects.get(
-                                                user=request.user
-                                            )
-                                            current_user.purchase = purchase
-                                            current_user.product_tag = tag
-                                            current_user.transaction_status = tx_status
-                                            current_user.save()
-
-                                            response_data = {
-                                                "status": "Success!",
-                                                "message": "Hotel service booking paid successfully.",
-                                                "data": {
-                                                    "booking data": serializer.data,
-                                                    "product_tag": tag,
-                                                },
-                                            }
-
-                                            return Response(
-                                                data=response_data,
-                                                status=status.HTTP_200_OK,
-                                            )
-
-                                        else:
-                                            return Response(
-                                                data=serializer.errors,
-                                                status=status.HTTP_400_BAD_REQUEST,
-                                            )
-                                    else:
-                                        return Response(
-                                            data=validate_card.json(),
-                                            status=validate_card.status_code,
-                                        )
-                                else:
-                                    return Response(
-                                        data=charge_from_card_resp.json(),
-                                        status=charge_from_card_resp.status_code,
-                                    )
-                            else:
-                                return Response(
-                                    data=initialize_response.json(),
-                                    status=initialize_response.status_code,
-                                )
+                            pass
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:

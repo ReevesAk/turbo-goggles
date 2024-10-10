@@ -570,14 +570,7 @@ class ResetPin(generics.CreateAPIView):
                 title="Reset Wallet Pin.",
                 message="Wallet pin reset was successful.",
             )
-            send_email(
-                subject="Reset Wallet Pin.",
-                body="This is to inform you that your Wallet pin reset was successful.",
-                sender=picadailys_email,
-                recipients=authenticated_user.email,
-                password=app_password,
-            )
-
+            # send transactional email.
             response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=response, status=status.HTTP_200_OK)
         else:

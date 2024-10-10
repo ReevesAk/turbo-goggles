@@ -547,11 +547,8 @@ class VerifyCAC(generics.GenericAPIView):
                             title="Business Verification.",
                             message="This is to inform you that the verification of your business is successful.",
                         )
-                        sendMailToUsers(
-                            subject="Business Verification.",
-                            content="This is to inform you that the verification of your business was successful.",
-                            email=current_user.email,
-                        )
+                        # send transactional email.
+
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
                         error_response = {
