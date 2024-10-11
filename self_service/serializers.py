@@ -17,13 +17,6 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
-    number = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryMonth = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryYear = serializers.CharField(max_length=50, write_only=True, required=False)
-    card_pin = serializers.CharField(max_length=4, write_only=True, required=False)
-    cvv = serializers.CharField(max_length=3, write_only=True, required=False)
-    tokenId = serializers.CharField(max_length=255, write_only=True, required=False)
-    token = serializers.CharField(max_length=255, write_only=True, required=False)
 
     class Meta:
         model = RestaurantBooking
@@ -35,13 +28,6 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
             "number_of_seats",
             "pin",
             "payment_option",
-            "number",
-            "expiryMonth",
-            "expiryYear",
-            "card_pin",
-            "cvv",
-            "tokenId",
-            "token",
         ]
 
 
@@ -50,13 +36,6 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
-    number = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryMonth = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryYear = serializers.CharField(max_length=50, write_only=True, required=False)
-    card_pin = serializers.CharField(max_length=4, write_only=True, required=False)
-    cvv = serializers.CharField(max_length=3, write_only=True, required=False)
-    tokenId = serializers.CharField(max_length=255, write_only=True, required=False)
-    token = serializers.CharField(max_length=255, write_only=True, required=False)
 
     class Meta:
         model = GymSubcription
@@ -68,13 +47,6 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
             "number_of_persons",
             "pin",
             "payment_option",
-            "number",
-            "expiryMonth",
-            "expiryYear",
-            "card_pin",
-            "cvv",
-            "tokenId",
-            "token",
         ]
 
 
@@ -83,13 +55,6 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
-    number = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryMonth = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryYear = serializers.CharField(max_length=50, write_only=True, required=False)
-    card_pin = serializers.CharField(max_length=4, write_only=True, required=False)
-    cvv = serializers.CharField(max_length=3, write_only=True, required=False)
-    tokenId = serializers.CharField(max_length=255, write_only=True, required=False)
-    token = serializers.CharField(max_length=255, write_only=True, required=False)
 
     class Meta:
         model = CinemaBooking
@@ -101,13 +66,6 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
             "number_of_persons",
             "pin",
             "payment_option",
-            "number",
-            "expiryMonth",
-            "expiryYear",
-            "card_pin",
-            "cvv",
-            "tokenId",
-            "token",
         ]
 
 
@@ -115,13 +73,6 @@ class CourierBookingSerializers(serializers.ModelSerializer):
     "serializers for booking courier service."
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    number = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryMonth = serializers.CharField(max_length=50, write_only=True, required=False)
-    expiryYear = serializers.CharField(max_length=50, write_only=True, required=False)
-    card_pin = serializers.CharField(max_length=4, write_only=True, required=False)
-    cvv = serializers.CharField(max_length=3, write_only=True, required=False)
-    tokenId = serializers.CharField(max_length=255, write_only=True, required=False)
-    token = serializers.CharField(max_length=255, write_only=True, required=False)
 
     class Meta:
         model = CourierService
@@ -132,13 +83,6 @@ class CourierBookingSerializers(serializers.ModelSerializer):
             "price_per_kg",
             "pin",
             "payment_option",
-            "number",
-            "expiryMonth",
-            "expiryYear",
-            "card_pin",
-            "cvv",
-            "tokenId",
-            "token",
         ]
 
 
