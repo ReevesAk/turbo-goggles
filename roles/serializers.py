@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
+from banking.models import AccountCreation
 
 from .models import (
     GamificationModel,
@@ -348,3 +349,25 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return f"{obj.firstname} {obj.lastname}".strip()
+
+
+class ListWalletUsersSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(max_digits=12, decimal_places=2)
+    userTypes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AccountCreation
+        fields = [
+            "acct_name",
+            "balance",
+            "userTypes",
+            "status",
+        ]
+
+    def get_userTypes(self, obj):
+        """
+        Get the list of user types for a wallet user from the AccountType model.
+        """
+        return list(
+            obj.user.accounttype_set.values_list("user_type", flat=True)
+        )

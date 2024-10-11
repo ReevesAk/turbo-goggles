@@ -197,7 +197,6 @@ class CreateBankAccount(generics.GenericAPIView):
             logging.error(f"Validation Errors: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        bvn_data = BVNData.objects.get(user=current_user)
         try:
             acc_response = Account.Open(
                 addr=request.data.get("address"),
@@ -207,7 +206,7 @@ class CreateBankAccount(generics.GenericAPIView):
                 ms=request.data.get("ms"),
                 gn=request.data.get("gn"),
                 branch="203",
-                bvn=bvn_data.bvn,
+                bvn=request.data.get("bvn"),
                 state=request.data.get("state"),
                 lga=request.data.get("lga"),
                 country=request.data.get("country"),
