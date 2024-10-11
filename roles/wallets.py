@@ -1,0 +1,49 @@
+# In project imports.
+from .serializers import ListWalletUsersSerializer
+from .views import PaginationStyle
+
+# Third party imports.
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from banking.models import AccountCreation
+from commons import CamelCaseJSONRenderer
+from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdmin
+
+
+class GetallWalletUsers(generics.ListAPIView):
+    """
+    GetallWalletUsers is the GET request to retrieve the count
+    of all wallet owners.
+    """
+
+    queryset = AccountCreation.objects.all().order_by("created_at")
+    serializer_class = ListWalletUsersSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsNotDisabled & (IsSuperAdmin | IsWalletAdmin)]
+    pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return self.get_paginated_response({
+                "status": "success",
+                "message": "All Wallet owners retrieved successfully.",
+                "num_of_wallet_owners": queryset.count(),
+                "wallet_owners": serialized_users.data,
+            })
+
+        # In case pagination is not used
+        serialized_users = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": "success",
+            "message": "All Wallet owners retrieved successfully.",
+            "num_of_wallet_owners": queryset.count(),
+            "wallet_owners": serialized_users.data,
+        }, status=status.HTTP_200_OK)

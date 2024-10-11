@@ -154,6 +154,21 @@ class IsPartnerAdmin(permissions.BasePermission):
         raise ValidationError("Authentication is required to access this resource.")
 
 
+class IsWalletAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["WalletAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only WalletAdmin can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")
+
+
 class IsFmcgAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.

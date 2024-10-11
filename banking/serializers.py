@@ -36,6 +36,7 @@ class BankAccountCreationSerializers(serializers.ModelSerializer):
     signature = serializers.FileField(required=True)
     tc = serializers.CharField(max_length=4, write_only=True, required=True)
     gn = serializers.CharField(max_length=4, write_only=True, required=True)
+    bvn = serializers.CharField(max_length=20, write_only=True, required=True)
     accountType = serializers.CharField(max_length=4, write_only=True, required=True)
     ms = serializers.CharField(max_length=4, write_only=True, required=True)
     country = serializers.CharField(max_length=100, write_only=True, required=True)
@@ -49,6 +50,7 @@ class BankAccountCreationSerializers(serializers.ModelSerializer):
             "lga",
             "state",
             "tc",
+            "bvn",
             "gn",
             "accountType",
             "country",

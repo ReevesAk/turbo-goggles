@@ -29,6 +29,7 @@ from .tasks import (
     GetSingleSubmittedTask,
     ReviewTask,
 )
+from .wallets import GetallWalletUsers
 
 from .partners import GetAllPartnersUsers, RestrictPartnerAccountView
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
@@ -113,6 +114,9 @@ urlpatterns = [
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
     ),
-    path("add-product", AddProduct.as_view(), name="add_product"),
-    path("add-address", AddAddress.as_view(), name="add_address"),
+    # Fmcg admin endpoints
+    path("fmcg/add-product", AddProduct.as_view(), name="add_product"),
+    path("fmcg/add-address", AddAddress.as_view(), name="add_address"),
+    # Wallet endpoints.
+    path("wallet/get-all-wallet-users", GetallWalletUsers.as_view(), name="get_all_wallet_users"),
 ]
