@@ -201,8 +201,9 @@ class BrandPromote(generics.CreateAPIView):
                     user_details = AccountCreation.objects.get(user=authenticated_user)
                     debit_response = Account.Debit(
                         debitAccount=user_details.account_number,
-                        amount=price, description="Debit for brand promotion",
-                        transactionReference=""
+                        amount=price,
+                        description="Debit for brand promotion",
+                        transactionReference="",
                     )
                     if debit_response == 200:
                         serializer.save()

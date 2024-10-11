@@ -22,7 +22,10 @@ class GetallWalletUsers(generics.ListAPIView):
     queryset = AccountCreation.objects.all().order_by("created_at")
     serializer_class = ListWalletUsersSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsNotDisabled & (IsSuperAdmin | IsWalletAdmin)]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled & (IsSuperAdmin | IsWalletAdmin),
+    ]
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
 
@@ -32,18 +35,23 @@ class GetallWalletUsers(generics.ListAPIView):
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            return self.get_paginated_response({
+            return self.get_paginated_response(
+                {
+                    "status": "success",
+                    "message": "All Wallet owners retrieved successfully.",
+                    "num_of_wallet_owners": queryset.count(),
+                    "wallet_owners": serialized_users.data,
+                }
+            )
+
+        # In case pagination is not used
+        serialized_users = self.get_serializer(queryset, many=True)
+        return Response(
+            {
                 "status": "success",
                 "message": "All Wallet owners retrieved successfully.",
                 "num_of_wallet_owners": queryset.count(),
                 "wallet_owners": serialized_users.data,
-            })
-
-        # In case pagination is not used
-        serialized_users = self.get_serializer(queryset, many=True)
-        return Response({
-            "status": "success",
-            "message": "All Wallet owners retrieved successfully.",
-            "num_of_wallet_owners": queryset.count(),
-            "wallet_owners": serialized_users.data,
-        }, status=status.HTTP_200_OK)
+            },
+            status=status.HTTP_200_OK,
+        )
