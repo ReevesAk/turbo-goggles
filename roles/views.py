@@ -25,7 +25,9 @@ from .serializers import (
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
+from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from .models import Applications
+from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
 
@@ -45,7 +47,7 @@ from cloudinary import uploader as cloud
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin
+from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin, IsFmcgAdmin
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -226,6 +228,102 @@ class LoginAdmin(APIView):
                 data={"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+
+class AddProduct(generics.GenericAPIView):
+    """
+    AddProduct is the POST request that handles the creation
+    of fmcg products instance.
+    """
+
+    serializer_class = ProductSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsFmcgAdmin | IsSuperAdmin)]
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                product_upload = request.data.get("image_url")
+                upload_product = cloud.upload(product_upload)
+                product_url = upload_product["url"]
+
+            except Exception as err:
+                return Response(
+                    {"error": "An error occurred: {}".format(err)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            Product.objects.create(
+                name=user_data("name"),
+                image_url=product_url,
+                category=user_data("name"),
+                price=user_data("price"),
+                description=request.data.get("description"),
+                quantity=user_data("quantity"),
+            )
+            resp = {
+                "status": "success",
+                "message": "Product added successfully!",
+                "data": {
+                    "name": user_data("name"),
+                    "image_url": product_url,
+                    "category": user_data("name"),
+                    "company": user_data("company"),
+                    "price": user_data("price"),
+                    "description": user_data("description"),
+                    "quantity": user_data("quantity"),
+                },
+            }
+            return Response(data=resp, status=status.HTTP_201_CREATED)
+
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def upload_files(self, doc_file):
+        document = cloud.upload(file=doc_file)
+        self.uploaded_doc_url = document["url"]
+
+
+class AddAddress(generics.GenericAPIView):
+    """
+    AddAddress is the POST request that handles the updating of
+    of fmcg products store addresses.
+    """
+
+    serializer_class = AddFmcgPickupAddressSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsFmcgAdmin | IsSuperAdmin)]
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            PickupAdress.objects.create(
+                name=user_data["name"], state=user_data["state"]
+            )
+            resp = {
+                "status": "success.",
+                "message": "Store address added successfully.",
+                "data": serializer.data,
+            }
+            return Response(data=resp, status=status.HTTP_201_CREATED)
+        else:
+            error_resp = {"status": "fail.", "data": serializer.errors}
+            return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AddAdmin(generics.CreateAPIView):

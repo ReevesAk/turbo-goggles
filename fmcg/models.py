@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 
 from basemodel import BaseModel
@@ -7,34 +8,13 @@ from accounts.models import User
 
 PRODUCT_CATEGORY = (
     ("Sugar", "Sugar"),
-    ("Oil", "Oil"),
+    ("Vegetable Oil", "Vegetable Oil"),
     ("Rice", "Rice"),
     ("Pasta", "Pasta"),
     ("Yeast", "Yeast"),
-    ("Flour", "Flour"),
-    ("Magaraine", "Magarine")
-)
-
-Flour_category = (
-    ("Bua IRS", "Bua IRS"),
-    ("Golden penny classic", "Golden penny classic"),
-    ("Pure prima", "Pure prima"),
-    ("Happy bake", "Happy bake"),
-    ("Royal Bake", "Royal Bake"),
-    ("Dangote APF", "Dangote APF"),
-    ("Dangote DBF", "Dangote DBF"),
-    ("Bakewell", "Bakewell"),
-    ("Mix & Bake", "Mix & Bake"),
-    ("Crown flour", "Crown flour")
-)
-
-Sugar_category = (
-    ("Bua sugar 50kg", "Bua sugar 50kg"),
-    ("Dangote sugar 50kg", "Dangote sugar 50kg"),
-    ("Dangote sugar 500g", "Dangote sugar 500g"),
-    ("Golden penny sugar 50kg", "Golden penny sugar 50kg"),
-    ("Golden penny sugar 1kg", "Golden penny sugar 1kg"),
-    ("Golden penny sugar 500g", "Golden penny sugar 500g")
+    ("Flours", "Flours"),
+    ("Magaraine", "Magarine"),
+    ("Semolina", "Semolina")
 )
 
 COMPANY = (
@@ -47,15 +27,22 @@ COMPANY = (
     ("Flour Mills of Nigeria", "Flour Mills of Nigeria")
 )
 
+BILLING_ADDRESS = (
+    ("Store Pick-Up", "Store Pick-Up"),
+    ("Delivery", "Delivery")
+)
 
-# Create your models here.
+
+class PickupAdress(models.Model):
+    name = models.CharField(max_length=200, null=True)
+    state = models.CharField(max_length=50, null=True)
+
+
 class Product(BaseModel):
     image_url = models.CharField(max_length=150, null=True)
     name = models.CharField(max_length=150, null=True)
     description = models.TextField(null=True)
     category = models.CharField(choices=PRODUCT_CATEGORY, max_length=100, null=True)
-    subcategory = models.CharField(max_length=100, null=True)
-    company = models.CharField(choices=COMPANY, max_length=100, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)
     is_available = models.BooleanField(null=True)
@@ -77,6 +64,27 @@ class CartItem(BaseModel):
 
     def get_total_price(self):
         return self.quantity * self.price
+
+
+class FmcgOrder(BaseModel):
+    class Status(models.TextChoices):
+        PENDING = 'Pending', _('Pending')
+        COMPLETED = 'Completed', _('Completed')
+        CANCELED = 'Canceled', _('Canceled')
+        FAILED = 'Failed', _('Failed')
+
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
+    product = models.CharField(max_length=150, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    billing_address = models.CharField(max_length=150, choices=BILLING_ADDRESS, null=True)
+    available_addresses = models.ForeignKey(
+        to=PickupAdress, on_delete=models.CASCADE,
+        max_length=250, null=True, blank=True
+    )
+    delivery_address = models.CharField(max_length=200, null=True, blank=True)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tracking_id = models.CharField(max_length=50, null=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
 
 class FmcgRating(BaseModel):

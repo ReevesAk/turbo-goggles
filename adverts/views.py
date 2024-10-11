@@ -21,7 +21,9 @@ from .serializers import (
 from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdLocation
-from wallets.controllers import Pin, Debit
+from banking.helpers import Pin
+from banking.controllers import Account
+from banking.models import AccountCreation
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -196,8 +198,11 @@ class BrandPromote(generics.CreateAPIView):
                 if is_verified:
                     # Inititate a debit on the brand advert's account.
                     price = request.data.get("price")
-                    debit_response = Debit.debit_customer(
-                        amount=price, description="Debit for brand promotion"
+                    user_details = AccountCreation.objects.get(user=authenticated_user)
+                    debit_response = Account.Debit(
+                        debitAccount=user_details.account_number,
+                        amount=price, description="Debit for brand promotion",
+                        transactionReference=""
                     )
                     if debit_response == 200:
                         serializer.save()

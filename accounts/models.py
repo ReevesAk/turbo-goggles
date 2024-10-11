@@ -21,6 +21,7 @@ USER_CATEGORY_CHOICES = (
     ("ContentAdmin", "ContentAdmin"),
     ("IntegrationAdmin", "IntegrationAdmin"),
     ("WalletAdmin", "WalletAdmin"),
+    ("FmcgAdmin", "FmcgAdmin"),
 )
 
 BRAND_TYPE = (

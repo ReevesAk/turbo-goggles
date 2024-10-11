@@ -31,7 +31,7 @@ from .models import (
 )
 from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
-from wallets.controllers import Pin
+from banking.helpers import Pin
 from banking.controllers import Account
 from banking.models import AccountCreation
 
