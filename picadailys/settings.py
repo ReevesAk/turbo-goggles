@@ -57,7 +57,6 @@ INSTALLED_APPS = [
     "adverts",
     "roles",
     "partners",
-    "wallets",
     "vas",
     "fmcg",
     "user_profile",

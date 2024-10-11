@@ -17,8 +17,9 @@ from .views import (
     VerifiedPartnersCount,
     LoginAdmin,
     SwitchRoles,
+    AddProduct,
+    AddAddress,
 )
-
 from .tasks import (
     AssignTask,
     GetAllTasks,
@@ -112,4 +113,6 @@ urlpatterns = [
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
     ),
+    path("add-product", AddProduct.as_view(), name="add_product"),
+    path("add-address", AddAddress.as_view(), name="add_address"),
 ]

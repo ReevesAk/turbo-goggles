@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.shortcuts import get_object_or_404
 
 from rest_framework.views import APIView
@@ -5,25 +8,33 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating
+from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating, FmcgOrder
 from .serializers import (
     ProductSerializers,
     AddToCartSerializers,
     RemoveFromCartSerializers,
     RetrieveCartProductsSerializers,
     FmcgRatingSerializer,
-    FmcgRatingListSerializer
+    FmcgRatingListSerializer,
+    FmcgOrderSerializer
 )
-
-from cloudinary import uploader as cloud
+from accounts.models import UserNotification
+from banking.controllers import Account
+from banking.models import AccountCreation
+from banking.helpers import Pin
 
 
 class PaginationStyle(PageNumberPagination):
     page_size = 20
+
+
+def generate_tracking_id(length):
+    characters = string.ascii_letters + string.digits  # Letters and digits
+    result = "".join(random.choice(characters) for _ in range(length))
+    return result
 
 
 class CategoryListView(APIView):
@@ -60,68 +71,6 @@ class CompanyListView(APIView):
                 "categories": companies,
             },
             status=status.HTTP_200_OK)
-
-
-class AddProduct(generics.GenericAPIView):
-    """
-    AddProduct is the POST request that handles the creation
-    of fmcg products instance.
-    """
-
-    serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-    parser_classes = (
-        MultiPartParser,
-        JSONParser,
-    )
-
-    def post(self, request):
-        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
-
-        serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            try:
-                product_upload = request.data.get("image_url")
-                upload_product = cloud.upload(product_upload)
-                product_url = upload_product["url"]
-
-            except Exception as err:
-                return Response(
-                    {"error": "An error occurred: {}".format(err)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            Product.objects.create(
-                name=request.data.get("name"),
-                image_url=product_url,
-                category=request.data.get("name"),
-                company=request.data.get("company"),
-                price=request.data.get("price"),
-                description=request.data.get("description"),
-                quantity=request.data.get("quantity"),
-            )
-            resp = {
-                "status": "success",
-                "message": "Product added successfully!",
-                "data": {
-                    "name": request.data.get("name"),
-                    "image_url": product_url,
-                    "category": request.data.get("name"),
-                    "company": request.data.get("company"),
-                    "price": request.data.get("price"),
-                    "description": request.data.get("description"),
-                    "quantity": request.data.get("quantity"),
-                }
-            }
-            return Response(data=resp, status=status.HTTP_201_CREATED)
-
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def upload_files(self, doc_file):
-        document = cloud.upload(file=doc_file)
-        self.uploaded_doc_url = document["url"]
 
 
 class ListAllProducts(generics.ListAPIView):
@@ -328,6 +277,78 @@ class RemoveFromCart(generics.DestroyAPIView):
             "status": "success",
             "message": "Product removed from cart."
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+class FmcgCheckout(generics.CreateAPIView):
+    """
+    FmcgCheckout is the POST request handler for finalizing an order from the cart.
+    This will handle payment and creating an order.
+    """
+    serializer_class = FmcgOrderSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        serializer = self.get_serializer(data=payload)
+        if serializer.is_valid(raise_exception=True):
+            tracking_id = generate_tracking_id(10)
+            authenticated_user = request.user
+            amount = payload["total_price"]
+            product = payload["product"]
+            order = FmcgOrder.objects.create(
+                user=authenticated_user,
+                product=product,
+                price=amount,
+                billing_address=payload["billing_address"],
+                available_addresses=payload["available_addresses"],
+                delivery_address=payload["delivery_address"],
+                status="Pending",
+                tracking_id=tracking_id
+            )
+
+            # Proceed to checkout and pay for the product.
+            pin = payload["pin"]
+            user_details = AccountCreation.objects.get(user=authenticated_user)
+            verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+            if verification:
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=amount,
+                    reason="Payment of fmcg product.",
+                    transactionReference=""
+                )
+                if debit_response.status_code == 200:
+                    order.status = "Completed"
+                    order.save()
+
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Payment Successful.",
+                        message=f"You have successfully paid {amount} for the purchase of {product}."
+                    )
+                    resp = {
+                        "status": "success.",
+                        "message": f"You have successfully paid {amount} for the purchase of {product}.",
+                        "data": serializer.data
+                    }
+                    return Response(data=resp, status=status.HTTP_200_OK)
+                else:
+                    order.status = "Failed"
+                    order.save()
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Payment failed.",
+                        message=f"Payment of {amount} for the purchase of {product} failed."
+                    )
+                    error_resp = {
+                        "status": "fail",
+                        "message": f"You have successfully paid {amount} for the purchase of {product}.",
+                        "data": debit_response.json()
+                    }
+                    return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FmcgRatingView(generics.GenericAPIView):

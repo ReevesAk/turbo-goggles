@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # In project imports.
-from .models import Product, FmcgRating
+from .models import Product, FmcgRating, PickupAdress, FmcgOrder
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -15,7 +15,6 @@ class ProductSerializers(serializers.ModelSerializer):
             "image_url",
             "name",
             "category",
-            "company",
             "price",
             "quantity",
             "description"
@@ -30,6 +29,15 @@ class AddToCartSerializers(serializers.ModelSerializer):
         fields = [
             "id",
             "quantity"
+        ]
+
+
+class AddFmcgPickupAddressSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = PickupAdress
+        fields = [
+            "name",
+            "state"
         ]
 
 
@@ -51,6 +59,35 @@ class RetrieveCartProductsSerializers(serializers.ModelSerializer):
 
 class RemoveFromCartSerializers(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class FmcgOrderSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=4, min_length=4)
+
+    class Meta:
+        model = FmcgOrder
+        fields = [
+            "billing_address",
+            "available_addresses",
+            "product",
+            "delivery_address",
+            "status",
+            "total_price",
+            "pin"
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super(FmcgOrderSerializer, self).__init__(*args, **kwargs)
+
+        request_data = self.context.get('request').data
+
+        # Conditionally make fields optional based on billing_address
+        billing_address = request_data.get('billing_address')
+
+        if billing_address == "Store Pick-Up":
+            self.fields['available_addresses'].required = True
+        elif billing_address == "Delivery":
+            self.fields['delivery_address'].required = True
 
 
 class FmcgRatingSerializer(serializers.ModelSerializer):

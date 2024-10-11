@@ -28,7 +28,7 @@ from .serializers import (
 from banking.models import AccountCreation
 from banking.controllers import Account
 from permissions import VasPermission
-from wallets.controllers import Pin
+from banking.helpers import Pin
 from .controllers import (
     airtime,
     data,
