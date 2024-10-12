@@ -11,7 +11,6 @@ from .views import (
     ChangePassword,
     ProfileImage,
     DeleteUser,
-    WebhookView,
     ClaimMysteryBoxGift,
     OpenRewardBox,
 )
@@ -35,7 +34,6 @@ urlpatterns = [
     path("change-password/", ChangePassword.as_view(), name="change_password"),
     path("open-box/", OpenRewardBox.as_view(), name="open_box"),
     path("claim-gift/", ClaimMysteryBoxGift.as_view(), name="claim_gift"),
-    path("webhook/", WebhookView.as_view(), name="webhook_view"),
     path("delete/", DeleteUser.as_view(), name="delete"),
     # Notification endpoints.
     path("notification/<int:id>/get", GetSingleNotification.as_view(), name="get_ntfn"),

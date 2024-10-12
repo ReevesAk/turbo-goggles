@@ -1,5 +1,7 @@
 import requests
 from decouple import config
+from django.template.loader import render_to_string
+from commons import Message
 
 # Third party imports.
 from rest_framework import generics
@@ -548,6 +550,19 @@ class VerifyCAC(generics.GenericAPIView):
                             message="This is to inform you that the verification of your business is successful.",
                         )
                         # send transactional email.
+                        body = "This is to inform you that the verification of your business on Picadailys is successful."
+
+                        email_content = render_to_string('email_template.html', {
+                            'email': "OGafekemor@picadailys.com",
+                            'picadailys_phone': "08134649680",
+                            'message_body': body,
+                        })
+
+                        Message.send_email(
+                            content=email_content,
+                            email=request.user.email,
+                            subject="Profile Update."
+                        )
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     else:
