@@ -1,4 +1,5 @@
 import logging
+from django.template.loader import render_to_string
 
 from sms import Message
 from permissions import IsSuperAdmin, IsUserOrMember
@@ -296,6 +297,20 @@ class UpdateUserProfile(generics.UpdateAPIView):
             message="You have been successfully updated your profile.",
         )
 
+        body = "This is to inform you that you have just your profile on Picadailys has een updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+
+        email_content = render_to_string('email_template.html', {
+            'email': "OGafekemor@picadailys.com",
+            'picadailys_phone': "08134649680",
+            'message_body': body,
+        })
+
+        Message.send_email(
+            content=email_content,
+            email=request.user.email,
+            subject="Profile Update."
+        )
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -332,6 +347,20 @@ class ChangePassword(generics.UpdateAPIView):
                 user=request.user,
                 title="Change Password.",
                 message="You have successfully changed your password.",
+            )
+
+            body = "This is to inform you that your Picadailys account password has been beem changes successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+
+            email_content = render_to_string('email_template.html', {
+                'email': "OGafekemor@picadailys.com",
+                'picadailys_phone': "08134649680",
+                'message_body': body,
+            })
+
+            Message.send_email(
+                content=email_content,
+                email=request.user.email,
+                subject="Change of Password."
             )
 
             response = {
@@ -411,37 +440,6 @@ class MemberUserSwitch(generics.UpdateAPIView):
             return Response(
                 {"status": "success", "message": "Member has been switched to a User."},
                 status=status.HTTP_200_OK,
-            )
-
-
-class WebhookView(generics.GenericAPIView):
-    serializer_class = ProfileStatusSerializer
-
-    @extend_schema(
-        description="Wenhook view",
-        responses={200: {"description": "Webhook responses"}},
-    )
-    def post(self, request: HttpRequest, *args, **kwargs):
-        webhook_secret_key = fincra_webhook_key
-        payload = request.data
-
-        key = webhook_secret_key.encode("utf-8")
-        message = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        encrypted_data = hmac.new(key, message, hashlib.sha512).hexdigest()
-        signature = request.headers.get("signature")
-
-        if signature == encrypted_data:
-            # Process the webhook data
-            logging.info("Processing webhook data:", payload)
-            return Response(
-                {"detail": "Webhook data processed successfully!"},
-                status=status.HTTP_200_OK,
-            )
-        else:
-            logging.info("Discarding webhook data due to invalid signature.")
-            return Response(
-                {"detail": "Invalid signature, webhook data discarded."},
-                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
