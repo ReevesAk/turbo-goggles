@@ -119,13 +119,15 @@ class BankNtfnSerializer(serializers.ModelSerializer):
         ]
 
 
-class AccountBalanceSerializer(serializers.ModelSerializer):
+class AccountDetailsSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
         model = AccountCreation
         fields = [
             "acct_name",
+            "account_number",
+            "customer_numnber",
             "balance",
         ]
 

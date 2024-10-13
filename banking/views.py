@@ -30,7 +30,7 @@ from .serializers import (
     ResetPinSerializer,
     BankNtfnSerializer,
     BankingStatusSerializer,
-    AccountBalanceSerializer,
+    AccountDetailsSerializer,
 )
 from accounts.models import UserNotification
 from .models import (
@@ -242,6 +242,11 @@ class CreateBankAccount(generics.GenericAPIView):
                     title="Virtual Account Creation 🎉",
                     message="Congratulations! 🎊🎉 Your virtual account has been created successfully. 🥳",
                 )
+
+                # Set the value of has_wallet to true.
+                current_user.has_wallet = True
+                current_user.save()
+
                 resp = {
                     "status": "success",
                     "message": "Open Account Operation was successful!",
@@ -352,20 +357,20 @@ class NotificationView(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GetAccountBalance(generics.GenericAPIView):
+class GetAccountDetails(generics.GenericAPIView):
     """
-    GetAccountBalance handles the GET request of retrieving a
-    customer's account balance.
+    GetAccountDetails handles the GET request of retrieving a
+    customer's account details.
     """
 
-    serializer_class = AccountBalanceSerializer
+    serializer_class = AccountDetailsSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         user = request.user
 
-        acct_details = AccountCreation.objects.filter(user=user).exists()
+        acct_details = AccountCreation.objects.get(user=user)
         if not acct_details:
             resp = {
                 "status": "fail",
@@ -373,10 +378,10 @@ class GetAccountBalance(generics.GenericAPIView):
             }
             return Response(data=resp, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = AccountBalanceSerializer(acct_details)
+        serializer = AccountDetailsSerializer(acct_details)
         response = {
             "status": "success",
-            "message": "Account balance retreieve operation succesful.",
+            "message": "Account details retrieve operation succesful.",
             "data": serializer.data,
         }
         return Response(data=response, status=status.HTTP_200_OK)
