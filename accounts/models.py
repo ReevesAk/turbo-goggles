@@ -62,13 +62,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     profile_img_url = models.CharField(max_length=255, null=True)
     is_bvn_verified = models.BooleanField(default=False)
     has_wallet = models.BooleanField(default=False)
-    is_upgraded = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     done_survey = models.BooleanField(default=False)
     welcome_bonus = models.FloatField(default=Decimal("0.00"))
     has_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
     has_card = models.BooleanField(default=False)
+    admin_pin = models.CharField(max_length=5, null=True)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)

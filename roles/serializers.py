@@ -125,17 +125,21 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
 
         return attrs
 
-    def update(self, instance, validated_data):
-        phone_number = validated_data.get("phone_number", instance.phone_number)
-        password = validated_data.get("password", None)
 
-        instance.phone_number = phone_number
+class CreateAdminPinSerializer(serializers.ModelSerializer):
+    """Serailizers for other admin roles first time pin creation."""
 
-        if password:
-            instance.set_password(password)
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
 
-        instance.save()
-        return instance
+    class Meta:
+        model = User
+        fields = ["pin"]
+        extra_kwargs = {"pin": {"write_only": True}}
+
+    def validate_pin(self, value):
+        if not value.isdigit() or len(value) != 5:
+            raise serializers.ValidationError("Pin must be a 5-digit number.")
+        return value
 
 
 class AdminLoginSerializers(serializers.ModelSerializer):
@@ -145,15 +149,20 @@ class AdminLoginSerializers(serializers.ModelSerializer):
 
 
 class AdminDeletionSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    pin = serializers.CharField(write_only=True, required=True)
+
     class Meta:
         model = User
-        fields = ["email"]
+        fields = ["email", "pin"]
 
 
 class DisableAdminSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+
     class Meta:
         model = User
-        fields = ["email", "password"]
+        fields = ["email", "pin"]
 
 
 class UpdateAdminRoleSerializer(serializers.ModelSerializer):

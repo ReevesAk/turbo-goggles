@@ -2,6 +2,7 @@ import requests
 import logging
 from decouple import config
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.db.models import Q
@@ -21,6 +22,7 @@ from .serializers import (
     GetApplicationsSerializers,
     DisableAdminSerializer,
     SwitchRolesSerializers,
+    CreateAdminPinSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -447,6 +449,56 @@ class AdAdminContd(generics.UpdateAPIView):
             )
 
 
+class SetAdminPin(generics.CreateAPIView):
+    """
+    SetWalletPin handles the POST request of creating a pin for a
+    customer wallet.
+    """
+
+    serializer_class = CreateAdminPinSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsAdmin)
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def perform_create(self, serializer):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in self.request.data.items()
+        }
+
+        pin = user_data.get("pin")
+
+        # Hash the pin using make_password.
+        hashed_pin = make_password(pin)
+
+        # Save the hashed pin in the authenticated user's admin_pin field.
+        authenticated_user = self.request.user
+        authenticated_user.admin_pin = hashed_pin
+        authenticated_user.save()
+
+        # Create a user notification
+        UserNotification.objects.create(
+            user=authenticated_user,
+            title="Admin Pin",
+            message="Admin pin created successfully.",
+        )
+
+    def create(self, request, *args, **kwargs):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            self.perform_create(serializer)
+            response = {
+                "status": "success",
+                "message": "Admin pin created successfully!",
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
+
+
 class UpdateAdminRole(generics.RetrieveUpdateAPIView):
     serializer_class = UpdateAdminRoleSerializer
     authentication_classes = [JWTAuthentication]
@@ -500,18 +552,18 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
             for key, value in request.data.items()
         }
         email = self.request.data.get("email")
-        password = self.request.data.get("password")
+        pin = self.request.data.get("pin")
 
         try:
             user = User.objects.filter(Q(email=email)).exists()
 
-            if check_password(password=password, encoded=request.user.password):
+            if check_password(password=pin, encoded=request.user.admin_pin):
                 user.is_disabled = True
                 user.save()
 
             resp = {
                 "status": "success",
-                "message": "Admin disabbles successfully",
+                "message": "Admin disabbled successfully",
                 "data": user.is_disabled,
             }
             return Response(data=resp, status=status.HTTP_200_OK)
@@ -560,37 +612,39 @@ class GetAllCustomers(generics.RetrieveAPIView):
                 )
 
 
-class DeleteAdmin(generics.DestroyAPIView):
+class DeleteAdmin(generics.GenericAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
-    def delete(self, request, *args, **kwargs):
-        _ = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        email = self.request.data.get("email")
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data.get("email")
+            pin = serializer.validated_data.get("pin")
 
-        try:
-            user = User.objects.get(Q(id=email) | Q(email=email))
-            user.delete()
+            try:
+                user = User.objects.get(Q(id=email) | Q(email=email))
+                if check_password(password=pin, encoded=request.user.admin_pin):
+                    user.delete()
 
-            UserNotification.objects.create(
-                user=user,
-                title="Delete Admin.",
-                message=f"Admin with '{email}' deleted successfully.",
-            )
-            return Response(
-                f"Admin with '{email}' deleted successfully.",
-                status=status.HTTP_204_NO_CONTENT,
-            )
-        except User.DoesNotExist:
-            return Response(
-                f"Admin with '{email}' does not exist.",
-                status=status.HTTP_404_NOT_FOUND,
-            )
+                UserNotification.objects.create(
+                    user=user,
+                    title="Delete Admin.",
+                    message=f"Admin with '{email}' deleted successfully.",
+                )
+                return Response(
+                    f"Admin with '{email}' deleted successfully.",
+                    status=status.HTTP_204_NO_CONTENT,
+                )
+            except User.DoesNotExist:
+                return Response(
+                    f"Admin with '{email}' does not exist.",
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class JobApplications(generics.CreateAPIView):

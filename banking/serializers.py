@@ -141,8 +141,12 @@ class GetProvidusAccountSerializer(serializers.ModelSerializer):
 
     def validate_accountNumber(self, value):
         """Validate the account number format."""
-        if not value.isdigit() or len(value) != 10:  # Assuming a 10-digit account number
-            raise serializers.ValidationError("Account number must be a 10-digit number.")
+        if (
+            not value.isdigit() or len(value) != 10
+        ):  # Assuming a 10-digit account number
+            raise serializers.ValidationError(
+                "Account number must be a 10-digit number."
+            )
         return value
 
 
@@ -155,14 +159,22 @@ class GetAccountSerializer(serializers.ModelSerializer):
 
     def validate_accountNumber(self, value):
         """Validate the account number format."""
-        if not value.isdigit() or len(value) != 10:  # Assuming a 10-digit account number
-            raise serializers.ValidationError("Account number must be a 10-digit number.")
+        if (
+            not value.isdigit() or len(value) != 10
+        ):  # Assuming a 10-digit account number
+            raise serializers.ValidationError(
+                "Account number must be a 10-digit number."
+            )
         return value
 
     def validate_bankCode(self, value):
         """Validate the bank code format."""
-        if not value.isdigit() or not (3 <= len(value) <= 6):  # Bank code must be between 3 and 6 digits
-            raise serializers.ValidationError("Bank code must be a number between 3 and 6 digits.")
+        if not value.isdigit() or not (
+            3 <= len(value) <= 6
+        ):  # Bank code must be between 3 and 6 digits
+            raise serializers.ValidationError(
+                "Bank code must be a number between 3 and 6 digits."
+            )
         return value
 
 

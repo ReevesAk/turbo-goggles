@@ -19,6 +19,7 @@ from .views import (
     SwitchRoles,
     AddProduct,
     AddAddress,
+    SetAdminPin,
 )
 from .tasks import (
     AssignTask,
@@ -45,6 +46,7 @@ urlpatterns = [
     path("disable-admin", DisableAdminrole.as_view(), name="disable_admin"),
     path("get-all-customers", GetAllCustomers.as_view(), name="get_all_customers"),
     path("delete-admin", DeleteAdmin.as_view(), name="delete_admin_users"),
+    path("set-admin-pin", SetAdminPin.as_view(), name="set_admin_pin"),
     path("verified-users", VerifiedUsersCount.as_view(), name="verified-users-list"),
     path(
         "verified-brandAds", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"
