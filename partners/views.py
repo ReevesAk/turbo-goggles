@@ -552,16 +552,19 @@ class VerifyCAC(generics.GenericAPIView):
                         # send transactional email.
                         body = "This is to inform you that the verification of your business on Picadailys is successful."
 
-                        email_content = render_to_string('email_template.html', {
-                            'email': "OGafekemor@picadailys.com",
-                            'picadailys_phone': "08134649680",
-                            'message_body': body,
-                        })
+                        email_content = render_to_string(
+                            "email_template.html",
+                            {
+                                "email": "OGafekemor@picadailys.com",
+                                "picadailys_phone": "08134649680",
+                                "message_body": body,
+                            },
+                        )
 
                         Message.send_email(
                             content=email_content,
                             email=request.user.email,
-                            subject="Profile Update."
+                            subject="Profile Update.",
                         )
 
                         return Response(data=response_data, status=status.HTTP_200_OK)

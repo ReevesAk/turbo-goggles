@@ -305,21 +305,24 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 email_body = f"{user.acct_name}, /n This is to inform you that a transaction occurred on your account."
-                email_content = render_to_string('table_email.html', {
-                    "email_body": email_body,
-                    "name": user.acct_name,
-                    "narration": narration,
-                    "account_number": account_number,
-                    "amount": amount,
-                    "tx_type": 'Credit Transaction.',
-                    "datetime": date_time,
-                    "balance": user_data["accountBalance"]
-                })
+                email_content = render_to_string(
+                    "table_email.html",
+                    {
+                        "email_body": email_body,
+                        "name": user.acct_name,
+                        "narration": narration,
+                        "account_number": account_number,
+                        "amount": amount,
+                        "tx_type": "Credit Transaction.",
+                        "datetime": date_time,
+                        "balance": user_data["accountBalance"],
+                    },
+                )
 
                 Message.send_email(
                     content=email_content,
                     email=user.email,
-                    subject="Incoming Transfer."
+                    subject="Incoming Transfer.",
                 )
             case "db":
                 UserNotification.objects.create(
@@ -327,21 +330,24 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 email_body = f"{user.acct_name}, /n This is to inform you that a transaction occurred on your account."
-                email_content = render_to_string('table_email.html', {
-                    "email_body": email_body,
-                    "name": user.acct_name,
-                    "narration": narration,
-                    "account_number": account_number,
-                    "amount": amount,
-                    "tx_type": 'Debit Transaction.',
-                    "datetime": date_time,
-                    "balance": user_data["accountBalance"]
-                })
+                email_content = render_to_string(
+                    "table_email.html",
+                    {
+                        "email_body": email_body,
+                        "name": user.acct_name,
+                        "narration": narration,
+                        "account_number": account_number,
+                        "amount": amount,
+                        "tx_type": "Debit Transaction.",
+                        "datetime": date_time,
+                        "balance": user_data["accountBalance"],
+                    },
+                )
 
                 Message.send_email(
                     content=email_content,
                     email=user.email,
-                    subject="Outgoing Transfer."
+                    subject="Outgoing Transfer.",
                 )
             case _:
                 pass

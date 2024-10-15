@@ -54,16 +54,19 @@ class GetallWalletUsers(generics.ListAPIView):
         body = f"This is to inform you that {count} users have opened an account with Picadailys and these are their details: {data}."
         print("I dey work")
 
-        email_content = render_to_string('email_template.html', {
-            'email': "OGafekemor@picadailys.com",
-            'picadailys_phone': "08134649680",
-            'message_body': body,
-        })
+        email_content = render_to_string(
+            "email_template.html",
+            {
+                "email": "OGafekemor@picadailys.com",
+                "picadailys_phone": "08134649680",
+                "message_body": body,
+            },
+        )
 
         Message.send_email(
             content=email_content,
             email="akwareeves@gmail.com",
-            subject="Testing Subject."
+            subject="Testing Subject.",
         )
 
         return Response(

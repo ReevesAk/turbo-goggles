@@ -132,16 +132,38 @@ class AccountDetailsSerializer(serializers.ModelSerializer):
         ]
 
 
-class GetProvidusAccountSerializer(serializers.Serializer):
+class GetProvidusAccountSerializer(serializers.ModelSerializer):
     class Meta:
+        model = AccountCreation
         fields = [
-            "accountNumber",
+            "account_number",
         ]
 
+    def validate_accountNumber(self, value):
+        """Validate the account number format."""
+        if not value.isdigit() or len(value) != 10:  # Assuming a 10-digit account number
+            raise serializers.ValidationError("Account number must be a 10-digit number.")
+        return value
 
-class GetAccountSerializer(serializers.Serializer):
+
+class GetAccountSerializer(serializers.ModelSerializer):
+    bankCode = serializers.DecimalField(max_digits=6, min_value=3, decimal_places=2)
+
     class Meta:
-        fields = ["accountNumber", "bankCode"]
+        model = AccountCreation
+        fields = ["account_number", "bankCode"]
+
+    def validate_accountNumber(self, value):
+        """Validate the account number format."""
+        if not value.isdigit() or len(value) != 10:  # Assuming a 10-digit account number
+            raise serializers.ValidationError("Account number must be a 10-digit number.")
+        return value
+
+    def validate_bankCode(self, value):
+        """Validate the bank code format."""
+        if not value.isdigit() or not (3 <= len(value) <= 6):  # Bank code must be between 3 and 6 digits
+            raise serializers.ValidationError("Bank code must be a number between 3 and 6 digits.")
+        return value
 
 
 class IntraBankTransfersSerializer(serializers.ModelSerializer):

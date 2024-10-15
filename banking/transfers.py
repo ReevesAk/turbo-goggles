@@ -48,7 +48,7 @@ class GetAllBanks(APIView):
             )
 
 
-class GetProvidusAccount(generics.CreateAPIView):
+class GetProvidusAccount(generics.GenericAPIView):
     """
     GetProvidusAccount handles the GET request of validating supplied account numbber
     It returns the account details upon success.
@@ -66,8 +66,10 @@ class GetProvidusAccount(generics.CreateAPIView):
 
         serializer = GetProvidusAccountSerializer(data=payload)
         if serializer.is_valid:
+            validated_data = serializer.validated_data
+
             acc_resp = Transfers.getProvidusAccount(
-                acct_num=payload["accountNumber"],
+                acct_num=validated_data["account_number"],
             )
             if acc_resp.status_code == 200:
                 resp = {
@@ -78,9 +80,11 @@ class GetProvidusAccount(generics.CreateAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 return Response(data=acc_resp.json(), status=acc_resp.status_code)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GetAccount(generics.CreateAPIView):
+class GetAccount(generics.GenericAPIView):
     """
     GetAccount handles the GET request of validating supplied account numbber
     and 3-digit bank code. It returns the account details upon success.
@@ -97,10 +101,13 @@ class GetAccount(generics.CreateAPIView):
         }
 
         serializer = GetAccountSerializer(data=payload)
-        if serializer.is_valid:
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
             acc_resp = Transfers.getAccount(
-                acct_num=payload["accountNumber"], bank_code=payload["bankCode"]
+                acct_num=validated_data["account_number"],
+                bank_code=validated_data["bankCode"],
             )
+
             if acc_resp.status_code == 200:
                 resp = {
                     "status": "success",
@@ -110,6 +117,8 @@ class GetAccount(generics.CreateAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 return Response(data=acc_resp.json(), status=acc_resp.status_code)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class IntraBankTransfer(generics.CreateAPIView):
