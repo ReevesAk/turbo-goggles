@@ -78,7 +78,8 @@ class AirTimeTopUp(generics.GenericAPIView):
         amount = user_data.get("amount")
 
         serializer = self.serializer_class(data=user_data)
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             if use_bonus:
                 if user.welcome_bonus <= float(amount):
@@ -223,7 +224,8 @@ class DataSubscription(generics.GenericAPIView):
         use_rewards = request.data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             if use_bonus:
@@ -375,7 +377,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             if use_bonus:
@@ -610,7 +613,8 @@ class NewTvSubscription(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -692,7 +696,8 @@ class RenewTvSubscription(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -951,7 +956,8 @@ class InternationalAirTimeTopUp(generics.GenericAPIView):
         amount = user_data.get("amount")
 
         pin = request.data.get("pin")
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -1077,7 +1083,8 @@ class WaecRegistration(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -1203,7 +1210,8 @@ class VehicleInsuranceView(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -1329,7 +1337,8 @@ class AccidentInsuranceView(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -1457,7 +1466,8 @@ class HomeCoverInsuranceView(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
@@ -1627,7 +1637,8 @@ class HealthInsuranceView(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        verification = Pin.verify_pin(user=user, pin=pin)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         if verification:
             payment_option = request.data.get("payment_option")
             match payment_option:
