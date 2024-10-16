@@ -1,15 +1,10 @@
-import logging
 from django.template.loader import render_to_string
 
 from sms import Message
 from permissions import IsSuperAdmin, IsUserOrMember
-import hmac
-import hashlib
-import json
 from decouple import config
 
 from django.contrib.auth.hashers import check_password
-from django.http import HttpRequest
 from django.db.models import Q
 
 from rest_framework import generics, exceptions

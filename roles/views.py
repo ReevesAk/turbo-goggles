@@ -284,9 +284,7 @@ class AddProduct(generics.GenericAPIView):
                 moisture=user_data("moisture"),
                 texture=user_data("texture"),
                 storage=user_data("storage"),
-                additional_images=",".join(
-                    add_img_urls
-                ),
+                additional_images=",".join(add_img_urls),
                 subtitle=user_data("subtitle"),
                 input_style=user_data("input_style"),
             )
