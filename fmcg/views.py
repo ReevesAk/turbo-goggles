@@ -372,8 +372,20 @@ class FmcgRatingView(generics.GenericAPIView):
             product_id = kwargs.get("id")
 
             try:
-                # Fetch the product based on product_id
                 product = Product.objects.get(id=product_id)
+
+                # Check if the user has purchased the product
+                has_purchased = FmcgOrder.objects.filter(
+                    user=user,
+                    product=product.name_and_size,
+                    status=FmcgOrder.Status.COMPLETED  # Check only completed orders
+                ).exists()
+
+                if not has_purchased:
+                    return Response(
+                        data={"status": "fail", "error": "You can only rate products you have purchased."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
                 # Check if the user has already rated the product
                 existing_rating = FmcgRating.objects.filter(product=product, user=user).first()
