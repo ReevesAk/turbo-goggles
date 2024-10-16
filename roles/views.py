@@ -22,7 +22,7 @@ from .serializers import (
     GetApplicationsSerializers,
     DisableAdminSerializer,
     SwitchRolesSerializers,
-    CreateAdminPinSerializer
+    CreateAdminPinSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
