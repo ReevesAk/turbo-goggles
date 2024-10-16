@@ -43,9 +43,12 @@ class GetAllBanks(APIView):
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(
-                data=all_banks_resp.json(), status=all_banks_resp.status_code
-            )
+            err_resp = {
+                "status": "fail",
+                "error": "Could not retrieve financial institution.",
+                "data": all_banks_resp.json(),
+            }
+            return Response(data=err_resp, status=all_banks_resp.status_code)
 
 
 class GetProvidusAccount(generics.GenericAPIView):
@@ -79,7 +82,12 @@ class GetProvidusAccount(generics.GenericAPIView):
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
-                return Response(data=acc_resp.json(), status=acc_resp.status_code)
+                err_resp = {
+                    "status": "fail",
+                    "error": "Account retrieve operation failed.",
+                    "data": acc_resp.json(),
+                }
+                return Response(data=err_resp, status=acc_resp.status_code)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -116,7 +124,12 @@ class GetAccount(generics.GenericAPIView):
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
-                return Response(data=acc_resp.json(), status=acc_resp.status_code)
+                err_resp = {
+                    "status": "fail",
+                    "error": "Account retrieve operation failed.",
+                    "data": acc_resp.json(),
+                }
+                return Response(data=err_resp, status=acc_resp.status_code)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -190,7 +203,12 @@ class IntraBankTransfer(generics.CreateAPIView):
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(data=transfer_resp.json(), status=transfer_resp.status_code)
+            err_resp = {
+                "status": "fail",
+                "error": "Transfer failed.",
+                "data": transfer_resp.json(),
+            }
+            return Response(data=err_resp, status=transfer_resp.status_code)
 
 
 class InterBankTransfer(generics.CreateAPIView):
@@ -256,7 +274,12 @@ class InterBankTransfer(generics.CreateAPIView):
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(data=transfer_resp.json(), status=transfer_resp.status_code)
+            err_resp = {
+                "status": "fail",
+                "error": "Transfer failed.",
+                "data": transfer_resp.json(),
+            }
+            return Response(data=err_resp, status=transfer_resp.status_code)
 
 
 class IntraBankTransactionStatus(generics.GenericAPIView):
@@ -281,7 +304,12 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(data=status_resp.json(), status=status_resp.status_code)
+            err_resp = {
+                "status": "fail",
+                "error": "Could not retrieve transaction status.",
+                "data": status_resp.json(),
+            }
+            return Response(data=err_resp, status=status_resp.status_code)
 
 
 class InterBankTransactionStatus(generics.GenericAPIView):
@@ -305,4 +333,9 @@ class InterBankTransactionStatus(generics.GenericAPIView):
             }
             return Response(data=resp, status=status.HTTP_200_OK)
         else:
-            return Response(data=status_resp.json(), status=status_resp.status_code)
+            err_resp = {
+                "status": "fail",
+                "error": "Could not retrieve transaction status.",
+                "data": status_resp.json(),
+            }
+            return Response(data=err_resp, status=status_resp.status_code)
