@@ -13,9 +13,10 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
+from .helpers import Pin
 from accounts.models import TxModel
 from .controllers import Transfers
-from .models import TransferModel
+from .models import TransferModel, AccountCreation
 from .serializers import (
     GetProvidusAccountSerializer,
     GetAccountSerializer,
@@ -155,60 +156,65 @@ class IntraBankTransfer(generics.CreateAPIView):
         if not serializer.is_valid:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        transfer_resp = Transfers.Intra_bank_transfer(
-            creditAccount=payload["credit_account"],
-            debitAccount=payload["debit_account"],
-            transactionAmount=payload["transaction_amount"],
-            narration=payload["narration"],
-            transactionReference=payload["transaction_reference"],
-        )
-        tx_id = generate_txId()
-        if transfer_resp.status_code == 200:
-            tx = TxModel.objects.create(
-                user=authenticated_user,
-                tx_reference=payload["transaction_reference"],
-                tx_type="Transfer to Providus Account",
-                tx_id=tx_id,
-                amount=payload["transaction_amount"],
-                description=payload["narration"],
-            )
+        account = AccountCreation.objects.get(user=authenticated_user)
+        pin = request.data.get("pin")
+        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+        if verification:
 
-            TransferModel.objects.create(
-                user=authenticated_user,
-                tx=tx,
-                beneficiary_account_number=payload["credit_account"],
-                source_account_name=authenticated_user.full_name,
-                transaction_amount=payload["transaction_amount"],
+            transfer_resp = Transfers.Intra_bank_transfer(
+                creditAccount=payload["credit_account"],
+                debitAccount=payload["debit_account"],
+                transactionAmount=payload["transaction_amount"],
+                narration=payload["narration"],
+                transactionReference=payload["transaction_reference"],
             )
-            amount = payload["transaction_amount"]
-            account = TransferModel.objects.get(user=authenticated_user)
-            message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
-            # send email notification to the User.
-            Message.send_email(
-                subject="Debit Transaction.",
-                content=message,
-                email=authenticated_user.email,
-            )
-            resp = {
-                "status": "success",
-                "message": "Transfer succussful.",
-                "data": {
-                    "credit_account": payload["credit_account"],
-                    "debit_account": payload["debit_account"],
-                    "amount": payload["transaction_amount"],
-                    "narration": payload["narration"],
-                    "beneficiaryBank": "Providus Bank",
-                    "transactionReference": payload["transaction_reference"],
-                },
-            }
-            return Response(data=resp, status=status.HTTP_200_OK)
-        else:
-            err_resp = {
-                "status": "fail",
-                "error": "Transfer failed.",
-                "data": transfer_resp.json(),
-            }
-            return Response(data=err_resp, status=transfer_resp.status_code)
+            tx_id = generate_txId()
+            if transfer_resp.status_code == 200:
+                tx = TxModel.objects.create(
+                    user=authenticated_user,
+                    tx_reference=payload["transaction_reference"],
+                    tx_type="Transfer to Providus Account",
+                    tx_id=tx_id,
+                    amount=payload["transaction_amount"],
+                    description=payload["narration"],
+                )
+
+                TransferModel.objects.create(
+                    user=authenticated_user,
+                    tx=tx,
+                    beneficiary_account_number=payload["credit_account"],
+                    source_account_name=authenticated_user.full_name,
+                    transaction_amount=payload["transaction_amount"],
+                )
+                amount = payload["transaction_amount"]
+                account = TransferModel.objects.get(user=authenticated_user)
+                message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+                # send email notification to the User.
+                Message.send_email(
+                    subject="Debit Transaction.",
+                    content=message,
+                    email=authenticated_user.email,
+                )
+                resp = {
+                    "status": "success",
+                    "message": "Transfer succussful.",
+                    "data": {
+                        "credit_account": payload["credit_account"],
+                        "debit_account": payload["debit_account"],
+                        "amount": payload["transaction_amount"],
+                        "narration": payload["narration"],
+                        "beneficiaryBank": "Providus Bank",
+                        "transactionReference": payload["transaction_reference"],
+                    },
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                err_resp = {
+                    "status": "fail",
+                    "error": "Transfer failed.",
+                    "data": transfer_resp.json(),
+                }
+                return Response(data=err_resp, status=transfer_resp.status_code)
 
 
 class InterBankTransfer(generics.CreateAPIView):
@@ -232,54 +238,58 @@ class InterBankTransfer(generics.CreateAPIView):
         if not serializer.is_valid:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        transfer_resp = Transfers.Inter_bank_transfer(
-            beneficiaryAccountName=payload["beneficiary_account_name"],
-            transactionAmount=payload["transaction_amount"],
-            narration=payload["narration"],
-            beneficiaryBank=payload["beneficiary_bank"],
-            transactionReference=payload["transaction_reference"],
-            beneficiaryAccountNumber=payload["beneficiary_account_number"],
-        )
-        tx_id = generate_txId()
-        if transfer_resp.status_code == 200:
-            tx = TxModel.objects.create(
-                user=authenticated_user,
-                tx_reference=payload["transaction_reference"],
-                tx_type="Transfer to Bank Account",
-                tx_id=tx_id,
-                amount=payload["transaction_amount"],
-                description=payload["narration"],
+        account = AccountCreation.objects.get(user=authenticated_user)
+        pin = request.data.get("pin")
+        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+        if verification:
+            transfer_resp = Transfers.Inter_bank_transfer(
+                beneficiaryAccountName=payload["beneficiary_account_name"],
+                transactionAmount=payload["transaction_amount"],
+                narration=payload["narration"],
+                beneficiaryBank=payload["beneficiary_bank"],
+                transactionReference=payload["transaction_reference"],
+                beneficiaryAccountNumber=payload["beneficiary_account_number"],
             )
+            tx_id = generate_txId()
+            if transfer_resp.status_code == 200:
+                tx = TxModel.objects.create(
+                    user=authenticated_user,
+                    tx_reference=payload["transaction_reference"],
+                    tx_type="Transfer to Bank Account",
+                    tx_id=tx_id,
+                    amount=payload["transaction_amount"],
+                    description=payload["narration"],
+                )
 
-            TransferModel.objects.create(
-                user=authenticated_user,
-                tx=tx,
-                beneficiary_account_name=payload["beneficiary_account_name"],
-                beneficiary_account_number=payload["beneficiary_account_number"],
-                source_account_name=authenticated_user.full_name,
-                beneficiary_bank=payload["beneficiary_bank"],
-                transaction_amount=payload["transaction_amount"],
-            )
-            resp = {
-                "status": "success",
-                "message": "Transfer succussful.",
-                "data": {
-                    "recipient_name": payload["beneficiary_account_name"],
-                    "beneficiary_account_number": payload["beneficiary_account_number"],
-                    "amount": payload["transaction_amount"],
-                    "narration": payload["narration"],
-                    "beneficiaryBank": payload["beneficiary_bank"],
-                    "transactionReference": payload["transaction_reference"],
-                },
-            }
-            return Response(data=resp, status=status.HTTP_200_OK)
-        else:
-            err_resp = {
-                "status": "fail",
-                "error": "Transfer failed.",
-                "data": transfer_resp.json(),
-            }
-            return Response(data=err_resp, status=transfer_resp.status_code)
+                TransferModel.objects.create(
+                    user=authenticated_user,
+                    tx=tx,
+                    beneficiary_account_name=payload["beneficiary_account_name"],
+                    beneficiary_account_number=payload["beneficiary_account_number"],
+                    source_account_name=authenticated_user.full_name,
+                    beneficiary_bank=payload["beneficiary_bank"],
+                    transaction_amount=payload["transaction_amount"],
+                )
+                resp = {
+                    "status": "success",
+                    "message": "Transfer succussful.",
+                    "data": {
+                        "recipient_name": payload["beneficiary_account_name"],
+                        "beneficiary_account_number": payload["beneficiary_account_number"],
+                        "amount": payload["transaction_amount"],
+                        "narration": payload["narration"],
+                        "beneficiaryBank": payload["beneficiary_bank"],
+                        "transactionReference": payload["transaction_reference"],
+                    },
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                err_resp = {
+                    "status": "fail",
+                    "error": "Transfer failed.",
+                    "data": transfer_resp.json(),
+                }
+                return Response(data=err_resp, status=transfer_resp.status_code)
 
 
 class IntraBankTransactionStatus(generics.GenericAPIView):
