@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 
@@ -39,13 +40,29 @@ class PickupAdress(models.Model):
 
 
 class Product(BaseModel):
-    image_url = models.CharField(max_length=150, null=True)
-    name = models.CharField(max_length=150, null=True)
-    description = models.TextField(null=True)
     category = models.CharField(choices=PRODUCT_CATEGORY, max_length=100, null=True)
+    image_url = models.CharField(max_length=150, null=True)
+    name_and_size = models.CharField(max_length=150, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    expiry_date = models.DateField(null=True, blank=True)
+    description = models.TextField(null=True)
+    macro_nutrients = models.TextField(null=True)
+    micro_nutrients = models.TextField(null=True)
+    density = models.CharField(max_length=50, null=True)
+    calories = models.CharField(max_length=200, null=True)
+    moisture = models.CharField(max_length=200, null=True)
+    texture = models.CharField(max_length=150, null=True)
+    storage = models.CharField(max_length=200, null=True)
+    additional_images_urls = models.CharField(max_length=255, null=True)
+    subtitle = models.CharField(max_length=200, null=True, blank=True)
+    input_style = models.CharField(max_length=200, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)
     is_available = models.BooleanField(null=True)
+
+    # def clean(self):
+    #     super().clean()
+    #     if self.expiry_date < timezone.now().date():
+    #         raise ValidationError("Expiry date cannot be in the past.")
 
 
 class Cart(models.Model):

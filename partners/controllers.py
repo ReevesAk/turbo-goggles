@@ -1,5 +1,4 @@
 import logging
-import json
 import requests
 from decouple import config
 

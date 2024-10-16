@@ -192,7 +192,7 @@ class AddToCart(generics.CreateAPIView):
                 "message": "Product added to cart.",
                 "cart_item": {
                     "cart_id": cart.cart_id,
-                    "product": product.name,
+                    "product": product.name_and_size,
                     "quantity": cart_item.quantity,
                     "price": cart_item.price,
                     "total_price": cart_item.get_total_price()
@@ -230,7 +230,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
             cart_data = []
             for item in cart_items:
                 cart_data.append({
-                    "product": item.product.name,
+                    "product": item.product.name_and_size,
                     "quantity": item.quantity,
                     "price_per_unit": item.price,
                     "total_price": item.get_total_price()

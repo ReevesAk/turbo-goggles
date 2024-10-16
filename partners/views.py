@@ -1,4 +1,3 @@
-import requests
 from decouple import config
 from django.template.loader import render_to_string
 from commons import Message
