@@ -18,7 +18,7 @@ class VerifyCAC(models.Model):
 
     users = models.ForeignKey(to=User, on_delete=models.CASCADE)
     is_cac_verified = models.BooleanField(default=False)
-    cac = models.CharField(max_length=255, null=True)
+    rc_number = models.CharField(max_length=255, null=True)
     business_name = models.CharField(max_length=255, null=True)
 
     def __str__(self):

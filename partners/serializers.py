@@ -173,6 +173,6 @@ class VerifyCacSerializers(serializers.ModelSerializer):
     class Meta:
         model = VerifyCAC
         fields = [
-            "cac",
+            "rc_number",
             "business_name",
         ]

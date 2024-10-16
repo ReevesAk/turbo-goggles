@@ -30,6 +30,7 @@ from .models import (
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
 )
+from .controllers import CAC
 from permissions import (
     IsPartner,
     IsPartnerAdmin,
@@ -515,73 +516,67 @@ class VerifyCAC(generics.GenericAPIView):
         }
         current_user = request.user
 
-        payload["users"] = current_user.id
-
-        resource = "https://searchapp.cac.gov.ng/searchapp/api/public-search/company-business-name-it"
-        payload = {
-            "searchTerm": payload["cac"],
-        }
-
         serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
-            serializer.save(users=current_user)
-            try:
-                response = requests.post(
-                    url=resource,
-                    json=payload,
-                )
+            serializer.save()
+            rc_number = serializer.validated_data.get("rc_number")
+            business = serializer.validated_data.get("business_name")
+            verify_cac_response = CAC.verify(
+                rc_number=rc_number, business_name=business
+            )
+            if verify_cac_response.status_code == 200:
+                resp = verify_cac_response.json()["entity"]
+                business_name = payload["business_name"].upper()
+                if business_name == resp["company_name"]:
+                    response_data = {
+                        "status": "success",
+                        "message": "Your business is verified!",
+                        "data": verify_cac_response.json(),
+                    }
+                    # Assign true to current user.
+                    current_user.business_verified = True
+                    current_user.save()
 
-                if response.status_code == 200:
-                    resp = response.json()["data"][0]
-                    business_name = payload["business_name"].upper()
-                    if business_name == resp["approvedName"]:
-                        response_data = {
-                            "status": "success",
-                            "message": "Your business is verified!",
-                            "data": response.json(),
-                        }
-                        # Assign true to current user.
-                        current_user.business_verified = True
-                        current_user.save()
+                    UserNotification.objects.create(
+                        user=request.user,
+                        title="Business Verification.",
+                        message="This is to inform you that the verification of your business is successful.",
+                    )
+                    # send transactional email.
+                    body = "This is to inform you that the verification of your business on Picadailys is successful."
 
-                        UserNotification.objects.create(
-                            user=request.user,
-                            title="Business Verification.",
-                            message="This is to inform you that the verification of your business is successful.",
-                        )
-                        # send transactional email.
-                        body = "This is to inform you that the verification of your business on Picadailys is successful."
+                    email_content = render_to_string(
+                        "email_template.html",
+                        {
+                            "email": "OGafekemor@picadailys.com",
+                            "picadailys_phone": "08134649680",
+                            "message_body": body,
+                        },
+                    )
 
-                        email_content = render_to_string(
-                            "email_template.html",
-                            {
-                                "email": "OGafekemor@picadailys.com",
-                                "picadailys_phone": "08134649680",
-                                "message_body": body,
-                            },
-                        )
+                    Message.send_email(
+                        content=email_content,
+                        email=request.user.email,
+                        subject="Profile Update.",
+                    )
 
-                        Message.send_email(
-                            content=email_content,
-                            email=request.user.email,
-                            subject="Profile Update.",
-                        )
-
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    else:
-                        error_response = {
-                            "status": "fail",
-                            "message": "The business name provided does not match the RC number!",
-                        }
-                        return Response(
-                            data=error_response, status=status.HTTP_404_NOT_FOUND
-                        )
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
                     error_response = {
-                        "error": "An error occurred!",
+                        "status": "fail",
+                        "message": "The business name provided does not match the RC number!",
                     }
-                    return Response(data=error_response, status=response.status_code)
-            except requests.exceptions.RequestException as e:
+                    return Response(
+                        data=error_response, status=status.HTTP_404_NOT_FOUND
+                    )
+            else:
+                error_response = {
+                    "status": "fail",
+                    "error": "An error occurred!",
+                    "data": verify_cac_response.json(),
+                }
                 return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    data=error_response, status=verify_cac_response.status_code
                 )
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
