@@ -247,17 +247,22 @@ class AddProduct(generics.GenericAPIView):
     )
 
     def post(self, request):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-
-        serializer = self.serializer_class(data=user_data)
+        user_data = request.data
+        serializer = ProductSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
+            additional_img_uploads = request.data.getlist("additional_images")
+            add_img_urls = []
+
             try:
                 product_upload = request.data.get("image_url")
                 upload_product = cloud.upload(product_upload)
                 product_url = upload_product["url"]
+
+                if additional_img_uploads:
+                    for upload in additional_img_uploads:
+                        upload_result = cloud.upload(upload)
+                        add_img_url = upload_result["url"]
+                        add_img_urls.append(add_img_url)
 
             except Exception as err:
                 return Response(
@@ -265,25 +270,49 @@ class AddProduct(generics.GenericAPIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-            Product.objects.create(
-                name=user_data("name"),
+            product_entry = Product.objects.create(
+                name_and_size=user_data("name_and_size"),
                 image_url=product_url,
-                category=user_data("name"),
+                category=user_data("category"),
                 price=user_data("price"),
-                description=request.data.get("description"),
-                quantity=user_data("quantity"),
+                description=user_data("description"),
+                expiry_date=user_data("expiry_date"),
+                macro_nutrients=user_data("macro_nutrients"),
+                micro_nutrients=user_data("micro_nutrients"),
+                density=user_data("density"),
+                calories=user_data("calories"),
+                moisture=user_data("moisture"),
+                texture=user_data("texture"),
+                storage=user_data("storage"),
+                additional_images=",".join(
+                    add_img_urls
+                ),
+                subtitle=user_data("subtitle"),
+                input_style=user_data("input_style"),
             )
+            product_entry.certificates = ",".join(add_img_urls)
+            product_entry.save()
+
             resp = {
                 "status": "success",
                 "message": "Product added successfully!",
                 "data": {
-                    "name": user_data("name"),
+                    "name_and_size": user_data.get("name_and_size"),
                     "image_url": product_url,
-                    "category": user_data("name"),
-                    "company": user_data("company"),
-                    "price": user_data("price"),
-                    "description": user_data("description"),
-                    "quantity": user_data("quantity"),
+                    "category": user_data.get("category"),
+                    "price": user_data.get("price"),
+                    "description": user_data.get("description"),
+                    "expiry_date": user_data.get("expiry_date"),
+                    "macro_nutrients": user_data.get("macro_nutrients"),
+                    "micro_nutrients": user_data.get("micro_nutrients"),
+                    "density": user_data.get("density"),
+                    "calories": user_data.get("calories"),
+                    "moisture": user_data.get("moisture"),
+                    "texture": user_data.get("texture"),
+                    "storage": user_data.get("storage"),
+                    "additional_images": add_img_urls,
+                    "subtitle": user_data.get("subtitle"),
+                    "input_style": user_data.get("input_style"),
                 },
             }
             return Response(data=resp, status=status.HTTP_201_CREATED)

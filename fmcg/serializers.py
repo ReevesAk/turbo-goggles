@@ -7,17 +7,31 @@ from .models import Product, FmcgRating, PickupAdress, FmcgOrder
 
 class ProductSerializers(serializers.ModelSerializer):
     """Serializers for creating an FMCG product."""
+    image_url = serializers.FileField(max_length=155)
+    additional_images = serializers.FileField(max_length=155, required=False)
+    subtitle = serializers.CharField(max_length=250, required=False)
+    input_style = serializers.CharField(max_length=250, required=False)
 
     class Meta:
         model = Product
         fields = [
             "id",
             "image_url",
-            "name",
+            "name_and_size",
             "category",
             "price",
-            "quantity",
-            "description"
+            "expiry_date",
+            "description",
+            "macro_nutrients",
+            "micro_nutrients",
+            "density",
+            "calories",
+            "moisture",
+            "texture",
+            "storage",
+            "additional_images",
+            "subtitle",
+            "input_style",
         ]
 
 
@@ -50,7 +64,7 @@ class RetrieveCartProductsSerializers(serializers.ModelSerializer):
         model = Product
         fields = [
             "id",
-            "name",
+            "name_and_size",
             "quantity",
             "price",
             "total_price",
