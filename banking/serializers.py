@@ -147,7 +147,7 @@ class GetProvidusAccountSerializer(serializers.ModelSerializer):
 
 
 class GetAccountSerializer(serializers.ModelSerializer):
-    bankCode = serializers.DecimalField(max_digits=6, min_value=3, decimal_places=2)
+    bankCode = serializers.CharField(min_length=3, write_only=True, required=True)
 
     class Meta:
         model = AccountCreation
