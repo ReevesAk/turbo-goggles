@@ -187,7 +187,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     transaction_amount=payload["transaction_amount"],
                 )
                 amount = payload["transaction_amount"]
-                account = TransferModel.objects.get(user=authenticated_user)
+                account = TransferModel.objects.filter(user=authenticated_user).first()
                 message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
                 # send email notification to the User.
                 Message.send_email(
@@ -215,6 +215,8 @@ class IntraBankTransfer(generics.CreateAPIView):
                     "data": transfer_resp.json(),
                 }
                 return Response(data=err_resp, status=transfer_resp.status_code)
+        else:
+            return Response(data={"status": "fail", "error": "Incorrect pin"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class InterBankTransfer(generics.CreateAPIView):
@@ -290,6 +292,8 @@ class InterBankTransfer(generics.CreateAPIView):
                     "data": transfer_resp.json(),
                 }
                 return Response(data=err_resp, status=transfer_resp.status_code)
+        else:
+            return Response(data={"status": "fail", "error": "Incorrect pin"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class IntraBankTransactionStatus(generics.GenericAPIView):
