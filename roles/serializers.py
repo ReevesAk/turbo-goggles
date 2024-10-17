@@ -78,7 +78,7 @@ class AddAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "roles",
-            "c",
+            "full_name",
             "email",
         ]
         extra_kwargs = {"password": {"write_only": True}}
