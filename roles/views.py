@@ -217,6 +217,9 @@ class LoginAdmin(APIView):
                 user=user, title="Login.", message="Login successful."
             )
 
+            # Retrieve user roles from AccountType model
+            user_roles = AccountType.objects.filter(user=user).values_list('user_type', flat=True)
+
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
             user_details = {
@@ -226,6 +229,7 @@ class LoginAdmin(APIView):
                 "full_name": user.full_name,
                 "is_verified": user.is_verified,
                 "is_admin_pin_set": user.is_admin_pin_set,
+                "roles": list(user_roles)
             }
 
             response = {
