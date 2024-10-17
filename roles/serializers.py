@@ -129,7 +129,7 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
 class CreateAdminPinSerializer(serializers.ModelSerializer):
     """Serailizers for other admin roles first time pin creation."""
 
-    pin = serializers.CharField(max_length=5, min_length=5, write_only=True)
+    pin = serializers.CharField(min_length=5, write_only=True)
 
     class Meta:
         model = User

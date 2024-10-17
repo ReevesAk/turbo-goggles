@@ -68,7 +68,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     has_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
     has_card = models.BooleanField(default=False)
-    admin_pin = models.CharField(max_length=5, null=True)
+    admin_pin = models.CharField(max_length=128, null=True, blank=True)
     is_admin_pin_set = models.BooleanField(default=False, null=True)
 
     # Brand details.
