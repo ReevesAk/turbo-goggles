@@ -49,7 +49,7 @@ from cloudinary import uploader as cloud
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin, IsFmcgAdmin
+from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin, IsFmcgAdmin, IsFmcgAdminOrSuperAdmin
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -254,7 +254,7 @@ class AddProduct(generics.GenericAPIView):
 
     serializer_class = ProductSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsFmcgAdmin | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated, IsFmcgAdminOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -285,24 +285,24 @@ class AddProduct(generics.GenericAPIView):
                 )
 
             product_entry = Product.objects.create(
-                name_and_size=user_data("name_and_size"),
+                name_and_size=user_data.get("name_and_size"),
                 image_url=product_url,
-                category=user_data("category"),
-                price=user_data("price"),
-                description=user_data("description"),
-                expiry_date=user_data("expiry_date"),
-                macro_nutrients=user_data("macro_nutrients"),
-                micro_nutrients=user_data("micro_nutrients"),
-                density=user_data("density"),
-                calories=user_data("calories"),
-                moisture=user_data("moisture"),
-                texture=user_data("texture"),
-                storage=user_data("storage"),
-                additional_images=",".join(add_img_urls),
-                subtitle=user_data("subtitle"),
-                input_style=user_data("input_style"),
+                category=user_data.get("category"),
+                price=user_data.get("price"),
+                description=user_data.get("description"),
+                expiry_date=user_data.get("expiry_date"),
+                macro_nutrients=user_data.get("macro_nutrients"),
+                micro_nutrients=user_data.get("micro_nutrients"),
+                density=user_data.get("density"),
+                calories=user_data.get("calories"),
+                moisture=user_data.get("moisture"),
+                texture=user_data.get("texture"),
+                storage=user_data.get("storage"),
+                additional_images_urls=",".join(add_img_urls),
+                subtitle=user_data.get("subtitle"),
+                input_style=user_data.get("input_style"),
             )
-            product_entry.certificates = ",".join(add_img_urls)
+            product_entry.additional_images_urls = ",".join(add_img_urls)
             product_entry.save()
 
             resp = {

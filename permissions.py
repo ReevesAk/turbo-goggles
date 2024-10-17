@@ -179,7 +179,7 @@ class IsFmcgAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only FmcgAdmin can perform this action.")
+                raise PermissionDenied(detail="Only FmcgAdmin can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
 
@@ -250,4 +250,21 @@ class IsAdmin(permissions.BasePermission):
                 raise ValidationError("Only admin users can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
-    
+
+
+class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an FmcgAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either FmcgAdmin or SuperAdmin
+        if request.user.active_role == 'FmcgAdmin' or request.user.active_role == 'SuperAdmin':
+            return True
+
+        return False

@@ -53,16 +53,10 @@ class Product(BaseModel):
     moisture = models.CharField(max_length=200, null=True)
     texture = models.CharField(max_length=150, null=True)
     storage = models.CharField(max_length=200, null=True)
-    additional_images_urls = models.CharField(max_length=255, null=True)
+    additional_images_urls = models.TextField(null=True)
     subtitle = models.CharField(max_length=200, null=True, blank=True)
     input_style = models.CharField(max_length=200, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)
-    is_available = models.BooleanField(null=True)
-
-    # def clean(self):
-    #     super().clean()
-    #     if self.expiry_date < timezone.now().date():
-    #         raise ValidationError("Expiry date cannot be in the past.")
 
 
 class Cart(models.Model):
