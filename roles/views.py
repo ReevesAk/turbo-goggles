@@ -219,10 +219,20 @@ class LoginAdmin(APIView):
 
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
+            user_details = {
+                "id": user.id,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "full_name": user.full_name,
+                "is_verified": user.is_verified,
+                "is_admin_pin_set": user.is_admin_pin_set
+            }
+
             response = {
                 "status": "success",
                 "message": "Login successful",
                 "tokens": tokens,
+                "user_data": user_details
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
@@ -501,6 +511,7 @@ class SetAdminPin(generics.CreateAPIView):
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
         authenticated_user.admin_pin = hashed_pin
+        authenticated_user.is_admin_pin_set = True
         authenticated_user.save()
 
         # Create a user notification
