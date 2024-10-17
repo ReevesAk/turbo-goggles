@@ -69,7 +69,7 @@ class GetProvidusAccount(generics.GenericAPIView):
         }
 
         serializer = GetProvidusAccountSerializer(data=payload)
-        if serializer.is_valid:
+        if serializer.is_valid():
             validated_data = serializer.validated_data
 
             acc_resp = Transfers.getProvidusAccount(
