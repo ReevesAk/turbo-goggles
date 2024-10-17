@@ -158,9 +158,10 @@ class IntraBankTransfer(generics.CreateAPIView):
 
         account = AccountCreation.objects.get(user=authenticated_user)
         pin = request.data.get("pin")
-        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+        verification = Pin.verify(
+            user=authenticated_user, pin=pin, hashed_pin=account.pin
+        )
         if verification:
-
             transfer_resp = Transfers.Intra_bank_transfer(
                 creditAccount=payload["credit_account"],
                 debitAccount=payload["debit_account"],
@@ -216,7 +217,10 @@ class IntraBankTransfer(generics.CreateAPIView):
                 }
                 return Response(data=err_resp, status=transfer_resp.status_code)
         else:
-            return Response(data={"status": "fail", "error": "Incorrect pin"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class InterBankTransfer(generics.CreateAPIView):
@@ -242,7 +246,9 @@ class InterBankTransfer(generics.CreateAPIView):
 
         account = AccountCreation.objects.get(user=authenticated_user)
         pin = request.data.get("pin")
-        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+        verification = Pin.verify(
+            user=authenticated_user, pin=pin, hashed_pin=account.pin
+        )
         if verification:
             transfer_resp = Transfers.Inter_bank_transfer(
                 beneficiaryAccountName=payload["beneficiary_account_name"],
@@ -277,7 +283,9 @@ class InterBankTransfer(generics.CreateAPIView):
                     "message": "Transfer succussful.",
                     "data": {
                         "recipient_name": payload["beneficiary_account_name"],
-                        "beneficiary_account_number": payload["beneficiary_account_number"],
+                        "beneficiary_account_number": payload[
+                            "beneficiary_account_number"
+                        ],
                         "amount": payload["transaction_amount"],
                         "narration": payload["narration"],
                         "beneficiaryBank": payload["beneficiary_bank"],
@@ -293,7 +301,10 @@ class InterBankTransfer(generics.CreateAPIView):
                 }
                 return Response(data=err_resp, status=transfer_resp.status_code)
         else:
-            return Response(data={"status": "fail", "error": "Incorrect pin"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class IntraBankTransactionStatus(generics.GenericAPIView):

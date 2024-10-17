@@ -225,14 +225,14 @@ class LoginAdmin(APIView):
                 "phone_number": user.phone_number,
                 "full_name": user.full_name,
                 "is_verified": user.is_verified,
-                "is_admin_pin_set": user.is_admin_pin_set
+                "is_admin_pin_set": user.is_admin_pin_set,
             }
 
             response = {
                 "status": "success",
                 "message": "Login successful",
                 "tokens": tokens,
-                "user_data": user_details
+                "user_data": user_details,
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
