@@ -1,9 +1,10 @@
 from django.db import models
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 
-from basemodel import BaseModel
+from basemodel import BaseModel, ItemPurchaseBaseModel
 from accounts.models import User
 
 
@@ -39,7 +40,7 @@ class PickupAdress(models.Model):
     state = models.CharField(max_length=50, null=True)
 
 
-class Product(BaseModel):
+class Product(BaseModel, ItemPurchaseBaseModel):
     category = models.CharField(choices=PRODUCT_CATEGORY, max_length=100, null=True)
     image_url = models.CharField(max_length=150, null=True)
     name_and_size = models.CharField(max_length=150, null=True)
@@ -105,3 +106,11 @@ class FmcgRating(BaseModel):
     rating = models.CharField(null=True, blank=True)
     review = models.TextField(null=True, blank=True)
     slug = models.SlugField(default="", max_length=155, null=False)
+
+
+class Favourite(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    service = GenericForeignKey('content_type', 'object_id')
+    added_at = models.DateTimeField(auto_now_add=True)

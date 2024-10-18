@@ -13,6 +13,9 @@ from .views import (
     DeleteUser,
     ClaimMysteryBoxGift,
     OpenRewardBox,
+    AddToFavourite,
+    ListFavourites,
+    RetrieveFavourite,
 )
 from .notifications import (
     GetAllNotifications,
@@ -47,4 +50,8 @@ urlpatterns = [
     path(
         "notification/<int:id>/delete", DeleteNotification.as_view(), name="delete_ntfn"
     ),
+    # Favourites endpoints
+    path("favourites/add", AddToFavourite.as_view(), name="add_favourite"),
+    path("favourites/list-all", ListFavourites.as_view(), name="list_favourites"),
+    path("favourites/<uuid:id>/get", RetrieveFavourite.as_view(), name="get_favourite")
 ]
