@@ -5,6 +5,7 @@ from permissions import IsSuperAdmin, IsUserOrMember
 from decouple import config
 
 from django.contrib.auth.hashers import check_password
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from rest_framework import generics, exceptions
@@ -13,6 +14,7 @@ from rest_framework import status, parsers
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.exceptions import ValidationError
 
 from drf_spectacular.utils import extend_schema
 
@@ -30,11 +32,23 @@ from .serializers import (
     SwitchToUserSerializer,
     SwitchToPartnersSerializer,
     SwitchToBrandAdSerializer,
+    AddToFavouriteSerializer,
+    FavouriteSerializer
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import Points
 from vas.helpers import VAS
+from self_service.models import (
+    LandTravels, GymSubcription, CinemaBooking, CourierService,
+    ConsumableService, Hotels, RestaurantBooking
+)
+from vas.models import (
+    AirtimeTopup, DataSubscription, TvSubscription, WaecRegistration,
+    HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
+    HomeCoverInsurance
+)
+from fmcg.models import Product, Favourite
 from cloudinary import uploader as cloud
 
 
@@ -627,3 +641,106 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                             "data": data_response.json(),
                         }
                         return Response(data=response, status=status.HTTP_200_OK)
+
+
+class AddToFavourite(generics.CreateAPIView):
+    """
+    AddToFavourite is the POST request handler for allowing a
+    user to add a product to his favourite list.
+    """
+
+    serializer_class = AddToFavouriteSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        authenticated_user = request.user
+        object_id = request.data.get("object_id")
+        model_name = request.data.get("model_name")
+
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+
+            if not object_id or not model_name:
+                raise ValidationError("Both object_id and model_name are required.")
+
+            # Map model_name to actual model classes
+            model_mapping = {
+                "Product": Product,
+                "VehicleInsurance": VehicleInsurance,
+                "HealthInsurance": HealthInsurance,
+                "AirtimeTopup": AirtimeTopup,
+                "DataSubscription": DataSubscription,
+                "ElectricityBill": ElectricityBill,
+                "TvSubscription": TvSubscription,
+                "WaecRegistration": WaecRegistration,
+                "HomeCoverInsurance": HomeCoverInsurance,
+                "AccidentInsurance": AccidentInsurance,
+                "VehicleInsurance": VehicleInsurance,
+                "HealthInsurance": HealthInsurance,
+                "RestaurantBooking": RestaurantBooking,
+                "GymSubcription": GymSubcription,
+                "CinemaBooking": CinemaBooking,
+                "CourierService": CourierService,
+                "ConsumableService": ConsumableService,
+                "LandTravels": LandTravels,
+                "Hotels": Hotels,
+            }
+
+            # Get the model class from the model name
+            model_class = model_mapping.get(model_name)
+            if not model_class:
+                raise ValidationError(f"Model '{model_name}' is not valid.")
+
+            content_type = ContentType.objects.get_for_model(model_class)
+
+            try:
+                service_object = model_class.objects.get(id=object_id)
+            except model_class.DoesNotExist:
+                raise ValidationError(f"Object with id '{object_id}' not found.")
+
+            # Check if the user has purchased the item before allowing it to be favorited
+            if not service_object.purchased:
+                raise ValidationError("You can only favorite items you have purchased.")
+
+            # Create the favorite entry
+            favourite, created = Favourite.objects.get_or_create(
+                user=authenticated_user,
+                content_type=content_type,
+                object_id=service_object.id,
+            )
+
+            if created:
+                return Response({"status": "success", "message": "Item favorited successfully!"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"message": "Item is already in your favorites."}, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ListFavourites(generics.ListAPIView):
+    """
+    List all favourites for the authenticated user.
+    """
+    serializer_class = FavouriteSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Return only the favorites belonging to the authenticated user
+        return Favourite.objects.filter(user=self.request.user)
+
+
+class RetrieveFavourite(generics.RetrieveAPIView):
+    """
+    Retrieve a specific favourite by its ID.
+    """
+    serializer_class = FavouriteSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Return only the favorites belonging to the authenticated user
+        return Favourite.objects.filter(user=self.request.user)
+
+    lookup_field = 'id'

@@ -4,6 +4,7 @@ from rest_framework import serializers
 # In project imports.
 from accounts.models import User, UserNotification
 from .models import MemberSurvey
+from fmcg.models import Favourite
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -133,3 +134,22 @@ class SwitchToPartnersSerializer(serializers.Serializer):
 
 class SwitchToBrandAdSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
+
+
+class AddToFavouriteSerializer(serializers.ModelSerializer):
+    object_id = serializers.CharField(max_length=200)
+    model_name = serializers.CharField(max_length=200)
+
+    class Meta:
+        model = Favourite
+        fields = [
+            "object_id",
+            "model_name"
+        ]
+
+
+class FavouriteSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Favourite
+        fields = ['id', 'user', 'content_type', 'object_id', 'service', 'added_at']
