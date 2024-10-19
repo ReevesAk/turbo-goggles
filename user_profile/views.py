@@ -44,9 +44,10 @@ from self_service.models import (
     ConsumableService, Hotels, RestaurantBooking
 )
 from vas.models import (
-    AirtimeTopup, DataSubscription, TvSubscription, WaecRegistration,
-    HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
-    HomeCoverInsurance
+    AirtimeTopup
+    # DataSubscription, TvSubscription, WaecRegistration,
+    # HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
+    # HomeCoverInsurance
 )
 from fmcg.models import Product, Favourite
 from cloudinary import uploader as cloud

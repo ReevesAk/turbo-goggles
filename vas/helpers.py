@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 import requests
 from decouple import config
 
@@ -12,14 +11,12 @@ x_secret = config("VT_PASS_SECRET_KEY")
 api_key = config("VT_PASS_API_KEY")
 x_token = config("VT_PASS_PUBLIC_KEY")
 
-current_datetime = datetime.now()
-req_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
 headers = {"secret-key": x_secret, "api-key": api_key}
 
 
 class VAS:
     @staticmethod
-    def aritime(service_id, amount, phone):
+    def aritime(service_id, req_id, amount, phone):
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -42,7 +39,7 @@ class VAS:
             )
 
     @staticmethod
-    def data(service_id, amount, phone, billersCode, variation_code):
+    def data(service_id, req_id, amount, phone, billersCode, variation_code):
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -67,7 +64,7 @@ class VAS:
             )
 
     @staticmethod
-    def electricity(service_id, amount, phone, billersCode, variation_code):
+    def electricity(service_id, req_id, amount, phone, billersCode, variation_code):
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -95,6 +92,7 @@ class VAS:
     def newTvSub(
         service_id,
         amount,
+        req_id,
         phone,
         billersCode,
         variation_code,
@@ -127,7 +125,7 @@ class VAS:
             )
 
     @staticmethod
-    def renewTvSub(service_id, amount, phone, billersCode, subscription_type):
+    def renewTvSub(service_id, req_id, amount, phone, billersCode, subscription_type):
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -154,6 +152,7 @@ class VAS:
     @staticmethod
     def intl_topup(
         service_id,
+        req_id,
         amount,
         phone,
         billersCode,
@@ -191,7 +190,7 @@ class VAS:
             )
 
     @staticmethod
-    def waec_reg(service_id, phone, variation_code, quantity):
+    def waec_reg(service_id, req_id, phone, variation_code, quantity):
         resource = "pay"
         payload = {
             "request_id": req_id,
@@ -217,6 +216,7 @@ class VAS:
     @staticmethod
     def vehicle_insurance(
         service_id,
+        req_id,
         billersCode,
         phone,
         variation_code,
@@ -264,6 +264,7 @@ class VAS:
     @staticmethod
     def accident_insurance(
         service_id,
+        req_id,
         billersCode,
         phone,
         variation_code,
@@ -305,6 +306,7 @@ class VAS:
     @staticmethod
     def home_cover_insurance(
         service_id,
+        req_id,
         billersCode,
         phone,
         variation_code,
@@ -344,6 +346,7 @@ class VAS:
     @staticmethod
     def health_insurance(
         service_id,
+        req_id,
         billersCode,
         phone,
         variation_code,

@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from commons import Allocate
 from accounts.models import TxModel, Rewards, UserNotification
 
@@ -8,13 +9,22 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from banking.controllers import Account
-
 from .helpers import VAS
+from .models import (
+    AirtimeTopup, 
+    # DataSubscription, ElectricityBill, WaecRegistration,
+    # TvSubscription, HealthInsurance, VehicleInsurance, AccidentInsurance,
+    # HomeCoverInsurance,
+)
+
+current_datetime = datetime.now()
+req_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
 
 
 def airtime(user, serializer, reason, user_data):
     airtime_response = VAS.aritime(
         service_id=user_data["serviceID"],
+        req_id=req_id,
         amount=user_data["amount"],
         phone=user_data["phone"],
     )
@@ -53,6 +63,14 @@ def airtime(user, serializer, reason, user_data):
 
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
+
+        AirtimeTopup.objects.create(
+            user=user,
+            serviceID=user_data["serviceID"],
+            request_id=req_id,
+            amount=user_data["amount"],
+            phone=user_data["phone"],
+        )
 
         response_data = {
             "status": "Success",
