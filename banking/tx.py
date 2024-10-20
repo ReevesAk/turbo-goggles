@@ -10,7 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from accounts.models import TxModel
 from vas.models import (
     AirtimeTopup,
-    # DataSubscription,
+    DataSubscription,
     # TvSubscription,
     # WaecRegistration,
     # HealthInsurance,
@@ -22,7 +22,7 @@ from vas.models import (
 from banking.serializers import TxModelSerializer
 from vas.serializers import (
     AirtimeTopupSerializer,
-    # DataSubscriptionSerializer,
+    DataSubscriptionSerializer,
     # TvSubscriptionSerializer,
     # WaecRegistrationSerializer,
     # HealthInsuranceSerializer,

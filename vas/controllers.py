@@ -26,17 +26,18 @@ def airtime(user, serializer, reason, user_data):
         service_id=user_data["serviceID"],
         req_id=req_id,
         amount=user_data["amount"],
-        phone=user_data["phone"],
+        phone=user_data.get("phone"),
     )
 
     if airtime_response.status_code == 200:
         airtime_instance = serializer.save()
         amount = user_data["amount"]
+        phone = user_data["phone"]
 
         UserNotification.objects.create(
             user=user,
             title="Airtime purchase.",
-            message=f"This is to inform you that you have made a purchase of {amount} naira airtime.",
+            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
         )
 
         # Check is user is a member then assign rewards.
@@ -47,7 +48,7 @@ def airtime(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.filter(user=user).order_by("-id").first()
+                tx = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_id = airtime_response.json().get("transactionId", "")
                 tx.tx_reference = airtime_instance.tx_reference
                 tx.tx_type = "Airtime"
@@ -94,6 +95,7 @@ def airtime(user, serializer, reason, user_data):
 
 def data(user, serializer, reason, user_data):
     data_response = VAS.data(
+        req_id=req_id,
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
         phone=user_data["phone"],
@@ -103,12 +105,13 @@ def data(user, serializer, reason, user_data):
     if data_response.status_code == 200:
         data_instance = serializer.save()
         amount = user_data["amount"]
+        phone = user_data["phone"]
 
         UserNotification.objects.create(
             user=user,
             title="Data subscription.",
             message=f"This is to inform you that you have made a \
-                purchase of {amount} data subscription",
+                purchase of {amount} data subscription on {phone}."
         )
 
         # Check is user is a memeber then assign rewards.
@@ -119,7 +122,7 @@ def data(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_id = data_response.json().get("transactionId", "")
                 tx.tx_reference = data_instance.tx_reference
                 tx.tx_type = "Data"

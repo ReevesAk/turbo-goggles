@@ -49,8 +49,8 @@ from self_service.models import (
     RestaurantBooking,
 )
 from vas.models import (
-    AirtimeTopup,
-    # DataSubscription, TvSubscription, WaecRegistration,
+    AirtimeTopup, DataSubscription
+    # TvSubscription, WaecRegistration,
     # HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
     # HomeCoverInsurance
 )

@@ -13,9 +13,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_spectacular.utils import extend_schema
 
 from .serializers import (
-    # VasStatusSerializer,
+    VasStatusSerializer,
     AirtimeTopupSerializer,
-    # DataSubscriptionSerializer,
+    DataSubscriptionSerializer,
     # ElectricityBillSerializer,
     # TvSubscriptionSerializer,
     # IntlAirtimeSerializer,
@@ -90,6 +90,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                             reason="Debit for airtime recharge.",
                             user_data=user_data,
                         )
+                        return Response(
+                            data="Bonus was used to purchase this product",
+                            status=status.HTTP_200_OK,
+                        )
                     else:
                         return Response(
                             data="You do not have enough bonus to purchase this product",
@@ -142,13 +146,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     transactionReference="",
                                     reason="Refund for failed airtime recharge.",
                                 )
-                                if credit_response == 200:
+                                if credit_response.status_code == 200:
                                     logging.info(
                                         f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
                                     )
                                 else:
                                     logging.error(
-                                        f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                                        f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}"
                                     )
                                 return Response(
                                     data=debit_response.json(),
@@ -169,150 +173,168 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
 
 
-# class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
-#     """
-#     GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation
-#     codes of different network providers. It takes in the service_ID(mtn, airtel etc)
-#     as url param.
-#     """
+class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation
+    codes of different network providers. It takes in the service_ID(mtn, airtel etc)
+    as url param.
+    """
 
-#     serializer_class = VasStatusSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = VasStatusSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     @extend_schema(
-#         description="Variation codes",
-#         responses={200: {"description": "Network Providers Varitaion Codes"}},
-#     )
-#     def get(self, request, *args, **kwargs):
-#         user = self.request.user  # Get the authenticated user.
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "Network Providers Varitaion Codes"}},
+    )
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
 
-#         param_value = kwargs.get("service_ID")
+        param_value = kwargs.get("service_ID")
 
-#         if user:
-#             resource = "service-variations?serviceID=" + param_value
-#             fetch_all_variation_codes_headers = {
-#                 "accept": "application/json",
-#                 "api-key": api_key,
-#                 "secret-key": x_secret,
-#             }
-#             try:
-#                 response = requests.get(
-#                     url=vtpass_url + resource,
-#                     headers=fetch_all_variation_codes_headers,
-#                 )
-#                 if response.status_code == 200:
-#                     resp = response.json()["content"]["variations"]
-#                     response_data = {
-#                         "data": resp,
-#                     }
-#                     return Response(data=response_data, status=status.HTTP_200_OK)
-#             except requests.exceptions.RequestException as e:
-#                 return Response(
-#                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#                 )
+        if user:
+            resource = "service-variations?serviceID=" + param_value
+            fetch_all_variation_codes_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=fetch_all_variation_codes_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["variations"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 
-# class DataSubscription(generics.GenericAPIView):
-#     """
-#     DataSubscription is a POST request handler for data
-#     subscription.
-#     """
+class DataSubscriptionView(generics.GenericAPIView):
+    """
+    DataSubscriptionView is a POST request handler for data
+    subscription.
+    """
 
-#     serializer_class = DataSubscriptionSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = DataSubscriptionSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     def post(self, request):
-#         user_data = {
-#             key: value.strip() if isinstance(value, str) else value
-#             for key, value in request.data.items()
-#         }
-#         user = request.user
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        user = request.user
 
-#         pin = request.data.get("pin")
-#         use_bonus = request.data.get("use_bonus")
-#         amount = request.data.get("amount")
-#         use_points = request.data.get("use_points")
-#         use_rewards = request.data.get("use_rewards")
+        pin = request.data.get("pin")
+        use_bonus = request.data.get("use_bonus")
+        amount = request.data.get("amount")
+        use_points = request.data.get("use_points")
+        use_rewards = request.data.get("use_rewards")
 
-#         serializer = self.serializer_class(data=user_data)
-#         account = AccountCreation.objects.get(user=user)
-#         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-#         if verification:
-#             payment_option = request.data.get("payment_option")
-#             if use_bonus:
-#                 if user.welcome_bonus <= float(amount):
-#                     data(
-#                         user=user,
-#                         serializer=serializer,
-#                         reason="Debit for data subscription.",
-#                         user_data=user_data,
-#                     )
-#                 else:
-#                     return Response(
-#                         data="You do not have enough bonus to purchase this product",
-#                         status=status.HTTP_400_BAD_REQUEST,
-#                     )
-#             else:
-#                 match payment_option:
-#                     case "WALLET":
-#                         if use_points:
-#                             _, pts_amt = Pay.with_pts(user=user, amount=amount)
-#                         else:
-#                             pts_amt = 0
-#                         if use_rewards:
-#                             _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-#                         else:
-#                             rwd_amt = 0
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            account = AccountCreation.objects.get(user=user)
+            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            if verification:
+                payment_option = request.data.get("payment_option")
+                if use_bonus:
+                    if user.welcome_bonus <= float(amount):
+                        data(
+                            user=user,
+                            serializer=serializer,
+                            reason="Debit for data subscription.",
+                            user_data=user_data,
+                        )
+                    else:
+                        return Response(
+                            data="You do not have enough bonus to purchase this product",
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
+                    match payment_option:
+                        case "WALLET":
+                            if use_points:
+                                _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                            else:
+                                pts_amt = 0
+                            if use_rewards:
+                                _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                            else:
+                                rwd_amt = 0
 
-#                         new_amount = amount - pts_amt - rwd_amt
+                            new_amount = int(amount) - pts_amt - rwd_amt
 
-#                         user_details = AccountCreation.objects.get(user=user)
-#                         # Inititate a debit on the customer's account.
-#                         debit_response = Account.Debit(
-#                             debitAccount=user_details.account_number,
-#                             amount=new_amount,
-#                             reason="Debit for data subscription.",
-#                             transactionReference="",
-#                         )
+                            user_details = AccountCreation.objects.get(user=user)
+                            # Inititate a debit on the customer's account.
+                            debit_response = Account.Debit(
+                                debitAccount=user_details.account_number,
+                                amount=new_amount,
+                                reason="Debit for data subscription.",
+                                transactionReference="",
+                            )
 
-#                         if debit_response.status_code == 200:
-#                             serializer = self.serializer_class(data=user_data)
-#                             if serializer.is_valid(raise_exception=True):
-#                                 data(
-#                                     user=user,
-#                                     serializer=serializer,
-#                                     reason="Debit for data subscription.",
-#                                     user_data=user_data,
-#                                 )
-#                             else:
-#                                 return Response(
-#                                     data=serializer.errors,
-#                                     status=status.HTTP_400_BAD_REQUEST,
-#                                 )
-#                         else:
-#                             # Attempt to refund the debited amount.
-#                             credit_response = Account.Credit(
-#                                 acct_no=user_details.account_number,
-#                                 amount=new_amount,
-#                                 transactionReference="",
-#                                 reason="Refund for failed data subscription.",
-#                             )
-#                             if credit_response == 200:
-#                                 logging.info(
-#                                     f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-#                                 )
-#                             else:
-#                                 logging.error(
-#                                     f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
-#                                 )
-#                             return Response(
-#                                 data=debit_response.json(),
-#                                 status=debit_response.status_code,
-#                             )
-#                     case "CARD":
-#                         pass
+                            if debit_response.status_code == 200:
+                                if serializer.is_valid(raise_exception=True):
+                                    data(
+                                        user=user,
+                                        serializer=serializer,
+                                        reason="Debit for data subscription.",
+                                        user_data=user_data,
+                                    )
+                                    return Response(
+                                        data={
+                                            "status": "success",
+                                            "message": "Account debit successful",
+                                            "data": debit_response.json(),
+                                        },
+                                        status=debit_response.status_code,
+                                    )
+                                else:
+                                    return Response(
+                                        data=serializer.errors,
+                                        status=status.HTTP_400_BAD_REQUEST,
+                                    )
+                            else:
+                                # Attempt to refund the debited amount.
+                                credit_response = Account.Credit(
+                                    acct_no=user_details.account_number,
+                                    amount=new_amount,
+                                    transactionReference="",
+                                    reason="Refund for failed data subscription.",
+                                )
+                                if credit_response.status_code == 200:
+                                    logging.info(
+                                        f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                                    )
+                                else:
+                                    logging.error(
+                                        f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}"
+                                    )
+                                return Response(
+                                    data=debit_response.json(),
+                                    status=debit_response.status_code,
+                                )
+                        case "CARD":
+                            pass
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        else:
+            return Response(
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 # class VerifyMeterNumber(generics.RetrieveAPIView):
