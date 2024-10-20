@@ -33,13 +33,13 @@ def check_provider(number):
     etisalat_numbers = ["0809", "0817", "0818", "0908", "0909"]
 
     if number.startswith(tuple(mtn_numbers)):
-        return ["mtn", "mtn-data"]
+        return ["MTN", "mtn-data"]
     elif number.startswith(tuple(glo_numbers)):
-        return ["glo", "glo-data"]
+        return ["Glo", "glo-data"]
     elif number.startswith(tuple(airtel_numbers)):
-        return ["airtel", "airtel-data"]
+        return ["Airtel", "airtel-data"]
     elif number.startswith(tuple(etisalat_numbers)):
-        return ["etisalat", "etisalat-data"]
+        return ["Etisalat", "etisalat-data"]
     else:
         return ["Unknown"]
 
@@ -71,10 +71,10 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         serviceID = attrs.get("serviceID", "")
-        phone = attrs.get("phone", "")  # Changed from 'number' to 'phone'
+        phone = attrs.get("phone", "")
 
         if serviceID and phone:
-            provider, _ = check_provider(phone)  # Assuming this checks the phone
+            provider, _ = check_provider(phone)
             if serviceID != provider:
                 raise serializers.ValidationError(
                     f"This phone number, {phone}, does not belong to the service provider, {serviceID}"
@@ -83,6 +83,18 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("serviceID and phone number are required")
 
         return attrs
+
+    def create(self, validated_data):
+        # Exclude non-model fields
+        validated_data.pop("pin", None)
+        # validated_data.pop("payment_option", None)
+        # validated_data.pop("use_bonus", None)
+        # validated_data.pop("use_points", None)
+        # validated_data.pop("use_rewards", None)
+
+        # Now create the AirtimeTopup instance with the remaining data
+        airtime_instance = AirtimeTopup.objects.create(**validated_data)
+        return airtime_instance
 
 
 # class DataSubscriptionSerializer(serializers.ModelSerializer):
