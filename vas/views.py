@@ -107,7 +107,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             else:
                                 rwd_amt = 0
 
-                            new_amount = amount - pts_amt - rwd_amt
+                            new_amount = int(amount) - pts_amt - rwd_amt
 
                             user_details = AccountCreation.objects.get(user=user)
                             # Inititate a debit on the customer's account.
@@ -124,6 +124,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     serializer=serializer,
                                     reason="Debit for airtime recharge.",
                                     user_data=user_data,
+                                )
+                                return Response(
+                                    data={"status": "success", "message": "Account debit successful", "data": debit_response.json()},
+                                    status=debit_response.status_code
                                 )
 
                             else:
