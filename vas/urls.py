@@ -30,7 +30,7 @@ from .views import (
 
 urlpatterns = [
     path(
-        "airtime-topup/",
+        "airtime-topup",
         AirTimeTopUp.as_view(),
         name="airtime_topup",
     ),

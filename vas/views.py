@@ -126,8 +126,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     user_data=user_data,
                                 )
                                 return Response(
-                                    data={"status": "success", "message": "Account debit successful", "data": debit_response.json()},
-                                    status=debit_response.status_code
+                                    data={
+                                        "status": "success",
+                                        "message": "Account debit successful",
+                                        "data": debit_response.json(),
+                                    },
+                                    status=debit_response.status_code,
                                 )
 
                             else:

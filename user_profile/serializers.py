@@ -142,14 +142,10 @@ class AddToFavouriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Favourite
-        fields = [
-            "object_id",
-            "model_name"
-        ]
+        fields = ["object_id", "model_name"]
 
 
 class FavouriteSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Favourite
-        fields = ['id', 'user', 'content_type', 'object_id', 'added_at']
+        fields = ["id", "user", "content_type", "object_id", "added_at"]

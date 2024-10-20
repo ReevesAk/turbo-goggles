@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from banking.controllers import Account
 from .helpers import VAS
 from .models import (
-    AirtimeTopup, 
+    AirtimeTopup,
     # DataSubscription, ElectricityBill, WaecRegistration,
     # TvSubscription, HealthInsurance, VehicleInsurance, AccidentInsurance,
     # HomeCoverInsurance,
@@ -47,7 +47,7 @@ def airtime(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.filter(user=user).order_by('-id').first()
+                tx, _ = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_id = airtime_response.json().get("transactionId", "")
                 tx.tx_reference = airtime_instance.tx_reference
                 tx.tx_type = "Airtime"

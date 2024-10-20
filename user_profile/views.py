@@ -33,18 +33,23 @@ from .serializers import (
     SwitchToPartnersSerializer,
     SwitchToBrandAdSerializer,
     AddToFavouriteSerializer,
-    FavouriteSerializer
+    FavouriteSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import Points
 from vas.helpers import VAS
 from self_service.models import (
-    LandTravels, GymSubcription, CinemaBooking, CourierService,
-    ConsumableService, Hotels, RestaurantBooking
+    LandTravels,
+    GymSubcription,
+    CinemaBooking,
+    CourierService,
+    ConsumableService,
+    Hotels,
+    RestaurantBooking,
 )
 from vas.models import (
-    AirtimeTopup
+    AirtimeTopup,
     # DataSubscription, TvSubscription, WaecRegistration,
     # HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
     # HomeCoverInsurance
@@ -661,7 +666,6 @@ class AddToFavourite(generics.CreateAPIView):
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-
             if not object_id or not model_name:
                 raise ValidationError("Both object_id and model_name are required.")
 
@@ -712,9 +716,15 @@ class AddToFavourite(generics.CreateAPIView):
             )
 
             if created:
-                return Response({"status": "success", "message": "Item favorited successfully!"}, status=status.HTTP_201_CREATED)
+                return Response(
+                    {"status": "success", "message": "Item favorited successfully!"},
+                    status=status.HTTP_201_CREATED,
+                )
             else:
-                return Response({"message": "Item is already in your favorites."}, status=status.HTTP_200_OK)
+                return Response(
+                    {"message": "Item is already in your favorites."},
+                    status=status.HTTP_200_OK,
+                )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -723,6 +733,7 @@ class ListFavourites(generics.ListAPIView):
     """
     List all favourites for the authenticated user.
     """
+
     serializer_class = FavouriteSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -736,6 +747,7 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     """
     Retrieve a specific favourite by its ID.
     """
+
     serializer_class = FavouriteSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -744,4 +756,4 @@ class RetrieveFavourite(generics.RetrieveAPIView):
         # Return only the favorites belonging to the authenticated user
         return Favourite.objects.filter(user=self.request.user)
 
-    lookup_field = 'id'
+    lookup_field = "id"

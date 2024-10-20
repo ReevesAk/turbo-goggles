@@ -49,7 +49,13 @@ from cloudinary import uploader as cloud
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
 from commons import Message, CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled, IsAdmin, IsFmcgAdmin, IsFmcgAdminOrSuperAdmin
+from permissions import (
+    IsSuperAdmin,
+    IsNotDisabled,
+    IsAdmin,
+    IsFmcgAdmin,
+    IsFmcgAdminOrSuperAdmin,
+)
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -218,7 +224,9 @@ class LoginAdmin(APIView):
             )
 
             # Retrieve user roles from AccountType model
-            user_roles = AccountType.objects.filter(user=user).values_list('user_type', flat=True)
+            user_roles = AccountType.objects.filter(user=user).values_list(
+                "user_type", flat=True
+            )
 
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
@@ -229,7 +237,7 @@ class LoginAdmin(APIView):
                 "full_name": user.full_name,
                 "is_verified": user.is_verified,
                 "is_admin_pin_set": user.is_admin_pin_set,
-                "roles": list(user_roles)
+                "roles": list(user_roles),
             }
 
             response = {
