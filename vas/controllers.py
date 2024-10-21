@@ -48,18 +48,20 @@ def airtime(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx = TxModel.objects.filter(user=user).order_by("-id").first()
-                tx.tx_id = airtime_response.json().get("transactionId", "")
-                tx.tx_reference = airtime_instance.tx_reference
-                tx.tx_type = "Airtime"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for airtime purchase."
-                tx.rwd = new_rewards
-                tx.save()
+                # Create a new transaction entry
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=airtime_response.json().get("transactionId", ""),
+                    tx_reference=airtime_instance.tx_reference,
+                    tx_type="Airtime",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for airtime purchase.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
-                rwd.transaction = tx
+                rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
                 rwd.save()
 
         except Exception as e:

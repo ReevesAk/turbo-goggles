@@ -18,6 +18,7 @@ def check_provider(number):
     mtn_numbers = [
         "0703",
         "0706",
+        "0707",
         "0803",
         "0806",
         "0810",
