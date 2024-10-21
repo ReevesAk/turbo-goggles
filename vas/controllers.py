@@ -113,7 +113,7 @@ def data(user, serializer, reason, user_data):
             user=user,
             title="Data subscription.",
             message=f"This is to inform you that you have made a \
-                purchase of {amount} data subscription on {phone}."
+                purchase of {amount} data subscription on {phone}.",
         )
 
         # Check is user is a memeber then assign rewards.

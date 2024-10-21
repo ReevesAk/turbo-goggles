@@ -89,29 +89,38 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         if use_bonus:
             if user.welcome_bonus >= float(amount):
-                airtime(user=user, serializer=serializer, reason="Debit for airtime recharge.", user_data=user_data)
+                airtime(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for airtime recharge.",
+                    user_data=user_data,
+                )
                 return Response(
                     data={
                         "status": "success",
                         "message": "Bonus was used to purchase this product",
-                        "bonus ballance": user.welcome_bonus
+                        "bonus ballance": user.welcome_bonus,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
             else:
                 return Response(
                     data={
                         "status": "fail",
                         "message": "You do not have enough bonus to purchase this product",
-                        "bonus ballance": user.welcome_bonus
+                        "bonus ballance": user.welcome_bonus,
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
             match payment_option:
                 case "WALLET":
-                    pts_amt = Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
-                    rwd_amt = Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
+                    pts_amt = (
+                        Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
+                    )
+                    rwd_amt = (
+                        Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
+                    )
 
                     new_amount = int(amount) - pts_amt - rwd_amt
                     user_details = AccountCreation.objects.get(user=user)
@@ -125,8 +134,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                     )
 
                     if debit_response.status_code == 200:
-                        airtime(user=user, serializer=serializer, reason="Debit for airtime recharge.", user_data=user_data)
-                        return Response(data={"status": "success", "message": "Account debit successful", "data": debit_response.json()}, status=debit_response.status_code)
+                        airtime(
+                            user=user,
+                            serializer=serializer,
+                            reason="Debit for airtime recharge.",
+                            user_data=user_data,
+                        )
+                        return Response(
+                            data={
+                                "status": "success",
+                                "message": "Account debit successful",
+                                "data": debit_response.json(),
+                            },
+                            status=debit_response.status_code,
+                        )
 
                     # Attempt to refund the debited amount.
                     credit_response = Account.Credit(
@@ -136,17 +157,32 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Refund for failed airtime recharge.",
                     )
                     if credit_response.status_code == 200:
-                        logging.info(f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}")
+                        logging.info(
+                            f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                        )
                     else:
-                        logging.error(f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}")
+                        logging.error(
+                            f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}"
+                        )
 
-                    return Response(data=debit_response.json(), status=debit_response.status_code)
+                    return Response(
+                        data=debit_response.json(), status=debit_response.status_code
+                    )
 
                 case "CARD":
                     # Implement card payment logic here
-                    return Response(data={"status": "fail", "message": "Card payment not yet implemented"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+                    return Response(
+                        data={
+                            "status": "fail",
+                            "message": "Card payment not yet implemented",
+                        },
+                        status=status.HTTP_501_NOT_IMPLEMENTED,
+                    )
 
-            return Response(data={"status": "fail", "message": "Invalid payment option"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data={"status": "fail", "message": "Invalid payment option"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
@@ -234,16 +270,16 @@ class DataSubscriptionView(generics.GenericAPIView):
                             data={
                                 "status": "success",
                                 "message": "Bonus was used to purchase this product",
-                                "bonus ballance": user.welcome_bonus
+                                "bonus ballance": user.welcome_bonus,
                             },
-                            status=status.HTTP_200_OK
+                            status=status.HTTP_200_OK,
                         )
                     else:
                         return Response(
                             data={
                                 "status": "fail",
                                 "message": "You do not have enough bonus to purchase this product",
-                                "bonus ballance": user.welcome_bonus
+                                "bonus ballance": user.welcome_bonus,
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )

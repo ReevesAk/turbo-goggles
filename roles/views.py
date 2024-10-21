@@ -614,7 +614,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 resp = {
                     "status": "success",
                     "message": "Admin disabbled successfully",
-                    "data": user.is_disabled,
+                    "data": user.is_admin_disabled,
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
