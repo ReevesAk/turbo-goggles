@@ -158,7 +158,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             recipient = user.phone_number
 
             Message.send_msg(msg=str(msg), to=recipient)
-            verified_resonse = {"status": "success", "message": "Account is verified"}
+            verified_resonse = {"status": "success", "message": "Account is verified", "user_id": user_id}
             return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
 
@@ -373,15 +373,7 @@ class ResetPassword(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         user_data = serializer.validated_data
-
-        otp = user_data["otp"]
-        user_id = otp_manager.validate_user_otp(otp=otp)
-
-        if not user_id:
-            return Response(
-                data={"error": "Invalid or expired OTP"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user_id = payload.get("user_id")
 
         try:
             user = User.objects.get(id=user_id)

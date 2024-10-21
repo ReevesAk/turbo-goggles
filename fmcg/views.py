@@ -85,8 +85,13 @@ class ListAllProducts(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        all_products = Product.objects.all()
-        return all_products
+        category = self.request.query_params.get('category', None)
+
+        # If a category is passed, filter the products by category
+        if category:
+            return Product.objects.filter(category__iexact=category)
+        else:
+            return Product.objects.all()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()

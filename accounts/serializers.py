@@ -137,10 +137,11 @@ class PasswordResendOTPSerializer(serializers.Serializer):
 class ResetPasswordSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    user_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ("password", "password2")
+        fields = ("user_id", "password", "password2")
 
 
 class LogoutSerializer(serializers.Serializer):
