@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from .models import (
     AirtimeTopup,
-    # DataSubscription,
+    DataSubscription,
     # ElectricityBill,
     # TvSubscription,
     # WaecRegistration,
@@ -33,15 +33,15 @@ def check_provider(number):
     etisalat_numbers = ["0809", "0817", "0818", "0908", "0909"]
 
     if number.startswith(tuple(mtn_numbers)):
-        return ["MTN", "mtn-data"]
+        return "MTN"
     elif number.startswith(tuple(glo_numbers)):
-        return ["Glo", "glo-data"]
+        return "Glo"
     elif number.startswith(tuple(airtel_numbers)):
-        return ["Airtel", "airtel-data"]
+        return "Airtel"
     elif number.startswith(tuple(etisalat_numbers)):
-        return ["Etisalat", "etisalat-data"]
+        return "Etisalat"
     else:
-        return ["Unknown"]
+        return "Unknown"
 
 
 class AirtimeTopupSerializer(serializers.ModelSerializer):
@@ -74,7 +74,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
         phone = attrs.get("phone", "")
 
         if serviceID and phone:
-            provider, _ = check_provider(phone)
+            provider = check_provider(phone)
             if serviceID != provider:
                 raise serializers.ValidationError(
                     f"This phone number, {phone}, does not belong to the service provider, {serviceID}"
@@ -87,71 +87,61 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Exclude non-model fields
         validated_data.pop("pin", None)
-        # validated_data.pop("payment_option", None)
-        # validated_data.pop("use_bonus", None)
-        # validated_data.pop("use_points", None)
-        # validated_data.pop("use_rewards", None)
 
-        # Now create the AirtimeTopup instance with the remaining data
         airtime_instance = AirtimeTopup.objects.create(**validated_data)
         return airtime_instance
 
 
-# class DataSubscriptionSerializer(serializers.ModelSerializer):
-#     """Serializers for data subscription."""
+class DataSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializers for data subscription."""
 
-#     pin = serializers.CharField(max_length=4, write_only=True, required=True)
-#     number = serializers.CharField(max_length=50, write_only=True)
-#     expiryMonth = serializers.CharField(max_length=50, write_only=True)
-#     expiryYear = serializers.CharField(max_length=50, write_only=True)
-#     card_pin = serializers.CharField(max_length=4, write_only=True)
-#     cvv = serializers.CharField(max_length=3, write_only=True)
-#     tokenId = serializers.CharField(max_length=255, write_only=True)
-#     token = serializers.CharField(max_length=255, write_only=True)
-#     use_bonus = serializers.BooleanField(write_only=True, required=False)
-#     use_points = serializers.BooleanField(write_only=True, required=False)
-#     use_rewards = serializers.BooleanField(write_only=True, required=False)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    payment_option = serializers.CharField(max_length=255, write_only=True)
+    use_bonus = serializers.BooleanField(write_only=True, required=False)
+    use_points = serializers.BooleanField(write_only=True, required=False)
+    use_rewards = serializers.BooleanField(write_only=True, required=False)
+    tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)
 
-#     class Meta:
-#         model = DataSubscription
-#         fields = [
-#             "id",
-#             "payment_option",
-#             "serviceID",
-#             "amount",
-#             "phone",
-#             "billersCode",
-#             "variation_code",
-#             "pin",
-#             "number",
-#             "expiryMonth",
-#             "expiryYear",
-#             "card_pin",
-#             "cvv",
-#             "tokenId",
-#             "token",
-#             "use_bonus",
-#             "use_points",
-#             "use_rewards",
-#             "tx_reference",
-#         ]
+    class Meta:
+        model = DataSubscription
+        fields = [
+            "id",
+            "payment_option",
+            "serviceID",
+            "amount",
+            "phone",
+            "billersCode",
+            "variation_code",
+            "pin",
+            "use_bonus",
+            "use_points",
+            "use_rewards",
+            "tx_reference",
+        ]
 
-#     def validate(self, attrs):
-#         serviceID = attrs.get("serviceID", "")
-#         billersCode = attrs.get("billersCode", "")
+    def validate(self, attrs):
+        serviceID = attrs.get("serviceID", "")
+        billersCode = attrs.get("billersCode", "")
 
-#         if serviceID and billersCode:
-#             _, provider_data = check_provider(billersCode)
-#             if serviceID != provider_data:
-#                 raise serializers.ValidationError(
-#                     f"This number, {billersCode} does not belong to the service provider, {serviceID}"
-#                 )
-#         else:
-#             serializers.ValidationError(
-#                 "serviceID and billerscode(phone number) are required"
-#             )
+        if serviceID and billersCode:
+            provider_data = check_provider(billersCode)
+            if serviceID != provider_data:
+                raise serializers.ValidationError(
+                    f"This number, {billersCode} does not belong to the service provider, {serviceID}"
+                )
+        else:
+            serializers.ValidationError(
+                "serviceID and billerscode(phone number) are required"
+            )
 
-#         return attrs
+        return attrs
+
+    def create(self, validated_data):
+        # Exclude non-model fields
+        validated_data.pop("pin", None)
+
+        data_instance = DataSubscription.objects.create(**validated_data)
+        return data_instance
 
 
 # class ElectricityBillSerializer(serializers.ModelSerializer):
@@ -486,5 +476,5 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
 #         ]
 
 
-# class VasStatusSerializer(serializers.Serializer):
-#     message = serializers.CharField(max_length=200)
+class VasStatusSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)

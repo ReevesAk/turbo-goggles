@@ -58,17 +58,17 @@ class AirtimeTopup(ItemPurchaseBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-# class DataSubscription(ItemPurchaseBaseModel):
-#     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-#     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-#     request_id = models.CharField(max_length=150, null=True)
-#     serviceID = models.CharField(
-#         choices=DATA_SERVICE_ID_CHOICES, max_length=150, null=True
-#     )
-#     billersCode = models.CharField(max_length=150, null=True)
-#     variation_code = models.CharField(max_length=150, null=True)
-#     amount = models.CharField(max_length=150, null=True)
-#     phone = models.CharField(max_length=150, null=True)
+class DataSubscription(ItemPurchaseBaseModel):
+    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
+    request_id = models.CharField(max_length=150, null=True)
+    serviceID = models.CharField(
+        choices=DATA_SERVICE_ID_CHOICES, max_length=150, null=True
+    )
+    billersCode = models.CharField(max_length=150, null=True)
+    variation_code = models.CharField(max_length=150, null=True)
+    amount = models.CharField(max_length=150, null=True)
+    phone = models.CharField(max_length=150, null=True)
 
 
 # class ElectricityBill(ItemPurchaseBaseModel):
