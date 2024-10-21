@@ -44,8 +44,6 @@ from .controllers import (
 )
 from commons import Pay
 
-from cloudinary import uploader as cloud
-
 
 vtpass_url = config("VT_PASS_BASE_URL")
 x_secret = config("VT_PASS_SECRET_KEY")
@@ -90,11 +88,23 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
 
         if use_bonus:
-            if user.welcome_bonus <= float(amount):
+            if user.welcome_bonus >= float(amount):
                 airtime(user=user, serializer=serializer, reason="Debit for airtime recharge.", user_data=user_data)
-                return Response(data="Bonus was used to purchase this product", status=status.HTTP_200_OK)
+                return Response(
+                    data={
+                        "status": "success",
+                        "message": "Bonus was used to purchase this product"
+                    },
+                    status=status.HTTP_200_OK
+                )
             else:
-                return Response(data="You do not have enough bonus to purchase this product", status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "You do not have enough bonus to purchase this product",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         else:
             match payment_option:
                 case "WALLET":
@@ -211,7 +221,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             if verification:
                 payment_option = request.data.get("payment_option")
                 if use_bonus:
-                    if user.welcome_bonus <= float(amount):
+                    if user.welcome_bonus >= float(amount):
                         data(
                             user=user,
                             serializer=serializer,
