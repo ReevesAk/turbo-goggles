@@ -93,7 +93,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                 return Response(
                     data={
                         "status": "success",
-                        "message": "Bonus was used to purchase this product"
+                        "message": "Bonus was used to purchase this product",
+                        "bonus ballance": user.welcome_bonus
                     },
                     status=status.HTTP_200_OK
                 )
@@ -102,6 +103,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     data={
                         "status": "fail",
                         "message": "You do not have enough bonus to purchase this product",
+                        "bonus ballance": user.welcome_bonus
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
@@ -228,9 +230,21 @@ class DataSubscriptionView(generics.GenericAPIView):
                             reason="Debit for data subscription.",
                             user_data=user_data,
                         )
+                        return Response(
+                            data={
+                                "status": "success",
+                                "message": "Bonus was used to purchase this product",
+                                "bonus ballance": user.welcome_bonus
+                            },
+                            status=status.HTTP_200_OK
+                        )
                     else:
                         return Response(
-                            data="You do not have enough bonus to purchase this product",
+                            data={
+                                "status": "fail",
+                                "message": "You do not have enough bonus to purchase this product",
+                                "bonus ballance": user.welcome_bonus
+                            },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:

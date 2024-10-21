@@ -365,22 +365,22 @@ class ChangePassword(generics.UpdateAPIView):
                 message="You have successfully changed your password.",
             )
 
-            body = "This is to inform you that your Picadailys account password has been beem changes successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+            # body = "This is to inform you that your Picadailys account password has been beem changes successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
 
-            email_content = render_to_string(
-                "email_template.html",
-                {
-                    "email": "OGafekemor@picadailys.com",
-                    "picadailys_phone": "08134649680",
-                    "message_body": body,
-                },
-            )
+            # email_content = render_to_string(
+            #     "email_template.html",
+            #     {
+            #         "email": "OGafekemor@picadailys.com",
+            #         "picadailys_phone": "08134649680",
+            #         "message_body": body,
+            #     },
+            # )
 
-            Message.send_email(
-                content=email_content,
-                email=request.user.email,
-                subject="Change of Password.",
-            )
+            # Message.send_email(
+            #     content=email_content,
+            #     email=request.user.email,
+            #     subject="Change of Password.",
+            # )
 
             response = {
                 "status": "success",

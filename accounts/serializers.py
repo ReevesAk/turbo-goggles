@@ -124,14 +124,23 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
         fields = ["phone_number"]
 
 
+class PasswordResendOTPSerializer(serializers.Serializer):
+    """Serailizers for resending OTP to our users."""
+
+    phone_number = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = ["phone_number"]
+
+
 class ResetPasswordSerializer(serializers.ModelSerializer):
-    otp = serializers.CharField(max_length=50, min_length=4)
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ("otp", "password", "password2")
+        fields = ("password", "password2")
 
 
 class LogoutSerializer(serializers.Serializer):

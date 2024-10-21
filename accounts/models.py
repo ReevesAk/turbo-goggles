@@ -70,6 +70,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     has_card = models.BooleanField(default=False)
     admin_pin = models.CharField(max_length=128, null=True, blank=True)
     is_admin_pin_set = models.BooleanField(default=False, null=True)
+    is_admin_disabled = models.BooleanField(default=False, null=True)
 
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)

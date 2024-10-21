@@ -605,18 +605,23 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
         pin = self.request.data.get("pin")
 
         try:
-            user = User.objects.filter(Q(email=email)).exists()
+            user = User.objects.filter(Q(email=email)).first()
 
             if check_password(password=pin, encoded=request.user.admin_pin):
-                user.is_disabled = True
+                user.is_admin_disabled = True
                 user.save()
 
-            resp = {
-                "status": "success",
-                "message": "Admin disabbled successfully",
-                "data": user.is_disabled,
-            }
-            return Response(data=resp, status=status.HTTP_200_OK)
+                resp = {
+                    "status": "success",
+                    "message": "Admin disabbled successfully",
+                    "data": user.is_disabled,
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
         except User.DoesNotExist:
             return Response(

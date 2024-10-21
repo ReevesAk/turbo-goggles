@@ -22,6 +22,7 @@ from .serializers import (
     ResendOTPSerializer,
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
+    PasswordResendOTPSerializer,
     LogoutSerializer,
     SubmitGamificationSerializer,
 )
@@ -204,7 +205,7 @@ class PasswordResendOTP(generics.GenericAPIView):
     """
 
     permission_classes = (AllowAny,)
-    serializer_class = ResendOTPSerializer
+    serializer_class = PasswordResendOTPSerializer
 
     def post(self, request):
         user_data = {
