@@ -11,7 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from accounts.models import User, AccountType
 from commons import CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin
+from permissions import IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin, IsAdAdminOrSuperAdmin
 
 
 class PaginationStyle(PageNumberPagination):
@@ -26,20 +26,20 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
 
     serializer_class = RestrictBrandAdSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin)
+    permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
-        user_id = request.data.get("user_id")
+        user_id = kwargs.get("brand_id")
 
         try:
-            partner = User.objects.get(id=user_id)
+            brand_ad = User.objects.get(id=user_id)
 
-            account_types = AccountType.objects.filter(id=user_id)
+            account_types = AccountType.objects.filter(user=brand_ad)
             # Check if any AccountType has "BrandAd" in user_type
-            is_partner = any(acct.user_type == "BrandAd" for acct in account_types)
+            is_brandAd = any(acct.user_type == "BrandAd" for acct in account_types)
 
-            if not is_partner:
+            if not is_brandAd:
                 raise exceptions.ValidationError(
                     "User as not regsitered as a brand ad."
                 )
@@ -47,7 +47,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid(raise_exception=True):
                 brand_account = RestrictBrandAdAccount.objects.create(
-                    user=partner,
+                    user=brand_ad,
                     reason=request.data.get("reason"),
                     minimum_debit=request.data.get("minimum_debit"),
                     maximum_debit=request.data.get("maximum_debit"),
@@ -87,7 +87,7 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListBrandAdSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled, IsBrandAdAdmin)
+    permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
 

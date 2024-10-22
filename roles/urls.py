@@ -101,13 +101,13 @@ urlpatterns = [
         name="get_all_partners",
     ),
     path(
-        "partner-admin/restrict-partner",
+        "partner-admin/<int:partner_id>/restrict-partner",
         RestrictPartnerAccountView.as_view(),
         name="restrict_partner",
     ),
     # BrandAd endpoints.
     path(
-        "brand-admin/restrict-brandAd",
+        "brand-admin/<int:brand_id>/restrict-brandAd",
         RestrictBrandAdAccountView.as_view(),
         name="restrict_brandAd",
     ),
