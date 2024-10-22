@@ -1,3 +1,5 @@
+from django.contrib.auth.hashers import check_password
+
 # In project imports.
 from .serializers import (
     ListPartnerUsersSerializer,
@@ -77,28 +79,36 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
 
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid(raise_exception=True):
-                partner_account = RestrictPartnerAccount.objects.create(
-                    user=partner,
-                    reason=request.data.get("reason"),
-                    minimum_debit=request.data.get("minimum_debit"),
-                    maximum_debit=request.data.get("maximum_debit"),
-                    post_per_day=request.data.get("post_per_day"),
-                )
-                # Set the is_restricted flag to true.
-                partner_account.is_restricted = True
-                partner_account.save()
+                pin = serializer.validated_data.get("pin")
+                if check_password(password=pin, encoded=request.user.admin_pin):
+                    partner_account = RestrictPartnerAccount.objects.create(
+                        user=partner,
+                        reason=request.data.get("reason"),
+                        minimum_debit=request.data.get("minimum_debit"),
+                        maximum_debit=request.data.get("maximum_debit"),
+                        post_per_day=request.data.get("post_per_day"),
+                    )
+                    # Set the is_restricted flag to true.
+                    partner_account.is_restricted = True
+                    partner_account.save()
 
-                return Response(
-                    {
-                        "status": "success",
-                        "message": "Partner account restricted successfully.",
-                        "data": {
-                            "partner_account_id": partner_account.id,
-                            "user_detail": serializer.data,
+                    return Response(
+                        {
+                            "status": "success",
+                            "message": "Partner account restricted successfully.",
+                            "data": {
+                                "restricetd_account_id": partner_account.id,
+                                "user_detail": serializer.data,
+                            },
                         },
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    return Response(
+                        data={"status": "fail", "error": "Incorrect pin"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
         except User.DoesNotExist:
             return Response(
                 {

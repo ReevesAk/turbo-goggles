@@ -311,15 +311,33 @@ class ListPartnerUsersSerializer(serializers.ModelSerializer):
 
 
 class RestrictPartnersSerializers(serializers.ModelSerializer):
+    pin = serializers.CharField(min_length=5, write_only=True)
+
     class Meta:
         model = RestrictPartnerAccount
-        fields = ["id", "reason", "minimum_debit", "maximum_debit", "post_per_day"]
+        fields = [
+            "id",
+            "pin",
+            "reason",
+            "minimum_debit",
+            "maximum_debit",
+            "post_per_day",
+        ]
 
 
 class RestrictBrandAdSerializers(serializers.ModelSerializer):
+    pin = serializers.CharField(min_length=5, write_only=True)
+
     class Meta:
         model = RestrictBrandAdAccount
-        fields = ["id", "reason", "minimum_debit", "maximum_debit", "post_per_day"]
+        fields = [
+            "id",
+            "pin",
+            "reason",
+            "minimum_debit",
+            "maximum_debit",
+            "post_per_day",
+        ]
 
 
 class ListBrandAdSerializer(serializers.ModelSerializer):
