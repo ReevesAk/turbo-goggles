@@ -23,6 +23,7 @@ from .serializers import (
     DisableAdminSerializer,
     SwitchRolesSerializers,
     CreateAdminPinSerializer,
+    EnableAdminSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -614,6 +615,52 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 resp = {
                     "status": "success",
                     "message": "Admin disabbled successfully",
+                    "data": user.is_admin_disabled,
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+        except User.DoesNotExist:
+            return Response(
+                f"Admin with '{email}' does not exist.",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class EnableAdminrole(generics.RetrieveUpdateAPIView):
+    """
+    EnableAdminrole handles the POST request of re-enabling
+    a disabled admin user.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = EnableAdminSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def post(self, request, *args, **kwargs):
+        _ = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        email = self.request.data.get("email")
+        pin = self.request.data.get("pin")
+
+        try:
+            user = User.objects.filter(Q(email=email)).first()
+
+            if check_password(password=pin, encoded=request.user.admin_pin):
+                user.is_admin_disabled = False
+                user.save()
+
+                resp = {
+                    "status": "success",
+                    "message": "Admin re-enabled successfully",
                     "data": user.is_admin_disabled,
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
