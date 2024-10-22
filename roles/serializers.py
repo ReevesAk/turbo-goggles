@@ -165,6 +165,14 @@ class DisableAdminSerializer(serializers.ModelSerializer):
         fields = ["email", "pin"]
 
 
+class EnableAdminSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email", "pin"]
+
+
 class UpdateAdminRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
