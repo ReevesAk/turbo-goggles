@@ -223,19 +223,21 @@ class CreateBankAccount(generics.GenericAPIView):
                 signature=signature,
             )
             response_data = acc_response.json()
-            response_code = response_data.get('ResponseCode')
+            response_code = response_data.get("ResponseCode")
 
             # Handle different response codes explicitly
-            if response_code == '7799':
-                logging.error(f"Error {response_code}: {response_data['ResponseDetInfo']}")
+            if response_code == "7799":
+                logging.error(
+                    f"Error {response_code}: {response_data['ResponseDetInfo']}"
+                )
                 error_message = "The operation has timed out. Please try again later."
                 return Response(
                     data={
                         "status": "fail",
                         "error": error_message,
-                        "details": response_data['ResponseDetInfo']
+                        "details": response_data["ResponseDetInfo"],
                     },
-                    status=status.HTTP_408_REQUEST_TIMEOUT
+                    status=status.HTTP_408_REQUEST_TIMEOUT,
                 )
 
             elif acc_response.status_code == 200:

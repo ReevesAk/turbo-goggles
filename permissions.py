@@ -268,3 +268,39 @@ class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
             return True
 
         return False
+
+
+class IsPartnerAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an PartnersAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either PartnersAdmin or SuperAdmin
+        if request.user.active_role == 'PartnersAdmin' or request.user.active_role == 'SuperAdmin':
+            return True
+
+        return False
+
+
+class IsAdAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an PartnersAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either AdAdmin or SuperAdmin
+        if request.user.active_role == 'AdAdmin' or request.user.active_role == 'SuperAdmin':
+            return True
+
+        return False

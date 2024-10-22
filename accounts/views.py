@@ -158,7 +158,11 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             recipient = user.phone_number
 
             Message.send_msg(msg=str(msg), to=recipient)
-            verified_resonse = {"status": "success", "message": "Account is verified", "user_id": user_id}
+            verified_resonse = {
+                "status": "success",
+                "message": "Account is verified",
+                "user_id": user_id,
+            }
             return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
 
