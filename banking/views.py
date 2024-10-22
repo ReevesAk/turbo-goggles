@@ -51,6 +51,8 @@ headers = {
 picadailys_email = config("EMAIL_HOST_USER")
 app_password = config("EMAIL_HOST_PASSWORD")
 
+logger = logging.getLogger(__name__)
+
 
 class PaginationStyle(PageNumberPagination):
     page_size = 20
@@ -220,8 +222,23 @@ class CreateBankAccount(generics.GenericAPIView):
                 utility=utility,
                 signature=signature,
             )
+            response_data = acc_response.json()
+            response_code = response_data.get('ResponseCode')
 
-            if acc_response.status_code == 200:
+            # Handle different response codes explicitly
+            if response_code == '7799':
+                logging.error(f"Error {response_code}: {response_data['ResponseDetInfo']}")
+                error_message = "The operation has timed out. Please try again later."
+                return Response(
+                    data={
+                        "status": "fail",
+                        "error": error_message,
+                        "details": response_data['ResponseDetInfo']
+                    },
+                    status=status.HTTP_408_REQUEST_TIMEOUT
+                )
+
+            elif acc_response.status_code == 200:
                 print(acc_response.json())
                 AccountCreation.objects.create(
                     user=current_user,

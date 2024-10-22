@@ -474,6 +474,11 @@ class Logout(APIView):
         }
         try:
             refresh_token = payload["refresh_token"]
+            if refresh_token is None:
+                return Response(
+                    {"error": "Refresh token is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             token = RefreshToken(refresh_token)
             token.blacklist()
 
