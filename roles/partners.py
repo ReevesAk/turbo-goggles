@@ -6,7 +6,7 @@ from .serializers import (
     RestrictPartnersSerializers,
 )
 from .views import PaginationStyle
-from .models import RestrictPartnerAccount
+from .models import RestrictPartnerAccount, ActivityModel
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import User, AccountType
+from accounts.models import User, AccountType, UserNotification
 from commons import CamelCaseJSONRenderer
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
 
@@ -91,6 +91,20 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                     # Set the is_restricted flag to true.
                     partner_account.is_restricted = True
                     partner_account.save()
+
+                    # Register Admin activity.
+                    ActivityModel.objects.create(
+                        user=request.user,
+                        title="Restrict Admin.",
+                        description=f"Partner, {partner.firstname} has been restricted by {request.user.full_name}.",
+                    )
+
+                    reason = (request.data.get("reason"),)
+                    UserNotification.objects.create(
+                        user=partner,
+                        title="Restrict Account.",
+                        message=f"Your account has been restricted for this reason: {reason}.",
+                    )
 
                     return Response(
                         {

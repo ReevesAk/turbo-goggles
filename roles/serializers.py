@@ -10,6 +10,7 @@ from .models import (
     Applications,
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
+    ActivityModel,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 
@@ -404,3 +405,16 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
         Get the list of user types for a wallet user from the AccountType model.
         """
         return list(obj.user.accounttype_set.values_list("user_type", flat=True))
+
+
+class GetAllActivityLogsSerializer(serializers.Serializer):
+    date = serializers.CharField(required=False, read_only=True)
+
+    class Meta:
+        model = ActivityModel
+        fields = [
+            "id",
+            "title",
+            "description",
+            "date",
+        ]

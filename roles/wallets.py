@@ -15,6 +15,8 @@ from banking.models import AccountCreation
 from commons import CamelCaseJSONRenderer
 from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdmin
 
+from .models import ActivityModel
+
 
 class GetallWalletUsers(generics.ListAPIView):
     """

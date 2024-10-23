@@ -5,6 +5,8 @@ import uuid
 
 from accounts.models import User
 
+from basemodel import BaseModel
+
 
 class GamificationModel(models.Model):
     """
@@ -55,3 +57,9 @@ class RestrictBrandAdAccount(models.Model):
     maximum_debit = models.FloatField(default=Decimal("0.00"), null=True, blank=True)
     post_per_day = models.IntegerField(null=True, blank=True)
     is_restricted = models.BooleanField(default=False, null=True)
+
+
+class ActivityModel(BaseModel):
+    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True)
+    title = models.CharField(max_length=100, null=True)
+    description = models.TextField(null=True)

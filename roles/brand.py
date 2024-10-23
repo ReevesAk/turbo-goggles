@@ -2,7 +2,7 @@ from django.contrib.auth.hashers import check_password
 
 # In project imports.
 from .serializers import RestrictBrandAdSerializers, ListBrandAdSerializer
-from .models import RestrictBrandAdAccount
+from .models import RestrictBrandAdAccount, ActivityModel
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -11,12 +11,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from accounts.models import User, AccountType
+from accounts.models import User, AccountType, UserNotification
 from commons import CamelCaseJSONRenderer
 from permissions import (
-    IsSuperAdmin,
     IsNotDisabled,
-    IsBrandAdAdmin,
     IsAdAdminOrSuperAdmin,
 )
 
@@ -65,6 +63,20 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                     # Set the is_restricted flag to true.
                     brand_account.is_restricted = True
                     brand_account.save()
+
+                    # Register Admin activity.
+                    ActivityModel.objects.create(
+                        user=request.user,
+                        title="Restrict Admin.",
+                        description=f"Brand, {brand_account.firstname} has been restricted by {request.user.full_name}.",
+                    )
+
+                    reason = (request.data.get("reason"),)
+                    UserNotification.objects.create(
+                        user=brand_account,
+                        title="Restrict Account.",
+                        message=f"Your account has been restricted for this reason: {reason}.",
+                    )
 
                     return Response(
                         {
