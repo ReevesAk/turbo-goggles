@@ -25,32 +25,32 @@ from .views import (
 
 
 urlpatterns = [
-    path("table-booking/", TableBooking.as_view(), name="table_booking"),
-    path("table-booking-list/", TableBookingList.as_view(), name="table_booking_list"),
+    path("table-booking", TableBooking.as_view(), name="table_booking"),
+    path("table-booking-list", TableBookingList.as_view(), name="table_booking_list"),
     path(
         "table-booking-details/<int:id>/",
         TableBookingDetail.as_view(),
         name="table_booking_details",
     ),
-    path("gym-subcription/", GymBooking.as_view(), name="gym_subcription"),
-    path("gym-sub-list/", GymBookingList.as_view(), name="gym_sub_list"),
+    path("gym-subcription", GymBooking.as_view(), name="gym_subcription"),
+    path("gym-sub-list", GymBookingList.as_view(), name="gym_sub_list"),
     path(
         "gym-subcription-details/<int:id>/",
         GymBookingDetail.as_view(),
         name="gym_subcription_details",
     ),
-    path("cinema-booking/", CinemaBookingView.as_view(), name="cinema_booking"),
+    path("cinema-booking", CinemaBookingView.as_view(), name="cinema_booking"),
     path(
-        "cinema-booking-list/", CinemaBookingList.as_view(), name="cinema_booking_list"
+        "cinema-booking-list", CinemaBookingList.as_view(), name="cinema_booking_list"
     ),
     path(
         "cinema_booking-details/<int:id>/",
         CinemaBookingDetail.as_view(),
         name="cinema_booking_details",
     ),
-    path("courier-booking/", BookCourierSercvice.as_view(), name="courier_booking"),
+    path("courier-booking", BookCourierSercvice.as_view(), name="courier_booking"),
     path(
-        "courier-booking-list/",
+        "courier-booking-list",
         CourierBookingList.as_view(),
         name="courier_booking_list",
     ),
@@ -60,12 +60,12 @@ urlpatterns = [
         name="courier_booking_details",
     ),
     path(
-        "consumable-booking/",
+        "consumable-booking",
         BookConsumableSercvice.as_view(),
         name="consumable_booking",
     ),
     path(
-        "consumable-booking-list/",
+        "consumable-booking-list",
         ConsumableBookingList.as_view(),
         name="consumable_booking_list",
     ),
@@ -74,22 +74,22 @@ urlpatterns = [
         ConsumableBookingDetail.as_view(),
         name="consumable_booking_details",
     ),
-    path("book-land-trip/", BookLandTrip.as_view(), name="book_land_trip"),
+    path("book-land-trip", BookLandTrip.as_view(), name="book_land_trip"),
     path(
         "land-trip-booking-details/<int:id>/",
         LandTripBookingDetail.as_view(),
         name="land_trip_booking_details",
     ),
     path(
-        "land-trips-booking-list/",
+        "land-trips-booking-list",
         LandTripBookingList.as_view(),
         name="land_trip_booking_list",
     ),
-    path("hotel-booking/", BookHotel.as_view(), name="hotel_booking"),
+    path("hotel-booking", BookHotel.as_view(), name="hotel_booking"),
     path(
         "<str:service_type>/<int:id>/rate/",
         ServiceRating.as_view(),
         name="rate-service",
     ),
-    path("get-transaction/", GetTransaction.as_view(), name="get_transaction"),
+    path("get-transaction", GetTransaction.as_view(), name="get_transaction"),
 ]
