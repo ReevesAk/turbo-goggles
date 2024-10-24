@@ -716,7 +716,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Re-Enable Admin.",
-                    description=f"Admin user, {user.full_name} disabled.",
+                    description=f"Admin user, {user.first} was re-enabled.",
                 )
 
                 resp = {
@@ -1158,12 +1158,17 @@ class GetAllAdminActivites(generics.ListAPIView):
 
         data = []
         for activity in activities:
+            if activity.user.active_role == "SuperAdmin":
+                authorised_by = "SuperAdmin"
+            else:
+                authorised_by = f"{activity.user.full_name}"
             data.append(
                 {
                     "activity_id": activity.id,
-                    "authorised_by": activity.user.full_name,
+                    "authorised_by": authorised_by,
+                    "role": activity.user.active_role,
                     "title": activity.title,
-                    "description": activity.decscription,
+                    "description": activity.description,
                     "created_at": activity.created_at,
                 }
             )
@@ -1186,12 +1191,17 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "id"
+    lookup_field = "user_id"
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            activity_id = kwargs["id"]
+            activity_id = kwargs["user_id"]
             activity = ActivityModel.objects.get(id=activity_id)
+
+            if activity.user.active_role == "SuperAdmin":
+                authorised_by = "SuperAdmin"
+            else:
+                authorised_by = f"{activity.user.full_name}"
 
             # Prepare the response data
             response = {
@@ -1201,7 +1211,8 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 "data": {
                     "activity_id": activity_id,
                     "description": activity.description,
-                    "authorised_by": activity.user.full_name,
+                    "authorised_by": authorised_by,
+                    "role": activity.user.active_role,
                     "created_at": activity.created_at,
                 },
             }
@@ -1224,13 +1235,18 @@ class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "id"
+    lookup_field = "email"
 
     def retrieve(self, request, *args, **kwargs):
         try:
             admin_email = kwargs["email"]
             user = User.objects.get(email=admin_email)
             activity = ActivityModel.objects.get(user=user)
+
+            if activity.user.active_role == "SuperAdmin":
+                authorised_by = "SuperAdmin"
+            else:
+                authorised_by = f"{activity.user.full_name}"
 
             # Prepare the response data
             response = {
@@ -1240,7 +1256,8 @@ class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
                 "data": {
                     "activity_id": activity.id,
                     "description": activity.description,
-                    "authorised_by": activity.user.full_name,
+                    "authorised_by": authorised_by,
+                    "role": activity.user.active_role,
                     "created_at": activity.created_at,
                 },
             }
@@ -1258,7 +1275,7 @@ class AdminTypesListView(APIView):
     AdminTypesListView is the GET request handler that returns a list of admin types.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def get(self, request):
         admin_types = [admin_type[1] for admin_type in ADMIN_TYPES]
