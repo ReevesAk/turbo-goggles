@@ -68,14 +68,14 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                     ActivityModel.objects.create(
                         user=request.user,
                         title="Restrict Admin.",
-                        description=f"Brand, {brand_account.firstname} has been restricted by {request.user.full_name}."
+                        description=f"Brand, {brand_account.firstname} has been restricted by {request.user.full_name}.",
                     )
 
-                    reason = request.data.get("reason"),
+                    reason = (request.data.get("reason"),)
                     UserNotification.objects.create(
                         user=brand_account,
                         title="Restrict Account.",
-                        message=f"Your account has been restricted for this reason: {reason}."
+                        message=f"Your account has been restricted for this reason: {reason}.",
                     )
 
                     return Response(

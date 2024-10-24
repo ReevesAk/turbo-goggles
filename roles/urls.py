@@ -61,8 +61,16 @@ urlpatterns = [
     ),
     # Activity Logs Endpoints.
     path("activity/get-all", GetAllAdminActivites.as_view(), name="get_all"),
-    path("activity/<uuid:user_id>/single-activity", GetSingleAdminActivity.as_view(), name="single_activity"),
-    path("activity/<str:email>/single-get-all", GetAllSingleAdminUserActivity.as_view(), name="single_get_all"),
+    path(
+        "activity/<uuid:user_id>/single-activity",
+        GetSingleAdminActivity.as_view(),
+        name="single_activity",
+    ),
+    path(
+        "activity/<str:email>/single-get-all",
+        GetAllSingleAdminUserActivity.as_view(),
+        name="single_get_all",
+    ),
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(

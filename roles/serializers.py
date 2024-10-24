@@ -10,7 +10,7 @@ from .models import (
     Applications,
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
-    ActivityModel
+    ActivityModel,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 

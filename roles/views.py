@@ -24,7 +24,7 @@ from .serializers import (
     SwitchRolesSerializers,
     CreateAdminPinSerializer,
     EnableAdminSerializer,
-    GetAllActivityLogsSerializer
+    GetAllActivityLogsSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -234,7 +234,7 @@ class LoginAdmin(APIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Admin Login.",
-                description=f"Admin User, {user.fullname} logged in."
+                description=f"Admin User, {user.fullname} logged in.",
             )
 
             # Retrieve user roles from AccountType model
@@ -331,7 +331,7 @@ class AddProduct(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Add product",
-                description=f"Admin User {authenticated_user.fullname}, added fmcg product {product_entry} to the store."
+                description=f"Admin User {authenticated_user.fullname}, added fmcg product {product_entry} to the store.",
             )
 
             resp = {
@@ -394,7 +394,7 @@ class AddAddress(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Add FMCG product.",
-                description=f"Admin User, {authenticated_user.fullname}, added {name, state} as FMCG pickup address."
+                description=f"Admin User, {authenticated_user.fullname}, added {name, state} as FMCG pickup address.",
             )
             resp = {
                 "status": "success.",
@@ -512,11 +512,10 @@ class AdAdminContd(generics.UpdateAPIView):
 
         serializer = AddAdminContdSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
-
             ActivityModel.objects.create(
                 user=instance,
                 title="Admin Complete Signup.",
-                description=f"Admin user {instance.full_name} completed signup."
+                description=f"Admin user {instance.full_name} completed signup.",
             )
             return Response(
                 data={
@@ -618,7 +617,7 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         ActivityModel.objects.create(
             user=request.user,
             title="Admin Role Updated.",
-            description=f"Admin, {instance.full_name} given new role: {new_role}."
+            description=f"Admin, {instance.full_name} given new role: {new_role}.",
         )
         return Response(
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
@@ -661,7 +660,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Disable Admin.",
-                    description=f"Admin user, {user.full_name} disabled."
+                    description=f"Admin user, {user.full_name} disabled.",
                 )
 
                 resp = {
@@ -719,7 +718,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Re-Enable Admin.",
-                    description=f"Admin user, {user.full_name} disabled."
+                    description=f"Admin user, {user.full_name} disabled.",
                 )
 
                 resp = {
@@ -768,7 +767,7 @@ class DeleteAdmin(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Delete Admin.",
-                    description=f"Admin user, {user.full_name} deleted successfully."
+                    description=f"Admin user, {user.full_name} deleted successfully.",
                 )
                 # TODO
                 # Send email to the admin user.
@@ -1128,7 +1127,7 @@ class SwitchRoles(generics.RetrieveAPIView):
             ActivityModel.objects.create(
                 user=current_user,
                 title="Switch Admin Roles.",
-                description=f"Admin user, {current_user.full_name} switched from {current_user.active_role} to {new_role}."
+                description=f"Admin user, {current_user.full_name} switched from {current_user.active_role} to {new_role}.",
             )
 
             # User has the requested account type, switch the role
@@ -1148,7 +1147,7 @@ class SwitchRoles(generics.RetrieveAPIView):
 class GetAllAdminActivites(generics.ListAPIView):
     """
     GetAllAdminActivities is the GET request handler that allows rthe SuperAdmin to
-    receive all activity logs, including the name of the admin user who 
+    receive all activity logs, including the name of the admin user who
     created the activity.
     """
 
@@ -1193,7 +1192,6 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-
             activity_id = kwargs["id"]
             activity = ActivityModel.objects.get(id=activity_id)
 
@@ -1232,7 +1230,6 @@ class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-
             admin_email = kwargs["email"]
             user = User.objects.get(email=admin_email)
             activity = ActivityModel.objects.get(user=user)
