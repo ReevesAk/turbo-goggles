@@ -232,7 +232,7 @@ class LoginAdmin(APIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Admin Login.",
-                description=f"Admin User, {user.fullname} logged in.",
+                description=f"Admin User, {user.full_name} logged in.",
             )
 
             # Retrieve user roles from AccountType model

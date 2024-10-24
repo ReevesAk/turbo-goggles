@@ -61,7 +61,7 @@ class Product(BaseModel, ItemPurchaseBaseModel):
 
 
 class Cart(models.Model):
-    cart_id = models.CharField(max_length=150, blank=True)
+    cart_id = models.CharField(max_length=150, blank=True, null=True)
     date_added = models.DateField(auto_now_add=True, null=True)
 
     def __str__(self):

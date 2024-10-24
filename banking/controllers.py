@@ -24,7 +24,7 @@ def login():
         )
         return response.json()["accessToken"]
     except Exception as e:
-        logging.DEBUG(e)
+        logging.debug(e)
 
 
 class BVN:

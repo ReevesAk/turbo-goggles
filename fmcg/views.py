@@ -174,7 +174,7 @@ class AddToCart(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            product_id = kwargs("product_id")
+            product_id = kwargs.get("product_id")
             quantity = request.data.get("quantity", 1)
 
             product = get_object_or_404(Product, id=product_id)

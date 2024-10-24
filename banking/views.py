@@ -7,6 +7,7 @@ from commons import Message
 
 from django.contrib.auth.hashers import make_password
 from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404
 
 # Third party imports.
 from rest_framework import generics
@@ -395,14 +396,14 @@ class GetAccountDetails(generics.GenericAPIView):
     def get(self, request):
         user = request.user
 
-        acct_details = AccountCreation.objects.get(user=user)
-        if not acct_details:
+        try:
+            acct_details = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
             resp = {
                 "status": "fail",
-                "message": "customer does not have an account.",
+                "message": "Customer does not have an account.",
             }
             return Response(data=resp, status=status.HTTP_404_NOT_FOUND)
-
         serializer = AccountDetailsSerializer(acct_details)
         response = {
             "status": "success",
