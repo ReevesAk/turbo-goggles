@@ -7,7 +7,6 @@ from .views import (
     DisableAdminrole,
     EnableAdminrole,
     GetAllAdminUsers,
-    GetAllCustomers,
     DeleteAdmin,
     JobApplications,
     JobApplicationList,
@@ -21,6 +20,9 @@ from .views import (
     AddProduct,
     AddAddress,
     SetAdminPin,
+    GetAllAdminActivites,
+    GetSingleAdminActivity,
+    GetAllSingleAdminUserActivity,
 )
 from .tasks import (
     AssignTask,
@@ -46,7 +48,6 @@ urlpatterns = [
     path("list-admin-users", GetAllAdminUsers.as_view(), name="list_admin_users"),
     path("disable-admin", DisableAdminrole.as_view(), name="disable_admin"),
     path("re-enable-admin", EnableAdminrole.as_view(), name="enable_admin"),
-    path("get-all-customers", GetAllCustomers.as_view(), name="get_all_customers"),
     path("delete-admin", DeleteAdmin.as_view(), name="delete_admin_users"),
     path("set-admin-pin", SetAdminPin.as_view(), name="set_admin_pin"),
     path("verified-users", VerifiedUsersCount.as_view(), name="verified-users-list"),
@@ -58,6 +59,10 @@ urlpatterns = [
         VerifiedPartnersCount.as_view(),
         name="verified-partners-list",
     ),
+    # Activity Logs Endpoints.
+    path("activity/get-all", GetAllAdminActivites.as_view(), name="get_all"),
+    path("activity/<uuid:user_id>/single-activity", GetSingleAdminActivity.as_view(), name="single_activity"),
+    path("activity/<str:email>/single-get-all", GetAllSingleAdminUserActivity.as_view(), name="single_get_all"),
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(

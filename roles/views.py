@@ -24,12 +24,13 @@ from .serializers import (
     SwitchRolesSerializers,
     CreateAdminPinSerializer,
     EnableAdminSerializer,
+    GetAllActivityLogsSerializer
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
-from .models import Applications
+from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
@@ -129,12 +130,18 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 UserNotification.objects.create(
                     user=current_user,
                     title="Create SuperUser.",
-                    message="SuperUser Created Successfully.",
+                    message="SuperUser acount created Successfully.",
+                )
+
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Create SuperUser.",
+                    description="SuperUser acount created Successfully.",
                 )
 
                 response = {
                     "status": "success",
-                    "message": "SuperUser Created Successfully. Check your phone for an OTP",
+                    "message": "SuperUser Created Successfully. Check your phone for an OTP.",
                     "data": serializer.data,
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
@@ -224,6 +231,12 @@ class LoginAdmin(APIView):
                 user=user, title="Login.", message="Login successful."
             )
 
+            ActivityModel.objects.create(
+                user=user,
+                title="Admin Login.",
+                description=f"Admin User, {user.fullname} logged in."
+            )
+
             # Retrieve user roles from AccountType model
             user_roles = AccountType.objects.filter(user=user).values_list(
                 "user_type", flat=True
@@ -271,6 +284,7 @@ class AddProduct(generics.GenericAPIView):
 
     def post(self, request):
         user_data = request.data
+        authenticated_user = request.user
         serializer = ProductSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             additional_img_uploads = request.data.getlist("additional_images")
@@ -314,6 +328,12 @@ class AddProduct(generics.GenericAPIView):
             product_entry.additional_images_urls = ",".join(add_img_urls)
             product_entry.save()
 
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Add product",
+                description=f"Admin User {authenticated_user.fullname}, added fmcg product {product_entry} to the store."
+            )
+
             resp = {
                 "status": "success",
                 "message": "Product added successfully!",
@@ -354,9 +374,10 @@ class AddAddress(generics.GenericAPIView):
 
     serializer_class = AddFmcgPickupAddressSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsFmcgAdmin | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsFmcgAdminOrSuperAdmin)]
 
     def post(self, request):
+        authenticated_user = request.user
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
@@ -366,6 +387,14 @@ class AddAddress(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             PickupAdress.objects.create(
                 name=user_data["name"], state=user_data["state"]
+            )
+
+            name = user_data["name"]
+            state = user_data["state"]
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Add FMCG product.",
+                description=f"Admin User, {authenticated_user.fullname}, added {name, state} as FMCG pickup address."
             )
             resp = {
                 "status": "success.",
@@ -440,10 +469,9 @@ class AdAdminContd(generics.UpdateAPIView):
 
     def get_object(self):
         user_id = self.kwargs.get("user_id")
+        user = User.objects.get(Q(id=user_id))
 
         try:
-            user = User.objects.get(Q(id=user_id))
-
             admin_types = [
                 "SuperAdmin",
                 "TaskAdmin",
@@ -484,6 +512,12 @@ class AdAdminContd(generics.UpdateAPIView):
 
         serializer = AddAdminContdSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
+
+            ActivityModel.objects.create(
+                user=instance,
+                title="Admin Complete Signup.",
+                description=f"Admin user {instance.full_name} completed signup."
+            )
             return Response(
                 data={
                     "status": "success",
@@ -576,9 +610,15 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         instance.save()
 
         UserNotification.objects.create(
-            user=request.user,
+            user=instance,
             title="Update Admin Role.",
-            message=f"Admin's role updated to '{new_role}.",
+            message=f"Your Admin's role has been updated with '{new_role} role.",
+        )
+
+        ActivityModel.objects.create(
+            user=request.user,
+            title="Admin Role Updated.",
+            description=f"Admin, {instance.full_name} given new role: {new_role}."
         )
         return Response(
             f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
@@ -598,12 +638,12 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
-        _ = {
+        payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        email = self.request.data.get("email")
-        pin = self.request.data.get("pin")
+        email = payload.get("email")
+        pin = payload.get("pin")
 
         try:
             user = User.objects.filter(Q(email=email)).first()
@@ -611,6 +651,18 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
             if check_password(password=pin, encoded=request.user.admin_pin):
                 user.is_admin_disabled = True
                 user.save()
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="Disable Admin.",
+                    message="Your account has been disabled!.",
+                )
+
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Disable Admin.",
+                    description=f"Admin user, {user.full_name} disabled."
+                )
 
                 resp = {
                     "status": "success",
@@ -658,6 +710,18 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 user.is_admin_disabled = False
                 user.save()
 
+                UserNotification.objects.create(
+                    user=user,
+                    title="Re-Enable Admin.",
+                    message="Your account has been re-enabled successfully.",
+                )
+
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Re-Enable Admin.",
+                    description=f"Admin user, {user.full_name} disabled."
+                )
+
                 resp = {
                     "status": "success",
                     "message": "Admin re-enabled successfully",
@@ -675,43 +739,6 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 f"Admin with '{email}' does not exist.",
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-
-class GetAllCustomers(generics.RetrieveAPIView):
-    """
-    GetAllCustomers handles the GET request of retrieving all availalble
-    customers wallet information.
-    """
-
-    serializer_class = StatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
-    renderer_classes = [CamelCaseJSONRenderer]
-
-    @extend_schema(
-        description="Get all customers",
-        responses={200: {"description": "Get all customers"}},
-    )
-    def get(self, request):
-        user = self.request.user  # Get the authenticated user.
-
-        if user:
-            resource = "customers?page=1&page_size=5"
-
-            try:
-                response = requests.get(
-                    url=base_url + resource,
-                    headers=headers,
-                )
-                if response.status_code == 200:
-                    return Response(data=response.json(), status=status.HTTP_200_OK)
-
-            except requests.exceptions.RequestException as e:
-                logging.error(f"Fetching customers API request error: {str(e)}")
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
 
 
 class DeleteAdmin(generics.GenericAPIView):
@@ -732,10 +759,20 @@ class DeleteAdmin(generics.GenericAPIView):
                     user.delete()
 
                 UserNotification.objects.create(
-                    user=user,
+                    user=request.user,
                     title="Delete Admin.",
                     message=f"Admin with '{email}' deleted successfully.",
                 )
+
+                # Register Admin activity.
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Delete Admin.",
+                    description=f"Admin user, {user.full_name} deleted successfully."
+                )
+                # TODO
+                # Send email to the admin user.
+
                 return Response(
                     f"Admin with '{email}' deleted successfully.",
                     status=status.HTTP_204_NO_CONTENT,
@@ -1087,6 +1124,13 @@ class SwitchRoles(generics.RetrieveAPIView):
                 }
                 return Response(data=data, status=status.HTTP_200_OK)
 
+            # Register Admin activity.
+            ActivityModel.objects.create(
+                user=current_user,
+                title="Switch Admin Roles.",
+                description=f"Admin user, {current_user.full_name} switched from {current_user.active_role} to {new_role}."
+            )
+
             # User has the requested account type, switch the role
             current_user.active_role = new_role
             current_user.save()
@@ -1099,3 +1143,116 @@ class SwitchRoles(generics.RetrieveAPIView):
             return Response(data=data, status=status.HTTP_200_OK)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetAllAdminActivites(generics.ListAPIView):
+    """
+    GetAllAdminActivities is the GET request handler that allows rthe SuperAdmin to
+    receive all activity logs, including the name of the admin user who 
+    created the activity.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    serializer_class = GetAllActivityLogsSerializer
+
+    def list(self, request, *args, **kwargs):
+        activities = ActivityModel.objects.all().order_by("-created_at")
+
+        data = []
+        for activity in activities:
+            data.append(
+                {
+                    "activity_id": activity.id,
+                    "authorised_by": activity.user.full_name,
+                    "title": activity.title,
+                    "description": activity.decscription,
+                    "created_at": activity.created_at,
+                }
+            )
+
+        response = {
+            "status": "success",
+            "message": "All Admin activity logs fetched successfully!",
+            "data": data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class GetSingleAdminActivity(generics.RetrieveAPIView):
+    """
+    GetSingleAdminActivity is the GET request handler that allows a SuperAdmin to
+    check a specific admin activity log.
+    """
+
+    queryset = ActivityModel.objects.all()
+    serializer_class = GetAllActivityLogsSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+
+            activity_id = kwargs["id"]
+            activity = ActivityModel.objects.get(id=activity_id)
+
+            # Prepare the response data
+            response = {
+                "status": "success",
+                "message": "Activity log retrieved successfully!",
+                "title": activity.title,
+                "data": {
+                    "activity_id": activity_id,
+                    "description": activity.description,
+                    "authorised_by": activity.user.full_name,
+                    "created_at": activity.created_at,
+                },
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
+
+        except ActivityModel.DoesNotExist:
+            return Response(
+                {"status": "fail", "message": "Activity log not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
+    """
+    GetAllSingleAdminUserActivity is the GET request handler that allows a SuperAdmin to
+    check a specific admin activity log for a single Admin user.
+    """
+
+    queryset = ActivityModel.objects.all()
+    serializer_class = GetAllActivityLogsSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+
+            admin_email = kwargs["email"]
+            user = User.objects.get(email=admin_email)
+            activity = ActivityModel.objects.get(user=user)
+
+            # Prepare the response data
+            response = {
+                "status": "success",
+                "message": "Activity log retrieved successfully!",
+                "title": activity.title,
+                "data": {
+                    "activity_id": activity.id,
+                    "description": activity.description,
+                    "authorised_by": activity.user.full_name,
+                    "created_at": activity.created_at,
+                },
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
+
+        except ActivityModel.DoesNotExist:
+            return Response(
+                data={"status": "fail", "message": "Activity log not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
