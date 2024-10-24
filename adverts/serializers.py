@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -46,14 +48,22 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
             url = attrs.get(field_name, "")
 
             if url:
+                # Check if the URL has a scheme; if not, prepend 'https://'
+                parsed_url = urlparse(url)
+                if not parsed_url.scheme:
+                    url = f"https://{url}"
+
                 try:
                     url_validator(url)
                 except DjangoValidationError:
                     raise serializers.ValidationError(
-                        f"{field_name}: Invalid URL format"
+                        {field_name: "Invalid URL format"}
                     )
 
-        return super().validate(attrs)
+                # Update the field with the corrected URL
+                attrs[field_name] = url
+
+            return super().validate(attrs)
 
     def create(self, validated_data):
         user = User.objects.update(
