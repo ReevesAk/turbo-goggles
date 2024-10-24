@@ -220,18 +220,32 @@ class PasswordResendOTP(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             phone_number = serializer.data["phone_number"][1:]
 
-            # Generate otp.
-            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = "To reset your password, please enter this One Time Password {}.".format(
-                otp
-            )
+            try:
+                user = User.objects.get(phone_number=serializer.data["phone_number"])
 
-            response = Message.send_otp(msg=str(msg), to=phone_number)
-            response = {
-                "status": "success",
-                "message": "Otp resent Successfully. Check your phone for validation",
-            }
-            return Response(data=response, status=status.HTTP_200_OK)
+                # Generate otp using the user's ID
+                otp = otp_manager.create_otp(user_id=str(user.id))
+                msg = "To reset your password, please enter this One Time Password {}.".format(
+                    otp
+                )
+
+                # Send OTP
+                Message.send_otp(msg=str(msg), to=phone_number[1:])  # Skip the country code
+                response = {
+                    "status": "success",
+                    "message": "OTP resent successfully. Check your phone for validation.",
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                return Response(
+                    {
+                        "status": "fail",
+                        "message": "User with the provided phone number does not exist.",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

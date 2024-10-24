@@ -131,7 +131,7 @@ class PasswordResendOTPSerializer(serializers.Serializer):
 
     class Meta:
         model = User
-        fields = ["phone_number"]
+        fields = ["id", "phone_number"]
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
