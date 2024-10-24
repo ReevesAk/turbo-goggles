@@ -8,6 +8,19 @@ from accounts.models import User
 from basemodel import BaseModel
 
 
+ADMIN_TYPES = (
+    ("TaskAdmin", "TaskAdmin"),
+    ("AdAdmin", "AdAdmin"),
+    ("MembersAdmin", "MembersAdmin"),
+    ("UserAdmin", "UserAdmin"),
+    ("PartnersAdmin", "PartnersAdmin"),
+    ("ContentAdmin", "ContentAdmin"),
+    ("IntegrationAdmin", "IntegrationAdmin"),
+    ("WalletAdmin", "WalletAdmin"),
+    ("FmcgAdmin", "FmcgAdmin"),
+)
+
+
 class GamificationModel(models.Model):
     """
     Model for gamification management.

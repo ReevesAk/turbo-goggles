@@ -304,3 +304,21 @@ class IsAdAdminOrSuperAdmin(permissions.BasePermission):
             return True
 
         return False
+
+
+class IsWalletAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an IsWalletAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either IsWalletAdmin or SuperAdmin
+        if request.user.active_role == 'IsWalletAdmin' or request.user.active_role == 'SuperAdmin':
+            return True
+
+        return False

@@ -10,7 +10,6 @@ from django.shortcuts import get_object_or_404
 
 # In project imports.
 from .serializers import (
-    StatusSerializer,
     RegisterSuperAdminSerializer,
     AdminLoginSerializers,
     AddAdminContdSerializer,
@@ -44,7 +43,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema
+from .models import ADMIN_TYPES
 
 from cloudinary import uploader as cloud
 
@@ -55,7 +54,6 @@ from permissions import (
     IsSuperAdmin,
     IsNotDisabled,
     IsAdmin,
-    IsFmcgAdmin,
     IsFmcgAdminOrSuperAdmin,
 )
 
@@ -1253,3 +1251,21 @@ class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
                 data={"status": "fail", "message": "Activity log not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class AdminTypesListView(APIView):
+    """
+    AdminTypesListView is the GET request handler that returns a list of admin types.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        admin_types = [admin_type[1] for admin_type in ADMIN_TYPES]
+        return Response(
+            data={
+                "status": "success.",
+                "message": "Admin types retrieved successfully.",
+                "categories": admin_types,
+            },
+            status=status.HTTP_200_OK)
