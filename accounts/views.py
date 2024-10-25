@@ -230,7 +230,9 @@ class PasswordResendOTP(generics.GenericAPIView):
                 )
 
                 # Send OTP
-                Message.send_otp(msg=str(msg), to=phone_number[1:])  # Skip the country code
+                Message.send_otp(
+                    msg=str(msg), to=phone_number[1:]
+                )  # Skip the country code
                 response = {
                     "status": "success",
                     "message": "OTP resent successfully. Check your phone for validation.",

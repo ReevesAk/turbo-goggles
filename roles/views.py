@@ -1274,6 +1274,7 @@ class AdminTypesListView(APIView):
     """
     AdminTypesListView is the GET request handler that returns a list of admin types.
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
@@ -1285,4 +1286,5 @@ class AdminTypesListView(APIView):
                 "message": "Admin types retrieved successfully.",
                 "categories": admin_types,
             },
-            status=status.HTTP_200_OK)
+            status=status.HTTP_200_OK,
+        )
