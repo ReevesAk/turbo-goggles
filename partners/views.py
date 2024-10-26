@@ -24,6 +24,7 @@ from .serializers import (
     UpdatePartnerServiceSerializer,
 )
 from accounts.models import User, AccountType, UserNotification
+from roles.models import ActivityModel
 from .models import (
     PartnerServices,
     PartnerServicePhotos,
@@ -73,6 +74,18 @@ class CreatePartner(generics.GenericAPIView):
             )
             authenticated_user.active_role = "Partner"
             authenticated_user.save()
+
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="Partner Registration.",
+                message=f"{authenticated_user.first_name} {authenticated_user.last_name} registered as {authenticated_user.business_name}.",
+            )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Partner Registration.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} registered as {authenticated_user.business_name}."
+            )
 
             response = {
                 "status": "success",
@@ -199,6 +212,19 @@ class CreatePartnerService(generics.CreateAPIView):
                         "gym trainers": gym_trainer_img_urls,
                         "data": serializer.data,
                     }
+
+                    UserNotification.objects.create(
+                        user=current_user,
+                        title="Partner Service.",
+                        message="You have successfully created a service.",
+                    )
+
+                    ActivityModel.objects.create(
+                        user=current_user,
+                        title="Partner Service.",
+                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business_name}."
+                    )
+
                     return Response(data=response, status=status.HTTP_201_CREATED)
 
                 except Exception as err:
@@ -290,6 +316,19 @@ class UpdatePartnerService(generics.UpdateAPIView):
                             },
                         )
 
+                    current_user = request.user
+                    UserNotification.objects.create(
+                        user=current_user,
+                        title="Partner Service.",
+                        message="You have successfully updated their service.",
+                    )
+
+                    ActivityModel.objects.create(
+                        user=current_user,
+                        title="Partner Service.",
+                        description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}."
+                    )
+
                 response = {
                     "status": "success",
                     "message": "Service updated!",
@@ -353,11 +392,25 @@ class DeletePartnerService(generics.DestroyAPIView):
             service = self.get_object()
 
             if service.user == request.user:
+
+                current_user = request.user
+                UserNotification.objects.create(
+                    user=current_user,
+                    title="Partner Service.",
+                    message=f"You have successfully deleted your service: {service.business}.",
+                )
+
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Partner Service.",
+                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {service.business}."
+                )
                 service.delete()
                 return Response(
                     {"status": "Service deleted."},
                     status=status.HTTP_204_NO_CONTENT,
                 )
+
             else:
                 return Response(
                     {"detail": "You can only delete a service you uploaded."},
@@ -541,6 +594,13 @@ class VerifyCAC(generics.GenericAPIView):
                         title="Business Verification.",
                         message="This is to inform you that the verification of your business is successful.",
                     )
+
+                    ActivityModel.objects.create(
+                        user=current_user,
+                        title="Business Verification.",
+                        description=f"{current_user.first_name} {current_user.last_name} has successfully verified their business: {current_user.business}."
+                    )
+
                     # send transactional email.
                     body = "This is to inform you that the verification of your business on Picadailys is successful."
 

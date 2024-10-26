@@ -29,7 +29,7 @@ from .serializers import (
 from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
-from roles.models import GamificationModel
+from roles.models import GamificationModel, ActivityModel
 from sms import Message
 from permissions import IsUserOrMember
 
@@ -64,6 +64,12 @@ class Register(generics.GenericAPIView):
             )
             user.active_role = "User"
             user.save()
+
+            ActivityModel.objects.create(
+                user=user,
+                title="User Registration.",
+                description=f"{user.first_name} {user.last_name} just registered as a User."
+            )
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
@@ -121,8 +127,16 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             user.is_active = True
             user.save()
 
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account.",
+                description=f"{user.first_name} {user.last_name} verified otp after registration."
+            )
+
             verified_resonse = {"status": "success", "message": "Account is verified"}
             return Response(data=verified_resonse, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
@@ -163,6 +177,12 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                 "message": "Account is verified",
                 "user_id": user_id,
             }
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account.",
+                description=f"{user.first_name} {user.last_name}, verified otp after password reset reset."
+            )
             return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
 
@@ -316,6 +336,12 @@ class Login(APIView):
                 user=user, title="Login.", message="Login successful."
             )
 
+            ActivityModel.objects.create(
+                user=user,
+                title="Login.",
+                description=f"{user.first_name} {user.last_name} successfully logged into their account."
+            )
+
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
             response = {
@@ -374,6 +400,12 @@ class ForgotPassword(generics.GenericAPIView):
                     check your phone for an OTP.",
             )
 
+            ActivityModel.objects.create(
+                user=user,
+                title="Forgot Password Request.",
+                description=f"{user.first_name} {user.last_name} successfully submitted a forgot password request."
+            )
+
             response = {
                 "status": "success",
                 "message": "Check your phone for an OTP",
@@ -426,6 +458,12 @@ class ResetPassword(generics.CreateAPIView):
             message="This is to inform you that your password reset is successful.",
         )
 
+        ActivityModel.objects.create(
+            user=user,
+            title="Password Reset.",
+            description=f"{user.first_name} {user.last_name} successfully reset password."
+        )
+
         response = {"status": "success!", "message": "Password reset successfully"}
         return Response(data=response, status=status.HTTP_200_OK)
 
@@ -446,6 +484,7 @@ class SubmitGamification(generics.CreateAPIView):
             for key, value in request.data.items()
         }
 
+        current_user = request.user
         serializer = self.get_serializer(data=payload)
         if serializer.is_valid(raise_exception=True):
             task_id = serializer.validated_data["task_id"]
@@ -463,6 +502,12 @@ class SubmitGamification(generics.CreateAPIView):
                 user=request.user,
                 title="Submit Gamification.",
                 message="You have successfully submitted your gamification task.",
+            )
+
+            ActivityModel.objects.create(
+                user=current_user,
+                title="Submit Gamification.",
+                description=f"{current_user.first_name} {current_user.last_name} successfully submitted gamification task."
             )
 
             response_data = {
@@ -502,10 +547,17 @@ class Logout(APIView):
             token = RefreshToken(refresh_token)
             token.blacklist()
 
+            current_user = request.user
             UserNotification.objects.create(
-                user=request.user,
+                user=current_user,
                 title="Logout.",
                 message="You have successfully logged out.",
+            )
+
+            ActivityModel.objects.create(
+                user=current_user,
+                title="Logout.",
+                description=f"{current_user.first_name} {current_user.last_name} logged out."
             )
 
             return Response(

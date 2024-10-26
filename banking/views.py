@@ -34,6 +34,7 @@ from .serializers import (
     AccountDetailsSerializer,
 )
 from accounts.models import UserNotification
+from roles.models import ActivityModel
 from .models import (
     AccountCreation,
     BVNData,
@@ -147,9 +148,15 @@ class VerifYBVN(generics.GenericAPIView):
                 serializer = BVNSerializer(data=user_data)
 
                 UserNotification.objects.create(
-                    user=request.user,
+                    user=authenticated_user,
                     title="BVN Verification.",
                     message="Your BVN Verifiction is successful.",
+                )
+
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="BVN Verification.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully."
                 )
 
                 response = {
@@ -263,6 +270,12 @@ class CreateBankAccount(generics.GenericAPIView):
                     message="Congratulations! 🎊🎉 Your virtual account has been created successfully. 🥳",
                 )
 
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Virtual Account Creation.",
+                    description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉."
+                )
+
                 # Set the value of has_wallet to true.
                 current_user.has_wallet = True
                 current_user.save()
@@ -322,6 +335,12 @@ class NotificationView(generics.CreateAPIView):
             case "cr":
                 UserNotification.objects.create(
                     user=user, title="Credit Transaction", message=narration
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Credit Transactionn.",
+                    description=f"{user.first_name} {user.last_name} received a credit transaction with narraiton: {narration}."
                 )
 
                 email_body = f"{user.acct_name}, /n This is to inform you that a transaction occurred on your account."
@@ -464,6 +483,13 @@ class SetWalletPin(generics.CreateAPIView):
                 title="Wallet Pin.",
                 message="Wallet pin created successfully.",
             )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Wallet.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully."
+            )
+
             # send_email(
             #     subject="Wallet Pin.",
             #     body="This is to inform you that your Wallet pin was created successful.",
@@ -506,6 +532,13 @@ class ForgotWalletPin(generics.GenericAPIView):
                     "status": "success",
                     "message": "Check your phone for an OTP",
                 }
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Wallet Pin.",
+                    description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it."
+                )
+
                 return Response(data=response, status=status.HTTP_201_CREATED)
             except Exception as err:
                 return Response(
@@ -587,8 +620,16 @@ class PinVerifyOTP(generics.GenericAPIView):
 
             response = Message.send_msg(msg=str(msg), to=recipient)
             if response.status_code == 200:
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Wallet Pin.",
+                    description=f"{user.first_name} {user.last_name} reset it."
+                )
+
                 data = {"status": "success", "message": "Account is verified"}
                 return Response(data=data, status=status.HTTP_200_OK)
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResetPin(generics.CreateAPIView):
@@ -639,6 +680,13 @@ class ResetPin(generics.CreateAPIView):
                 title="Reset Wallet Pin.",
                 message="Wallet pin reset was successful.",
             )
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Reset Wallet Pin.",
+                description=f"{user.first_name} {user.last_name} has reset their wallet pin."
+            )
+
             # send transactional email.
             response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=response, status=status.HTTP_200_OK)
