@@ -94,7 +94,7 @@ class TableBooking(generics.CreateAPIView):
                                 ActivityModel.objects.create(
                                     user=current_user,
                                     title="Table Booking.",
-                                    description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking."
+                                    description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking.",
                                 )
 
                                 # send transactional email.
@@ -250,7 +250,7 @@ class GymBooking(generics.CreateAPIView):
                                 ActivityModel.objects.create(
                                     user=authenticated_user,
                                     title="Gym Booking.",
-                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription."
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription.",
                                 )
                                 # send transactional email.
                                 # TODO
@@ -401,7 +401,7 @@ class CinemaBookingView(generics.CreateAPIView):
                                 ActivityModel.objects.create(
                                     user=authenticated_user,
                                     title="Cinema Booking.",
-                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking."
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking.",
                                 )
 
                                 # send transactional email.
@@ -553,7 +553,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 ActivityModel.objects.create(
                                     user=authenticated_user,
                                     title="Courier Service Booking.",
-                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking."
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking.",
                                 )
 
                                 # send transactional email.
@@ -692,7 +692,7 @@ class BookConsumableSercvice(generics.CreateAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Consumables booking.",
-                description=f"{authenticated_user.first_name} {authenticated_user.last_name} booked for a consumable service of {price}."
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} booked for a consumable service of {price}.",
             )
 
             # send transactional email.
@@ -866,7 +866,7 @@ class BookLandTrip(generics.GenericAPIView):
                     ActivityModel.objects.create(
                         user=authenticated_user,
                         title="Consumables booking.",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a onw way trip booking from {departure_state} to {destination}."
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a onw way trip booking from {departure_state} to {destination}.",
                     )
 
                     response = {
@@ -906,7 +906,7 @@ class BookLandTrip(generics.GenericAPIView):
                     ActivityModel.objects.create(
                         user=authenticated_user,
                         title="Land Travels Service.",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a round trip bbooking from {departure_state} to {destination} and back."
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a round trip bbooking from {departure_state} to {destination} and back.",
                     )
 
                     response = {
@@ -1031,7 +1031,7 @@ class BookHotel(generics.GenericAPIView):
                                 ActivityModel.objects.create(
                                     user=authenticated_user,
                                     title="Hotel Booking.",
-                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for hotel booking."
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for hotel booking.",
                                 )
 
                                 # send transactional email.
@@ -1158,7 +1158,7 @@ class ServiceRating(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=user,
                     title="Service Rating.",
-                    description=f"{user.first_name} {user.last_name} rated {service}."
+                    description=f"{user.first_name} {user.last_name} rated {service}.",
                 )
 
                 return Response(

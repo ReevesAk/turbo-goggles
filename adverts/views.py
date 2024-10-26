@@ -70,7 +70,7 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=brand_user,
                 title="Brand Register.",
-                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}."
+                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}.",
             )
 
             response = {
@@ -180,7 +180,7 @@ class BrandSurveyView(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=brand_survey_instance,
                     title="Brand Survey.",
-                    description=f"{brand_survey_instance.whoareyou} conducted brand Ad survey successfully."
+                    description=f"{brand_survey_instance.whoareyou} conducted brand Ad survey successfully.",
                 )
 
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -231,7 +231,7 @@ class BrandPromote(generics.CreateAPIView):
                         ActivityModel.objects.create(
                             user=current_user,
                             title="Brand Promotion.",
-                            description=f"{current_user.whoareyou} promoted their brand successfully."
+                            description=f"{current_user.whoareyou} promoted their brand successfully.",
                         )
 
                         # send_email(

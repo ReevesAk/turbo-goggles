@@ -1,10 +1,8 @@
 import requests
 import logging
-from threading import Thread
 from decouple import config
 
-from rest_framework.parsers import MultiPartParser, JSONParser
-
+from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -14,9 +12,10 @@ from drf_spectacular.utils import extend_schema
 
 from .serializers import (
     VasStatusSerializer,
+    VerifyMeterSerializer,
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
-    # ElectricityBillSerializer,
+    ElectricityBillSerializer,
     # TvSubscriptionSerializer,
     # IntlAirtimeSerializer,
     # WaecRegistrationSerializer,
@@ -42,6 +41,7 @@ from .controllers import (
     HomeCoverInsurance,
     HealthInsurance,
 )
+from .models import ELECTRICITY_SERVICE_ID_CHOICES
 from commons import Pay
 
 
@@ -115,12 +115,14 @@ class AirTimeTopUp(generics.GenericAPIView):
         else:
             match payment_option:
                 case "WALLET":
-                    pts_amt = (
-                        Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
-                    )
-                    rwd_amt = (
-                        Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
-                    )
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
 
                     new_amount = int(amount) - pts_amt - rwd_amt
                     user_details = AccountCreation.objects.get(user=user)
@@ -361,155 +363,202 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
 
 
-# class VerifyMeterNumber(generics.RetrieveAPIView):
-#     """
-#     VerifySmartCardNumber is a POST request handler for verifying
-#     electricity meter number.
-#     """
+class ServiceIDListView(APIView):
+    """
+    ServiceIDListView is the GET request handler that returns a list of electricity service ids.
+    """
 
-#     serializer_class = VasStatusSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
 
-#     @extend_schema(
-#         description="Meter number",
-#         responses={200: {"description": "Verify meter number"}},
-#     )
-#     def post(self, request):
-#         user_data = {
-#             key: value.strip() if isinstance(value, str) else value
-#             for key, value in request.data.items()
-#         }
-
-#         resource = "merchant-verify"
-#         payload = {
-#             "serviceID": user_data["serviceID"],
-#             "type": user_data["type"],
-#             "billersCode": user_data["billersCode"],
-#         }
-
-#         verify_meter_headers = {
-#             "accept": "application/json",
-#             "api-key": api_key,
-#             "secret-key": x_secret,
-#         }
-#         try:
-#             response = requests.post(
-#                 url=vtpass_url + resource,
-#                 json=payload,
-#                 headers=verify_meter_headers,
-#             )
-
-#             if response.status_code == 200:
-#                 response_data = {
-#                     "data": response.json(),
-#                 }
-
-#                 return Response(data=response_data, status=status.HTTP_200_OK)
-#             else:
-#                 return Response(response.json(), status=response.status_code)
-
-#         except requests.exceptions.RequestException as e:
-#             return Response(
-#                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
+    def get(self, request):
+        electricity_service_ids = [
+            service_id[1] for service_id in ELECTRICITY_SERVICE_ID_CHOICES
+        ]
+        return Response(
+            data={
+                "status": "success.",
+                "message": "Electricity service Ids retrieved successfully.",
+                "categories": electricity_service_ids,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-# class ElectrcityBillPayment(generics.GenericAPIView):
-#     """
-#     ElectrcityBillPayment is a POST request handler for payment of electricity
-#     bills for both prepaid and postpaid account types.
-#     """
+class VerifyMeterNumber(generics.RetrieveAPIView):
+    """
+    VerifySmartCardNumber is a POST request handler for verifying
+    electricity meter number.
+    """
 
-#     serializer_class = ElectricityBillSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = VerifyMeterSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     def post(self, request):
-#         user_data = request.data
-#         user = request.user
+    @extend_schema(
+        description="Meter number",
+        responses={200: {"description": "Verify meter number"}},
+    )
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
 
-#         pin = user_data.get("pin")
-#         use_bonus = user_data.get("use_bonus")
-#         amount = user_data.get("amount")
-#         use_points = user_data.get("use_points")
-#         use_rewards = user_data.get("use_rewards")
+        resource = "merchant-verify"
+        payload = {
+            "serviceID": user_data["serviceID"],
+            "type": user_data["type"],
+            "billersCode": user_data["billersCode"],
+        }
 
-#         serializer = self.serializer_class(data=user_data)
-#         account = AccountCreation.objects.get(user=user)
-#         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-#         if verification:
-#             payment_option = request.data.get("payment_option")
-#             if use_bonus:
-#                 if user.welcome_bonus <= float(amount):
-#                     electricity(
-#                         user=user,
-#                         serializer=serializer,
-#                         reason="Debit for electricity bill payment.",
-#                         user_data=user_data,
-#                     )
-#                 else:
-#                     return Response(
-#                         data="You do not have enough bonus to purchase this product",
-#                         status=status.HTTP_400_BAD_REQUEST,
-#                     )
-#                 match payment_option:
-#                     case "WALLET":
-#                         if use_points:
-#                             _, pts_amt = Pay.with_pts(user=user, amount=amount)
-#                         else:
-#                             pts_amt = 0
-#                         if use_rewards:
-#                             _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-#                         else:
-#                             rwd_amt = 0
+        verify_meter_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=verify_meter_headers,
+            )
 
-#                         new_amount = amount - pts_amt - rwd_amt
+            if response.status_code == 200:
+                response_data = {
+                    "data": response.json(),
+                }
 
-#                         user_details = AccountCreation.objects.get(user=user)
-#                         debit_response = Account.Debit(
-#                             debitAccount=user_details.account_number,
-#                             amount=new_amount,
-#                             reason="Debit for electricity bill payment.",
-#                             transactionReference="",
-#                         )
-#                         if debit_response == 200:
-#                             serializer = self.serializer_class(data=user_data)
-#                             if serializer.is_valid(raise_exception=True):
-#                                 electricity(
-#                                     user=user,
-#                                     serializer=serializer,
-#                                     reason="Debit for electricity bill payment.",
-#                                     user_data=user_data,
-#                                 )
-#                             else:
-#                                 return Response(
-#                                     data=serializer.errors,
-#                                     status=status.HTTP_400_BAD_REQUEST,
-#                                 )
-#                         else:
-#                             # Attempt to refund the debited amount.
-#                             credit_response = Account.Credit(
-#                                 acct_no=user_details.account_number,
-#                                 amount=new_amount,
-#                                 transactionReference="",
-#                                 reason="Refund for failed electricity bill payment.",
-#                             )
-#                             if credit_response == 200:
-#                                 logging.info(
-#                                     f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-#                                 )
-#                             else:
-#                                 logging.error(
-#                                     f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
-#                                 )
-#                             return Response(
-#                                 data=debit_response.json(),
-#                                 status=debit_response.status_code,
-#                             )
+                return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(response.json(), status=response.status_code)
 
-#                     case "CARD":
-#                         pass
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ElectrcityBillPayment(generics.GenericAPIView):
+    """
+    ElectrcityBillPayment is a POST request handler for payment of electricity
+    bills for both prepaid and postpaid account types.
+    """
+
+    serializer_class = ElectricityBillSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+
+    def post(self, request):
+        user_data = request.data
+        user = request.user
+
+        pin = user_data.get("pin")
+        use_bonus = user_data.get("use_bonus")
+        amount = user_data.get("amount")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+
+        serializer = self.serializer_class(data=user_data)
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        if not verification:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        payment_option = request.data.get("payment_option")
+        if use_bonus:
+            if user.welcome_bonus >= float(amount):
+                electricity(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for electricity bill payment.",
+                    user_data=user_data,
+                )
+                return Response(
+                    data={
+                        "status": "success",
+                        "message": "Bonus was used to purchase this product",
+                        "bonus ballance": user.welcome_bonus,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    data="You do not have enough bonus to purchase this product",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            match payment_option:
+                case "WALLET":
+                    if use_points:
+                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    else:
+                        pts_amt = 0
+                    if use_rewards:
+                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    else:
+                        rwd_amt = 0
+
+                    new_amount = int(amount) - pts_amt - rwd_amt
+
+                    user_details = AccountCreation.objects.get(user=user)
+
+                    # Initiate a debit on the customer's account.
+                    debit_response = Account.Debit(
+                        debitAccount=user_details.account_number,
+                        amount=new_amount,
+                        reason="Debit for electricity bill payment.",
+                        transactionReference="",
+                    )
+                    if debit_response.status_code == 200:
+                        serializer = self.serializer_class(data=user_data)
+                        if serializer.is_valid(raise_exception=True):
+                            electricity(
+                                user=user,
+                                serializer=serializer,
+                                reason="Debit for electricity bill payment.",
+                                user_data=user_data,
+                            )
+
+                            return Response(
+                                data={
+                                    "status": "success",
+                                    "message": "Account debit successful",
+                                    "data": debit_response.json(),
+                                },
+                                status=debit_response.status_code,
+                            )
+                        else:
+                            return Response(
+                                data=serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                    else:
+                        # Attempt to refund the debited amount.
+                        credit_response = Account.Credit(
+                            acct_no=user_details.account_number,
+                            amount=new_amount,
+                            transactionReference="",
+                            reason="Refund for failed electricity bill payment.",
+                        )
+                        if credit_response == 200:
+                            logging.info(
+                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
+                            )
+                        else:
+                            logging.error(
+                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
+                            )
+                        return Response(
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
+                        )
+
+                case "CARD":
+                    pass
 
 
 # class ProductStatus(generics.RetrieveAPIView):

@@ -33,16 +33,18 @@ TV_SERVICE_ID_CHOICES = (
 )
 
 ELECTRICITY_SERVICE_ID_CHOICES = (
-    ("IKEDC", "ikeja-electric"),
-    ("EKEDC", "eko-electric"),
-    ("KEDCO", "kano-electric"),
-    ("PHED", "portharcourt-electric"),
-    ("JED", "jos-electric"),
-    ("IBEDC", "ibadan-electric"),
-    ("KAEDCO", "kaduna-electric"),
-    ("AEDC", "abuja-electric"),
-    ("EEDC", "enugu-electric"),
-    ("BEDC", "benin-electric"),
+    ("ikeja-electric", "ikeja-electric"),
+    ("eko-electric", "eko-electric"),
+    ("kano-electric", "kano-electric"),
+    ("portharcourt-electric", "portharcourt-electric"),
+    ("jos-electric", "jos-electric"),
+    ("ibadan-electric", "ibadan-electric"),
+    ("kaduna-electric", "kaduna-electric"),
+    ("abuja-electric", "abuja-electric"),
+    ("enugu-electric", "enugu-electric"),
+    ("benin-electric", "benin-electric"),
+    ("aba-electric", "aba-electric"),
+    ("yola-electric", "yola-electric"),
 )
 
 

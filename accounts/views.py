@@ -68,7 +68,7 @@ class Register(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=user,
                 title="User Registration.",
-                description=f"{user.first_name} {user.last_name} just registered as a User."
+                description=f"{user.first_name} {user.last_name} just registered as a User.",
             )
 
             # Create and send OTP.
@@ -130,7 +130,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Verify Account.",
-                description=f"{user.first_name} {user.last_name} verified otp after registration."
+                description=f"{user.first_name} {user.last_name} verified otp after registration.",
             )
 
             verified_resonse = {"status": "success", "message": "Account is verified"}
@@ -181,7 +181,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Verify Account.",
-                description=f"{user.first_name} {user.last_name}, verified otp after password reset reset."
+                description=f"{user.first_name} {user.last_name}, verified otp after password reset reset.",
             )
             return Response(data=verified_resonse, status=status.HTTP_200_OK)
 
@@ -339,7 +339,7 @@ class Login(APIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Login.",
-                description=f"{user.first_name} {user.last_name} successfully logged into their account."
+                description=f"{user.first_name} {user.last_name} successfully logged into their account.",
             )
 
             # Create JWT tokens
@@ -403,7 +403,7 @@ class ForgotPassword(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Forgot Password Request.",
-                description=f"{user.first_name} {user.last_name} successfully submitted a forgot password request."
+                description=f"{user.first_name} {user.last_name} successfully submitted a forgot password request.",
             )
 
             response = {
@@ -461,7 +461,7 @@ class ResetPassword(generics.CreateAPIView):
         ActivityModel.objects.create(
             user=user,
             title="Password Reset.",
-            description=f"{user.first_name} {user.last_name} successfully reset password."
+            description=f"{user.first_name} {user.last_name} successfully reset password.",
         )
 
         response = {"status": "success!", "message": "Password reset successfully"}
@@ -507,7 +507,7 @@ class SubmitGamification(generics.CreateAPIView):
             ActivityModel.objects.create(
                 user=current_user,
                 title="Submit Gamification.",
-                description=f"{current_user.first_name} {current_user.last_name} successfully submitted gamification task."
+                description=f"{current_user.first_name} {current_user.last_name} successfully submitted gamification task.",
             )
 
             response_data = {
@@ -557,7 +557,7 @@ class Logout(APIView):
             ActivityModel.objects.create(
                 user=current_user,
                 title="Logout.",
-                description=f"{current_user.first_name} {current_user.last_name} logged out."
+                description=f"{current_user.first_name} {current_user.last_name} logged out.",
             )
 
             return Response(
