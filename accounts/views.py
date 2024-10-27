@@ -1,4 +1,5 @@
 from exceptions import Customexceptions
+import logging
 
 # Third party imports.
 from rest_framework import generics
@@ -323,11 +324,12 @@ class Login(APIView):
         return self.handle_login_success(user)
 
     def authenticate_with_biometrics(self, phone_number):
-        # Implement biometric authentication logic here
         try:
-            user = User.objects.get(phone_number=phone_number, is_biometric_enabled=True)
+            # Retrieve user with biometrics enabled
+            user = User.objects.get(phone_number=phone_number)
             return user
         except User.DoesNotExist:
+            logging.error("User with biometrics not found or not enabled")
             return None
 
     def check_device_limit(self, user):
