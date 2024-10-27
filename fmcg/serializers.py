@@ -57,18 +57,7 @@ class AddFmcgPickupAddressSerializers(serializers.ModelSerializer):
 
 class RetrieveCartProductsSerializers(serializers.ModelSerializer):
     """Serializers for retrieving cart products."""
-
-    total_price = serializers.CharField(max_length=50, min_length=4)
-
-    class Meta:
-        model = Product
-        fields = [
-            "id",
-            "name_and_size",
-            "quantity",
-            "price",
-            "total_price",
-        ]
+    message = serializers.CharField(max_length=200)
 
 
 class RemoveFromCartSerializers(serializers.Serializer):

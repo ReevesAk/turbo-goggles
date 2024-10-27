@@ -226,35 +226,30 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
         cart_items = CartItem.objects.filter(user=user)
 
-        serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            if not cart_items.exists():
-                return Response({
-                    "status": "success",
-                    "message": "Your cart is empty.",
-                    "data": []
-                }, status=status.HTTP_200_OK)
-
-            # Prepare cart item data
-            cart_data = []
-            for item in cart_items:
-                cart_data.append({
-                    "product": item.product.name_and_size,
-                    "quantity": item.quantity,
-                    "price_per_unit": item.price,
-                    "total_price": item.get_total_price()
-                })
-
+        if not cart_items.exists():
             return Response({
                 "status": "success",
-                "message": "Cart items retrieved successfully.",
-                "cart_items": cart_data
+                "message": "Your cart is empty.",
+                "data": []
             }, status=status.HTTP_200_OK)
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Prepare cart item data
+        cart_data = []
+        for item in cart_items:
+            cart_data.append({
+                "product": item.product.name_and_size,
+                "quantity": item.quantity,
+                "price_per_unit": item.price,
+                "total_price": item.get_total_price()
+            })
+
+        return Response({
+            "status": "success",
+            "message": "Cart items retrieved successfully.",
+            "cart_items": cart_data
+        }, status=status.HTTP_200_OK)
 
 
 class RemoveFromCart(generics.DestroyAPIView):
