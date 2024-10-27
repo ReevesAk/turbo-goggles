@@ -229,3 +229,20 @@ class GetTransferStatusSerializer(serializers.Serializer):
         fields = [
             "transaction_reference",
         ]
+
+
+class WalletStatusSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AccountCreation
+        fields = [
+            "account_number",
+            "acct_name",
+            "balance",
+            "status",
+            "created_at",
+        ]
+
+    def get_status(self, obj):
+        return "Open" if obj.status else "Blocked"

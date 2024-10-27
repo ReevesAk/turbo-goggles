@@ -185,7 +185,10 @@ class CreateBankAccount(generics.GenericAPIView):
 
     serializer_class = BankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd | IsSuperAdmin))
+    permission_classes = (
+        IsAuthenticated,
+        (IsPartnerUserOrMember | IsBrandAd | IsSuperAdmin),
+    )
     parser_classes = (
         MultiPartParser,
         JSONParser,

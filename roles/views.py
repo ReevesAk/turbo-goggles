@@ -3,6 +3,7 @@ from decouple import config
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -28,6 +29,8 @@ from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
+from banking.serializers import WalletStatusSerializer
+from banking.models import AccountCreation
 from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
@@ -54,6 +57,7 @@ from permissions import (
     IsNotDisabled,
     IsAdmin,
     IsFmcgAdminOrSuperAdmin,
+    IsWalletAdminOrSuperAdmin,
 )
 
 
@@ -1072,6 +1076,78 @@ class GetAllAdminUsers(generics.ListAPIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+
+class GetAllAdminUsersTypes(generics.ListAPIView):
+    """
+    GetAllAdminUsersTypes is the GET request to retrieve the count
+    of all admin users, grouped by each admin role.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = ListAdminSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsWalletAdminOrSuperAdmin)
+    pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def get_queryset(self):
+        return (
+            User.objects.filter(accounttype__user_type__icontains="Admin")
+            .distinct()
+            .order_by("accounttype__created_at")
+        )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Count the number of admins by each role
+        role_counts = (
+            queryset.values("accounttype__user_type")
+            .annotate(role_count=Count("id"))
+            .order_by("accounttype__user_type")
+        )
+
+        # Transform role counts into a dictionary
+        role_counts_dict = {
+            role["accounttype__user_type"]: role["role_count"] for role in role_counts
+        }
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "All admin users retrieved successfully",
+                    "num_of_admin_users": queryset.count(),
+                    "admin_role_counts": role_counts_dict,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
+class GetAllWalletStatus(generics.ListAPIView):
+    """
+    GetAllWalletStatus is the GET request to retrieve the status
+    of all wallets, including balance and activation status.
+    """
+
+    queryset = AccountCreation.objects.all()
+    serializer_class = WalletStatusSerializer
+    permission_classes = (IsAuthenticated, IsWalletAdminOrSuperAdmin)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serialized_wallets = self.get_serializer(queryset, many=True)
+
+        return Response(
+            data={
+                "status": "success",
+                "message": "Wallet statuses retrieved successfully",
+                "wallet_statuses": serialized_wallets.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class GetAllWalletAdminUsers(generics.ListAPIView):

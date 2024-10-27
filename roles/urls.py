@@ -25,6 +25,8 @@ from .views import (
     GetAllSingleAdminUserActivity,
     AdminTypesListView,
     GetAllWalletAdminUsers,
+    GetAllAdminUsersTypes,
+    GetAllWalletStatus,
 )
 from .tasks import (
     AssignTask,
@@ -49,6 +51,11 @@ urlpatterns = [
     path("list-admin-types", AdminTypesListView.as_view(), name="list_admin_types"),
     path("update-admin-role", UpdateAdminRole.as_view(), name="update_admin_role"),
     path("list-admin-users", GetAllAdminUsers.as_view(), name="list_admin_users"),
+    path(
+        "list-admin-user-types",
+        GetAllAdminUsersTypes.as_view(),
+        name="list_admin_user_types",
+    ),
     path("disable-admin", DisableAdminrole.as_view(), name="disable_admin"),
     path("re-enable-admin", EnableAdminrole.as_view(), name="enable_admin"),
     path("delete-admin", DeleteAdmin.as_view(), name="delete_admin_users"),
@@ -57,7 +64,11 @@ urlpatterns = [
     path(
         "verified-brandAds", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"
     ),
-    path("wallet-admins-list", GetAllWalletAdminUsers.as_view(), name="wallet_admins_list"),
+    path(
+        "wallet-admins-list",
+        GetAllWalletAdminUsers.as_view(),
+        name="wallet_admins_list",
+    ),
     path(
         "verified-partners",
         VerifiedPartnersCount.as_view(),
@@ -144,4 +155,5 @@ urlpatterns = [
         GetallWalletUsers.as_view(),
         name="get_all_wallet_users",
     ),
+    path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
 ]
