@@ -34,6 +34,7 @@ from accounts.models import UserNotification, PurchaseModel
 from banking.helpers import Pin
 from banking.controllers import Account
 from banking.models import AccountCreation
+from roles.models import ActivityModel
 
 
 SERVICES = (
@@ -82,13 +83,22 @@ class TableBooking(generics.CreateAPIView):
                                 transactionReference="",
                             )
                             if debit_response == 200:
+                                current_user = request.user
                                 UserNotification.objects.create(
-                                    user=request.user,
-                                    title="Brand Account.",
+                                    user=current_user,
+                                    title="Table Booking.",
                                     message=f"Payment of {amount} for restaurant table booking\
                                         was successful.",
                                 )
+
+                                ActivityModel.objects.create(
+                                    user=current_user,
+                                    title="Table Booking.",
+                                    description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking."
+                                )
+
                                 # send transactional email.
+                                # TODO
 
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
@@ -231,12 +241,19 @@ class GymBooking(generics.CreateAPIView):
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
-                                    user=request.user,
-                                    title="Brand Account.",
+                                    user=authenticated_user,
+                                    title="Gym Booking.",
                                     message=f"Payment of {amount} for gym booking\
                                         was successful.",
                                 )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Gym Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription."
+                                )
                                 # send transactional email.
+                                # TODO
 
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
@@ -375,12 +392,20 @@ class CinemaBookingView(generics.CreateAPIView):
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
-                                    user=request.user,
-                                    title="Brand Account.",
+                                    user=authenticated_user,
+                                    title="Cinema Booking.",
                                     message=f"Payment of {amount} for cinema seats booking\
                                         was successful.",
                                 )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Cinema Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking."
+                                )
+
                                 # send transactional email.
+                                # TODO
 
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
@@ -519,12 +544,20 @@ class BookCourierSercvice(generics.CreateAPIView):
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
-                                    user=request.user,
+                                    user=authenticated_user,
                                     title="Courier Service Booking.",
                                     message=f"Payment of {amount} for courier service booking\
                                         was successful.",
                                 )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Courier Service Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking."
+                                )
+
                                 # send transactional email.
+                                # TODO
 
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
@@ -643,18 +676,27 @@ class BookConsumableSercvice(generics.CreateAPIView):
             for key, value in request.data.items()
         }
         serializer = self.get_serializer(data=payload)
+        authenticated_user = request.user
         if serializer.is_valid(raise_exception=True):
             serializer.save()  # Save booking details.
 
             price = request.data.get("price")
 
             UserNotification.objects.create(
-                user=request.user,
+                user=authenticated_user,
                 title="Consumables booking.",
                 message=f"Booking of {price} for consumable service booking\
                     was successful.",
             )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Consumables booking.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} booked for a consumable service of {price}."
+            )
+
             # send transactional email.
+            # TODO
 
             serializer.save()
             purchase = PurchaseModel.objects.create(
@@ -815,6 +857,18 @@ class BookLandTrip(generics.GenericAPIView):
                     land_travel.transaction_status = tx_status
                     land_travel.save()
 
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Land Travels Service.",
+                        message=f"Booking of onw way trip from {departure_state} to {destination} was successful.",
+                    )
+
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Consumables booking.",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a onw way trip booking from {departure_state} to {destination}."
+                    )
+
                     response = {
                         "status": "success",
                         "message": f"You have successfully booked a one way trip from {departure_state} to {destination}.",
@@ -841,6 +895,19 @@ class BookLandTrip(generics.GenericAPIView):
                     land_travel.product_tag = tag
                     land_travel.transaction_status = tx_status
                     land_travel.save()
+
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Land Travels Service.",
+                        message=f"Booking of round trip from {departure_state} to {destination} and back\
+                            was successful.",
+                    )
+
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Land Travels Service.",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a round trip bbooking from {departure_state} to {destination} and back."
+                    )
 
                     response = {
                         "status": "success!",
@@ -955,12 +1022,20 @@ class BookHotel(generics.GenericAPIView):
                             )
                             if debit_response == 200:
                                 UserNotification.objects.create(
-                                    user=request.user,
+                                    user=authenticated_user,
                                     title="Hotel Booking.",
                                     message=f"Payment of {amount} for hotel booking\
                                         was successful.",
                                 )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Hotel Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for hotel booking."
+                                )
+
                                 # send transactional email.
+                                # TODO
 
                                 serializer.save()
                                 purchase = PurchaseModel.objects.create(
@@ -1073,6 +1148,18 @@ class ServiceRating(generics.GenericAPIView):
 
                 # Save the rating linked to the service
                 serializer.save(service=service)
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="Service Rating.",
+                    message=f"Your service rating of {service} has been recorded.",
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Service Rating.",
+                    description=f"{user.first_name} {user.last_name} rated {service}."
+                )
 
                 return Response(
                     {"success": "Service rating added successfully."},

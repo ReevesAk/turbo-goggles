@@ -24,6 +24,7 @@ from .models import CreateAd, AdLocation
 from banking.helpers import Pin
 from banking.controllers import Account
 from banking.models import AccountCreation
+from roles.models import ActivityModel
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -65,6 +66,12 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             )
             brand_user.active_role = "BrandAd"
             brand_user.save()
+
+            ActivityModel.objects.create(
+                user=brand_user,
+                title="Brand Register.",
+                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}."
+            )
 
             response = {
                 "status": "success",
@@ -170,6 +177,12 @@ class BrandSurveyView(generics.CreateAPIView):
                     city=request.data.get("city"),
                 )
 
+                ActivityModel.objects.create(
+                    user=brand_survey_instance,
+                    title="Brand Survey.",
+                    description=f"{brand_survey_instance.whoareyou} conducted brand Ad survey successfully."
+                )
+
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as err:
                 logging.error(f"brand advert survey failed with {err}")
@@ -207,12 +220,20 @@ class BrandPromote(generics.CreateAPIView):
                     )
                     if debit_response == 200:
                         serializer.save()
+                        current_user = request.user
                         UserNotification.objects.create(
-                            user=request.user,
+                            user=current_user,
                             title="Brand Promotion.",
                             message=f"This is to inform you that your payment of {price} \
                                 for brand promotion is successful.",
                         )
+
+                        ActivityModel.objects.create(
+                            user=current_user,
+                            title="Brand Promotion.",
+                            description=f"{current_user.whoareyou} promoted their brand successfully."
+                        )
+
                         # send_email(
                         #     subject="Debit Transaction.",
                         #     body=f"This is to inform you that your payment of {price} \

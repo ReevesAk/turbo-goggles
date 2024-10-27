@@ -14,7 +14,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
 from .helpers import Pin
-from accounts.models import TxModel
+from accounts.models import TxModel, UserNotification
+from roles.models import ActivityModel
 from .controllers import Transfers
 from .models import TransferModel, AccountCreation
 from .serializers import (
@@ -190,6 +191,18 @@ class IntraBankTransfer(generics.CreateAPIView):
                 amount = payload["transaction_amount"]
                 account = TransferModel.objects.filter(user=authenticated_user).first()
                 message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Bank Transfer.",
+                    message=f"Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}.",
+                )
+
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="Bank Transfer.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}."
+                )
                 # send email notification to the User.
                 Message.send_email(
                     subject="Debit Transaction.",
@@ -278,6 +291,27 @@ class InterBankTransfer(generics.CreateAPIView):
                     beneficiary_bank=payload["beneficiary_bank"],
                     transaction_amount=payload["transaction_amount"],
                 )
+                amount = payload["transaction_amount"]
+                message = f"Dear {authenticated_user.full_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Bank Transfer.",
+                    message=f"Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}.",
+                )
+
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="Bank Transfer.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}."
+                )
+                # send email notification to the User.
+                Message.send_email(
+                    subject="Debit Transaction.",
+                    content=message,
+                    email=authenticated_user.email,
+                )
+
                 resp = {
                     "status": "success",
                     "message": "Transfer succussful.",

@@ -37,7 +37,7 @@ from .serializers import (
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
-from roles.models import Points
+from roles.models import Points, ActivityModel
 from vas.helpers import VAS
 from self_service.models import (
     LandTravels,
@@ -107,6 +107,18 @@ class SwitchToUser(generics.RetrieveAPIView):
             }
             return Response(data=data, status=status.HTTP_200_OK)
 
+        UserNotification.objects.create(
+            user=user,
+            title="User Type Switch.",
+            message="Account type switched to User successfully.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="User Type Switch.",
+            description=f"{user.first_name} {user.last_name} switched account from {user.active_role} to User."
+        )
+
         # User has a Partner account type, switch the role
         user.active_role = "User"
         user.save()
@@ -163,6 +175,18 @@ class SwitchToPartner(generics.RetrieveAPIView):
                 "data": user.active_role,
             }
             return Response(data=data, status=status.HTTP_200_OK)
+
+        UserNotification.objects.create(
+            user=user,
+            title="Role Switch.",
+            message="Account type switched to Partner successfully.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Role Switch.",
+            description=f"{user.first_name} {user.last_name} switched account type from {user.active_role} to Partner."
+        )
 
         # User has a Partner account type, switch the role
         user.active_role = "Partner"
@@ -221,6 +245,18 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
             }
             return Response(data=data, status=status.HTTP_200_OK)
 
+        UserNotification.objects.create(
+            user=user,
+            title="Role Switch.",
+            message="Account type switched to BrandAd successfully.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Role Switch.",
+            description=f"{user.first_name} {user.last_name} switched account type from {user.active_role} to BrandAd."
+        )
+
         # User has a Partner account type, switch the role
         user.active_role = "BrandAd"
         user.save()
@@ -261,6 +297,13 @@ class ProfileImage(generics.CreateAPIView):
                 title="Profile Image.",
                 message="You have been successfully uploaded your profile image.",
             )
+
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Profile Image.",
+                description=f"{request.user.first_name} {request.user.last_name} uploaded their profile image."
+            )
+
             response = {
                 "status": "success",
                 "message": "Profile picture uploaded successfully",
@@ -313,7 +356,13 @@ class UpdateUserProfile(generics.UpdateAPIView):
             message="You have been successfully updated your profile.",
         )
 
-        body = "This is to inform you that you have just your profile on Picadailys has een updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+        ActivityModel.objects.create(
+            user=request.user,
+            title="Update Profile.",
+            description=f"{request.user.first_name} {request.user.last_name} updated their profile."
+        )
+
+        body = "This is to inform you that you have just your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
 
         email_content = render_to_string(
             "email_template.html",
@@ -364,6 +413,12 @@ class ChangePassword(generics.UpdateAPIView):
                 user=request.user,
                 title="Change Password.",
                 message="You have successfully changed your password.",
+            )
+
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Change Password.",
+                description=f"{request.user.first_name} {request.user.last_name} changed their password."
             )
 
             # body = "This is to inform you that your Picadailys account password has been beem changes successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
@@ -429,6 +484,12 @@ class MemberUserSwitch(generics.UpdateAPIView):
                                 offers with us.",
                         )
 
+                        ActivityModel.objects.create(
+                            user=request.user,
+                            title="Member Switch.",
+                            description=f"{request.user.first_name} {request.user.last_name} switched from User to Member."
+                        )
+
                         resp = {
                             "status": "success!",
                             "data": "Congratulations you have been \
@@ -482,12 +543,25 @@ class PostMemberSurvey(generics.CreateAPIView):
             serializer.save()
 
             user = User.objects.create(user=request.user)
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Member Survey.",
+                message="Survey completed successully!.",
+            )
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Member Survey.",
+                description=f"{request.user.first_name} {request.user.last_name} has completed Member account survey."
+            )
+
             user.done_survey = True
             user.save()
 
             response = {
                 "status": "success",
-                "message": "Survey completely successully!",
+                "message": "Survey completed successully!",
                 "data": serializer.data,
             }
             return Response(data=response, status=status.HTTP_201_CREATED)
@@ -505,13 +579,14 @@ class DeleteUser(generics.DestroyAPIView):
 
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Delete Account.",
+                description=f"{request.user.first_name} {request.user.last_name} has deleted their account."
+            )
             user.delete()
 
-            UserNotification.objects.create(
-                user=request.user,
-                title="Delete Account.",
-                message="You have deleted your account.",
-            )
             recipient = user.phone_number[1:]
             Message.send_msg(
                 msg="This is to inform you that your account Picadailys has been deleted.\
@@ -564,6 +639,19 @@ class OpenRewardBox(generics.GenericAPIView):
                 "status": "success",
                 "message": "Wow, you have have an item in your box, click to claim reward!",
             }
+
+            UserNotification.objects.create(
+                user=request.user,
+                title="Myestery Box.",
+                message="Congratulations, you have have an item in your box, click to claim reward!.",
+            )
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Myestery Box.",
+                description=f"{request.user.first_name} {request.user.last_name} has opened their mystery box."
+            )
+
             return Response(data=response_data, status=status.HTTP_200_OK)
 
         elif user_reward.balance < 100:
@@ -615,6 +703,12 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                             message="You have successfully claimed your mystery box item.",
                         )
 
+                        ActivityModel.objects.create(
+                            user=authenticated_user,
+                            title="Claim Gift box reward.",
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name}  claimed their mystery box item of {amount.mystery_box} airtime."
+                        )
+
                         response_data = {
                             "status": "Success",
                             "message": f"Recharge of {amount} was succesful.\
@@ -638,7 +732,13 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         UserNotification.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            message="You have successfully claime your mystery box item.",
+                            message="You have successfully claimed your mystery box item.",
+                        )
+
+                        ActivityModel.objects.create(
+                            user=authenticated_user,
+                            title="Claim Gift box reward.",
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name}  claimed their mystery box item of {amount.mystery_box} data subscription."
                         )
 
                         response = {

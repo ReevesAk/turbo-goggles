@@ -25,6 +25,7 @@ from accounts.models import UserNotification
 from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
+from roles.models import ActivityModel
 
 
 class PaginationStyle(PageNumberPagination):
@@ -192,6 +193,12 @@ class AddToCart(generics.CreateAPIView):
                 cart_item.quantity += quantity
                 cart_item.save()
 
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Cart Item.",
+                    description=f"{user.first_name} {user.last_name} added {product.name_and_size} to cart."
+                )
+
             return Response({
                 "status": "success",
                 "message": "Product added to cart.",
@@ -278,6 +285,12 @@ class RemoveFromCart(generics.DestroyAPIView):
 
         cart_item.delete()
 
+        ActivityModel.objects.create(
+            user=user,
+            title="Cart Item.",
+            description=f"{user.first_name} {user.last_name} removed {product.name_and_size} from cart."
+        )
+
         return Response({
             "status": "success",
             "message": "Product removed from cart."
@@ -330,11 +343,17 @@ class FmcgCheckout(generics.CreateAPIView):
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Payment Successful.",
-                        message=f"You have successfully paid {amount} for the purchase of {product}."
+                        message=f"You have successfully paid {amount} for the purchase of {product.name_and_size}."
+                    )
+
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Payment Successful.",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} has successfully paid {amount} for the purchase of {product.name_and_size}."
                     )
                     resp = {
                         "status": "success.",
-                        "message": f"You have successfully paid {amount} for the purchase of {product}.",
+                        "message": f"You have successfully paid {amount} for the purchase of {product.name_and_size}.",
                         "data": serializer.data
                     }
                     return Response(data=resp, status=status.HTTP_200_OK)
@@ -402,6 +421,18 @@ class FmcgRatingView(generics.GenericAPIView):
 
                 # Save the rating linked to the product
                 serializer.save(product=product, user=user)
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="FMCG Product Rating.",
+                    message="Product rated successfully!.",
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="FMCG Product Rating.",
+                    description=f"{user.first_name} {user.last_name} has rated an FMCG product."
+                )
 
                 return Response(
                     {"success": "Product rating added successfully."},

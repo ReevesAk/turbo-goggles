@@ -7,6 +7,8 @@ from datetime import date, timedelta
 
 from .controllers import Forex, Account
 from .models import Cards
+from accounts.models import UserNotification
+from roles.models import ActivityModel
 
 scheduled_charges = {}
 
@@ -34,6 +36,17 @@ def charge_cards_every_30_days():
                         amount=naira_value, reason="Debit for card maintenance."
                     )
                     if debit_response == 200:
+                        # UserNotification.objects.create(
+                        #     user=authenticated_user,
+                        #     title="Reset Wallet Pin.",
+                        #     message="Wallet pin reset was successful.",
+                        # )
+
+                        # ActivityModel.objects.create(
+                        #     user=user,
+                        #     title="Reset Wallet Pin.",
+                        #     description=f"{user.first_name} {user.last_name} has reset their wallet pin."
+                        # )
                         logging.info(msg="Cards successfully charged for maintenance.")
                         # send_mail(
                         #     subject="Card Charge Successful",
