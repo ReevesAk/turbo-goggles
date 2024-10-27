@@ -156,7 +156,7 @@ class VerifYBVN(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="BVN Verification.",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully."
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully.",
                 )
 
                 response = {
@@ -273,7 +273,7 @@ class CreateBankAccount(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=current_user,
                     title="Virtual Account Creation.",
-                    description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉."
+                    description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉.",
                 )
 
                 # Set the value of has_wallet to true.
@@ -340,7 +340,7 @@ class NotificationView(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=user,
                     title="Credit Transactionn.",
-                    description=f"{user.first_name} {user.last_name} received a credit transaction with narraiton: {narration}."
+                    description=f"{user.first_name} {user.last_name} received a credit transaction with narraiton: {narration}.",
                 )
 
                 email_body = f"{user.acct_name}, /n This is to inform you that a transaction occurred on your account."
@@ -487,7 +487,7 @@ class SetWalletPin(generics.CreateAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Wallet.",
-                description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully."
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
             # send_email(
@@ -536,7 +536,7 @@ class ForgotWalletPin(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=user,
                     title="Wallet Pin.",
-                    description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it."
+                    description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
                 )
 
                 return Response(data=response, status=status.HTTP_201_CREATED)
@@ -623,7 +623,7 @@ class PinVerifyOTP(generics.GenericAPIView):
                 ActivityModel.objects.create(
                     user=user,
                     title="Wallet Pin.",
-                    description=f"{user.first_name} {user.last_name} reset it."
+                    description=f"{user.first_name} {user.last_name} reset it.",
                 )
 
                 data = {"status": "success", "message": "Account is verified"}
@@ -684,7 +684,7 @@ class ResetPin(generics.CreateAPIView):
             ActivityModel.objects.create(
                 user=user,
                 title="Reset Wallet Pin.",
-                description=f"{user.first_name} {user.last_name} has reset their wallet pin."
+                description=f"{user.first_name} {user.last_name} has reset their wallet pin.",
             )
 
             # send transactional email.

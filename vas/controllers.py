@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from commons import Allocate
 from accounts.models import TxModel, Rewards, UserNotification
+from roles.models import ActivityModel
 
 from django.db import transaction
 
@@ -38,6 +39,12 @@ def airtime(user, serializer, reason, user_data):
             user=user,
             title="Airtime purchase.",
             message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Airtime purchase.",
+            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}..",
         )
 
         # Check is user is a member then assign rewards.
@@ -113,7 +120,13 @@ def data(user, serializer, reason, user_data):
             user=user,
             title="Data subscription.",
             message=f"This is to inform you that you have made a \
-                purchase of {amount} data subscription on {phone}.",
+                purchase of {amount} naira data subscription on {phone}.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Data subscription.",
+            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}..",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -178,6 +191,12 @@ def electricity(user, serializer, reason, user_data):
             title="Electricity payment.",
             message=f"This is to inform you that your payment of {amount} \
                 for electricity is successful.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Electricity payment.",
+            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
         )
 
         # Check is user is a memeber then assign rewards.

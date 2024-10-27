@@ -201,7 +201,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Bank Transfer.",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}."
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}.",
                 )
                 # send email notification to the User.
                 Message.send_email(
@@ -303,7 +303,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Bank Transfer.",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}."
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}.",
                 )
                 # send email notification to the User.
                 Message.send_email(

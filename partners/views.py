@@ -84,7 +84,7 @@ class CreatePartner(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Partner Registration.",
-                description=f"{authenticated_user.first_name} {authenticated_user.last_name} registered as {authenticated_user.business_name}."
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} registered as {authenticated_user.business_name}.",
             )
 
             response = {
@@ -222,7 +222,7 @@ class CreatePartnerService(generics.CreateAPIView):
                     ActivityModel.objects.create(
                         user=current_user,
                         title="Partner Service.",
-                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business_name}."
+                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business_name}.",
                     )
 
                     return Response(data=response, status=status.HTTP_201_CREATED)
@@ -326,7 +326,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
                     ActivityModel.objects.create(
                         user=current_user,
                         title="Partner Service.",
-                        description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}."
+                        description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}.",
                     )
 
                 response = {
@@ -392,7 +392,6 @@ class DeletePartnerService(generics.DestroyAPIView):
             service = self.get_object()
 
             if service.user == request.user:
-
                 current_user = request.user
                 UserNotification.objects.create(
                     user=current_user,
@@ -403,7 +402,7 @@ class DeletePartnerService(generics.DestroyAPIView):
                 ActivityModel.objects.create(
                     user=current_user,
                     title="Partner Service.",
-                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {service.business}."
+                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {service.business}.",
                 )
                 service.delete()
                 return Response(
@@ -598,7 +597,7 @@ class VerifyCAC(generics.GenericAPIView):
                     ActivityModel.objects.create(
                         user=current_user,
                         title="Business Verification.",
-                        description=f"{current_user.first_name} {current_user.last_name} has successfully verified their business: {current_user.business}."
+                        description=f"{current_user.first_name} {current_user.last_name} has successfully verified their business: {current_user.business}.",
                     )
 
                     # send transactional email.
