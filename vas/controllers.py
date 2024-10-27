@@ -251,7 +251,7 @@ def NewTvSub(user, serializer, reason, user_data):
         phone=user_data["phone"],
         billersCode=user_data["billersCode"],
         variation_code=user_data["variation_code"],
-        subscription_type=user_data["subscription_type"],
+        subscription_type="change",
         quantity=user_data["quantity"],
     )
     if new_tv_response.status_code == 200:
@@ -263,6 +263,13 @@ def NewTvSub(user, serializer, reason, user_data):
             title="New Tv subscription.",
             message=f"This is to inform you that your payment of {amount} \
                 for Tv subscription is successful.",
+        )
+
+        billersCode = user_data["billersCode"]
+        ActivityModel.objects.create(
+            user=user,
+            title="New Tv subscription.",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for new Cable TV subscription on {billersCode}."
         )
 
         # Check is user is a memeber then assign rewards.
@@ -315,7 +322,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         amount=user_data["amount"],
         phone=user_data["phone"],
         billersCode=user_data["billersCode"],
-        subscription_type=user_data["subscription_type"],
+        subscription_type="change",
     )
     if renew_tv_response.status_code == 200:
         renew_tv_sub_instance = serializer.save()
@@ -326,6 +333,13 @@ def RenewTvSub(user, serializer, reason, user_data):
             title="Renew Tv subscription.",
             message=f"This is to inform you that your payment of {amount} \
                 to renew tv subscription is successful.",
+        )
+
+        billersCode = user_data["billersCode"]
+        ActivityModel.objects.create(
+            user=user,
+            title="Renew Tv subscription.",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}."
         )
 
         # Check is user is a memeber then assign rewards.

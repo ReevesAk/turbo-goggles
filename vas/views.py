@@ -16,7 +16,9 @@ from .serializers import (
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
     ElectricityBillSerializer,
-    # TvSubscriptionSerializer,
+    VerifyCardNumberSerializer,
+    TvSubscriptionSerializer,
+    ProductStatusSerializer,
     # IntlAirtimeSerializer,
     # WaecRegistrationSerializer,
     # VehicleInsuranceSerializer,
@@ -41,7 +43,7 @@ from .controllers import (
     HomeCoverInsurance,
     HealthInsurance,
 )
-from .models import ELECTRICITY_SERVICE_ID_CHOICES
+from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay
 
 
@@ -150,26 +152,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                             },
                             status=debit_response.status_code,
                         )
-
-                    # Attempt to refund the debited amount.
-                    credit_response = Account.Credit(
-                        acct_no=user_details.account_number,
-                        amount=new_amount,
-                        transactionReference="",
-                        reason="Refund for failed airtime recharge.",
-                    )
-                    if credit_response.status_code == 200:
-                        logging.info(
-                            f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-                        )
                     else:
-                        logging.error(
-                            f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}"
+                        return Response(
+                            data=debit_response.json(),
+                            status=debit_response.status_code,
                         )
-
-                    return Response(
-                        data=debit_response.json(), status=debit_response.status_code
-                    )
 
                 case "CARD":
                     # Implement card payment logic here
@@ -330,21 +317,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                                         status=status.HTTP_400_BAD_REQUEST,
                                     )
                             else:
-                                # Attempt to refund the debited amount.
-                                credit_response = Account.Credit(
-                                    acct_no=user_details.account_number,
-                                    amount=new_amount,
-                                    transactionReference="",
-                                    reason="Refund for failed data subscription.",
-                                )
-                                if credit_response.status_code == 200:
-                                    logging.info(
-                                        f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-                                    )
-                                else:
-                                    logging.error(
-                                        f"Account credit failed for account {user_details.account_number}. Status code: {credit_response.status_code}"
-                                    )
                                 return Response(
                                     data=debit_response.json(),
                                     status=debit_response.status_code,
@@ -363,9 +335,9 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
 
 
-class ServiceIDListView(APIView):
+class ElectricityServiceIDListView(APIView):
     """
-    ServiceIDListView is the GET request handler that returns a list of electricity service ids.
+    ElectricityServiceIDListView is the GET request handler that returns a list of electricity service ids.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -537,21 +509,6 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
                     else:
-                        # Attempt to refund the debited amount.
-                        credit_response = Account.Credit(
-                            acct_no=user_details.account_number,
-                            amount=new_amount,
-                            transactionReference="",
-                            reason="Refund for failed electricity bill payment.",
-                        )
-                        if credit_response == 200:
-                            logging.info(
-                                f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-                            )
-                        else:
-                            logging.error(
-                                f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
-                            )
                         return Response(
                             data=debit_response.json(),
                             status=debit_response.status_code,
@@ -561,308 +518,318 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     pass
 
 
-# class ProductStatus(generics.RetrieveAPIView):
-#     """
-#     ProductStatus is the POST request handler for checking the status
-#     of any Value Added Services product purchased. It takes in the
-#     request_id of the request and returns the status.
-#     """
+class CableServiceIDListView(APIView):
+    """
+    CableServiceIDListView is the GET request handler that returns a list of cable TV service ids.
+    """
 
-#     serializer_class = VasStatusSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
 
-#     @extend_schema(
-#         description="Product status",
-#         responses={200: {"description": "Get product purchase status"}},
-#     )
-#     def post(self, request):
-#         user = self.request.user
-
-#         resource = "requery"
-#         payload = {
-#             "request_id": user["request_id"],
-#         }
-
-#         status_headers = {
-#             "accept": "application/json",
-#             "api-key": api_key,
-#             "secret-key": x_secret,
-#         }
-#         try:
-#             response = requests.get(
-#                 url=vtpass_url + resource, headers=status_headers, json=payload
-#             )
-#             if response.status_code == 200:
-#                 resp = response.json()
-#                 response_data = {
-#                     "data": resp,
-#                 }
-#                 return Response(data=response_data, status=status.HTTP_200_OK)
-#         except requests.exceptions.RequestException as e:
-#             return Response(
-#                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
+    def get(self, request):
+        cableTv_service_ids = [
+            service_id[1] for service_id in TV_SERVICE_ID_CHOICES
+        ]
+        return Response(
+            data={
+                "status": "success.",
+                "message": "Electricity service Ids retrieved successfully.",
+                "categories": cableTv_service_ids,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-# class GetTvVaritaionCodes(generics.RetrieveAPIView):
-#     """
-#     GetTvVaritaionCodes is the GET request handler for retrieving
-#     the variation codes for tv subscription. Take key note of the
-#     variation codes as they are required to chose a tv plan.
-#     """
+class ProductStatus(generics.RetrieveAPIView):
+    """
+    ProductStatus is the POST request handler for checking the status
+    of any Value Added Services product purchased. It takes in the
+    request_id of the request and returns the status.
+    """
 
-#     serializer_class = VasStatusSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = ProductStatusSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     @extend_schema(
-#         description="Variation codes",
-#         responses={200: {"description": "TV Varitaion Codes"}},
-#     )
-#     def get(self, request, *args, **kwargs):
-#         user = self.request.user  # Get the authenticated user.
+    @extend_schema(
+        description="Product status",
+        responses={200: {"description": "Get product purchase status"}},
+    )
+    def post(self, request):
+        user = self.request.user
 
-#         param_value = kwargs.get("service_ID")
+        resource = "requery"
+        payload = {
+            "request_id": user["request_id"],
+        }
 
-#         if user:
-#             resource = "service-variations?serviceID=" + param_value
-#             fetch_all_variation_codes_headers = {
-#                 "accept": "application/json",
-#                 "api-key": api_key,
-#                 "secret-key": x_secret,
-#             }
-#             try:
-#                 response = requests.get(
-#                     url=vtpass_url + resource,
-#                     headers=fetch_all_variation_codes_headers,
-#                 )
-#                 if response.status_code == 200:
-#                     resp = response.json()["content"]["variations"]
-#                     response_data = {
-#                         "data": resp,
-#                     }
-#                     return Response(data=response_data, status=status.HTTP_200_OK)
-#             except requests.exceptions.RequestException as e:
-#                 return Response(
-#                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#                 )
-
-
-# class VerifySmartCardNumber(generics.GenericAPIView):
-#     """
-#     VerifySmartCardNumber is a POST request handler for verifying smart
-#     card or registration number for tv operators(e.g dstv, gotv).
-#     """
-
-#     serializer_class = VasStatusSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
-
-#     @extend_schema(
-#         description="Smart card",
-#         responses={200: {"description": "Verify smart cards"}},
-#     )
-#     def post(self, request):
-#         user = request.data
-
-#         resource = "merchant-verify"
-#         payload = {
-#             "serviceID": user["serviceID"],
-#             "billersCode": user["billersCode"],
-#         }
-
-#         verify_smart_card_headers = {
-#             "accept": "application/json",
-#             "api-key": api_key,
-#             "secret-key": x_secret,
-#         }
-#         try:
-#             response = requests.post(
-#                 url=vtpass_url + resource,
-#                 json=payload,
-#                 headers=verify_smart_card_headers,
-#             )
-
-#             if response.status_code == 200:
-#                 response_data = {
-#                     "data": response.json(),
-#                 }
-
-#                 return Response(data=response_data, status=status.HTTP_200_OK)
-#             else:
-#                 return Response(response.json(), status=response.status_code)
-
-#         except requests.exceptions.RequestException as e:
-#             return Response(
-#                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
+        status_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.get(
+                url=vtpass_url + resource, headers=status_headers, json=payload
+            )
+            if response.status_code == 200:
+                resp = response.json()
+                response_data = {
+                    "data": resp,
+                }
+                return Response(data=response_data, status=status.HTTP_200_OK)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
-# class NewTvSubscription(generics.GenericAPIView):
-#     """
-#     NewTvSubscription is a POST request handler for new
-#     tv plan subscription.
-#     """
+class GetTvVaritaionCodes(generics.RetrieveAPIView):
+    """
+    GetTvVaritaionCodes is the GET request handler for retrieving
+    the variation codes for tv subscription. Take key note of the
+    variation codes as they are required to chose a tv plan.
+    """
 
-#     serializer_class = TvSubscriptionSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = VasStatusSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     def post(self, request):
-#         user_data = {
-#             key: value.strip() if isinstance(value, str) else value
-#             for key, value in request.data.items()
-#         }
-#         user = request.user
+    @extend_schema(
+        description="Variation codes",
+        responses={200: {"description": "TV Varitaion Codes"}},
+    )
+    def get(self, request, *args, **kwargs):
+        user = self.request.user  # Get the authenticated user.
 
-#         pin = user_data.get("pin")
-#         use_points = user_data.get("use_points")
-#         use_rewards = user_data.get("use_rewards")
-#         amount = user_data.get("amount")
+        param_value = kwargs.get("service_ID")
 
-#         account = AccountCreation.objects.get(user=user)
-#         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-#         if verification:
-#             payment_option = request.data.get("payment_option")
-#             match payment_option:
-#                 case "WALLET":
-#                     if use_points:
-#                         _, pts_amt = Pay.with_pts(user=user, amount=amount)
-#                     else:
-#                         pts_amt = 0
-#                     if use_rewards:
-#                         _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-#                     else:
-#                         rwd_amt = 0
-
-#                     new_amount = amount - pts_amt - rwd_amt
-
-#                     user_details = AccountCreation.objects.get(user=user)
-#                     debit_response = Account.Debit(
-#                         debitAccount=user_details.account_number,
-#                         amount=new_amount,
-#                         reason="Debit for Tv subscription.",
-#                         transactionReference="",
-#                     )
-#                     if debit_response == 200:
-#                         serializer = self.serializer_class(data=user_data)
-#                         if serializer.is_valid(raise_exception=True):
-#                             NewTvSub(
-#                                 user=user,
-#                                 serializer=serializer,
-#                                 reason="Debit for Tv subscription.",
-#                                 user_data=user_data,
-#                             )
-#                         else:
-#                             return Response(
-#                                 data=serializer.errors,
-#                                 status=status.HTTP_400_BAD_REQUEST,
-#                             )
-#                     else:
-#                         credit_response = Account.Credit(
-#                             acct_no=user_details.account_number,
-#                             amount=new_amount,
-#                             transactionReference="",
-#                             reason="Refund for failed  tv subscription.",
-#                         )
-#                         if credit_response == 200:
-#                             logging.info(
-#                                 f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-#                             )
-#                         else:
-#                             logging.error(
-#                                 f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
-#                             )
-#                         return Response(
-#                             data=debit_response.json(),
-#                             status=debit_response.status_code,
-#                         )
-#                 case "CARD":
-#                     pass
+        if user:
+            resource = "service-variations?serviceID=" + param_value
+            fetch_all_variation_codes_headers = {
+                "accept": "application/json",
+                "api-key": api_key,
+                "secret-key": x_secret,
+            }
+            try:
+                response = requests.get(
+                    url=vtpass_url + resource,
+                    headers=fetch_all_variation_codes_headers,
+                )
+                if response.status_code == 200:
+                    resp = response.json()["content"]["variations"]
+                    response_data = {
+                        "data": resp,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            except requests.exceptions.RequestException as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 
-# class RenewTvSubscription(generics.GenericAPIView):
-#     """
-#     RenewTvSubscription is a POST request handler for
-#     tv plan subscription renewal.
-#     """
+class VerifySmartCardNumber(generics.GenericAPIView):
+    """
+    VerifySmartCardNumber is a POST request handler for verifying smart
+    card or registration number for tv operators(e.g dstv, gotv).
+    """
 
-#     serializer_class = TvSubscriptionSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, VasPermission)
+    serializer_class = VerifyCardNumberSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
 
-#     def post(self, request):
-#         user_data = {
-#             key: value.strip() if isinstance(value, str) else value
-#             for key, value in request.data.items()
-#         }
-#         user = request.user
+    @extend_schema(
+        description="Smart card",
+        responses={200: {"description": "Verify smart cards"}},
+    )
+    def post(self, request):
+        user = request.data
 
-#         pin = user_data.get("pin")
-#         use_points = user_data.get("use_points")
-#         use_rewards = user_data.get("use_rewards")
-#         amount = user_data.get("amount")
+        resource = "merchant-verify"
+        payload = {
+            "serviceID": user["serviceID"],
+            "billersCode": user["billersCode"],
+        }
 
-#         account = AccountCreation.objects.get(user=user)
-#         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-#         if verification:
-#             payment_option = request.data.get("payment_option")
-#             match payment_option:
-#                 case "WALLET":
-#                     if use_points:
-#                         _, pts_amt = Pay.with_pts(user=user, amount=amount)
-#                     else:
-#                         pts_amt = 0
-#                     if use_rewards:
-#                         _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-#                     else:
-#                         rwd_amt = 0
+        verify_smart_card_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.post(
+                url=vtpass_url + resource,
+                json=payload,
+                headers=verify_smart_card_headers,
+            )
 
-#                     new_amount = amount - pts_amt - rwd_amt
+            if response.status_code == 200:
+                response_data = {
+                    "data": response.json(),
+                }
 
-#                     user_details = AccountCreation.objects.get(user=user)
-#                     debit_response = Account.Debit(
-#                         debitAccount=user_details.account_number,
-#                         amount=new_amount,
-#                         reason="Debit for tv subscription renewal.",
-#                         transactionReference="",
-#                     )
-#                     if debit_response.status_code == 200:
-#                         serializer = self.serializer_class(data=user_data)
-#                         if serializer.is_valid(raise_exception=True):
-#                             RenewTvSub(
-#                                 user=user,
-#                                 serializer=serializer,
-#                                 reason="Debit for tv subscription renewal.",
-#                                 user_data=user_data,
-#                             )
-#                         else:
-#                             return Response(
-#                                 data=serializer.errors,
-#                                 status=status.HTTP_400_BAD_REQUEST,
-#                             )
-#                     else:
-#                         credit_response = Account.Credit(
-#                             acct_no=user_details.account_number,
-#                             amount=new_amount,
-#                             transactionReference="",
-#                             reason="Refund for failed tv subscription.",
-#                         )
-#                         if credit_response == 200:
-#                             logging.info(
-#                                 f"Account credit successful for account {user_details.account_number}. Amount: {new_amount}"
-#                             )
-#                         else:
-#                             logging.error(
-#                                 f"Account credit failed for account {user_details.account_number}. Status code: {credit_response}"
-#                             )
-#                         return Response(
-#                             data=debit_response.json(),
-#                             status=debit_response.status_code,
-#                         )
-#                 case "CARD":
-#                     pass
+                return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(response.json(), status=response.status_code)
+
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class NewTvSubscription(generics.GenericAPIView):
+    """
+    NewTvSubscription is a POST request handler for new
+    tv plan subscription.
+    """
+
+    serializer_class = TvSubscriptionSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        user = request.user
+
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
+
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if not verification:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        payment_option = request.data.get("payment_option")
+        match payment_option:
+            case "WALLET":
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                else:
+                    pts_amt = 0
+                if use_rewards:
+                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                else:
+                    rwd_amt = 0
+
+                new_amount = int(amount) - pts_amt - rwd_amt
+
+                user_details = AccountCreation.objects.get(user=user)
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=new_amount,
+                    reason="Debit for Tv subscription.",
+                    transactionReference="",
+                )
+                if debit_response == 200:
+                    NewTvSub(
+                        user=user,
+                        serializer=serializer,
+                        reason="Debit for Tv subscription.",
+                        user_data=user_data,
+                    )
+                    return Response(
+                        data={
+                            "status": "success",
+                            "message": "Account debit successful",
+                            "data": debit_response.json(),
+                        },
+                        status=debit_response.status_code,
+                    )
+                else:
+                    return Response(
+                        data=debit_response.json(),
+                        status=debit_response.status_code,
+                    )
+
+            case "CARD":
+                pass
+
+
+class RenewTvSubscription(generics.GenericAPIView):
+    """
+    RenewTvSubscription is a POST request handler for
+    tv plan subscription renewal.
+    """
+
+    serializer_class = TvSubscriptionSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, VasPermission)
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        user = request.user
+
+        pin = user_data.get("pin")
+        use_points = user_data.get("use_points")
+        use_rewards = user_data.get("use_rewards")
+        amount = user_data.get("amount")
+
+        account = AccountCreation.objects.get(user=user)
+        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if not verification:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        payment_option = request.data.get("payment_option")
+        match payment_option:
+            case "WALLET":
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                else:
+                    pts_amt = 0
+                if use_rewards:
+                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                else:
+                    rwd_amt = 0
+
+                new_amount = int(amount) - pts_amt - rwd_amt
+
+                user_details = AccountCreation.objects.get(user=user)
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=new_amount,
+                    reason="Debit for tv subscription renewal.",
+                    transactionReference="",
+                )
+                if debit_response.status_code == 200:
+                    serializer = self.serializer_class(data=user_data)
+                    if serializer.is_valid(raise_exception=True):
+                        RenewTvSub(
+                            user=user,
+                            serializer=serializer,
+                            reason="Debit for tv subscription renewal.",
+                            user_data=user_data,
+                        )
+                    else:
+                        return Response(
+                            data=serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
+                    return Response(
+                        data=debit_response.json(),
+                        status=debit_response.status_code,
+                    )
+            case "CARD":
+                pass
 
 
 # class GetIntlAirtimeCountryCodes(generics.GenericAPIView):

@@ -5,7 +5,7 @@ from .models import (
     AirtimeTopup,
     DataSubscription,
     ElectricityBill,
-    # TvSubscription,
+    TvSubscription,
     # WaecRegistration,
     # HomeCoverInsurance,
     # AccidentInsurance,
@@ -174,57 +174,38 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
         ]
 
 
-# class TvSubscriptionSerializer(serializers.ModelSerializer):
-#     """Serializers for tv subscription."""
+class TvSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializers for tv subscription."""
 
-#     pin = serializers.CharField(max_length=4, write_only=True, required=True)
-#     number = serializers.CharField(max_length=50, write_only=True)
-#     expiryMonth = serializers.CharField(max_length=50, write_only=True)
-#     expiryYear = serializers.CharField(max_length=50, write_only=True)
-#     card_pin = serializers.CharField(max_length=4, write_only=True)
-#     cvv = serializers.CharField(max_length=3, write_only=True)
-#     tokenId = serializers.CharField(max_length=255, write_only=True)
-#     token = serializers.CharField(max_length=255, write_only=True)
-#     use_points = serializers.BooleanField(write_only=True, required=False)
-#     use_rewards = serializers.BooleanField(write_only=True, required=False)
+    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    payment_option = serializers.CharField(max_length=50, write_only=True)
+    tx_reference = serializers.CharField(max_length=50, write_only=True)
+    use_points = serializers.BooleanField(write_only=True, required=False)
+    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
-#     class Meta:
-#         model = TvSubscription
-#         fields = [
-#             "id",
-#             "payment_option",
-#             "serviceID",
-#             "amount",
-#             "phone",
-#             "billersCode",
-#             "subscription_type",
-#             "quantity",
-#             "variation_code",
-#             "pin",
-#             "number",
-#             "expiryMonth",
-#             "expiryYear",
-#             "card_pin",
-#             "cvv",
-#             "tokenId",
-#             "token",
-#             "use_points",
-#             "use_rewards",
-#             "tx_reference",
-#         ]
+    class Meta:
+        model = TvSubscription
+        fields = [
+            "id",
+            "payment_option",
+            "serviceID",
+            "amount",
+            "phone",
+            "billersCode",
+            "quantity",
+            "variation_code",
+            "pin",
+            "use_points",
+            "use_rewards",
+            "tx_reference",
+        ]
 
 
 # class IntlAirtimeSerializer(serializers.ModelSerializer):
 #     """Serializers for international airtime topup."""
 
 #     pin = serializers.CharField(max_length=4, write_only=True, required=True)
-#     number = serializers.CharField(max_length=50, write_only=True)
-#     expiryMonth = serializers.CharField(max_length=50, write_only=True)
-#     expiryYear = serializers.CharField(max_length=50, write_only=True)
-#     card_pin = serializers.CharField(max_length=4, write_only=True)
-#     cvv = serializers.CharField(max_length=3, write_only=True)
-#     tokenId = serializers.CharField(max_length=255, write_only=True)
-#     token = serializers.CharField(max_length=255, write_only=True)
+#     tx_reference = serializers.CharField(max_length=50, write_only=True)
 #     use_points = serializers.BooleanField(write_only=True, required=False)
 #     use_rewards = serializers.BooleanField(write_only=True, required=False)
 
@@ -469,7 +450,19 @@ class VasStatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 
+class ProductStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ElectricityBill
+        fields = ["request_id"]
+
+
 class VerifyMeterSerializer(serializers.ModelSerializer):
     class Meta:
         model = ElectricityBill
         fields = ["serviceID", "billersCode", "type"]
+
+
+class VerifyCardNumberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ElectricityBill
+        fields = ["serviceID", "billersCode"]
