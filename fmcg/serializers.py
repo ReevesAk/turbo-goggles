@@ -55,7 +55,7 @@ class AddFmcgPickupAddressSerializers(serializers.ModelSerializer):
         ]
 
 
-class RetrieveCartProductsSerializers(serializers.ModelSerializer):
+class RetrieveCartProductsSerializers(serializers.Serializer):
     """Serializers for retrieving cart products."""
     message = serializers.CharField(max_length=200)
 
