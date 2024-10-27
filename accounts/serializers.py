@@ -96,9 +96,11 @@ class UpdateUserSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializers(serializers.ModelSerializer):
+    use_biometrics = serializers.BooleanField(required=False)
+
     class Meta:
         model = User
-        fields = ["phone_number", "password"]
+        fields = ["phone_number", "password", "use_biometrics"]
 
 
 class VerifyOTPSerializer(serializers.Serializer):

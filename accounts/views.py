@@ -273,88 +273,89 @@ class PasswordResendOTP(generics.GenericAPIView):
 
 
 class Login(APIView):
-    """LoginAPIView handles the POST request of logging in
-    a verified user with valid login credentials.
-    {"phone_number": "8129187363", "password": "13092830"}.
+    """
+    LoginAPIView handles the POST request for logging in
+    a verified user with valid biometrics or password credentials.
     """
 
     serializer_class = LoginSerializers
 
     def post(self, request):
-        _ = {
+        data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        login = request.data.get("phone_number")
-        password = request.data.get("password")
+        login = data.get("phone_number")
+        password = data.get("password")
+        biometrics = data.get("use_biometrics")
 
-        user = authenticate(phone_number=login, password=password)
-
-        if user:
-            # Check if the user already has more than two device IDs.
-            existing_device_count = DeviceId.objects.filter(user=user).count()
-            if existing_device_count >= 2:
-                if existing_device_count == 3:
-                    # Delete the oldest device (based on creation timestamp)
-                    oldest_device = DeviceId.objects.filter(user=user).earliest(
-                        "created_at"
-                    )
-                    oldest_device.delete()
-                return Response(
-                    data={
-                        "error": "User cannot login on more than two devices, older deviceID deleted."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # # check if the user has logged in more than one device.
-            # for device in existing_device_count:
-            #     if not device:
-            #     # Create and send OTP.
-            #     otp = otp_manager.create_otp(user_id=str(user.id))
-            #     msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
-            #         otp
-            #     )
-            #     recipient = user.phone_number
-
-            #     response = Message.send_msg(msg=str(msg), to=recipient)
-
-            #     return Response(
-            #         data={"detail": "Otp sent to user's new device Id"},
-            #         status=status.HTTP_200_OK,
-            #     )
-            if not user.is_verified:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Please verify your account to login",
-                    },
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-
-            UserNotification.objects.create(
-                user=user, title="Login.", message="Login successful."
-            )
-
-            ActivityModel.objects.create(
-                user=user,
-                title="Login.",
-                description=f"{user.first_name} {user.last_name} successfully logged into their account.",
-            )
-
-            # Create JWT tokens
-            tokens = create_jwt_pair_for_user(user)
-            response = {
-                "status": "success",
-                "message": "Login successful",
-                "tokens": tokens,
-            }
-            return Response(data=response, status=status.HTTP_200_OK)
+        # Check if biometrics is requested
+        if biometrics:
+            user = self.authenticate_with_biometrics(login)
         else:
+            user = authenticate(phone_number=login, password=password)
+
+        # If authentication fails, return an error
+        if not user:
             return Response(
                 data={"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        # Ensure user is verified if using password login
+        if not biometrics and not user.is_verified:
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Please verify your account to login",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Check device limit for password login only
+        if not biometrics and not self.check_device_limit(user):
+            return Response(
+                data={"error": "User cannot log in on more than two devices; oldest device deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Successful login
+        return self.handle_login_success(user)
+
+    def authenticate_with_biometrics(self, phone_number):
+        # Implement biometric authentication logic here
+        try:
+            user = User.objects.get(phone_number=phone_number, is_biometric_enabled=True)
+            return user
+        except User.DoesNotExist:
+            return None
+
+    def check_device_limit(self, user):
+        existing_device_count = DeviceId.objects.filter(user=user).count()
+        if existing_device_count >= 2:
+            if existing_device_count >= 3:
+                oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
+                oldest_device.delete()
+            return False
+        return True
+
+    def handle_login_success(self, user):
+        # Log successful login event
+        UserNotification.objects.create(user=user, title="Login", message="Login successful.")
+        ActivityModel.objects.create(
+            user=user,
+            title="Login",
+            description=f"{user.first_name} {user.last_name} successfully logged into their account."
+        )
+
+        # Create JWT tokens
+        tokens = create_jwt_pair_for_user(user)
+        response = {
+            "status": "success",
+            "message": "Login successful",
+            "tokens": tokens,
+        }
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class ForgotPassword(generics.GenericAPIView):
