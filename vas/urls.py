@@ -1,14 +1,16 @@
 from django.urls import path
 from .views import (
+    ProductStatus,
     AirTimeTopUp,
     GetNetworkProvidersVaritaionCodes,
     DataSubscriptionView,
     VerifyMeterNumber,
     ElectrcityBillPayment,
-    # GetTvVaritaionCodes,
-    # VerifySmartCardNumber,
-    # ProductStatus,
-    # NewTvSubscription,
+    ElectricityServiceIDListView,
+    CableServiceIDListView,
+    GetTvVaritaionCodes,
+    VerifySmartCardNumber,
+    NewTvSubscription,
     # RenewTvSubscription,
     # GetIntlAirtimeCountryCodes,
     # GetIntlAirtimeProducts,
@@ -29,6 +31,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("product-status/", ProductStatus.as_view(), name="check_product_status"),
     path(
         "airtime-topup",
         AirTimeTopUp.as_view(),
@@ -40,24 +43,25 @@ urlpatterns = [
         name="variation_codes",
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),
+    path("electricty-serviceIds", ElectricityServiceIDListView.as_view(), name="electricity_serviceIds"),
     path("verify-meter-no/", VerifyMeterNumber.as_view(), name="verify-meter"),
     path(
         "pay-electricity-bill/",
         ElectrcityBillPayment.as_view(),
         name="pay_electric_bill",
     ),
-    # path(
-    #     "get-tv-variation-codes/<str:service_ID>/",
-    #     GetTvVaritaionCodes.as_view(),
-    #     name="tv_variation_codes",
-    # ),
-    # path(
-    #     "verify-smart-card-no/",
-    #     VerifySmartCardNumber.as_view(),
-    #     name="verify_smart_card",
-    # ),
-    # path("product-status/", ProductStatus.as_view(), name="check_product_status"),
-    # path("new-subscription/", NewTvSubscription.as_view(), name="new_subscription"),
+    path("cableTv-serviceIds", CableServiceIDListView.as_view(), name="cableTv_serviceIds"),
+    path(
+        "get-tv-variation-codes/<str:service_ID>/",
+        GetTvVaritaionCodes.as_view(),
+        name="tv_variation_codes",
+    ),
+    path(
+        "verify-smart-card-no/",
+        VerifySmartCardNumber.as_view(),
+        name="verify_smart_card",
+    ),
+    path("new-subscription/", NewTvSubscription.as_view(), name="new_subscription"),
     # path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
     # path(
     #     "get-intl-countries/",
