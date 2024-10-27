@@ -1056,6 +1056,8 @@ class GetAllAdminUsers(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
+        active_admin_count = queryset.filter(is_admin_disabled=False).count()
+        disabled_admin_count = queryset.filter(is_admin_disabled=True).count()
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
@@ -1064,7 +1066,47 @@ class GetAllAdminUsers(generics.ListAPIView):
                     "status": "success",
                     "message": "All admin users retrieved successfully",
                     "num_of_admin_users": queryset.count(),
+                    "num_of_active_admin_users": active_admin_count,
+                    "num_of_disabled_admin_users": disabled_admin_count,
                     "admin_users": serialized_users.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
+class GetAllWalletAdminUsers(generics.ListAPIView):
+    """
+    GetAllWalletAdminUsers is the GET request to retrieve the count
+    of all wallet admin users.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = ListAdminSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = PaginationStyle
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def get_queryset(self):
+        wallet_admin_users = (
+            User.objects.filter(accounttype__user_type__icontains="WalletAdmin")
+            .distinct()
+            .order_by("accounttype__created_at")
+        )
+        return wallet_admin_users
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "All wallet admin users retrieved successfully",
+                    "num_of_wallet_admin_users": queryset.count(),
+                    "wallet_admin_users": serialized_users.data,
                 },
                 status=status.HTTP_200_OK,
             )

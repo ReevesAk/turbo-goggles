@@ -24,6 +24,7 @@ from .views import (
     GetSingleAdminActivity,
     GetAllSingleAdminUserActivity,
     AdminTypesListView,
+    GetAllWalletAdminUsers,
 )
 from .tasks import (
     AssignTask,
@@ -56,6 +57,7 @@ urlpatterns = [
     path(
         "verified-brandAds", VerifiedBrandAdsCount.as_view(), name="verified-ads-list"
     ),
+    path("wallet-admins-list", GetAllWalletAdminUsers.as_view(), name="wallet_admins_list"),
     path(
         "verified-partners",
         VerifiedPartnersCount.as_view(),
