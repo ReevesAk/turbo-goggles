@@ -605,7 +605,7 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
         param_value = kwargs.get("service_ID")
 
         if user:
-            resource = "service-variations?serviceID=" + param_value
+            resource = "https://vtpass.com/api/service-variations?serviceID=" + param_value
             fetch_all_variation_codes_headers = {
                 "accept": "application/json",
                 "api-key": api_key,
@@ -613,11 +613,11 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
             }
             try:
                 response = requests.get(
-                    url=vtpass_url + resource,
+                    url=resource,
                     headers=fetch_all_variation_codes_headers,
                 )
                 if response.status_code == 200:
-                    resp = response.json()["content"]["variations"]
+                    resp = response.json()["content"]
                     response_data = {
                         "data": resp,
                     }
