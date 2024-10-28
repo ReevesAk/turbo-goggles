@@ -43,6 +43,7 @@ from .wallets import GetallWalletUsers
 
 from .partners import GetAllPartnersUsers, RestrictPartnerAccountView
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
+from user_profile.views import ProfileImage
 
 
 urlpatterns = [
@@ -50,6 +51,7 @@ urlpatterns = [
     path("add-admin", AddAdmin.as_view(), name="create_new_admin"),
     path("add-admin-contd/<str:user_id>/", AdAdminContd.as_view(), name="admin-update"),
     path("admin-login", LoginAdmin.as_view(), name="admin_login"),
+    path("admin-profile-img", ProfileImage.as_view(), name="profile_img"),
     path("list-admin-types", AdminTypesListView.as_view(), name="list_admin_types"),
     path("add-role-to-admin", AddRoleToAdmin.as_view(), name="add_role_to_admin"),
     path(

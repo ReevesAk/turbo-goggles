@@ -295,13 +295,23 @@ class ProfileImage(generics.CreateAPIView):
             UserNotification.objects.create(
                 user=request.user,
                 title="Profile Image.",
-                message="You have been successfully uploaded your profile image.",
+                message="You have successfully uploaded your profile image.",
             )
+
+            # Check if user is an admin and adjust the description
+            if request.user.active_role in {
+                "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin",
+                "UserAdmin", "PartnersAdmin", "ContentAdmin",
+                "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+            }:
+                description = f"Admin with email: {request.user.email} and role: {request.user.active_role} uploaded their profile image."
+            else:
+                description = f"{request.user.first_name} {request.user.last_name} uploaded their profile image."
 
             ActivityModel.objects.create(
                 user=request.user,
                 title="Profile Image.",
-                description=f"{request.user.first_name} {request.user.last_name} uploaded their profile image.",
+                description=description,
             )
 
             response = {

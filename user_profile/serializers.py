@@ -8,7 +8,7 @@ from fmcg.models import Favourite
 
 
 class ProfileImageSerializer(serializers.Serializer):
-    profile_image = serializers.ImageField()
+    profile_image = serializers.ImageField(required=True)
 
 
 class GetUserSerializer(serializers.ModelSerializer):

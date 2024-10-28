@@ -1482,6 +1482,8 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 "data": {
                     "activity_id": activity_id,
                     "description": activity.description,
+                    "profile_iamge_url": activity.user.profile_img_url,
+                    "email": activity.user.email,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "created_at": activity.created_at,
