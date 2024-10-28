@@ -638,6 +638,9 @@ class VerifySmartCardNumber(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, VasPermission)
 
+    def get_queryset(self):
+        return None
+
     @extend_schema(
         description="Smart card",
         responses={200: {"description": "Verify smart cards"}},

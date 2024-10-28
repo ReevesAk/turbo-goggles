@@ -31,7 +31,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("product-status/", ProductStatus.as_view(), name="check_product_status"),
+    path("product-status", ProductStatus.as_view(), name="check_product_status"),
     path(
         "airtime-topup",
         AirTimeTopUp.as_view(),
@@ -44,9 +44,9 @@ urlpatterns = [
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),
     path("electricty-serviceIds", ElectricityServiceIDListView.as_view(), name="electricity_serviceIds"),
-    path("verify-meter-no/", VerifyMeterNumber.as_view(), name="verify-meter"),
+    path("verify-meter-no", VerifyMeterNumber.as_view(), name="verify-meter"),
     path(
-        "pay-electricity-bill/",
+        "pay-electricity-bill",
         ElectrcityBillPayment.as_view(),
         name="pay_electric_bill",
     ),
@@ -57,11 +57,11 @@ urlpatterns = [
         name="tv_variation_codes",
     ),
     path(
-        "verify-smart-card-no/",
+        "verify-smart-card-no",
         VerifySmartCardNumber.as_view(),
         name="verify_smart_card",
     ),
-    path("new-subscription/", NewTvSubscription.as_view(), name="new_subscription"),
+    path("new-subscription", NewTvSubscription.as_view(), name="new_subscription"),
     # path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
     # path(
     #     "get-intl-countries/",
