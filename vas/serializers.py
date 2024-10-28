@@ -179,7 +179,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     payment_option = serializers.CharField(max_length=50, write_only=True)
-    tx_reference = serializers.CharField(max_length=50, write_only=True)
+    tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_rewards = serializers.BooleanField(write_only=True, required=False)
 
