@@ -52,7 +52,11 @@ urlpatterns = [
     path("admin-login", LoginAdmin.as_view(), name="admin_login"),
     path("list-admin-types", AdminTypesListView.as_view(), name="list_admin_types"),
     path("add-role-to-admin", AddRoleToAdmin.as_view(), name="add_role_to_admin"),
-    path("remove-role-from-admin", RemoveAdminRole.as_view(), name="remove_role_from_admin"),
+    path(
+        "remove-role-from-admin",
+        RemoveAdminRole.as_view(),
+        name="remove_role_from_admin",
+    ),
     path("list-admin-users", GetAllAdminUsers.as_view(), name="list_admin_users"),
     path(
         "list-admin-user-types",
@@ -78,8 +82,16 @@ urlpatterns = [
         name="verified-partners-list",
     ),
     # Activity Logs Endpoints.
-    path("activity/get-all-app-activities", GetAllAppActivites.as_view(), name="get_all_app_activities"),
-    path("activity/get-all-admin-activities", GetAllAdminActivites.as_view(), name="get_all_admin-activities"),
+    path(
+        "activity/get-all-app-activities",
+        GetAllAppActivites.as_view(),
+        name="get_all_app_activities",
+    ),
+    path(
+        "activity/get-all-admin-activities",
+        GetAllAdminActivites.as_view(),
+        name="get_all_admin-activities",
+    ),
     path(
         "activity/<uuid:activity_id>/single-activity",
         GetSingleAdminActivity.as_view(),

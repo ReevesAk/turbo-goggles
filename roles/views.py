@@ -612,9 +612,9 @@ class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
                 data={
                     "status": "fail.",
                     "message": f"User already has {new_role} as part of their roles.",
-                    "role": new_role
+                    "role": new_role,
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Add the role
@@ -635,9 +635,9 @@ class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
             data={
                 "status": "success",
                 "message": f"'{new_role}' assigned to the user.",
-                "new_role": new_role
+                "new_role": new_role,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
@@ -664,7 +664,9 @@ class RemoveAdminRole(generics.RetrieveUpdateAPIView):
         role_to_remove = request.data.get("role")
 
         # Check if the role exists for the user
-        account_type_instance = AccountType.objects.filter(user=user, user_type=role_to_remove).first()
+        account_type_instance = AccountType.objects.filter(
+            user=user, user_type=role_to_remove
+        ).first()
         if not account_type_instance:
             return Response(
                 data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
@@ -689,9 +691,9 @@ class RemoveAdminRole(generics.RetrieveUpdateAPIView):
             data={
                 "status": "success",
                 "message": f"Role '{role_to_remove}' removed successfully.",
-                "removed_role": role_to_remove
+                "removed_role": role_to_remove,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
@@ -1344,7 +1346,9 @@ class GetAllAppActivites(generics.ListAPIView):
         # Define non-admin roles (adjust these based on your application's logic)
         non_admin_roles = {"User", "Member", "Partner", "BrandAd"}
 
-        activities = ActivityModel.objects.filter(user__active_role__in=non_admin_roles).order_by("-created_at")
+        activities = ActivityModel.objects.filter(
+            user__active_role__in=non_admin_roles
+        ).order_by("-created_at")
 
         paginator = self.pagination_class()
         paginated_activities = paginator.paginate_queryset(activities, request)
@@ -1352,7 +1356,11 @@ class GetAllAppActivites(generics.ListAPIView):
         # Prepare response data
         data = []
         for activity in paginated_activities:
-            authorised_by = f"{activity.user.first_name} {activity.user.last_name}" if activity.user else "Unknown"
+            authorised_by = (
+                f"{activity.user.first_name} {activity.user.last_name}"
+                if activity.user
+                else "Unknown"
+            )
             data.append(
                 {
                     "activity_id": activity.id,
@@ -1390,12 +1398,22 @@ class GetAllAdminActivites(generics.ListAPIView):
     def get(self, request, *args, **kwargs):
         # Define admin roles to include only admin logs
         admin_roles = {
-            "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", "UserAdmin", "PartnersAdmin", "ContentAdmin",
-            "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+            "SuperAdmin",
+            "TaskAdmin",
+            "AdAdmin",
+            "MembersAdmin",
+            "UserAdmin",
+            "PartnersAdmin",
+            "ContentAdmin",
+            "IntegrationAdmin",
+            "WalletAdmin",
+            "FmcgAdmin",
         }
 
         # Filter activities based on admin roles
-        activities = ActivityModel.objects.filter(user__active_role__in=admin_roles).order_by("-created_at")
+        activities = ActivityModel.objects.filter(
+            user__active_role__in=admin_roles
+        ).order_by("-created_at")
 
         # Apply pagination
         paginator = self.pagination_class()
@@ -1405,8 +1423,10 @@ class GetAllAdminActivites(generics.ListAPIView):
         data = []
         for activity in paginated_activities:
             authorised_by = (
-                activity.user.full_name if activity.user and activity.user.full_name
-                else activity.user.email if activity.user
+                activity.user.full_name
+                if activity.user and activity.user.full_name
+                else activity.user.email
+                if activity.user
                 else "Unknown"
             )
             data.append(
@@ -1508,16 +1528,20 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         response_data = []
         for activity in queryset:
             authorised_by = (
-                "SuperAdmin" if activity.user.active_role == "SuperAdmin" else activity.user.full_name
+                "SuperAdmin"
+                if activity.user.active_role == "SuperAdmin"
+                else activity.user.full_name
             )
-            response_data.append({
-                "activity_id": activity.id,
-                "title": activity.title,
-                "description": activity.description,
-                "authorised_by": authorised_by,
-                "role": activity.user.active_role,
-                "created_at": activity.created_at,
-            })
+            response_data.append(
+                {
+                    "activity_id": activity.id,
+                    "title": activity.title,
+                    "description": activity.description,
+                    "authorised_by": authorised_by,
+                    "role": activity.user.active_role,
+                    "created_at": activity.created_at,
+                }
+            )
 
         response = {
             "status": "success",

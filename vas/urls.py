@@ -43,14 +43,22 @@ urlpatterns = [
         name="variation_codes",
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),
-    path("electricty-serviceIds", ElectricityServiceIDListView.as_view(), name="electricity_serviceIds"),
+    path(
+        "electricty-serviceIds",
+        ElectricityServiceIDListView.as_view(),
+        name="electricity_serviceIds",
+    ),
     path("verify-meter-no", VerifyMeterNumber.as_view(), name="verify-meter"),
     path(
         "pay-electricity-bill",
         ElectrcityBillPayment.as_view(),
         name="pay_electric_bill",
     ),
-    path("cableTv-serviceIds", CableServiceIDListView.as_view(), name="cableTv_serviceIds"),
+    path(
+        "cableTv-serviceIds",
+        CableServiceIDListView.as_view(),
+        name="cableTv_serviceIds",
+    ),
     path(
         "get-tv-variation-codes/<str:service_ID>/",
         GetTvVaritaionCodes.as_view(),

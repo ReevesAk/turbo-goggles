@@ -316,7 +316,9 @@ class Login(APIView):
         # Check device limit for password login only
         if not biometrics and not self.check_device_limit(user):
             return Response(
-                data={"error": "User cannot log in on more than two devices; oldest device deleted."},
+                data={
+                    "error": "User cannot log in on more than two devices; oldest device deleted."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -336,18 +338,22 @@ class Login(APIView):
         existing_device_count = DeviceId.objects.filter(user=user).count()
         if existing_device_count >= 2:
             if existing_device_count >= 3:
-                oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
+                oldest_device = DeviceId.objects.filter(user=user).earliest(
+                    "created_at"
+                )
                 oldest_device.delete()
             return False
         return True
 
     def handle_login_success(self, user):
         # Log successful login event
-        UserNotification.objects.create(user=user, title="Login", message="Login successful.")
+        UserNotification.objects.create(
+            user=user, title="Login", message="Login successful."
+        )
         ActivityModel.objects.create(
             user=user,
             title="Login",
-            description=f"{user.first_name} {user.last_name} successfully logged into their account."
+            description=f"{user.first_name} {user.last_name} successfully logged into their account.",
         )
 
         # Create JWT tokens

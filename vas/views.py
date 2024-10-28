@@ -527,9 +527,7 @@ class CableServiceIDListView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        cableTv_service_ids = [
-            service_id[1] for service_id in TV_SERVICE_ID_CHOICES
-        ]
+        cableTv_service_ids = [service_id[1] for service_id in TV_SERVICE_ID_CHOICES]
         return Response(
             data={
                 "status": "success.",
@@ -605,7 +603,9 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
         param_value = kwargs.get("service_ID")
 
         if user:
-            resource = "https://vtpass.com/api/service-variations?serviceID=" + param_value
+            resource = (
+                "https://vtpass.com/api/service-variations?serviceID=" + param_value
+            )
             fetch_all_variation_codes_headers = {
                 "accept": "application/json",
                 "api-key": api_key,

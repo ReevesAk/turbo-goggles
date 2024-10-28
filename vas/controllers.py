@@ -269,7 +269,7 @@ def NewTvSub(user, serializer, reason, user_data):
         ActivityModel.objects.create(
             user=user,
             title="New Tv subscription.",
-            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for new Cable TV subscription on {billersCode}."
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for new Cable TV subscription on {billersCode}.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -339,7 +339,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         ActivityModel.objects.create(
             user=user,
             title="Renew Tv subscription.",
-            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}."
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
         )
 
         # Check is user is a memeber then assign rewards.
