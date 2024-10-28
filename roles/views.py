@@ -1378,11 +1378,11 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "user_id"
+    lookup_field = "activity_id"
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            activity_id = kwargs["user_id"]
+            activity_id = kwargs["activity_id"]
             activity = ActivityModel.objects.get(id=activity_id)
 
             if activity.user.active_role == "SuperAdmin":
