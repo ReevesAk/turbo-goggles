@@ -450,7 +450,9 @@ class VasStatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 
-class ProductStatusSerializer(serializers.ModelSerializer):
+class ProductStatusSerializer(serializers.Serializer):
+    request_id = serializers.CharField(max_length=200)
+
     class Meta:
         model = ElectricityBill
         fields = ["request_id"]
@@ -464,5 +466,5 @@ class VerifyMeterSerializer(serializers.ModelSerializer):
 
 class VerifyCardNumberSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ElectricityBill
+        model = TvSubscription
         fields = ["serviceID", "billersCode"]
