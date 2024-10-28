@@ -322,3 +322,18 @@ class IsWalletAdminOrSuperAdmin(permissions.BasePermission):
             return True
 
         return False
+
+
+class IsPartnerUserOrMemberBrandAdOrSuperAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["Partner", "User", "Member", "BrandAd", "SuperAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise ValidationError("Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")

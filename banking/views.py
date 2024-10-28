@@ -2,7 +2,7 @@ import logging
 import requests
 from decouple import config
 from accounts.otp import otp_manager
-from permissions import IsPartnerUserOrMember, IsBrandAd, IsSuperAdmin
+from permissions import IsPartnerUserOrMember, IsBrandAd, IsSuperAdmin, IsPartnerUserOrMemberBrandAdOrSuperAdmin
 from commons import Message
 
 from django.contrib.auth.hashers import make_password
@@ -185,7 +185,7 @@ class CreateBankAccount(generics.GenericAPIView):
 
     serializer_class = BankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsPartnerUserOrMember | IsBrandAd | IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerUserOrMemberBrandAdOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
