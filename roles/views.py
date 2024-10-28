@@ -1571,3 +1571,23 @@ class AdminTypesListView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ActivityTitleListView(APIView):
+    """
+    Retrieve all unique activity titles.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        titles = ActivityModel.objects.values_list('title', flat=True).distinct()
+
+        # Prepare response
+        response = {
+            "status": "success",
+            "message": "All unique activity titles fetched successfully!",
+            "data": list(titles),
+        }
+        return Response(response, status=status.HTTP_200_OK)
