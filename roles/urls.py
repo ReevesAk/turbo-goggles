@@ -79,7 +79,7 @@ urlpatterns = [
     # Activity Logs Endpoints.
     path("activity/get-all", GetAllAdminActivites.as_view(), name="get_all"),
     path(
-        "activity/<uuid:user_id>/single-activity",
+        "activity/<uuid:activity_id>/single-activity",
         GetSingleAdminActivity.as_view(),
         name="single_activity",
     ),

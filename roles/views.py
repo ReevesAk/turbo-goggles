@@ -1412,7 +1412,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             )
 
 
-class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
+class GetAllSingleAdminUserActivity(generics.ListAPIView):
     """
     GetAllSingleAdminUserActivity is the GET request handler that allows a SuperAdmin to
     check a specific admin activity log for a single Admin user.
@@ -1424,37 +1424,43 @@ class GetAllSingleAdminUserActivity(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     lookup_field = "email"
 
-    def retrieve(self, request, *args, **kwargs):
+    def get_queryset(self):
+        admin_email = self.kwargs["email"]
         try:
-            admin_email = kwargs["email"]
             user = User.objects.get(email=admin_email)
-            activity = ActivityModel.objects.get(user=user)
+            return ActivityModel.objects.filter(user=user).order_by("-created_at")
+        except User.DoesNotExist:
+            return ActivityModel.objects.none()
 
-            if activity.user.active_role == "SuperAdmin":
-                authorised_by = "SuperAdmin"
-            else:
-                authorised_by = f"{activity.user.full_name}"
-
-            # Prepare the response data
-            response = {
-                "status": "success",
-                "message": "Activity log retrieved successfully!",
-                "title": activity.title,
-                "data": {
-                    "activity_id": activity.id,
-                    "description": activity.description,
-                    "authorised_by": authorised_by,
-                    "role": activity.user.active_role,
-                    "created_at": activity.created_at,
-                },
-            }
-            return Response(data=response, status=status.HTTP_200_OK)
-
-        except ActivityModel.DoesNotExist:
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        if not queryset.exists():
             return Response(
                 data={"status": "fail", "message": "Activity log not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # Prepare response data for all activities
+        response_data = []
+        for activity in queryset:
+            authorised_by = (
+                "SuperAdmin" if activity.user.active_role == "SuperAdmin" else activity.user.full_name
+            )
+            response_data.append({
+                "activity_id": activity.id,
+                "title": activity.title,
+                "description": activity.description,
+                "authorised_by": authorised_by,
+                "role": activity.user.active_role,
+                "created_at": activity.created_at,
+            })
+
+        response = {
+            "status": "success",
+            "message": "Activity logs retrieved successfully!",
+            "data": response_data,
+        }
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class AdminTypesListView(APIView):
