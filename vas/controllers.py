@@ -254,41 +254,40 @@ def NewTvSub(user, serializer, reason, user_data):
         subscription_type="change",
         quantity=user_data["quantity"],
     )
+
     if new_tv_response.status_code == 200:
+        # Save TvSubscription and get the auto-generated tx_reference
         new_tv_sub_instance = serializer.save()
+        tx_reference = new_tv_sub_instance.tx_reference
         amount = user_data["amount"]
 
+        # Create a UserNotification and ActivityModel entry
         UserNotification.objects.create(
             user=user,
-            title="New Tv subscription.",
-            message=f"This is to inform you that your payment of {amount} \
-                for Tv subscription is successful.",
+            title="New TV subscription.",
+            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
         )
-
-        billersCode = user_data["billersCode"]
         ActivityModel.objects.create(
             user=user,
-            title="New Tv subscription.",
-            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for new Cable TV subscription on {billersCode}.",
+            title="New TV subscription.",
+            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
         )
 
-        # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member" and amount >= 100:
-            new_rewards = Allocate.reward(amount=amount)
-        else:
-            new_rewards = 0
+        # Assign rewards if user is a member
+        new_rewards = Allocate.reward(amount=amount) if user.active_role == "Member" and amount >= 100 else 0
 
+        # Use the same tx_reference for TxModel
         try:
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = new_tv_response.json().get("transactionId", "")
-                tx.tx_reference = new_tv_sub_instance.tx_reference
+                tx.tx_reference = tx_reference  # Set the same tx_reference
                 tx.tx_type = "Leisure"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for new tv subscription payment."
+                tx.amount = amount
+                tx.description = "Debit for new TV subscription payment."
                 tx.rwd = new_rewards
                 tx.save()
 
+                # Update rewards
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
                 rwd.transaction = tx
@@ -299,20 +298,18 @@ def NewTvSub(user, serializer, reason, user_data):
 
         response_data = {
             "status": "Success",
-            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
+            "message": f"TV subscription of {amount} was successful and you have been awarded {new_rewards} rewards.",
             "data": new_tv_response.json(),
         }
         return Response(data=response_data, status=status.HTTP_200_OK)
+
+    # Handle failed subscription response
     else:
         response_data = {
             "data": new_tv_response.json(),
             "message": "A refund will be issued.",
         }
-
-        # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit(
-            acct_no=user.accountNumber, amount=user["amount"], reason=reason
-        )
+        Account.Credit(acct_no=user.accountNumber, amount=amount, reason=reason)
         return Response(response_data, status=new_tv_response.status_code)
 
 
@@ -326,6 +323,7 @@ def RenewTvSub(user, serializer, reason, user_data):
     )
     if renew_tv_response.status_code == 200:
         renew_tv_sub_instance = serializer.save()
+        tx_reference = new_tv_sub_instance.tx_reference
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -352,7 +350,7 @@ def RenewTvSub(user, serializer, reason, user_data):
             with transaction.atomic():
                 tx, _ = TxModel.objects.get_or_create(user=user)
                 tx.tx_id = renew_tv_response.json().get("transactionId", "")
-                tx.tx_reference = renew_tv_sub_instance.tx_reference
+                tx.tx_reference = tx_reference
                 tx.tx_type = "Leisure"
                 tx.amount = user_data.get("amount", 0)
                 tx.description = "Debit for tv subscription renewal."
