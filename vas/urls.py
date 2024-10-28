@@ -11,7 +11,7 @@ from .views import (
     GetTvVaritaionCodes,
     VerifySmartCardNumber,
     NewTvSubscription,
-    # RenewTvSubscription,
+    RenewTvSubscription,
     # GetIntlAirtimeCountryCodes,
     # GetIntlAirtimeProducts,
     # GetIntlAirtimeOperators,
@@ -62,7 +62,7 @@ urlpatterns = [
         name="verify_smart_card",
     ),
     path("new-subscription", NewTvSubscription.as_view(), name="new_subscription"),
-    # path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
+    path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
     # path(
     #     "get-intl-countries/",
     #     GetIntlAirtimeCountryCodes.as_view(),
