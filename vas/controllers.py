@@ -176,6 +176,7 @@ def data(user, serializer, reason, user_data):
 
 def electricity(user, serializer, reason, user_data):
     electricity_response = VAS.electricity(
+        req_id=req_id,
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
         phone=user_data["phone"],
@@ -207,7 +208,7 @@ def electricity(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_id = electricity_response.json().get("transactionId", "")
                 tx.tx_reference = electricity_instance.tx_reference
                 tx.tx_type = "Electricity"
@@ -246,6 +247,7 @@ def electricity(user, serializer, reason, user_data):
 
 def NewTvSub(user, serializer, reason, user_data):
     new_tv_response = VAS.newTvSub(
+        req_id=req_id,
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
         phone=user_data["phone"],
@@ -279,7 +281,7 @@ def NewTvSub(user, serializer, reason, user_data):
         # Use the same tx_reference for TxModel
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_reference = tx_reference  # Set the same tx_reference
                 tx.tx_type = "Leisure"
                 tx.amount = amount
@@ -315,6 +317,7 @@ def NewTvSub(user, serializer, reason, user_data):
 
 def RenewTvSub(user, serializer, reason, user_data):
     renew_tv_response = VAS.renewTvSub(
+        req_id=req_id,
         service_id=user_data["serviceID"],
         amount=user_data["amount"],
         phone=user_data["phone"],
@@ -323,7 +326,7 @@ def RenewTvSub(user, serializer, reason, user_data):
     )
     if renew_tv_response.status_code == 200:
         renew_tv_sub_instance = serializer.save()
-        tx_reference = new_tv_sub_instance.tx_reference
+        tx_reference = renew_tv_sub_instance.tx_reference
         amount = user_data["amount"]
 
         UserNotification.objects.create(
@@ -348,7 +351,7 @@ def RenewTvSub(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
+                tx = TxModel.objects.filter(user=user).order_by("-id").first()
                 tx.tx_id = renew_tv_response.json().get("transactionId", "")
                 tx.tx_reference = tx_reference
                 tx.tx_type = "Leisure"

@@ -140,7 +140,11 @@ class Allocate:
 class Pay:
     @staticmethod
     def with_rwd(user, amount):
-        rwd = Rewards.objects.get(user=user)
+        try:
+            rwd = Points.objects.get(user=user)
+        except Points.DoesNotExist:
+            return "Not Found", 0
+
         deducted_amount = (0.30 * amount) * 0.5
 
         if rwd.balance >= deducted_amount:
@@ -155,7 +159,10 @@ class Pay:
 
     @staticmethod
     def with_pts(user, amount):
-        pts = Points.objects.get(user=user)
+        try:
+            pts = Points.objects.get(user=user)
+        except Points.DoesNotExist:
+            return "Not Found", 0
         deducted_amount = 0.20 * amount
 
         if pts.balance >= deducted_amount:

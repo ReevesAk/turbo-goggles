@@ -69,8 +69,8 @@ urlpatterns = [
         VerifySmartCardNumber.as_view(),
         name="verify_smart_card",
     ),
-    path("new-subscription", NewTvSubscription.as_view(), name="new_subscription"),
-    path("renew-exisitng-tv-plan/", RenewTvSubscription.as_view(), name="renew-tv-sub"),
+    path("new-tv-subscription", NewTvSubscription.as_view(), name="new_subscription"),
+    path("renew-exisitng-tv-plan", RenewTvSubscription.as_view(), name="renew-tv-sub"),
     # path(
     #     "get-intl-countries/",
     #     GetIntlAirtimeCountryCodes.as_view(),

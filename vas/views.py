@@ -708,6 +708,13 @@ class NewTvSubscription(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         account = AccountCreation.objects.get(user=user)
+        if account is not None and account.pin is not None:
+            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        else:
+            return Response(
+                data={"status": "fail", "error": "Account or pin not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
 
         if not verification:
@@ -823,6 +830,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                             serializer=serializer,
                             reason="Debit for tv subscription renewal.",
                             user_data=user_data,
+                        )
+                        return Response(
+                            data={
+                                "status": "success",
+                                "message": "Account debit successful",
+                                "data": debit_response.json(),
+                            },
+                            status=debit_response.status_code,
                         )
                     else:
                         return Response(

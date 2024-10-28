@@ -200,6 +200,10 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
             "tx_reference",
         ]
 
+    def create(self, validated_data):
+        validated_data.pop('pin', None)
+        return super().create(validated_data)
+
 
 # class IntlAirtimeSerializer(serializers.ModelSerializer):
 #     """Serializers for international airtime topup."""
