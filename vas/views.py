@@ -758,7 +758,10 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                pass
+                return Response(
+                    data={"status": "fail", "message": "Card payment option not yet implemented."},
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
 
 
 class RenewTvSubscription(generics.GenericAPIView):
@@ -832,7 +835,10 @@ class RenewTvSubscription(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                pass
+                return Response(
+                    data={"status": "fail", "message": "Card payment option not yet implemented."},
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
 
 
 # class GetIntlAirtimeCountryCodes(generics.GenericAPIView):
