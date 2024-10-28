@@ -55,7 +55,6 @@ urlpatterns = [
     path("admin-profile-img", ProfileImage.as_view(), name="profile_img"),
     path("list-admin-types", AdminTypesListView.as_view(), name="list_admin_types"),
     path("add-role-to-admin", AddRoleToAdmin.as_view(), name="add_role_to_admin"),
-    path("title-list", ActivityTitleListView.as_view(), name="title-list"),
     path(
         "remove-role-from-admin",
         RemoveAdminRole.as_view(),
@@ -106,6 +105,7 @@ urlpatterns = [
         GetAllSingleAdminUserActivity.as_view(),
         name="single_get_all",
     ),
+    path("activity/title-list", ActivityTitleListView.as_view(), name="title-list"),
     # Gamification Tasks endpoints.
     path("task/assign", AssignTask.as_view(), name="assign_task"),
     path(
