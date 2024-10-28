@@ -1482,7 +1482,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 "data": {
                     "activity_id": activity_id,
                     "description": activity.description,
-                    "profile_iamge_url": activity.user.profile_img_url,
+                    "profile_image_url": activity.user.profile_img_url,
                     "email": activity.user.email,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
@@ -1530,9 +1530,16 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         response_data = []
         for activity in queryset:
             authorised_by = (
-                "SuperAdmin"
-                if activity.user.active_role == "SuperAdmin"
-                else activity.user.full_name
+                "Superuser" if activity.user.active_role == "Superuser"
+                else activity.user.full_name if activity.user.active_role in {
+                    "SuperAdmin", "TaskAdmin", "AdAdmin",
+                    "MembersAdmin", "UserAdmin", "PartnersAdmin",
+                    "ContentAdmin", "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+                }
+                else activity.user.first_name + activity.user.last_name if activity.user.active_role in {
+                    "User", "Member", "Partner", "BrandAd",
+                }
+                else "Unknown"
             )
             response_data.append(
                 {
