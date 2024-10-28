@@ -14,7 +14,8 @@ from .serializers import (
     AdminLoginSerializers,
     AddAdminContdSerializer,
     AddAdminSerializer,
-    UpdateAdminRoleSerializer,
+    AddRoleToAdminSerializer,
+    RemoveRoleFromAdminSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
     ApplicationsSerializers,
@@ -584,11 +585,66 @@ class SetAdminPin(generics.CreateAPIView):
             return Response(data=response, status=status.HTTP_201_CREATED)
 
 
-class UpdateAdminRole(generics.RetrieveUpdateAPIView):
-    serializer_class = UpdateAdminRoleSerializer
+class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
+    serializer_class = AddRoleToAdminSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     authentication_classes = [JWTAuthentication]
+    renderer_classes = [CamelCaseJSONRenderer]
+
+    def get_user(self, email):
+        try:
+            return User.objects.get(Q(id=email) | Q(email=email))
+        except User.DoesNotExist:
+            return None
+
+    def post(self, request):
+        """Add a role to an admin."""
+        user = self.get_user(request.data.get("email"))
+        if not user:
+            return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+
+        new_role = request.data.get("role")
+
+        # Check if the role already exists
+        if AccountType.objects.filter(user=user, user_type=new_role).exists():
+            return Response(
+                data={
+                    "status": "fail.",
+                    "message": f"User already has {new_role} as part of their roles.",
+                    "role": new_role
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Add the role
+        AccountType.objects.create(user=user, user_type=new_role)
+
+        UserNotification.objects.create(
+            user=user,
+            title="Updated Admin Role.",
+            message=f"'{new_role}' has been added to your Admin's roles.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Admin Role Updated.",
+            description=f"Admin, {user.full_name} assigned new role: {new_role}.",
+        )
+        return Response(
+            data={
+                "status": "success",
+                "message": f"'{new_role}' assigned to the user.",
+                "new_role": new_role
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class RemoveAdminRole(generics.RetrieveUpdateAPIView):
+    serializer_class = RemoveRoleFromAdminSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
     def get_object(self):
@@ -599,29 +655,43 @@ class UpdateAdminRole(generics.RetrieveUpdateAPIView):
         except User.DoesNotExist:
             return None
 
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance is None:
+    def delete(self, request):
+        """Remove a role from an admin."""
+        user = self.get_user(request.data.get("email"))
+        if not user:
             return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
-        new_role = request.data.get("active_role")
 
-        # Update the user's role
-        instance.active_role = new_role
-        instance.save()
+        role_to_remove = request.data.get("role")
+
+        # Check if the role exists for the user
+        account_type_instance = AccountType.objects.filter(user=user, user_type=role_to_remove).first()
+        if not account_type_instance:
+            return Response(
+                data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Remove the role
+        account_type_instance.delete()
 
         UserNotification.objects.create(
-            user=instance,
-            title="Update Admin Role.",
-            message=f"Your Admin's role has been updated with '{new_role} role.",
+            user=user,
+            title="Role Removed",
+            message=f"The role '{role_to_remove}' has been removed from your account.",
         )
 
         ActivityModel.objects.create(
-            user=request.user,
-            title="Admin Role Updated.",
-            description=f"Admin, {instance.full_name} given new role: {new_role}.",
+            user=user,
+            title="Role Removed",
+            description=f"'{role_to_remove}' has been removed as part of Admin, {user.full_name} roles.",
         )
+
         return Response(
-            f"Admin's role updated to '{new_role}'.", status=status.HTTP_200_OK
+            data={
+                "status": "success",
+                "message": f"Role '{role_to_remove}' removed successfully.",
+                "removed_role": role_to_remove
+            },
+            status=status.HTTP_200_OK
         )
 
 
