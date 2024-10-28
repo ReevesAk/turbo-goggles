@@ -1329,26 +1329,30 @@ class SwitchRoles(generics.RetrieveAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GetAllAdminActivites(generics.ListAPIView):
+class GetAllAppActivites(generics.ListAPIView):
     """
-    GetAllAdminActivities is the GET request handler that allows rthe SuperAdmin to
-    receive all activity logs, including the name of the admin user who
-    created the activity.
+    GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
+    receive all app activity logs.
     """
 
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     serializer_class = GetAllActivityLogsSerializer
+    pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
-        activities = ActivityModel.objects.all().order_by("-created_at")
+        # Define non-admin roles (adjust these based on your application's logic)
+        non_admin_roles = {"User", "Member", "Partner", "BrandAd"}
 
+        activities = ActivityModel.objects.filter(user__active_role__in=non_admin_roles).order_by("-created_at")
+
+        paginator = self.pagination_class()
+        paginated_activities = paginator.paginate_queryset(activities, request)
+
+        # Prepare response data
         data = []
-        for activity in activities:
-            if activity.user.active_role == "SuperAdmin":
-                authorised_by = "SuperAdmin"
-            else:
-                authorised_by = f"{activity.user.full_name}"
+        for activity in paginated_activities:
+            authorised_by = f"{activity.user.first_name} {activity.user.last_name}" if activity.user else "Unknown"
             data.append(
                 {
                     "activity_id": activity.id,
@@ -1362,7 +1366,67 @@ class GetAllAdminActivites(generics.ListAPIView):
 
         response = {
             "status": "success",
-            "message": "All Admin activity logs fetched successfully!",
+            "message": "App activity logs fetched successfully!",
+            "page": paginator.page.number,
+            "page_size": paginator.page.paginator.per_page,
+            "total_count": paginator.page.paginator.count,
+            "data": data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class GetAllAdminActivites(generics.ListAPIView):
+    """
+    GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
+    receive all activity logs, including the name of the admin user who
+    created the activity.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    serializer_class = GetAllActivityLogsSerializer
+    pagination_class = CustomPageNumberPagination
+
+    def get(self, request, *args, **kwargs):
+        # Define admin roles to include only admin logs
+        admin_roles = {
+            "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", "UserAdmin", "PartnersAdmin", "ContentAdmin",
+            "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+        }
+
+        # Filter activities based on admin roles
+        activities = ActivityModel.objects.filter(user__active_role__in=admin_roles).order_by("-created_at")
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_activities = paginator.paginate_queryset(activities, request)
+
+        # Prepare response data
+        data = []
+        for activity in paginated_activities:
+            authorised_by = (
+                activity.user.full_name if activity.user and activity.user.full_name
+                else activity.user.email if activity.user
+                else "Unknown"
+            )
+            data.append(
+                {
+                    "activity_id": activity.id,
+                    "authorised_by": authorised_by,
+                    "role": activity.user.active_role,
+                    "title": activity.title,
+                    "description": activity.description,
+                    "created_at": activity.created_at,
+                }
+            )
+
+        # Custom response with pagination metadata
+        response = {
+            "status": "success",
+            "message": "Admin activity logs fetched successfully!",
+            "page": paginator.page.number,
+            "page_size": paginator.page.paginator.per_page,
+            "total_count": paginator.page.paginator.count,
             "data": data,
         }
         return Response(response, status=status.HTTP_200_OK)

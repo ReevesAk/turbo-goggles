@@ -22,6 +22,7 @@ from .views import (
     AddAddress,
     SetAdminPin,
     GetAllAdminActivites,
+    GetAllAppActivites,
     GetSingleAdminActivity,
     GetAllSingleAdminUserActivity,
     AdminTypesListView,
@@ -77,7 +78,8 @@ urlpatterns = [
         name="verified-partners-list",
     ),
     # Activity Logs Endpoints.
-    path("activity/get-all", GetAllAdminActivites.as_view(), name="get_all"),
+    path("activity/get-all-app-activities", GetAllAppActivites.as_view(), name="get_all_app_activities"),
+    path("activity/get-all-admin-activities", GetAllAdminActivites.as_view(), name="get_all_admin-activities"),
     path(
         "activity/<uuid:activity_id>/single-activity",
         GetSingleAdminActivity.as_view(),
