@@ -7,6 +7,7 @@ from django.db.models import Count
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 # In project imports.
 from .serializers import (
@@ -255,6 +256,8 @@ class LoginAdmin(APIView):
                 "is_admin_pin_set": user.is_admin_pin_set,
                 "roles": list(user_roles),
             }
+            user.last_login = timezone.now()
+            user.save()
 
             response = {
                 "status": "success",
@@ -1369,6 +1372,7 @@ class GetAllAppActivites(generics.ListAPIView):
                     "title": activity.title,
                     "description": activity.description,
                     "created_at": activity.created_at,
+                    "last_login": activity.user.last_login
                 }
             )
 
@@ -1437,6 +1441,7 @@ class GetAllAdminActivites(generics.ListAPIView):
                     "title": activity.title,
                     "description": activity.description,
                     "created_at": activity.created_at,
+                    "last_login": activity.user.last_login
                 }
             )
 
@@ -1487,6 +1492,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "created_at": activity.created_at,
+                    "last_login": activity.user.last_login
                 },
             }
             return Response(data=response, status=status.HTTP_200_OK)
@@ -1549,6 +1555,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "created_at": activity.created_at,
+                    "last_login": activity.user.last_login
                 }
             )
 

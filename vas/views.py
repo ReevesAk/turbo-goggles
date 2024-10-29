@@ -78,9 +78,17 @@ class AirTimeTopUp(generics.GenericAPIView):
         amount = user_data.get("amount")
 
         serializer = self.serializer_class(data=user_data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         account = AccountCreation.objects.get(user=user)
+        if account is not None and account.pin is not None:
+            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        else:
+            return Response(
+                data={"status": "fail", "error": "Account or pin not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
 
         if not verification:
@@ -712,7 +720,7 @@ class NewTvSubscription(generics.GenericAPIView):
             verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         else:
             return Response(
-                data={"status": "fail", "error": "Account or pin not found"},
+                data={"status": "fail", "error": "Account or pin not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
         verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)

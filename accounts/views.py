@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from exceptions import Customexceptions
 import logging
 
@@ -352,9 +354,11 @@ class Login(APIView):
         )
         ActivityModel.objects.create(
             user=user,
-            title="Login",
+            title="Login.",
             description=f"{user.first_name} {user.last_name} successfully logged into their account.",
         )
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
 
         # Create JWT tokens
         tokens = create_jwt_pair_for_user(user)
