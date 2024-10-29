@@ -1474,10 +1474,18 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             activity_id = kwargs["activity_id"]
             activity = ActivityModel.objects.get(id=activity_id)
 
-            if activity.user.active_role == "SuperAdmin":
-                authorised_by = "SuperAdmin"
-            else:
-                authorised_by = f"{activity.user.full_name}"
+            authorised_by = (
+                "Superuser" if activity.user.active_role == "Superuser"
+                else activity.user.full_name if activity.user.active_role in {
+                    "SuperAdmin", "TaskAdmin", "AdAdmin",
+                    "MembersAdmin", "UserAdmin", "PartnersAdmin",
+                    "ContentAdmin", "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+                }
+                else activity.user.first_name + activity.user.last_name if activity.user.active_role in {
+                    "User", "Member", "Partner", "BrandAd",
+                }
+                else "Unknown"
+            )
 
             # Prepare the response data
             response = {
