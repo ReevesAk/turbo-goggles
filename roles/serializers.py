@@ -202,6 +202,7 @@ class ListAdminSerializer(serializers.ModelSerializer):
             "email",
             "status",
             "user_type",
+            "last_login"
         ]
 
     def get_user_type(self, obj):
