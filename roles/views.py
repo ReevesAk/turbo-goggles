@@ -1481,7 +1481,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "MembersAdmin", "UserAdmin", "PartnersAdmin",
                     "ContentAdmin", "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
                 }
-                else activity.user.first_name + activity.user.last_name if activity.user.active_role in {
+                else activity.user.first_name + " " + activity.user.last_name if activity.user.active_role in {
                     "User", "Member", "Partner", "BrandAd",
                 }
                 else "Unknown"
