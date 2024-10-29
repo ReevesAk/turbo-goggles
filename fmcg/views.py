@@ -239,9 +239,11 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
         cart_data = []
         for item in cart_items:
             cart_data.append({
+                "product_id": item.product.id,
                 "product": item.product.name_and_size,
                 "quantity": item.quantity,
                 "price_per_unit": item.price,
+                "image": item.product.image_url,
                 "total_price": item.get_total_price()
             })
 
