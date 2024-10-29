@@ -4,15 +4,12 @@ from decouple import config
 from accounts.otp import otp_manager
 from permissions import (
     IsPartnerUserOrMember,
-    IsBrandAd,
-    IsSuperAdmin,
     IsPartnerUserOrMemberBrandAdOrSuperAdmin,
 )
 from commons import Message
 
 from django.contrib.auth.hashers import make_password
 from django.template.loader import render_to_string
-from django.shortcuts import get_object_or_404
 
 # Third party imports.
 from rest_framework import generics
@@ -255,7 +252,7 @@ class CreateBankAccount(generics.GenericAPIView):
 
             elif acc_response.status_code == 200:
                 print(acc_response.json())
-                AccountCreation.objects.create(
+                user_acc = AccountCreation.objects.create(
                     user=current_user,
                     account_number=acc_response.json()["AccountNUBAN"],
                     customer_numnber=acc_response.json()["CustomerNumber"],
@@ -284,6 +281,10 @@ class CreateBankAccount(generics.GenericAPIView):
                 # Set the value of has_wallet to true.
                 current_user.has_wallet = True
                 current_user.save()
+
+                # Set the value of user's active at account creation.
+                user_acc.active_role_on_creation = current_user.active_role
+                user_acc.save()
 
                 resp = {
                     "status": "success",

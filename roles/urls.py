@@ -40,7 +40,7 @@ from .tasks import (
     GetSingleSubmittedTask,
     ReviewTask,
 )
-from .wallets import GetallWalletUsers
+from .wallets import GetallWalletUsers, CreateBankAccountForUser
 
 from .partners import GetAllPartnersUsers, RestrictPartnerAccountView
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
@@ -176,4 +176,5 @@ urlpatterns = [
         name="get_all_wallet_users",
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
+    path("create-wallet-for-users", CreateBankAccountForUser.as_view(), name="create_wallet_for_users")
 ]
