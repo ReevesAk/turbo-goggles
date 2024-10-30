@@ -68,7 +68,7 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
 
 
 class AddAdminSerializer(serializers.ModelSerializer):
-    """Serailizers for other admin roles first time registration."""
+    """Serializer for other admin roles' initial registration step."""
 
     roles = serializers.ListField(
         child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES), write_only=True
@@ -76,23 +76,21 @@ class AddAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "id",
-            "roles",
-            "full_name",
-            "email",
-        ]
-        extra_kwargs = {"password": {"write_only": True}}
+        fields = ["id", "roles", "full_name", "email"]
+        extra_kwargs = {"email": {"required": True}}
 
     def validate(self, attrs):
-        email = attrs.get("email", "")
+        email = attrs.get("email")
+        roles = attrs.get("roles")
 
-        if email:
-            email_exists = User.objects.filter(email=email).exists()
-            if email_exists:
-                raise serializers.ValidationError("Email has already been used")
-        else:
-            raise serializers.ValidationError("email: email field can not be empty")
+        if not email:
+            raise serializers.ValidationError({"email": "Email field cannot be empty."})
+
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "Email has already been used."})
+
+        if not roles:
+            raise serializers.ValidationError({"roles": "At least one role must be selected."})
 
         return super().validate(attrs)
 
@@ -100,15 +98,16 @@ class AddAdminSerializer(serializers.ModelSerializer):
         user_types = validated_data.pop("roles", [])
         user = super().create(validated_data)
 
-        # Create multiple AccountType entries
-        for user_type in user_types:
-            AccountType.objects.create(user=user, user_type=user_type)
+        # Assign multiple AccountType entries based on roles
+        AccountType.objects.bulk_create([
+            AccountType(user=user, user_type=user_type) for user_type in user_types
+        ])
 
         return user
 
 
 class AddAdminContdSerializer(serializers.ModelSerializer):
-    """Serailizers for other admin roles first time registration."""
+    """Serializer for other admin roles' first-time registration."""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
@@ -118,13 +117,26 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, attrs):
-        password = attrs.get("password", "")
-        password2 = attrs.get("password2", "")
+        password = attrs.get("password")
+        password2 = attrs.get("password2")
 
         if password != password2:
             raise serializers.ValidationError({"password": "Passwords do not match."})
 
         return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("password2")  # Remove password2 from validated data
+        user = User(**validated_data)
+        user.set_password(validated_data["password"])  # Hash the password
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        validated_data.pop("password2", None)  # Remove password2 if present
+        if "password" in validated_data:
+            instance.set_password(validated_data["password"])
+        return super().update(instance, validated_data)
 
 
 class CreateAdminPinSerializer(serializers.ModelSerializer):
