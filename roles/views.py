@@ -1162,7 +1162,7 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsWalletAdminOrSuperAdmin)
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
 

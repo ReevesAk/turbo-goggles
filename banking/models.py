@@ -101,6 +101,11 @@ SEX = (
     ("2", "Female"),
 )
 
+ACCOUNT_TYPE = (
+    ("SAVINGS", "SAVINGS"),
+    ("CURRENT", "CURRENT"),
+)
+
 RELIGION = (("1", "Christianity"), ("2", "Islam"), ("3", "Others"), ("4", "Hindu"))
 
 
@@ -117,6 +122,8 @@ class AccountCreation(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
     customer_numnber = models.CharField(max_length=50, null=True)
     account_number = models.CharField(max_length=100, null=True)
+    acc_type = models.CharField(max_length=150, choices=ACCOUNT_TYPE, null=True)
+    active_role_on_creation = models.CharField(max_length=50, null=True)
     acct_name = models.CharField(max_length=100, null=True)
     sex = models.CharField(max_length=6, choices=SEX, null=True)
     title = models.CharField(max_length=50, choices=TITLE, null=True)

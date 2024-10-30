@@ -429,3 +429,46 @@ class GetAllActivityLogsSerializer(serializers.Serializer):
             "description",
             "date",
         ]
+
+
+class AdminBankAccountCreationSerializers(serializers.ModelSerializer):
+    """Serailizers for creating a bank account for users."""
+
+    passport = serializers.FileField(required=True)
+    identity = serializers.FileField(required=True)
+    utility = serializers.FileField(required=True)
+    signature = serializers.FileField(required=True)
+    tc = serializers.CharField(max_length=4, write_only=True, required=True)
+    gn = serializers.CharField(max_length=4, write_only=True, required=True)
+    bvn = serializers.CharField(max_length=20, write_only=True, required=True)
+    accountType = serializers.CharField(max_length=4, write_only=True, required=True)
+    ms = serializers.CharField(max_length=4, write_only=True, required=True)
+    country = serializers.CharField(max_length=100, write_only=True, required=True)
+    alt_email = serializers.CharField(max_length=100, write_only=True, required=True)
+    alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
+    alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
+
+    class Meta:
+        model = AccountCreation
+        fields = [
+            "id",
+            "lga",
+            "state",
+            "tc",
+            "bvn",
+            "gn",
+            "accountType",
+            "country",
+            "ms",
+            "alt_email",
+            "alt_phone",
+            "religion",
+            "nin",
+            "sex",
+            "address",
+            "utility",
+            "passport",
+            "identity",
+            "signature",
+            "date_of_birth",
+        ]
