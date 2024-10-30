@@ -540,7 +540,7 @@ class SetAdminPin(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            self.perform_create(serializer)
+            self.perform_create(serializer, request)
             response = {
                 "status": "success",
                 "message": "Admin pin created successfully!",
