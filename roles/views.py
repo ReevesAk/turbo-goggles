@@ -217,6 +217,11 @@ class LoginAdmin(APIView):
             # Get user roles
             user_roles = AccountType.objects.filter(user=user).values_list("user_type", flat=True)
             tokens = create_jwt_pair_for_user(user)
+
+            # Assign a role if active_role is None
+            if user.active_role is None and user_roles:
+                user.active_role = user_roles[0]
+
             user_details = {
                 "id": user.id,
                 "email": user.email,
@@ -507,15 +512,9 @@ class SetAdminPin(generics.CreateAPIView):
     serializer_class = CreateAdminPinSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdmin)
-    renderer_classes = [CamelCaseJSONRenderer]
 
-    def perform_create(self, serializer):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in self.request.data.items()
-        }
-
-        pin = user_data.get("pin")
+    def perform_create(self, serializer, request):
+        pin = request.data.get("pin")
 
         # Hash the pin using make_password.
         hashed_pin = make_password(pin)
