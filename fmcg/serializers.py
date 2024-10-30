@@ -66,10 +66,12 @@ class RemoveFromCartSerializers(serializers.Serializer):
 
 class FmcgOrderSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=4, min_length=4)
+    payment_method = serializers.CharField(max_length=4, min_length=4)
 
     class Meta:
         model = FmcgOrder
         fields = [
+            "payment_option",
             "billing_address",
             "available_addresses",
             "product",

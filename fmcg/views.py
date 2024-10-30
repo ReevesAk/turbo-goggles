@@ -336,48 +336,61 @@ class FmcgCheckout(generics.CreateAPIView):
             pin = payload["pin"]
             user_details = AccountCreation.objects.get(user=authenticated_user)
             verification = Pin.verify_pin(user=authenticated_user, pin=pin)
-            if verification:
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=amount,
-                    reason="Payment of fmcg product.",
-                    transactionReference=""
+            if not verification:
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
-                if debit_response.status_code == 200:
-                    order.status = "Completed"
-                    order.save()
 
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Payment Successful.",
-                        message=f"You have successfully paid {amount} for the purchase of {product.name_and_size}."
+            payment_option = request.data.get("payment_option")
+            match payment_option:
+                case "WALLET":
+                    debit_response = Account.Debit(
+                        debitAccount=user_details.account_number,
+                        amount=amount,
+                        reason="Payment of fmcg product.",
+                        transactionReference=""
                     )
+                    if debit_response.status_code == 200:
+                        order.status = "Completed"
+                        order.save()
 
-                    ActivityModel.objects.create(
-                        user=authenticated_user,
-                        title="Payment Successful.",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} has successfully paid {amount} for the purchase of {product.name_and_size}."
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Payment Successful.",
+                            message=f"You have successfully paid {amount} for the purchase of {product.name_and_size}."
+                        )
+
+                        ActivityModel.objects.create(
+                            user=authenticated_user,
+                            title="Payment Successful.",
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} has successfully paid {amount} for the purchase of {product.name_and_size}."
+                        )
+                        resp = {
+                            "status": "success.",
+                            "message": f"You have successfully paid {amount} for the purchase of {product.name_and_size}.",
+                            "data": serializer.data
+                        }
+                        return Response(data=resp, status=status.HTTP_200_OK)
+                    else:
+                        order.status = "Failed"
+                        order.save()
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Payment failed.",
+                            message=f"Payment of {amount} for the purchase of {product} failed."
+                        )
+                        error_resp = {
+                            "status": "fail",
+                            "message": f"You have successfully paid {amount} for the purchase of {product}.",
+                            "data": debit_response.json()
+                        }
+                        return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
+                case "CARD":
+                    return Response(
+                        data={"status": "fail", "message": "Card payment option not yet implemented."},
+                        status=status.HTTP_501_NOT_IMPLEMENTED,
                     )
-                    resp = {
-                        "status": "success.",
-                        "message": f"You have successfully paid {amount} for the purchase of {product.name_and_size}.",
-                        "data": serializer.data
-                    }
-                    return Response(data=resp, status=status.HTTP_200_OK)
-                else:
-                    order.status = "Failed"
-                    order.save()
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Payment failed.",
-                        message=f"Payment of {amount} for the purchase of {product} failed."
-                    )
-                    error_resp = {
-                        "status": "fail",
-                        "message": f"You have successfully paid {amount} for the purchase of {product}.",
-                        "data": debit_response.json()
-                    }
-                    return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
