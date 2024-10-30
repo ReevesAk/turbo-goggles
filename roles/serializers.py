@@ -447,6 +447,7 @@ class AdminBankAccountCreationSerializers(serializers.ModelSerializer):
     alt_email = serializers.CharField(max_length=100, write_only=True, required=True)
     alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
     alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
+    date_of_birth = serializers.CharField(max_length=100, write_only=True, required=True)
 
     class Meta:
         model = AccountCreation
