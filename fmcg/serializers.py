@@ -71,7 +71,7 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = FmcgOrder
         fields = [
-            "payment_option",
+            "payment_method",
             "billing_address",
             "available_addresses",
             "product",
