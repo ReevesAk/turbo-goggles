@@ -1604,12 +1604,27 @@ class ActivityTitleListView(APIView):
     authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
-        titles = ActivityModel.objects.values_list('title', flat=True).distinct()
+        # Define admin roles based on user type choices
+        admin_roles = {
+            "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin",
+            "UserAdmin", "PartnersAdmin", "ContentAdmin", "IntegrationAdmin",
+            "WalletAdmin", "FmcgAdmin"
+        }
+
+        # Filter titles based on the user type through AccountType model
+        admin_titles = ActivityModel.objects.filter(
+            Q(user__accounttype__user_type__in=admin_roles)
+        ).values_list('title', flat=True).distinct()
+
+        non_admin_titles = ActivityModel.objects.exclude(
+            Q(user__accounttype__user_type__in=admin_roles)
+        ).values_list('title', flat=True).distinct()
 
         # Prepare response
         response = {
             "status": "success",
             "message": "All unique activity titles fetched successfully!",
-            "data": list(titles),
+            "admin_titles": list(admin_titles),
+            "non_admin_titles": list(non_admin_titles),
         }
         return Response(response, status=status.HTTP_200_OK)

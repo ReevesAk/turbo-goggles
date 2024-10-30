@@ -233,7 +233,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
             return Response({
                 "status": "success",
                 "message": "Your cart is empty.",
-                "data": []
+                "cart_items": []
             }, status=status.HTTP_200_OK)
 
         # Prepare cart item data
