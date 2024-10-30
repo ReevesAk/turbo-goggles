@@ -449,6 +449,7 @@ class AddAdmin(generics.CreateAPIView):
             resp = {
                 "status": "Success",
                 "message": "Created Successfully, a link has been sent to your mail",
+                "user_id": user.id,
                 "data": user_data,
             }
             print("Response Data:", resp)
