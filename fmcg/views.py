@@ -2,6 +2,7 @@ import random
 import string
 
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -276,9 +277,18 @@ class RemoveFromCart(generics.DestroyAPIView):
         user = request.user
         product_id = kwargs.get("product_id")
 
-        # Fetch the product and cart item
-        product = get_object_or_404(Product, id=product_id)
-        cart_item = get_object_or_404(CartItem, user=user, product=product)
+        try:
+            # Fetch the product and cart item
+            product = get_object_or_404(Product, id=product_id)
+            cart_item = get_object_or_404(CartItem, user=user, product=product)
+        except Http404:
+            return Response(
+                data={
+                    "status": "fail",
+                    "error": "Product or cart item not found."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         cart_item.delete()
 
