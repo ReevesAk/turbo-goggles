@@ -274,7 +274,7 @@ class RemoveFromCart(generics.DestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         user = request.user
-        product_id = kwargs("product_id")
+        product_id = kwargs.get("product_id")
 
         # Fetch the product and cart item
         product = get_object_or_404(Product, id=product_id)
