@@ -171,14 +171,12 @@ class LoginAdmin(APIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
-        _ = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        email = request.data.get("email")
-        password = request.data.get("password")
+        data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        email = data.get("email")
+        password = data.get("password")
 
         try:
+            # Retrieve the user by email to get the phone number
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
@@ -186,66 +184,38 @@ class LoginAdmin(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Authenticate using the phone number and password
         user = authenticate(phone_number=user.phone_number, password=password)
 
         if user:
-            # Check if the user already has more than two device IDs.
+            # Check if the user has more than two devices registered
             existing_device_count = DeviceId.objects.filter(user=user).count()
             if existing_device_count >= 2:
+                # Delete the oldest device if the limit is exceeded
                 if existing_device_count == 3:
-                    # Delete the oldest device (based on creation timestamp)
-                    oldest_device = DeviceId.objects.filter(user=user).earliest(
-                        "created_at"
-                    )
+                    oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
                     oldest_device.delete()
+
                 return Response(
-                    data={
-                        "error": "User cannot login on more than two devices, older deviceID deleted."
-                    },
+                    data={"error": "User cannot login on more than two devices, oldest device ID deleted."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # # check if the user has logged in more than one device.
-            # for device in existing_device_count:
-            #     if not device:
-            #     # Create and send OTP.
-            #     otp = otp_manager.create_otp(user_id=str(user.id))
-            #     msg = "We have noticed that you are using a new device. Please enter this {}. to confirm your identity".format(
-            #         otp
-            #     )
-            #     recipient = user.phone_number
-
-            #     response = Message.send_msg(msg=str(msg), to=recipient)
-
-            #     return Response(
-            #         data={"detail": "Otp sent to user's new device Id"},
-            #         status=status.HTTP_200_OK,
-            #     )
             if not user.is_verified:
                 return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Please verify your account to login",
-                    },
+                    data={"status": "fail", "message": "Please verify your account to login"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-            UserNotification.objects.create(
-                user=user, title="Login.", message="Login successful."
-            )
-
+            UserNotification.objects.create(user=user, title="Login.", message="Login successful.")
             ActivityModel.objects.create(
                 user=user,
                 title="Admin Login.",
                 description=f"Admin User, {user.full_name} logged in.",
             )
 
-            # Retrieve user roles from AccountType model
-            user_roles = AccountType.objects.filter(user=user).values_list(
-                "user_type", flat=True
-            )
-
-            # Create JWT tokens
+            # Get user roles
+            user_roles = AccountType.objects.filter(user=user).values_list("user_type", flat=True)
             tokens = create_jwt_pair_for_user(user)
             user_details = {
                 "id": user.id,
@@ -475,52 +445,41 @@ class AdAdminContd(generics.UpdateAPIView):
 
     def get_object(self):
         user_id = self.kwargs.get("user_id")
-        user = User.objects.get(Q(id=user_id))
 
         try:
+            user = User.objects.get(id=user_id)
             admin_types = [
-                "SuperAdmin",
-                "TaskAdmin",
-                "AdAdmin",
-                "MembersAdmin",
-                "UserAdmin",
-                "PartnersAdmin",
-                "ContentAdmin",
-                "IntegrationAdmin",
-                "WalletAdmin",
+                "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", "UserAdmin",
+                "PartnersAdmin", "ContentAdmin", "IntegrationAdmin", "WalletAdmin",
             ]
-            is_admin = AccountType.objects.filter(
-                user=user, user_type__in=admin_types
-            ).exists()
+            is_admin = AccountType.objects.filter(user=user, user_type__in=admin_types).exists()
 
             if is_admin:
                 return user
             else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "User exists, but is not an admin.",
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+                raise PermissionError("User exists, but is not an admin.")
 
         except User.DoesNotExist:
             return None
 
     def update(self, request, *args, **kwargs):
-        payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
         instance = self.get_object()
         if instance is None:
             return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+        elif isinstance(instance, Response):  # Return Response if not an admin
+            return instance
 
-        serializer = AddAdminContdSerializer(data=payload)
+        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        serializer = self.get_serializer(instance=instance, data=payload)  # Pass `instance=instance`
+
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
+            user = serializer.save()
+            user.set_password(serializer.validated_data['password'])
+            user.is_verified = True
+            user.save()
+
             ActivityModel.objects.create(
-                user=instance,
+                user=user,
                 title="Admin Complete Signup.",
                 description=f"Admin user {instance.full_name} completed signup.",
             )
