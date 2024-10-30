@@ -518,6 +518,7 @@ class AdAdminContd(generics.UpdateAPIView):
 
         serializer = AddAdminContdSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
+            serializer.save()
             ActivityModel.objects.create(
                 user=instance,
                 title="Admin Complete Signup.",
