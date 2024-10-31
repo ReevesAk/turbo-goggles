@@ -318,7 +318,7 @@ class IsWalletAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either IsWalletAdmin or SuperAdmin
-        if request.user.active_role == 'IsWalletAdmin' or request.user.active_role == 'SuperAdmin':
+        if request.user.active_role == 'WalletAdmin' or request.user.active_role == 'SuperAdmin':
             return True
 
         return False

@@ -20,8 +20,7 @@ from accounts.models import User, UserNotification
 from banking.models import AccountCreation, BVNData
 from banking.serializers import GetAccountSerializer
 from banking.controllers import Account, BVN
-from commons import CamelCaseJSONRenderer
-from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdmin
+from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdminOrSuperAdmin
 
 
 class GetallWalletUsers(generics.ListAPIView):
@@ -36,10 +35,9 @@ class GetallWalletUsers(generics.ListAPIView):
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
-        (IsSuperAdmin | IsWalletAdmin),
+        IsWalletAdminOrSuperAdmin,
     ]
     pagination_class = PaginationStyle
-    renderer_classes = [CamelCaseJSONRenderer]
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -100,7 +98,7 @@ class CreateBankAccountForUser(generics.GenericAPIView):
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
-        (IsSuperAdmin | IsWalletAdmin),
+        IsWalletAdminOrSuperAdmin
     ]
     parser_classes = (
         MultiPartParser,
@@ -281,7 +279,7 @@ class WalletSearch(generics.ListAPIView):
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
-        (IsSuperAdmin | IsWalletAdmin),
+        IsWalletAdminOrSuperAdmin,
     ]
 
     def get(self, request):
