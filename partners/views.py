@@ -68,6 +68,7 @@ class CreatePartner(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
+            serializer.save()
             AccountType.objects.create(
                 user=authenticated_user,
                 user_type="Partner",
