@@ -1,6 +1,7 @@
 import logging
 import requests
 from django.template.loader import render_to_string
+from django.db.models import Q
 from commons import Message
 
 # In project imports.
@@ -17,6 +18,7 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification
 from banking.models import AccountCreation, BVNData
+from banking.serializers import GetAccountSerializer
 from banking.controllers import Account, BVN
 from commons import CamelCaseJSONRenderer
 from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdmin
@@ -269,4 +271,26 @@ class CreateBankAccountForUser(generics.GenericAPIView):
             )
 
 
-# class WalletSearch(generics.Lis)
+class WalletSearch(generics.ListAPIView):
+    """
+    WalletSearch handles the GET request of searching
+    for results that matches the query.
+    """
+    serializer_class = GetAccountSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled,
+        (IsSuperAdmin | IsWalletAdmin),
+    ]
+
+    def get(self, request):
+        keyword = request.query_params.get("account_name", "")
+
+        accounts = AccountCreation.objects.filter(
+            Q(acct_name__icontains=keyword)
+        )
+
+    # Serialize the results
+        serializer = self.get_serializer(accounts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -41,7 +41,7 @@ from .tasks import (
     GetSingleSubmittedTask,
     ReviewTask,
 )
-from .wallets import GetallWalletUsers, CreateBankAccountForUser
+from .wallets import GetallWalletUsers, CreateBankAccountForUser, WalletSearch
 
 from .partners import GetAllPartnersUsers, RestrictPartnerAccountView, AdminViewPartnerServiceList
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
@@ -179,5 +179,6 @@ urlpatterns = [
         name="get_all_wallet_users",
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
+    path("wallet_search", WalletSearch.as_view(), name="wallet_search"),
     path("create-wallet-for-users", CreateBankAccountForUser.as_view(), name="create_wallet_for_users")
 ]
