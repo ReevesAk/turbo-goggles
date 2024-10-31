@@ -64,7 +64,13 @@ class RemoveFromCartSerializers(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 
+class ProductOrderSerializer(serializers.Serializer):
+    product_id = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1)
+
+
 class FmcgOrderSerializer(serializers.ModelSerializer):
+    products = ProductOrderSerializer(many=True)  # Accepts a list of products with IDs and quantities
     pin = serializers.CharField(max_length=4, min_length=4)
     payment_method = serializers.CharField(max_length=50)
 
@@ -73,26 +79,22 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
         fields = [
             "payment_method",
             "billing_address",
-            "available_addresses",
-            "product",
+            "products",
             "delivery_address",
-            "status",
             "total_price",
             "pin"
         ]
 
-    def __init__(self, *args, **kwargs):
-        super(FmcgOrderSerializer, self).__init__(*args, **kwargs)
+    def validate(self, data):
+        billing_address = data.get("billing_address")
 
-        request_data = self.context.get('request').data
+        # Validate required addresses based on billing address type
+        if billing_address == "Store Pick-Up" and not data.get("available_addresses"):
+            raise serializers.ValidationError({"available_addresses": "Available addresses are required for store pick-up."})
+        elif billing_address == "Delivery" and not data.get("delivery_address"):
+            raise serializers.ValidationError({"delivery_address": "Delivery address is required for delivery orders."})
 
-        # Conditionally make fields optional based on billing_address
-        billing_address = request_data.get('billing_address')
-
-        if billing_address == "Store Pick-Up":
-            self.fields['available_addresses'].required = True
-        elif billing_address == "Delivery":
-            self.fields['delivery_address'].required = True
+        return data
 
 
 class FmcgRatingSerializer(serializers.ModelSerializer):

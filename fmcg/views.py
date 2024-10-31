@@ -1,8 +1,12 @@
 import random
 import string
+import uuid
+import logging
+from commons import Allocate
 
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -22,7 +26,7 @@ from .serializers import (
     FmcgRatingListSerializer,
     FmcgOrderSerializer
 )
-from accounts.models import UserNotification
+from accounts.models import UserNotification, TxModel, Rewards
 from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
@@ -305,10 +309,6 @@ class RemoveFromCart(generics.DestroyAPIView):
 
 
 class FmcgCheckout(generics.CreateAPIView):
-    """
-    FmcgCheckout is the POST request handler for finalizing an order from the cart.
-    This will handle payment and creating an order.
-    """
     serializer_class = FmcgOrderSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -316,40 +316,66 @@ class FmcgCheckout(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
         serializer = self.get_serializer(data=payload)
+
         if serializer.is_valid(raise_exception=True):
-            tracking_id = generate_tracking_id(10)
             authenticated_user = request.user
-            amount = payload["total_price"]
-            product = payload["product"]
+            tracking_id = generate_tracking_id(10)
+            tx_reference = uuid.uuid4()
+            amount = 0
+            products_data = payload["products"]
+
+            order_items = []
+
+            for item in products_data:
+                product = get_object_or_404(Product, id=item["product_id"])
+                quantity = item["quantity"]
+                total_price_for_product = product.price * quantity
+                amount += total_price_for_product
+
+                order_items.append({
+                    "product": product,
+                    "quantity": quantity,
+                    "total_price": total_price_for_product
+                })
+
+            # Create the order with calculated amount and order items
             order = FmcgOrder.objects.create(
                 user=authenticated_user,
-                product=product,
-                price=amount,
+                total_price=amount,
                 billing_address=payload["billing_address"],
-                available_addresses=payload["available_addresses"],
-                delivery_address=payload["delivery_address"],
+                delivery_address=payload.get("delivery_address", ""),
                 status="Pending",
-                tracking_id=tracking_id
+                tracking_id=tracking_id,
+                tx_reference=tx_reference
             )
 
-            # Proceed to checkout and pay for the product.
+            # Verify pin
             pin = payload["pin"]
-            user_details = AccountCreation.objects.get(user=authenticated_user)
-            verification = Pin.verify_pin(user=authenticated_user, pin=pin)
+            account = AccountCreation.objects.get(user=authenticated_user)
+            if account is not None and account.pin is not None:
+                verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or pin not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             if not verification:
                 return Response(
                     data={"status": "fail", "error": "Incorrect pin"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-            payment_option = request.data.get("payment_option")
+            # Handle payment using match/case
+            payment_option = payload["payment_method"]
+
             match payment_option:
                 case "WALLET":
                     debit_response = Account.Debit(
-                        debitAccount=user_details.account_number,
-                        amount=amount,
-                        reason="Payment of fmcg product.",
-                        transactionReference=""
+                        debitAccount=account.account_number,
+                        amount=float(amount),
+                        reason="Payment of FMCG products",
+                        transactionReference=str(tx_reference)
                     )
                     if debit_response.status_code == 200:
                         order.status = "Completed"
@@ -357,42 +383,72 @@ class FmcgCheckout(generics.CreateAPIView):
 
                         UserNotification.objects.create(
                             user=authenticated_user,
-                            title="Payment Successful.",
-                            message=f"You have successfully paid {amount} for the purchase of {product.name_and_size}."
+                            title="Payment Successful",
+                            message=f"You have successfully paid {amount} for your order."
                         )
 
                         ActivityModel.objects.create(
                             user=authenticated_user,
-                            title="Payment Successful.",
-                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} has successfully paid {amount} for the purchase of {product.name_and_size}."
+                            title="Payment Successful",
+                            description=f"{authenticated_user.full_name} paid {amount} for their order."
                         )
-                        resp = {
-                            "status": "success.",
-                            "message": f"You have successfully paid {amount} for the purchase of {product.name_and_size}.",
-                            "data": serializer.data
-                        }
-                        return Response(data=resp, status=status.HTTP_200_OK)
+
+                        # Check is user is a member then assign rewards.
+                        if authenticated_user.active_role == "Member" and amount >= 100:
+                            new_rewards = Allocate.reward(amount=amount)
+                        else:
+                            new_rewards = 0
+
+                        try:
+                            with transaction.atomic():
+                                # Create a new transaction entry
+                                tx = TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_id="",
+                                    tx_reference="",
+                                    tx_type="FMCG",
+                                    amount=payload.get("amount", 0),
+                                    description="Debit for FMCG purchase.",
+                                    rwd=new_rewards,
+                                )
+
+                                rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
+                                rwd.balance += new_rewards
+                                rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
+                                rwd.save()
+
+                        except Exception as e:
+                            logging.error(f"Database query error: {str(e)}")
+
+                        response_data = serializer.data
+                        response_data["total_price"] = str(amount)  # Set total_price to match amount
+                        response_data.pop("pin", None)  # Remove pin from response data
+
+                        return Response({
+                            "status": "success",
+                            "message": f"Payment of {amount} completed.",
+                            "order": response_data
+                        }, status=status.HTTP_200_OK)
                     else:
                         order.status = "Failed"
                         order.save()
-                        UserNotification.objects.create(
-                            user=authenticated_user,
-                            title="Payment failed.",
-                            message=f"Payment of {amount} for the purchase of {product} failed."
-                        )
-                        error_resp = {
+                        return Response({
                             "status": "fail",
-                            "message": f"You have successfully paid {amount} for the purchase of {product}.",
-                            "data": debit_response.json()
-                        }
-                        return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
+                            "message": "Payment failed.",
+                            "error": debit_response.json()
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
                 case "CARD":
-                    return Response(
-                        data={"status": "fail", "message": "Card payment option not yet implemented."},
-                        status=status.HTTP_501_NOT_IMPLEMENTED,
-                    )
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({
+                        "status": "fail",
+                        "message": "Invalid payment method.",
+                        "order": serializer.data
+                    }, status=status.HTTP_200_OK)
+
+                case _:
+                    return Response({"status": "fail", "message": "Invalid payment method"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FmcgRatingView(generics.GenericAPIView):

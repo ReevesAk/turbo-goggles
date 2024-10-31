@@ -276,7 +276,11 @@ def NewTvSub(user, serializer, reason, user_data):
         )
 
         # Assign rewards if user is a member
-        new_rewards = Allocate.reward(amount=amount) if user.active_role == "Member" and amount >= 100 else 0
+        new_rewards = (
+            Allocate.reward(amount=amount)
+            if user.active_role == "Member" and amount >= 100
+            else 0
+        )
 
         # Use the same tx_reference for TxModel
         try:

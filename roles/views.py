@@ -171,7 +171,10 @@ class LoginAdmin(APIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
-        data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         email = data.get("email")
         password = data.get("password")
 
@@ -193,21 +196,30 @@ class LoginAdmin(APIView):
             if existing_device_count >= 2:
                 # Delete the oldest device if the limit is exceeded
                 if existing_device_count == 3:
-                    oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
+                    oldest_device = DeviceId.objects.filter(user=user).earliest(
+                        "created_at"
+                    )
                     oldest_device.delete()
 
                 return Response(
-                    data={"error": "User cannot login on more than two devices, oldest device ID deleted."},
+                    data={
+                        "error": "User cannot login on more than two devices, oldest device ID deleted."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if not user.is_verified:
                 return Response(
-                    data={"status": "fail", "message": "Please verify your account to login"},
+                    data={
+                        "status": "fail",
+                        "message": "Please verify your account to login",
+                    },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-            UserNotification.objects.create(user=user, title="Login.", message="Login successful.")
+            UserNotification.objects.create(
+                user=user, title="Login.", message="Login successful."
+            )
             ActivityModel.objects.create(
                 user=user,
                 title="Admin Login.",
@@ -215,7 +227,9 @@ class LoginAdmin(APIView):
             )
 
             # Get user roles
-            user_roles = AccountType.objects.filter(user=user).values_list("user_type", flat=True)
+            user_roles = AccountType.objects.filter(user=user).values_list(
+                "user_type", flat=True
+            )
             tokens = create_jwt_pair_for_user(user)
 
             # Assign a role if active_role is None
@@ -455,10 +469,19 @@ class AdAdminContd(generics.UpdateAPIView):
         try:
             user = User.objects.get(id=user_id)
             admin_types = [
-                "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin", "UserAdmin",
-                "PartnersAdmin", "ContentAdmin", "IntegrationAdmin", "WalletAdmin",
+                "SuperAdmin",
+                "TaskAdmin",
+                "AdAdmin",
+                "MembersAdmin",
+                "UserAdmin",
+                "PartnersAdmin",
+                "ContentAdmin",
+                "IntegrationAdmin",
+                "WalletAdmin",
             ]
-            is_admin = AccountType.objects.filter(user=user, user_type__in=admin_types).exists()
+            is_admin = AccountType.objects.filter(
+                user=user, user_type__in=admin_types
+            ).exists()
 
             if is_admin:
                 return user
@@ -475,12 +498,17 @@ class AdAdminContd(generics.UpdateAPIView):
         elif isinstance(instance, Response):  # Return Response if not an admin
             return instance
 
-        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
-        serializer = self.get_serializer(instance=instance, data=payload)  # Pass `instance=instance`
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(
+            instance=instance, data=payload
+        )  # Pass `instance=instance`
 
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            user.set_password(serializer.validated_data['password'])
+            user.set_password(serializer.validated_data["password"])
             user.is_verified = True
             user.save()
 
@@ -1296,7 +1324,6 @@ class SwitchRoles(generics.RetrieveAPIView):
 
 
 class GetProfileImage(generics.RetrieveAPIView):
-
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
 
@@ -1306,7 +1333,7 @@ class GetProfileImage(generics.RetrieveAPIView):
             response = {
                 "status": "success",
                 "message": "Profile picture retrived successfully",
-                "image": request.user.profile_img_url
+                "image": request.user.profile_img_url,
             }
             return Response(
                 data=response,
@@ -1316,7 +1343,7 @@ class GetProfileImage(generics.RetrieveAPIView):
             response = {
                 "status": "fail",
                 "message": "User has not uploaded a profile picture.",
-                "image": request.user.profile_img_url
+                "image": request.user.profile_img_url,
             }
             return Response(
                 data=response,
@@ -1362,7 +1389,7 @@ class GetAllAppActivites(generics.ListAPIView):
                     "title": activity.title,
                     "description": activity.description,
                     "created_at": activity.created_at,
-                    "last_login": activity.user.last_login
+                    "last_login": activity.user.last_login,
                 }
             )
 
@@ -1431,7 +1458,7 @@ class GetAllAdminActivites(generics.ListAPIView):
                     "title": activity.title,
                     "description": activity.description,
                     "created_at": activity.created_at,
-                    "last_login": activity.user.last_login
+                    "last_login": activity.user.last_login,
                 }
             )
 
@@ -1465,14 +1492,29 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             activity = ActivityModel.objects.get(id=activity_id)
 
             authorised_by = (
-                "Superuser" if activity.user.active_role == "Superuser"
-                else activity.user.full_name if activity.user.active_role in {
-                    "SuperAdmin", "TaskAdmin", "AdAdmin",
-                    "MembersAdmin", "UserAdmin", "PartnersAdmin",
-                    "ContentAdmin", "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+                "Superuser"
+                if activity.user.active_role == "Superuser"
+                else activity.user.full_name
+                if activity.user.active_role
+                in {
+                    "SuperAdmin",
+                    "TaskAdmin",
+                    "AdAdmin",
+                    "MembersAdmin",
+                    "UserAdmin",
+                    "PartnersAdmin",
+                    "ContentAdmin",
+                    "IntegrationAdmin",
+                    "WalletAdmin",
+                    "FmcgAdmin",
                 }
-                else activity.user.first_name + " " + activity.user.last_name if activity.user.active_role in {
-                    "User", "Member", "Partner", "BrandAd",
+                else activity.user.first_name + " " + activity.user.last_name
+                if activity.user.active_role
+                in {
+                    "User",
+                    "Member",
+                    "Partner",
+                    "BrandAd",
                 }
                 else "Unknown"
             )
@@ -1490,7 +1532,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "created_at": activity.created_at,
-                    "last_login": activity.user.last_login
+                    "last_login": activity.user.last_login,
                 },
             }
             return Response(data=response, status=status.HTTP_200_OK)
@@ -1534,14 +1576,29 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         response_data = []
         for activity in queryset:
             authorised_by = (
-                "Superuser" if activity.user.active_role == "Superuser"
-                else activity.user.full_name if activity.user.active_role in {
-                    "SuperAdmin", "TaskAdmin", "AdAdmin",
-                    "MembersAdmin", "UserAdmin", "PartnersAdmin",
-                    "ContentAdmin", "IntegrationAdmin", "WalletAdmin", "FmcgAdmin"
+                "Superuser"
+                if activity.user.active_role == "Superuser"
+                else activity.user.full_name
+                if activity.user.active_role
+                in {
+                    "SuperAdmin",
+                    "TaskAdmin",
+                    "AdAdmin",
+                    "MembersAdmin",
+                    "UserAdmin",
+                    "PartnersAdmin",
+                    "ContentAdmin",
+                    "IntegrationAdmin",
+                    "WalletAdmin",
+                    "FmcgAdmin",
                 }
-                else activity.user.first_name + activity.user.last_name if activity.user.active_role in {
-                    "User", "Member", "Partner", "BrandAd",
+                else activity.user.first_name + activity.user.last_name
+                if activity.user.active_role
+                in {
+                    "User",
+                    "Member",
+                    "Partner",
+                    "BrandAd",
                 }
                 else "Unknown"
             )
@@ -1553,7 +1610,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "created_at": activity.created_at,
-                    "last_login": activity.user.last_login
+                    "last_login": activity.user.last_login,
                 }
             )
 
@@ -1596,19 +1653,34 @@ class ActivityTitleListView(APIView):
     def get(self, request, *args, **kwargs):
         # Define admin roles based on user type choices
         admin_roles = {
-            "SuperAdmin", "TaskAdmin", "AdAdmin", "MembersAdmin",
-            "UserAdmin", "PartnersAdmin", "ContentAdmin", "IntegrationAdmin",
-            "WalletAdmin", "FmcgAdmin"
+            "SuperAdmin",
+            "TaskAdmin",
+            "AdAdmin",
+            "MembersAdmin",
+            "UserAdmin",
+            "PartnersAdmin",
+            "ContentAdmin",
+            "IntegrationAdmin",
+            "WalletAdmin",
+            "FmcgAdmin",
         }
 
         # Filter titles based on the user type through AccountType model
-        admin_titles = ActivityModel.objects.filter(
-            Q(user__accounttype__user_type__in=admin_roles)
-        ).values_list('title', flat=True).distinct()
+        admin_titles = (
+            ActivityModel.objects.filter(
+                Q(user__accounttype__user_type__in=admin_roles)
+            )
+            .values_list("title", flat=True)
+            .distinct()
+        )
 
-        non_admin_titles = ActivityModel.objects.exclude(
-            Q(user__accounttype__user_type__in=admin_roles)
-        ).values_list('title', flat=True).distinct()
+        non_admin_titles = (
+            ActivityModel.objects.exclude(
+                Q(user__accounttype__user_type__in=admin_roles)
+            )
+            .values_list("title", flat=True)
+            .distinct()
+        )
 
         # Prepare response
         response = {
