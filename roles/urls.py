@@ -4,6 +4,7 @@ from .views import (
     AddAdmin,
     AdAdminContd,
     AddRoleToAdmin,
+    GetProfileImage,
     RemoveAdminRole,
     DisableAdminrole,
     EnableAdminrole,
@@ -53,6 +54,7 @@ urlpatterns = [
     path("add-admin-contd/<str:user_id>/", AdAdminContd.as_view(), name="admin-update"),
     path("admin-login", LoginAdmin.as_view(), name="admin_login"),
     path("admin-profile-img", ProfileImage.as_view(), name="profile_img"),
+    path("get-profile-image", GetProfileImage.as_view(), name="get_profile_image"),
     path("list-admin-types", AdminTypesListView.as_view(), name="list_admin_types"),
     path("add-role-to-admin", AddRoleToAdmin.as_view(), name="add_role_to_admin"),
     path(

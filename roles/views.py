@@ -1246,7 +1246,7 @@ class SwitchRoles(generics.RetrieveAPIView):
         current_user = self.get_object()
         new_role = request.data.get("user_type")
 
-        serializer = AddAdminSerializer(data=request.data)
+        serializer = SwitchRolesSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 account_types = AccountType.objects.filter(user=current_user)
@@ -1293,6 +1293,35 @@ class SwitchRoles(generics.RetrieveAPIView):
             return Response(data=data, status=status.HTTP_200_OK)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetProfileImage(generics.RetrieveAPIView):
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        user = request.user.profile_img_url
+        if user:
+            response = {
+                "status": "success",
+                "message": "Profile picture retrived successfully",
+                "image": request.user.profile_img_url
+            }
+            return Response(
+                data=response,
+                status=status.HTTP_200_OK,
+            )
+        else:
+            response = {
+                "status": "fail",
+                "message": "User has not uploaded a profile picture.",
+                "image": request.user.profile_img_url
+            }
+            return Response(
+                data=response,
+                status=status.HTTP_200_OK,
+            )
 
 
 class GetAllAppActivites(generics.ListAPIView):
