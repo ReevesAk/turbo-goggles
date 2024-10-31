@@ -33,7 +33,8 @@ class GetallWalletUsers(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
-        IsNotDisabled & (IsSuperAdmin | IsWalletAdmin),
+        IsNotDisabled,
+        (IsSuperAdmin | IsWalletAdmin),
     ]
     pagination_class = PaginationStyle
     renderer_classes = [CamelCaseJSONRenderer]
@@ -96,7 +97,8 @@ class CreateBankAccountForUser(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
-        IsNotDisabled & (IsSuperAdmin | IsWalletAdmin),
+        IsNotDisabled,
+        (IsSuperAdmin | IsWalletAdmin),
     ]
     parser_classes = (
         MultiPartParser,
