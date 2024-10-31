@@ -225,6 +225,7 @@ class LoginAdmin(APIView):
             user_details = {
                 "id": user.id,
                 "email": user.email,
+                "image": user.profile_img_url,
                 "phone_number": user.phone_number,
                 "full_name": user.full_name,
                 "is_verified": user.is_verified,
