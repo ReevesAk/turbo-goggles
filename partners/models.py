@@ -38,6 +38,7 @@ class PartnerServices(models.Model):
     description = models.TextField(null=True)
     from_station = models.CharField(max_length=255, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
 
 class CustomerRating(models.Model):

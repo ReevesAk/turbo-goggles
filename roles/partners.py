@@ -7,6 +7,8 @@ from .serializers import (
 )
 from .views import PaginationStyle
 from .models import RestrictPartnerAccount, ActivityModel
+from partners.serializers import PartnerServiceSerializer
+from partners.models import PartnerServices
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -131,3 +133,42 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class AdminViewPartnerServiceList(generics.ListAPIView):
+    """AdminViewPartnerServiceList lists all the services belonging to
+    Partner whose email is passed in params.
+    """
+
+    serializer_class = PartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsNotDisabled, IsPartnerAdminOrSuperAdmin)
+    pagination_class = PaginationStyle
+
+    def get(self, request):
+        email = request.query_params.get('partner_email')
+
+        # Check if email is provided
+        if not email:
+            return Response(
+                data={
+                    "status": "fail",
+                    "error": "Email parameter is required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.get(email=email)
+        queryset = PartnerServices.objects.filter(user=user).order_by('created_at')
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

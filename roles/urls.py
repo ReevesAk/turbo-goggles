@@ -43,7 +43,7 @@ from .tasks import (
 )
 from .wallets import GetallWalletUsers, CreateBankAccountForUser
 
-from .partners import GetAllPartnersUsers, RestrictPartnerAccountView
+from .partners import GetAllPartnersUsers, RestrictPartnerAccountView, AdminViewPartnerServiceList
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
 from user_profile.views import ProfileImage
 
@@ -157,6 +157,7 @@ urlpatterns = [
         RestrictPartnerAccountView.as_view(),
         name="restrict_partner",
     ),
+    path("partner-admin/<str:partner_email>/get-partner-services", AdminViewPartnerServiceList.as_view(), name="view_partners_services"),
     # BrandAd endpoints.
     path(
         "brand-admin/<int:brand_id>/restrict-brandAd",
