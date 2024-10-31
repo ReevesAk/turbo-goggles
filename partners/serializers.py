@@ -27,7 +27,7 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             "password": {"write_only": True},
-            "website": {"required": False},  # Make website optional
+            "website": {"required": False, "allow_blank": True},
         }
 
     def validate(self, attrs):
@@ -58,7 +58,7 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
             state=validated_data["state"],
             city=validated_data["city"],
             business_name=validated_data["business_name"],
-            website=validated_data.get("website"),  # Access website safely
+            website=validated_data.get("website"),
             business_category=validated_data["business_category"],
         )
         return user
