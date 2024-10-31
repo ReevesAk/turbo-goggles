@@ -269,4 +269,4 @@ class CreateBankAccountForUser(generics.GenericAPIView):
             )
 
 
-class WalletSearch(generics.Lis)
+# class WalletSearch(generics.Lis)
