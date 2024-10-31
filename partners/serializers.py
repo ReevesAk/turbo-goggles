@@ -12,7 +12,7 @@ from .models import (
 
 
 class BecomePartnerSerializer(serializers.ModelSerializer):
-    """Serailizers for our Partners' first time joining"""
+    """Serializers for our Partners' first time joining"""
 
     class Meta:
         model = User
@@ -25,7 +25,10 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
             "website",
             "business_category",
         ]
-        extra_kwargs = {"password": {"write_only": True}}
+        extra_kwargs = {
+            "password": {"write_only": True},
+            "website": {"required": False},  # Make website optional
+        }
 
     def validate(self, attrs):
         business_name = attrs.get("business_name", "")
@@ -42,9 +45,7 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
                 "business_name: business_name field can not be empty"
             )
 
-        if business_category:
-            pass
-        else:
+        if not business_category:
             raise serializers.ValidationError(
                 "business_category: business_category field can not be empty"
             )
@@ -57,7 +58,7 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
             state=validated_data["state"],
             city=validated_data["city"],
             business_name=validated_data["business_name"],
-            website=validated_data["website"],
+            website=validated_data.get("website"),  # Access website safely
             business_category=validated_data["business_category"],
         )
         return user
