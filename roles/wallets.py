@@ -18,7 +18,7 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification
 from banking.models import AccountCreation, BVNData
-from banking.serializers import GetAccountSerializer
+from banking.serializers import WalletStatusSerializer
 from banking.controllers import Account, BVN
 from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdminOrSuperAdmin
 
@@ -276,7 +276,7 @@ class WalletSearch(generics.ListAPIView):
     for results that matches the query.
     """
 
-    serializer_class = GetAccountSerializer
+    serializer_class = WalletStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
@@ -285,10 +285,19 @@ class WalletSearch(generics.ListAPIView):
     ]
 
     def get(self, request):
-        keyword = request.query_params.get("account_name", "")
+        keyword = request.query_params.get("search_term", "").strip()
 
-        accounts = AccountCreation.objects.filter(Q(acct_name__icontains=keyword))
+        if keyword.isdigit():
+            accounts = AccountCreation.objects.filter(account_number__icontains=keyword)
+        # Otherwise, search by account name
+        else:
+            accounts = AccountCreation.objects.filter(acct_name__icontains=keyword)
 
-        # Serialize the results
         serializer = self.get_serializer(accounts, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = {
+            "status": "success" if accounts else "fail",
+            "message": "Wallet user fetched successfully." if accounts else "No user matching that query found.",
+            "data": serializer.data
+        }
+
+        return Response(data=response_data, status=status.HTTP_200_OK if accounts else status.HTTP_404_NOT_FOUND)

@@ -187,7 +187,7 @@ urlpatterns = [
         name="get_all_wallet_users",
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
-    path("wallet_search", WalletSearch.as_view(), name="wallet_search"),
+    path("wallet_search/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"),
     path(
         "create-wallet-for-users",
         CreateBankAccountForUser.as_view(),
