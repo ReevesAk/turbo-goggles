@@ -16,7 +16,7 @@ BUSINESS_CATEGORY = (
 class VerifyCAC(models.Model):
     """Model for verifying partner business."""
 
-    users = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    users = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
     rc_number = models.CharField(max_length=255, null=True)
     business_name = models.CharField(max_length=255, null=True)
 
