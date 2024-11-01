@@ -153,31 +153,31 @@ urlpatterns = [
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
     path(
-        "partner-admin/get-all-partners",
+        "partners/get-all-partners",
         GetAllPartnersUsers.as_view(),
         name="get_all_partners",
     ),
     path(
-        "partner-admin/<int:partner_id>/restrict-partner",
+        "partners/<int:partner_id>/restrict-partner",
         RestrictPartnerAccountView.as_view(),
         name="restrict_partner",
     ),
     path(
-        "partner-admin/<str:partner_email>/get-partner-services",
+        "partners/<str:partner_email>/get-partner-services",
         AdminViewPartnerServiceList.as_view(),
         name="view_partners_services",
     ),
     path(
-        "partner-admin/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"
+        "partners/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"
     ),
     # BrandAd endpoints.
     path(
-        "brand-admin/<int:brand_id>/restrict-brandAd",
+        "brands/<int:brand_id>/restrict-brandAd",
         RestrictBrandAdAccountView.as_view(),
         name="restrict_brandAd",
     ),
     path(
-        "brand-admin/get-all-brandAds",
+        "brands/get-all-brandAds",
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
     ),
@@ -192,7 +192,7 @@ urlpatterns = [
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
     path(
-        "wallet/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"
+        "wallets/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"
     ),
     path(
         "create-wallet-for-users",
