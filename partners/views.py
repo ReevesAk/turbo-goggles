@@ -577,55 +577,61 @@ class VerifyCACView(generics.GenericAPIView):
             verify_cac_response = CAC.verify(
                 rc_number=rc_number, business_name=business
             )
+
             if verify_cac_response.status_code == 200:
                 resp = verify_cac_response.json()["entity"]
-                business_name = payload["business_name"].upper()
-                if business_name == resp["company_name"]:
+
+                # Normalize and compare business names
+                submitted_business_name = ''.join(business.split()).upper()
+                verified_business_name = ''.join(resp["company_name"].split()).upper()
+
+                if submitted_business_name == verified_business_name:
                     response_data = {
                         "status": "success",
                         "message": "Your business is verified!",
-                        "data": verify_cac_response.json(),
+                        "data": resp,
                     }
-                    # Assign true to current user.
+                    # Update current user
                     current_user.business_verified = True
                     current_user.is_cac_approved = True
                     current_user.save()
 
+                    # Create VerifyCAC entry
                     VerifyCAC.objects.create(
-                        user=current_user,
+                        users=current_user,
                         rc_number=rc_number,
-                        business_name=business_name
+                        business_name=verified_business_name
                     )
 
+                    # Create UserNotification and ActivityModel entries
                     UserNotification.objects.create(
                         user=request.user,
-                        title="Business Verification.",
-                        message="This is to inform you that the verification of your business is successful.",
+                        title="Business Verification",
+                        message="This is to inform you that your business verification was successful.",
                     )
 
                     ActivityModel.objects.create(
                         user=current_user,
-                        title="Business Verification.",
-                        description=f"{current_user.first_name} {current_user.last_name} has successfully verified their business: {current_user.business}.",
+                        title="Business Verification",
+                        description=f"{current_user.first_name} {current_user.last_name} has successfully verified their business: {verified_business_name}.",
                     )
 
-                    # send transactional email.
-                    body = "This is to inform you that the verification of your business on Picadailys is successful."
+                    # # Prepare and send transactional email
+                    # body = "This is to inform you that the verification of your business on Picadailys is successful."
+                    # email_content = render_to_string(
+                    #     "email_template.html",
+                    #     {
+                    #         "email": "OGafekemor@picadailys.com",
+                    #         "picadailys_phone": "08134649680",
+                    #         "message_body": body,
+                    #     },
+                    # )
 
-                    email_content = render_to_string(
-                        "email_template.html",
-                        {
-                            "email": "OGafekemor@picadailys.com",
-                            "picadailys_phone": "08134649680",
-                            "message_body": body,
-                        },
-                    )
-
-                    Message.send_email(
-                        content=email_content,
-                        email=request.user.email,
-                        subject="Profile Update.",
-                    )
+                    # Message.send_email(
+                    #     content=email_content,
+                    #     email=request.user.email,
+                    #     subject="Profile Update",
+                    # )
 
                     return Response(data=response_data, status=status.HTTP_200_OK)
                 else:
@@ -633,17 +639,15 @@ class VerifyCACView(generics.GenericAPIView):
                         "status": "fail",
                         "message": "The business name provided does not match the RC number!",
                     }
-                    return Response(
-                        data=error_response, status=status.HTTP_404_NOT_FOUND
-                    )
+                    return Response(data=error_response, status=status.HTTP_404_NOT_FOUND)
             else:
                 error_response = {
                     "status": "fail",
-                    "error": "An error occurred!",
-                    "data": verify_cac_response.json(),
+                    "error": "An error occurred while verifying with CAC",
+                    "details": verify_cac_response.json().get("message", "Unknown error"),
                 }
                 return Response(
                     data=error_response, status=verify_cac_response.status_code
                 )
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
