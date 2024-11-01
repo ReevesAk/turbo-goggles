@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating, FmcgOrder
+from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating, FmcgOrder, PickupAdress
 from .serializers import (
     ProductSerializers,
     AddToCartSerializers,
@@ -24,7 +24,8 @@ from .serializers import (
     RetrieveCartProductsSerializers,
     FmcgRatingSerializer,
     FmcgRatingListSerializer,
-    FmcgOrderSerializer
+    FmcgOrderSerializer,
+    PickupAddressSerializer
 )
 from accounts.models import UserNotification, TxModel, Rewards
 from banking.controllers import Account
@@ -549,3 +550,20 @@ class GetFmcgReview(generics.ListAPIView):
 
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PickupAddressListView(generics.ListAPIView):
+    serializer_class = PickupAddressSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = PickupAdress.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        addresses = self.get_queryset()
+        serializer = self.get_serializer(addresses, many=True)
+        data = {
+            "status": "success",
+            "message": "Pick-up addresses fetched succesfully.",
+            "data": serializer.data
+        }
+        return Response(data=data, status=status.HTTP_200_OK)

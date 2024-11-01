@@ -116,3 +116,9 @@ class FmcgRatingListSerializer(serializers.ModelSerializer):
             "rating",
             "review",
         ]
+
+
+class PickupAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PickupAdress
+        fields = ['name', 'state']

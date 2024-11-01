@@ -384,12 +384,31 @@ class AddAddress(generics.GenericAPIView):
                 name=user_data["name"], state=user_data["state"]
             )
 
+            user_name = (
+                "Superuser"
+                if authenticated_user.active_role == "Superuser"
+                else authenticated_user.full_name
+                if authenticated_user.active_role
+                in {
+                    "SuperAdmin",
+                    "TaskAdmin",
+                    "AdAdmin",
+                    "MembersAdmin",
+                    "UserAdmin",
+                    "PartnersAdmin",
+                    "ContentAdmin",
+                    "IntegrationAdmin",
+                    "WalletAdmin",
+                    "FmcgAdmin",
+                }
+                else "Unknown"
+            )
             name = user_data["name"]
             state = user_data["state"]
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Add FMCG product.",
-                description=f"Admin User, {authenticated_user.fullname}, added {name, state} as FMCG pickup address.",
+                description=f"Admin User, {user_name}, added {name, state} as FMCG pickup address.",
             )
             resp = {
                 "status": "success.",

@@ -3,7 +3,7 @@ from .views import (
     CategoryListView, CompanyListView,
     ListAllProducts, ProductDetails,
     AddToCart, RemoveFromCart, RetrieveCartProducts,
-    FmcgCheckout, FmcgRatingView, GetFmcgReview
+    FmcgCheckout, FmcgRatingView, GetFmcgReview, PickupAddressListView
 )
 
 urlpatterns = [
@@ -16,5 +16,6 @@ urlpatterns = [
     path("cart/<uuid:product_id>/remove", RemoveFromCart.as_view(), name="remove_cart"),
     path("checkout", FmcgCheckout.as_view(), name="checkout"),
     path("product/<int:id>/rate", FmcgRatingView.as_view(), name="rate_product"),
-    path('product/<int:product_id>/reviews/', GetFmcgReview.as_view(), name='product-reviews')
+    path('product/<int:product_id>/reviews/', GetFmcgReview.as_view(), name='product-reviews'),
+    path("pickup-addresses", PickupAddressListView.as_view(), name='pickup_address_list'),
 ]
