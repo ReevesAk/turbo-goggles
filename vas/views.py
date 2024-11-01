@@ -1,5 +1,4 @@
 import requests
-import logging
 from decouple import config
 
 from rest_framework.views import APIView
@@ -89,7 +88,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account or pin not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
 
         if not verification:
             return Response(
@@ -774,7 +772,10 @@ class NewTvSubscription(generics.GenericAPIView):
 
             case "CARD":
                 return Response(
-                    data={"status": "fail", "message": "Card payment option not yet implemented."},
+                    data={
+                        "status": "fail",
+                        "message": "Card payment option not yet implemented.",
+                    },
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
 
@@ -859,7 +860,10 @@ class RenewTvSubscription(generics.GenericAPIView):
                     )
             case "CARD":
                 return Response(
-                    data={"status": "fail", "message": "Card payment option not yet implemented."},
+                    data={
+                        "status": "fail",
+                        "message": "Card payment option not yet implemented.",
+                    },
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
 

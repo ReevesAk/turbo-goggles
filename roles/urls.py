@@ -43,7 +43,11 @@ from .tasks import (
 )
 from .wallets import GetallWalletUsers, CreateBankAccountForUser, WalletSearch
 
-from .partners import GetAllPartnersUsers, RestrictPartnerAccountView, AdminViewPartnerServiceList
+from .partners import (
+    GetAllPartnersUsers,
+    RestrictPartnerAccountView,
+    AdminViewPartnerServiceList,
+)
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
 from user_profile.views import ProfileImage
 
@@ -157,7 +161,11 @@ urlpatterns = [
         RestrictPartnerAccountView.as_view(),
         name="restrict_partner",
     ),
-    path("partner-admin/<str:partner_email>/get-partner-services", AdminViewPartnerServiceList.as_view(), name="view_partners_services"),
+    path(
+        "partner-admin/<str:partner_email>/get-partner-services",
+        AdminViewPartnerServiceList.as_view(),
+        name="view_partners_services",
+    ),
     # BrandAd endpoints.
     path(
         "brand-admin/<int:brand_id>/restrict-brandAd",
@@ -180,5 +188,9 @@ urlpatterns = [
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
     path("wallet_search", WalletSearch.as_view(), name="wallet_search"),
-    path("create-wallet-for-users", CreateBankAccountForUser.as_view(), name="create_wallet_for_users")
+    path(
+        "create-wallet-for-users",
+        CreateBankAccountForUser.as_view(),
+        name="create_wallet_for_users",
+    ),
 ]

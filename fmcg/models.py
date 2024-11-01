@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
@@ -97,6 +98,7 @@ class FmcgOrder(BaseModel):
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     tracking_id = models.CharField(max_length=50, null=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
 
 
 class FmcgRating(BaseModel):

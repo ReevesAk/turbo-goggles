@@ -201,7 +201,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        validated_data.pop('pin', None)
+        validated_data.pop("pin", None)
         return super().create(validated_data)
 
 

@@ -146,20 +146,17 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get(self, request):
-        email = request.query_params.get('partner_email')
+        email = request.query_params.get("partner_email")
 
         # Check if email is provided
         if not email:
             return Response(
-                data={
-                    "status": "fail",
-                    "error": "Email parameter is required"
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                data={"status": "fail", "error": "Email parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         user = User.objects.get(email=email)
-        queryset = PartnerServices.objects.filter(user=user).order_by('created_at')
+        queryset = PartnerServices.objects.filter(user=user).order_by("created_at")
         return queryset
 
     def list(self, request, *args, **kwargs):

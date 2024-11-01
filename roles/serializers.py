@@ -90,7 +90,9 @@ class AddAdminSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"email": "Email has already been used."})
 
         if not roles:
-            raise serializers.ValidationError({"roles": "At least one role must be selected."})
+            raise serializers.ValidationError(
+                {"roles": "At least one role must be selected."}
+            )
 
         return super().validate(attrs)
 
@@ -99,9 +101,9 @@ class AddAdminSerializer(serializers.ModelSerializer):
         user = super().create(validated_data)
 
         # Assign multiple AccountType entries based on roles
-        AccountType.objects.bulk_create([
-            AccountType(user=user, user_type=user_type) for user_type in user_types
-        ])
+        AccountType.objects.bulk_create(
+            [AccountType(user=user, user_type=user_type) for user_type in user_types]
+        )
 
         return user
 
@@ -208,14 +210,7 @@ class ListAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "id",
-            "full_name",
-            "email",
-            "status",
-            "user_type",
-            "last_login"
-        ]
+        fields = ["id", "full_name", "email", "status", "user_type", "last_login"]
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
@@ -459,7 +454,9 @@ class AdminBankAccountCreationSerializers(serializers.ModelSerializer):
     alt_email = serializers.CharField(max_length=100, write_only=True, required=True)
     alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
     alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
-    date_of_birth = serializers.CharField(max_length=100, write_only=True, required=True)
+    date_of_birth = serializers.CharField(
+        max_length=100, write_only=True, required=True
+    )
 
     class Meta:
         model = AccountCreation

@@ -95,11 +95,7 @@ class CreateBankAccountForUser(generics.GenericAPIView):
 
     serializer_class = AdminBankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [
-        IsAuthenticated,
-        IsNotDisabled,
-        IsWalletAdminOrSuperAdmin
-    ]
+    permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -117,7 +113,10 @@ class CreateBankAccountForUser(generics.GenericAPIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             logging.error("User not found")
-            return Response(data={"detail": "User does not exist"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                data={"detail": "User does not exist"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         # Retrieve files only if user exists
         passport = request.FILES.get("passport")
@@ -256,7 +255,9 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                     "accountName": acc_response.json()["AccountName"],
                     "CustomerNumber": acc_response.json()["CustomerNumber"],
                 }
-                logging.info(f"Account creation successful for {user.first_name} {user.last_name}")
+                logging.info(
+                    f"Account creation successful for {user.first_name} {user.last_name}"
+                )
                 return Response(data=resp, status=status.HTTP_201_CREATED)
             else:
                 return Response(
@@ -274,6 +275,7 @@ class WalletSearch(generics.ListAPIView):
     WalletSearch handles the GET request of searching
     for results that matches the query.
     """
+
     serializer_class = GetAccountSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [
@@ -285,10 +287,8 @@ class WalletSearch(generics.ListAPIView):
     def get(self, request):
         keyword = request.query_params.get("account_name", "")
 
-        accounts = AccountCreation.objects.filter(
-            Q(acct_name__icontains=keyword)
-        )
+        accounts = AccountCreation.objects.filter(Q(acct_name__icontains=keyword))
 
-    # Serialize the results
+        # Serialize the results
         serializer = self.get_serializer(accounts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
