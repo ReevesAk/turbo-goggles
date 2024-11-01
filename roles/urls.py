@@ -47,6 +47,7 @@ from .partners import (
     GetAllPartnersUsers,
     RestrictPartnerAccountView,
     AdminViewPartnerServiceList,
+    PartnerSearch
 )
 from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
 from user_profile.views import ProfileImage
@@ -166,6 +167,9 @@ urlpatterns = [
         AdminViewPartnerServiceList.as_view(),
         name="view_partners_services",
     ),
+    path(
+        "partner_search/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"
+    ),
     # BrandAd endpoints.
     path(
         "brand-admin/<int:brand_id>/restrict-brandAd",
@@ -187,7 +191,9 @@ urlpatterns = [
         name="get_all_wallet_users",
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
-    path("wallet_search/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"),
+    path(
+        "wallet_search/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"
+    ),
     path(
         "create-wallet-for-users",
         CreateBankAccountForUser.as_view(),

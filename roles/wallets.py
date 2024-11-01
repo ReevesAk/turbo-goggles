@@ -284,8 +284,8 @@ class WalletSearch(generics.ListAPIView):
         IsWalletAdminOrSuperAdmin,
     ]
 
-    def get(self, request):
-        keyword = request.query_params.get("search_term", "").strip()
+    def get(self, request, *args, **kwargs):
+        keyword = kwargs.get("search_term")
 
         if keyword.isdigit():
             accounts = AccountCreation.objects.filter(account_number__icontains=keyword)
@@ -296,8 +296,13 @@ class WalletSearch(generics.ListAPIView):
         serializer = self.get_serializer(accounts, many=True)
         response_data = {
             "status": "success" if accounts else "fail",
-            "message": "Wallet user fetched successfully." if accounts else "No user matching that query found.",
-            "data": serializer.data
+            "message": "Wallet user fetched successfully."
+            if accounts
+            else "No user matching that query found.",
+            "data": serializer.data,
         }
 
-        return Response(data=response_data, status=status.HTTP_200_OK if accounts else status.HTTP_404_NOT_FOUND)
+        return Response(
+            data=response_data,
+            status=status.HTTP_200_OK if accounts else status.HTTP_404_NOT_FOUND,
+        )

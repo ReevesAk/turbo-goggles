@@ -1,4 +1,5 @@
 from django.contrib.auth.hashers import check_password
+from django.db.models import Q
 
 # In project imports.
 from .serializers import (
@@ -7,7 +8,7 @@ from .serializers import (
 )
 from .views import PaginationStyle
 from .models import RestrictPartnerAccount, ActivityModel
-from partners.serializers import PartnerServiceSerializer
+from partners.serializers import PartnerServiceSerializer, PartnerProfileSerializer
 from partners.models import PartnerServices
 
 # Third party imports.
@@ -169,3 +170,46 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
 
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PartnerSearch(generics.ListAPIView):
+    """
+    PartnerSearch handles the GET request for searching
+    partners by business name, category, or partner name.
+    Only users with the user_type 'Partner' are considered.
+    """
+
+    serializer_class = PartnerProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        search_term = kwargs.get("search_term")
+
+        # Filter users who have user_type as 'Partner'
+        partners = User.objects.filter(
+            Q(accounttype__user_type="Partner") &
+            (
+                Q(business_name__icontains=search_term) |
+                Q(brand_name__icontains=search_term) |
+                Q(business_category__icontains=search_term) |
+                Q(full_name__icontains=search_term)
+            )
+        ).distinct()
+
+        serializer = self.get_serializer(partners, many=True)
+
+        if partners.exists():
+            data = {
+                "status": "success",
+                "message": "Partners fetched successfully.",
+                "data": serializer.data
+            }
+            return Response(data=data, status=status.HTTP_200_OK)
+        else:
+            data = {
+                "status": "fail",
+                "message": "No partners matching that query found.",
+                "data": []
+            }
+            return Response(data=data, status=status.HTTP_404_NOT_FOUND)
