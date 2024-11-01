@@ -587,6 +587,7 @@ class VerifyCAC(generics.GenericAPIView):
                     }
                     # Assign true to current user.
                     current_user.business_verified = True
+                    current_user.is_cac_approved = True
                     current_user.save()
 
                     UserNotification.objects.create(
