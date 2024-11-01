@@ -17,7 +17,6 @@ class VerifyCAC(models.Model):
     """Model for verifying partner business."""
 
     users = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    is_cac_verified = models.BooleanField(default=False)
     rc_number = models.CharField(max_length=255, null=True)
     business_name = models.CharField(max_length=255, null=True)
 

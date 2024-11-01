@@ -29,6 +29,7 @@ from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
+    VerifyCAC
 )
 from .controllers import CAC
 from permissions import (
@@ -550,9 +551,9 @@ class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
-class VerifyCAC(generics.GenericAPIView):
+class VerifyCACView(generics.GenericAPIView):
     """
-    VerifyCAC is a POST request handler for verifying a
+    VerifyCACView is a POST request handler for verifying a
     registered partner business It takes in the business name and
     RC number as payload.
     """
@@ -589,6 +590,12 @@ class VerifyCAC(generics.GenericAPIView):
                     current_user.business_verified = True
                     current_user.is_cac_approved = True
                     current_user.save()
+
+                    VerifyCAC.objects.create(
+                        user=current_user,
+                        rc_number=rc_number,
+                        business_name=business_name
+                    )
 
                     UserNotification.objects.create(
                         user=request.user,
