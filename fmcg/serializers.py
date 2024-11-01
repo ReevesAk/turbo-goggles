@@ -73,6 +73,7 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
     products = ProductOrderSerializer(many=True)  # Accepts a list of products with IDs and quantities
     pin = serializers.CharField(max_length=4, min_length=4)
     payment_method = serializers.CharField(max_length=50)
+    available_addresses = serializers.CharField(max_length=50)
 
     class Meta:
         model = FmcgOrder
@@ -81,6 +82,7 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
             "billing_address",
             "products",
             "delivery_address",
+            "available_addresses",
             "total_price",
             "pin"
         ]
