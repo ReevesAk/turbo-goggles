@@ -168,7 +168,7 @@ urlpatterns = [
         name="view_partners_services",
     ),
     path(
-        "partner_search/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"
+        "partner-admin/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"
     ),
     # BrandAd endpoints.
     path(
@@ -192,7 +192,7 @@ urlpatterns = [
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
     path(
-        "wallet_search/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"
+        "wallet/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"
     ),
     path(
         "create-wallet-for-users",

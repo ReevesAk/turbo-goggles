@@ -391,7 +391,7 @@ class FmcgCheckout(generics.CreateAPIView):
                         ActivityModel.objects.create(
                             user=authenticated_user,
                             title="Payment Successful",
-                            description=f"{authenticated_user.full_name} paid {amount} for their order."
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
                         )
 
                         # Check is user is a member then assign rewards.

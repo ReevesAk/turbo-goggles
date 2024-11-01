@@ -217,13 +217,33 @@ class LoginAdmin(APIView):
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
+            user_name = (
+                "Superuser"
+                if user.active_role == "Superuser"
+                else user.full_name
+                if user.active_role
+                in {
+                    "SuperAdmin",
+                    "TaskAdmin",
+                    "AdAdmin",
+                    "MembersAdmin",
+                    "UserAdmin",
+                    "PartnersAdmin",
+                    "ContentAdmin",
+                    "IntegrationAdmin",
+                    "WalletAdmin",
+                    "FmcgAdmin",
+                }
+                else "Unknown"
+            )
+
             UserNotification.objects.create(
                 user=user, title="Login.", message="Login successful."
             )
             ActivityModel.objects.create(
                 user=user,
                 title="Admin Login.",
-                description=f"Admin User, {user.full_name} logged in.",
+                description=f"Admin User, {user_name} logged in.",
             )
 
             # Get user roles

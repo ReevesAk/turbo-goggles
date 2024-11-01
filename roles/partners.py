@@ -146,30 +146,43 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
     permission_classes = (IsAuthenticated, IsNotDisabled, IsPartnerAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
-    def get(self, request):
-        email = request.query_params.get("partner_email")
-
-        # Check if email is provided
+    def get_queryset(self):
+        email = self.kwargs.get("partner_email")
         if not email:
-            return Response(
-                data={"status": "fail", "error": "Email parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return None  # Returning None if email is missing
 
-        user = User.objects.get(email=email)
-        queryset = PartnerServices.objects.filter(user=user).order_by("created_at")
-        return queryset
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return None  # Returning None if user doesn't exist
+
+        return PartnerServices.objects.filter(user=user).order_by("created_at")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        # Check for missing email or non-existent user
+        if queryset is None:
+            email = self.kwargs.get("partner_email")
+            error_message = (
+                "Email parameter is required" if not email else 
+                "User with the provided email does not exist."
+            )
+            return Response(
+                data={"status": "fail", "error": error_message},
+                status=status.HTTP_400_BAD_REQUEST if not email else status.HTTP_404_NOT_FOUND
+            )
 
+        # Serialize and respond with the queryset data
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            data={
+                "status": "success",
+                "message": "Services retrieved successfully.",
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class PartnerSearch(generics.ListAPIView):
