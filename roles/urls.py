@@ -186,7 +186,7 @@ urlpatterns = [
     path("fmcg/add-address", AddAddress.as_view(), name="add_address"),
     # Wallet endpoints.
     path(
-        "wallet/get-all-wallet-users",
+        "wallets/get-all-wallet-users",
         GetallWalletUsers.as_view(),
         name="get_all_wallet_users",
     ),
