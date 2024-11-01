@@ -158,10 +158,11 @@ class CreatePartnerService(generics.CreateAPIView):
     def create(self, request):
         serializer = PartnerServiceSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            current_user = {
+            _ = {
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in request.data.items()
             }
+            current_user = request.user
             if current_user.business_verified is True:
                 service_uploads = request.data.getlist("service_photos")
                 trainer_uploads = request.data.getlist("trainer_photo")
@@ -196,7 +197,7 @@ class CreatePartnerService(generics.CreateAPIView):
                             )
 
                     if request.data["service"] == "Courier Services":
-                        PartnerServices.objects.cretae(
+                        PartnerServices.objects.create(
                             user=request.user,
                             business=request.data["business"],
                             service=request.data["service"],
@@ -204,7 +205,7 @@ class CreatePartnerService(generics.CreateAPIView):
                             price=request.data["price"],
                             description=request.data["description"],
                             from_station=request.data["from_station"],
-                            destination=-request.data["destination"],
+                            destination=request.data["destination"],
                         )
 
                     response = {
@@ -224,7 +225,7 @@ class CreatePartnerService(generics.CreateAPIView):
                     ActivityModel.objects.create(
                         user=current_user,
                         title="Partner Service.",
-                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business_name}.",
+                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business}.",
                     )
 
                     return Response(data=response, status=status.HTTP_201_CREATED)
