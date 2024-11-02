@@ -78,28 +78,17 @@ def airtime(user, serializer, reason, user_data):
             user=user,
             serviceID=user_data["serviceID"],
             request_id=req_id,
-            amount=user_data["amount"],
-            phone=user_data["phone"],
+            amount=amount,
+            phone=phone,
         )
 
-        response_data = {
-            "status": "Success",
-            "message": f"Recharge of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": airtime_response.json(),
-        }
-
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return airtime_response.json()
     else:
-        response_data = {
-            "data": airtime_response.json(),
-            "message": "A refund will be issued.",
-        }
-
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(data=response_data, status=airtime_response.status_code)
+        return airtime_response.json()
 
 
 def data(user, serializer, reason, user_data):

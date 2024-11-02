@@ -80,7 +80,13 @@ class AirTimeTopUp(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        account = AccountCreation.objects.get(user=user)
+        try:
+            account = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         if account is not None and account.pin is not None:
             verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         else:
@@ -95,89 +101,96 @@ class AirTimeTopUp(generics.GenericAPIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        airtime_response = None
+
         if use_bonus:
             if user.welcome_bonus >= float(amount):
-                airtime(
+                airtime_response = airtime(
                     user=user,
                     serializer=serializer,
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                return Response(
-                    data={
+                if airtime_response.status_code == 200:
+                    response_data = {
                         "status": "success",
-                        "message": "Bonus was used to purchase this product",
-                        "bonus ballance": user.welcome_bonus,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+                        "message": f"Airtime purchase of {float(amount)} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "airtime_response": airtime_response,
+                    }
+
+                return Response(data=response_data, status=status.HTTP_200_OK)
             else:
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "You do not have enough bonus to purchase this product",
-                        "bonus ballance": user.welcome_bonus,
+                        "message": "Airtime top-up failed due to insufficient bonus.",
+                        "error": airtime_response,
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        else:
-            match payment_option:
-                case "WALLET":
-                    if use_points:
-                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    else:
-                        pts_amt = 0
-                    if use_rewards:
-                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    else:
-                        rwd_amt = 0
+        match payment_option:
+            case "WALLET":
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                else:
+                    pts_amt = 0
+                if use_rewards:
+                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                else:
+                    rwd_amt = 0
 
-                    new_amount = int(amount) - pts_amt - rwd_amt
-                    user_details = AccountCreation.objects.get(user=user)
+                new_amount = int(amount) - pts_amt - rwd_amt
+                user_details = AccountCreation.objects.get(user=user)
 
-                    # Initiate a debit on the customer's account.
-                    debit_response = Account.Debit(
-                        debitAccount=user_details.account_number,
-                        amount=new_amount,
+                # Initiate a debit on the customer's account.
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=new_amount,
+                    reason="Debit for airtime recharge.",
+                    transactionReference="",
+                )
+
+                if debit_response.status_code == 200:
+                    airtime_response = airtime(
+                        user=user,
+                        serializer=serializer,
                         reason="Debit for airtime recharge.",
-                        transactionReference="",
+                        user_data=user_data,
                     )
-
-                    if debit_response.status_code == 200:
-                        airtime(
-                            user=user,
-                            serializer=serializer,
-                            reason="Debit for airtime recharge.",
-                            user_data=user_data,
-                        )
-                        return Response(
-                            data={
-                                "status": "success",
-                                "message": "Account debit successful",
-                                "data": debit_response.json(),
-                            },
-                            status=debit_response.status_code,
-                        )
-                    else:
-                        return Response(
-                            data=debit_response.json(),
-                            status=debit_response.status_code,
-                        )
-
-                case "CARD":
-                    # Implement card payment logic here
+                    print(debit_response.json())
+                    if airtime_response["code"] == 200:
+                        response_data = {
+                            "status": "success",
+                            "message": f"Airtime purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "airtime_response": airtime_response,
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     return Response(
                         data={
                             "status": "fail",
-                            "message": "Card payment not yet implemented",
+                            "message": "Airtime top-up failed due to insufficient balance.",
+                            "error": airtime_response,
                         },
-                        status=status.HTTP_501_NOT_IMPLEMENTED,
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            return Response(
-                data={"status": "fail", "message": "Invalid payment option"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            case "CARD":
+                # Implement card payment logic here
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Card payment not yet implemented",
+                    },
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+            case _:
+
+                return Response(
+                    data={"status": "fail", "message": "Invalid payment option"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
 
 class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
