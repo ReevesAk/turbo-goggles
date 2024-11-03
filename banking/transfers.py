@@ -16,13 +16,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .helpers import Pin
 from accounts.models import TxModel, UserNotification
 from roles.models import ActivityModel
-from .controllers import Transfers
-from .models import TransferModel, AccountCreation
+from .controllers import Transfers, Paystack
+from .models import TransferModel, AccountCreation, FundWithCard
 from .serializers import (
     GetProvidusAccountSerializer,
     GetAccountSerializer,
     InterBankTransfersSerializer,
     IntraBankTransfersSerializer,
+    PaymentURLSerializers,
 )
 
 
@@ -348,6 +349,10 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
     between two Providus Accounts.
     """
 
+    serializer_class = InterBankTransfersSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+
     def get(self, request, *args, **kwargs):
         tx_reference = kwargs.get("tx_reference")
         if not tx_reference:
@@ -377,6 +382,10 @@ class InterBankTransactionStatus(generics.GenericAPIView):
     reference and returns the current status of the transaction.
     """
 
+    serializer_class = InterBankTransfersSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+
     def get(self, request, *args, **kwargs):
         tx_reference = kwargs.get("tx_reference")
         if not tx_reference:
@@ -398,3 +407,45 @@ class InterBankTransactionStatus(generics.GenericAPIView):
                 "data": status_resp.json(),
             }
             return Response(data=err_resp, status=status_resp.status_code)
+
+
+class FundWalletWithCard(generics.CreateAPIView):
+    """
+    FundWalletWithCard handles the POST request of funding your Picadailys wallet with Card.
+    """
+    serializer_class = InterBankTransfersSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+
+    def post(self, request):
+        user_data = request.data
+        user = request.user
+
+        serializer = PaymentURLSerializers(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            chaekout_url_response = Paystack.generate_url(
+                email=user.email, amount=user_data["amount"]
+            )
+
+            if chaekout_url_response.status_code == 200:
+                url_resp = chaekout_url_response.json()
+                FundWithCard.objects.create(
+                    user=user,
+                    txn_reference=url_resp["data"]["reference"]
+                )
+                response = {
+                    "status": "success",
+                    "message": "Chekcout url generated successfully.",
+                    "checkout_url": url_resp["data"]["authorization_url"],
+                    "access_code": url_resp["data"]["access_code"],
+                    "reference": url_resp["data"]["reference"],
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    data=chaekout_url_response.json(),
+                    status=chaekout_url_response.status_code,
+                )
+
+        else:
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)

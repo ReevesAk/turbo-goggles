@@ -13,6 +13,12 @@ tf_base_url = config("TRANSFERS_URL")
 tf_username = config("TRANSFERS_USERNAME")
 tf_password = config("TRANSFERS_PASSWORD")
 
+secret_key = config("PAYSTACK_SECRET_KEY")
+headers = {
+    "Authorization": f"Bearer {secret_key}",
+    "Content-Type": "application/json",
+}
+
 
 def login():
     resource = "login"
@@ -448,6 +454,24 @@ class Transfers:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Get transfers status API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class Paystack():
+    @staticmethod
+    def generate_url(email, amount):
+        generate_url_resource = "https://api.paystack.co/transaction/initialize"
+        payload = {"email": email, "amount": amount}
+
+        try:
+            response = requests.post(
+                url=generate_url_resource, json=payload, headers=headers
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Generate paystack payment url API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

@@ -4,7 +4,7 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import BVNData, AccountCreation, BankingNotificationModel, TransferModel
+from .models import BVNData, AccountCreation, BankingNotificationModel, TransferModel, FundWithCard
 
 
 class BankingStatusSerializer(serializers.Serializer):
@@ -246,3 +246,22 @@ class WalletStatusSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         return "Open" if obj.status else "Blocked"
+
+
+class PaymentURLSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = FundWithCard
+        fields = [
+            "id",
+            "amount",
+            "email"
+        ]
+
+
+class VerifyCardDepositSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = FundWithCard
+        fields = [
+            "id",
+            "txn_reference"
+        ]

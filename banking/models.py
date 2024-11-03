@@ -1,3 +1,5 @@
+from basemodel import BaseModel
+
 from decimal import Decimal
 
 from django.db import models
@@ -177,3 +179,11 @@ class TransferModel(models.Model):
     available_balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
+
+
+class FundWithCard(BaseModel):
+    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True)
+    txn_reference = models.CharField(max_length=200, null=True)
+    status = models.CharField(max_length=100, null=True)
+    email = models.EmailField(max_length=100, null=True)
+    amount = models.FloatField(default=Decimal("0.00"))
