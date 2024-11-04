@@ -365,6 +365,7 @@ class Login(APIView):
         response = {
             "status": "success",
             "message": "Login successful",
+            "active_role": user.active_role,
             "tokens": tokens,
         }
         return Response(data=response, status=status.HTTP_200_OK)

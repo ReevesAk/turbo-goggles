@@ -274,6 +274,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
         JSONParser,
     )
 
+    queryset = PartnerServices.objects.all()
+
     def update(self, request, *args, **kwargs):
         payload = {
             key: value.strip() if isinstance(value, str) else value
@@ -369,14 +371,29 @@ class PartnerServiceList(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-
         page = self.paginate_queryset(queryset)
+
+        # Get partner service photos using partner field
+        partner_service_photos = PartnerServicePhotos.objects.filter(partner=request.user).first()
+
         if page is not None:
             serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            resp = {
+                "status": "success",
+                "message": "All services fetched.",
+                "data": serializer.data,
+                "images": partner_service_photos.photo if partner_service_photos else None
+            }
+            return self.get_paginated_response(resp)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        resp = {
+            "status": "success",
+            "message": "All services fetched.",
+            "data": serializer.data,
+            "images": partner_service_photos.photo if partner_service_photos else None
+        }
+        return Response(data=resp, status=status.HTTP_200_OK)
 
 
 class DeletePartnerService(generics.DestroyAPIView):
