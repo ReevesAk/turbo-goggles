@@ -12,6 +12,7 @@ from .views import (
     VerifyCACView,
     PartnerServicePhotosList,
     PartnerServiceGymTrainersPhotosList,
+    PartnerServiceDetailView,
 )
 
 urlpatterns = [
@@ -43,6 +44,11 @@ urlpatterns = [
         "all-partners-services",
         AllPartnersServiceList.as_view(),
         name="all_partner_service",
+    ),
+    path(
+        "service/<int:service_id>/",
+        PartnerServiceDetailView.as_view(),
+        name="service-detail",
     ),
     path("profile-update", UpdatePartnerProfile.as_view(), name="update_profile"),
     path("partner-photos", PartnerServicePhotosList.as_view(), name="partner_photos"),

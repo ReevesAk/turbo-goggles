@@ -2,7 +2,7 @@ from decouple import config
 from django.http import Http404
 
 # Third party imports.
-from rest_framework import generics
+from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
@@ -445,6 +445,44 @@ class PartnerServiceList(generics.ListAPIView):
             "data": services_data,
         }
         return Response(data=resp, status=status.HTTP_200_OK)
+
+
+class PartnerServiceDetailView(views.APIView):
+    """PartnerServiceDetailView is the GET request handler to get the details of a single
+    service of any authenticated Partner.
+    """
+
+    serializer_class = PartnerServiceSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
+    ]
+
+    def get_object(self, service_id):
+        try:
+            return PartnerServices.objects.get(id=service_id)
+        except PartnerServices.DoesNotExist:
+            raise Http404("Partner service not found.")
+
+    def get(self, request, service_id, *args, **kwargs):
+        partner_service = self.get_object(service_id)
+
+        # Get all photos associated with the service
+        photos = PartnerServicePhotos.objects.filter(partner=partner_service.user)
+        photos_urls = [photo.photo for photo in photos]
+
+        # Serialize the service data
+        service_data = self.serializer_class(partner_service).data
+        service_data["images"] = photos_urls  # Add images to the service data
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Service details fetched.",
+                "data": service_data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class DeletePartnerService(generics.DestroyAPIView):
