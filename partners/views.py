@@ -1,6 +1,5 @@
 from decouple import config
-from django.template.loader import render_to_string
-from commons import Message
+from django.http import Http404
 
 # Third party imports.
 from rest_framework import generics
@@ -29,7 +28,7 @@ from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
-    VerifyCAC
+    VerifyCAC,
 )
 from .controllers import CAC
 from permissions import (
@@ -157,93 +156,121 @@ class CreatePartnerService(generics.CreateAPIView):
 
     def create(self, request):
         serializer = PartnerServiceSerializer(data=request.data)
+
         if serializer.is_valid(raise_exception=True):
-            _ = {
+            # Clean up request data
+            cleaned_data = {
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in request.data.items()
             }
+
             current_user = request.user
-            if current_user.business_verified is True:
-                service_uploads = request.data.getlist("service_photos")
-                trainer_uploads = request.data.getlist("trainer_photo")
-                image_urls = []
-                gym_trainer_img_urls = []
+            if not current_user.business_verified:
+                return Response(
+                    {
+                        "status": "fail",
+                        "message": "Sorry, you have to validate your business before you can create a service!",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
-                try:
-                    serializer.validated_data["user"] = request.user
-                    partner_service = serializer.save()
+            service_uploads = request.data.getlist("service_photos")
+            trainer_uploads = request.data.getlist("trainer_photo")
+            image_urls = []
+            gym_trainer_img_urls = []
 
-                    for upload in service_uploads:
-                        upload_result = cloud.upload(file=upload)
-                        image_url = upload_result["url"]
-                        image_urls.append(image_url)
+            try:
+                # Set the user for the serializer
+                serializer.validated_data["user"] = current_user
+                partner_service = serializer.save()  # Save the PartnerServices instance
 
-                        PartnerServicePhotos.objects.create(
-                            partner=partner_service.user,
-                            photo=image_url,
-                        )
+                # Handle service photos upload
+                image_urls = self.upload_service_photos(
+                    service_uploads, partner_service
+                )
 
-                    if request.data["service"] == "Fitness and Entertainment":
-                        for photo in trainer_uploads:
-                            upload_res = cloud.upload(file=photo)
-                            gym_trainer_img_url = upload_res["url"]
-                            gym_trainer_img_urls.append(gym_trainer_img_url)
-
-                            AvailablePartnerGymTrainers.objects.create(
-                                partner=partner_service.user,
-                                trainer_name=request.data["trainer_name"],
-                                trainer_price=request.data["trainer_price"],
-                                trainer_photo=gym_trainer_img_url,
-                            )
-
-                    if request.data["service"] == "Courier Services":
-                        PartnerServices.objects.create(
-                            user=request.user,
-                            business=request.data["business"],
-                            service=request.data["service"],
-                            service_star=request.data["service_star"],
-                            price=request.data["price"],
-                            description=request.data["description"],
-                            from_station=request.data["from_station"],
-                            destination=request.data["destination"],
-                        )
-
-                    response = {
-                        "status": "success",
-                        "message": "Service recorded!",
-                        "image urls": image_urls,
-                        "gym trainers": gym_trainer_img_urls,
-                        "data": serializer.data,
-                    }
-
-                    UserNotification.objects.create(
-                        user=current_user,
-                        title="Partner Service.",
-                        message="You have successfully created a service.",
+                # Handle trainer photos if applicable
+                if cleaned_data.get("service") == "Fitness and Entertainment":
+                    gym_trainer_img_urls = self.upload_trainer_photos(
+                        trainer_uploads, partner_service, cleaned_data
                     )
 
-                    ActivityModel.objects.create(
-                        user=current_user,
-                        title="Partner Service.",
-                        description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business}.",
-                    )
+                # Handle Courier Services if applicable
+                if cleaned_data.get("service") == "Courier Services":
+                    self.create_courier_service(cleaned_data, current_user)
 
-                    return Response(data=response, status=status.HTTP_201_CREATED)
+                # Create notifications and activity log
+                self.create_notifications(current_user, partner_service)
 
-                except Exception as err:
-                    return Response(
-                        {"error": "An error occurred: {}".format(err)},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-            else:
                 response = {
-                    "status": "fail",
-                    "message": "Sorry, you have to validate your business before you can create a service!",
+                    "status": "success",
+                    "message": "Service recorded!",
+                    "image_urls": image_urls,
+                    "gym_trainers": gym_trainer_img_urls,
+                    "data": serializer.data,
                 }
+
                 return Response(data=response, status=status.HTTP_201_CREATED)
 
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as err:
+                return Response(
+                    {"error": f"An error occurred: {str(err)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+    def upload_service_photos(self, uploads, partner_service):
+        image_urls = []
+        for upload in uploads:
+            upload_result = cloud.upload(file=upload)
+            image_url = upload_result["url"]
+            image_urls.append(image_url)
+
+            # Associate the uploaded photo with the PartnerServices instance
+            PartnerServicePhotos.objects.create(
+                partner=partner_service,  # Use the PartnerServices instance
+                photo=image_url,
+            )
+        return image_urls
+
+    def upload_trainer_photos(self, uploads, partner_service, cleaned_data):
+        gym_trainer_img_urls = []
+        for photo in uploads:
+            upload_res = cloud.upload(file=photo)
+            gym_trainer_img_url = upload_res["url"]
+            gym_trainer_img_urls.append(gym_trainer_img_url)
+
+            AvailablePartnerGymTrainers.objects.create(
+                partner=partner_service,  # Use the PartnerServices instance
+                trainer_name=cleaned_data["trainer_name"],
+                trainer_price=cleaned_data["trainer_price"],
+                trainer_photo=gym_trainer_img_url,
+            )
+        return gym_trainer_img_urls
+
+    def create_courier_service(self, cleaned_data, current_user):
+        PartnerServices.objects.create(
+            user=current_user,
+            business=cleaned_data["business"],
+            service=cleaned_data["service"],
+            service_star=cleaned_data["service_star"],
+            price=cleaned_data["price"],
+            description=cleaned_data["description"],
+            from_station=cleaned_data["from_station"],
+            destination=cleaned_data["destination"],
+        )
+
+    def create_notifications(self, current_user, partner_service):
+        UserNotification.objects.create(
+            user=current_user,
+            title="Partner Service.",
+            message="You have successfully created a service.",
+        )
+
+        ActivityModel.objects.create(
+            user=current_user,
+            title="Partner Service.",
+            description=f"{current_user.first_name} {current_user.last_name} has created a service: {partner_service.business}.",
+        )
 
 
 class UpdatePartnerService(generics.UpdateAPIView):
@@ -273,8 +300,15 @@ class UpdatePartnerService(generics.UpdateAPIView):
         MultiPartParser,
         JSONParser,
     )
-
     queryset = PartnerServices.objects.all()
+
+    def get_object(self):
+        # Use `service_id` from the URL kwargs to retrieve the object
+        service_id = self.kwargs.get("service_id")
+        try:
+            return PartnerServices.objects.get(id=service_id)
+        except PartnerServices.DoesNotExist:
+            raise Http404("Partner service not found.")
 
     def update(self, request, *args, **kwargs):
         payload = {
@@ -283,6 +317,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
         }
         partner_service = self.get_object()
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
+
         if serializer.is_valid(raise_exception=True):
             service_uploads = request.data.getlist("service_photos")
             trainer_uploads = request.data.getlist("trainer_photo")
@@ -300,7 +335,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
                     # Create new PartnerServicePhotos objects
                     PartnerServicePhotos.objects.create(
-                        partner=partner_service.user,
+                        partner=partner_service,  # Use the PartnerServices instance
                         photo=image_url,
                     )
 
@@ -312,8 +347,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
                         gym_trainer_img_urls.append(gym_trainer_img_url)
 
                         # Update existing AvailablePartnerGymTrainers objects or create new ones
-                        AvailablePartnerGymTrainers.objects.update(
-                            partner=partner_service.user,
+                        AvailablePartnerGymTrainers.objects.update_or_create(
+                            partner=partner_service,  # Use the PartnerServices instance
                             defaults={
                                 "trainer_name": request.data.get("trainer_name"),
                                 "trainer_price": request.data.get("trainer_price"),
@@ -321,24 +356,24 @@ class UpdatePartnerService(generics.UpdateAPIView):
                             },
                         )
 
-                    current_user = request.user
-                    UserNotification.objects.create(
-                        user=current_user,
-                        title="Partner Service.",
-                        message="You have successfully updated their service.",
-                    )
+                current_user = request.user
+                UserNotification.objects.create(
+                    user=current_user,
+                    title="Partner Service.",
+                    message="You have successfully updated your service.",
+                )
 
-                    ActivityModel.objects.create(
-                        user=current_user,
-                        title="Partner Service.",
-                        description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}.",
-                    )
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Partner Service.",
+                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}.",
+                )
 
                 response = {
                     "status": "success",
                     "message": "Service updated!",
-                    "image urls": image_urls,
-                    "gym trainers": gym_trainer_img_urls,
+                    "image_urls": image_urls,
+                    "gym_trainers": gym_trainer_img_urls,
                     "data": serializer.data,
                 }
                 return Response(data=response, status=status.HTTP_200_OK)
@@ -366,32 +401,48 @@ class PartnerServiceList(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = PartnerServices.objects.filter(user=user)
-        return queryset
+        return PartnerServices.objects.filter(user=user)
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
 
-        # Get partner service photos using partner field
-        partner_service_photos = PartnerServicePhotos.objects.filter(partner=request.user).first()
+        # Prepare the response data
+        services_data = []
 
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
+            for service in page:
+                # Get all photos associated with the service
+                photos = PartnerServicePhotos.objects.filter(partner=service)
+                photos_urls = [photo.photo for photo in photos]
+
+                # Serialize the service data
+                service_data = self.serializer_class(service).data
+                service_data["images"] = photos_urls  # Add images to the service data
+
+                services_data.append(service_data)
+
             resp = {
                 "status": "success",
                 "message": "All services fetched.",
-                "data": serializer.data,
-                "images": partner_service_photos.photo if partner_service_photos else None
+                "data": services_data,
             }
             return self.get_paginated_response(resp)
 
-        serializer = self.serializer_class(queryset, many=True)
+        # If no pagination is applied
+        for service in queryset:
+            photos = PartnerServicePhotos.objects.filter(partner=service)
+            photos_urls = [photo.photo for photo in photos]
+
+            service_data = self.serializer_class(service).data
+            service_data["images"] = photos_urls
+
+            services_data.append(service_data)
+
         resp = {
             "status": "success",
             "message": "All services fetched.",
-            "data": serializer.data,
-            "images": partner_service_photos.photo if partner_service_photos else None
+            "data": services_data,
         }
         return Response(data=resp, status=status.HTTP_200_OK)
 
@@ -600,8 +651,8 @@ class VerifyCACView(generics.GenericAPIView):
                 resp = verify_cac_response.json()["entity"]
 
                 # Normalize and compare business names
-                submitted_business_name = ''.join(business.split()).upper()
-                verified_business_name = ''.join(resp["company_name"].split()).upper()
+                submitted_business_name = "".join(business.split()).upper()
+                verified_business_name = "".join(resp["company_name"].split()).upper()
 
                 if submitted_business_name == verified_business_name:
                     response_data = {
@@ -618,7 +669,7 @@ class VerifyCACView(generics.GenericAPIView):
                     VerifyCAC.objects.create(
                         users=current_user,
                         rc_number=rc_number,
-                        business_name=verified_business_name
+                        business_name=verified_business_name,
                     )
 
                     # Create UserNotification and ActivityModel entries
@@ -657,12 +708,16 @@ class VerifyCACView(generics.GenericAPIView):
                         "status": "fail",
                         "message": "The business name provided does not match the RC number!",
                     }
-                    return Response(data=error_response, status=status.HTTP_404_NOT_FOUND)
+                    return Response(
+                        data=error_response, status=status.HTTP_404_NOT_FOUND
+                    )
             else:
                 error_response = {
                     "status": "fail",
                     "error": "An error occurred while verifying with CAC",
-                    "details": verify_cac_response.json().get("message", "Unknown error"),
+                    "details": verify_cac_response.json().get(
+                        "message", "Unknown error"
+                    ),
                 }
                 return Response(
                     data=error_response, status=verify_cac_response.status_code

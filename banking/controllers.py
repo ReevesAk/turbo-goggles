@@ -459,7 +459,7 @@ class Transfers:
             )
 
 
-class Paystack():
+class Paystack:
     @staticmethod
     def generate_url(email, amount):
         generate_url_resource = "https://api.paystack.co/transaction/initialize"

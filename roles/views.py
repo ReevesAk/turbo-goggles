@@ -218,12 +218,11 @@ class LoginAdmin(APIView):
                 )
 
             user_name = (
-                "Superuser"
-                if user.active_role == "Superuser"
+                "SuperAdmin"
+                if user.active_role == "SuperAdmin"
                 else user.full_name
                 if user.active_role
                 in {
-                    "SuperAdmin",
                     "TaskAdmin",
                     "AdAdmin",
                     "MembersAdmin",

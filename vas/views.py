@@ -189,7 +189,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
             case _:
-
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -315,7 +314,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         "message": "Data subscription failed due to insufficient bonus.",
                         "error": data_response,
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
         match payment_option:
             case "WALLET":
@@ -354,7 +353,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                             "data_response": data_response,
                         }
                         return Response(
-                            data=response_data, status=debit_response.status_code)
+                            data=response_data, status=debit_response.status_code
+                        )
                     return Response(
                         data={
                             "status": "fail",
@@ -378,7 +378,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
             case _:
-
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -525,8 +524,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         "electricity_response": electricity_response,
                     }
 
-                    return Response(
-                        data=response_data, status=status.HTTP_200_OK)
+                    return Response(data=response_data, status=status.HTTP_200_OK)
             else:
                 return Response(
                     data={
@@ -534,7 +532,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         "message": "Electricity purchase failed due to insufficient bonus.",
                         "error": electricity_response,
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
         match payment_option:
             case "WALLET":
@@ -573,7 +571,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "electricity_response": electricity_response,
                         }
-                        return Response(data=response_data, status=debit_response.status_code)
+                        return Response(
+                            data=response_data, status=debit_response.status_code
+                        )
                     return Response(
                         data={
                             "status": "fail",
@@ -597,7 +597,6 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
             case _:
-
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,

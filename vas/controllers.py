@@ -12,8 +12,10 @@ from rest_framework.response import Response
 from banking.controllers import Account
 from .helpers import VAS
 from .models import (
-    AirtimeTopup, DataSubscription, ElectricityBill
-    #WaecRegistration,
+    AirtimeTopup,
+    DataSubscription,
+    ElectricityBill,
+    # WaecRegistration,
     # TvSubscription, HealthInsurance, VehicleInsurance, AccidentInsurance,
     # HomeCoverInsurance,
 )
@@ -133,7 +135,7 @@ def data(user, serializer, reason, user_data):
                     tx_type="Data",
                     amount=user_data.get("amount", 0),
                     description="Debit for data subscription.",
-                    rwd=new_rewards
+                    rwd=new_rewards,
                 )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
@@ -151,9 +153,8 @@ def data(user, serializer, reason, user_data):
             phone=phone,
         )
 
-        return data_response.json(),
+        return (data_response.json(),)
     else:
-
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user_data["amount"], reason=reason
@@ -202,7 +203,7 @@ def electricity(user, serializer, reason, user_data):
                     tx_type="Electricity",
                     amount=user_data.get("amount", 0),
                     description="Debit for electricity payment.",
-                    rwd=new_rewards
+                    rwd=new_rewards,
                 )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)

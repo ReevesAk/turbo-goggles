@@ -19,7 +19,7 @@ from .transfers import (
     InterBankTransfer,
     InterBankTransactionStatus,
     IntraBankTransactionStatus,
-    FundWalletWithCard
+    FundWalletWithCard,
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction

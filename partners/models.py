@@ -63,7 +63,10 @@ class AvailablePartnerGymTrainers(models.Model):
     """Model for gym partner service photos."""
 
     partner = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="gym_trainers", null=True
+        PartnerServices,
+        on_delete=models.CASCADE,
+        related_name="gym_trainers",
+        null=True,
     )
     trainer_name = models.CharField(max_length=255, null=True)
     trainer_price = models.FloatField(null=True)

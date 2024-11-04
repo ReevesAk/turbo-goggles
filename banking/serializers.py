@@ -4,7 +4,13 @@ from rest_framework import serializers
 from accounts.models import TxModel
 
 # In project imports.
-from .models import BVNData, AccountCreation, BankingNotificationModel, TransferModel, FundWithCard
+from .models import (
+    BVNData,
+    AccountCreation,
+    BankingNotificationModel,
+    TransferModel,
+    FundWithCard,
+)
 
 
 class BankingStatusSerializer(serializers.Serializer):
@@ -251,17 +257,10 @@ class WalletStatusSerializer(serializers.ModelSerializer):
 class PaymentURLSerializers(serializers.ModelSerializer):
     class Meta:
         model = FundWithCard
-        fields = [
-            "id",
-            "amount",
-            "email"
-        ]
+        fields = ["id", "amount", "email"]
 
 
 class VerifyCardDepositSerializers(serializers.ModelSerializer):
     class Meta:
         model = FundWithCard
-        fields = [
-            "id",
-            "txn_reference"
-        ]
+        fields = ["id", "txn_reference"]

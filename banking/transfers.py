@@ -413,6 +413,7 @@ class FundWalletWithCard(generics.CreateAPIView):
     """
     FundWalletWithCard handles the POST request of funding your Picadailys wallet with Card.
     """
+
     serializer_class = InterBankTransfersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
@@ -430,8 +431,7 @@ class FundWalletWithCard(generics.CreateAPIView):
             if chaekout_url_response.status_code == 200:
                 url_resp = chaekout_url_response.json()
                 FundWithCard.objects.create(
-                    user=user,
-                    txn_reference=url_resp["data"]["reference"]
+                    user=user, txn_reference=url_resp["data"]["reference"]
                 )
                 response = {
                     "status": "success",

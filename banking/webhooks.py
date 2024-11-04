@@ -17,12 +17,12 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         webhook_data = super().post(request, *args, **kwargs)
         # Handle the webhook data as needed
-        if webhook_data.get('event') == 'charge.success':
-            transaction_id = webhook_data['data']['id']
-            reference = webhook_data['data']['reference']
-            email = webhook_data['data']['customer']['email']
-            tx_status = webhook_data['data']['status']
-            amount = webhook_data['data']['amount'] / 100
+        if webhook_data.get("event") == "charge.success":
+            transaction_id = webhook_data["data"]["id"]
+            reference = webhook_data["data"]["reference"]
+            email = webhook_data["data"]["customer"]["email"]
+            tx_status = webhook_data["data"]["status"]
+            amount = webhook_data["data"]["amount"] / 100
 
             user_obj = FundWithCard.objects.filter(txn_reference=reference).first()
             if user_obj:
@@ -32,13 +32,21 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
                 user_obj.amount = amount
                 user_obj.save()
 
-                logger.info(f"Transaction {transaction_id} was successful. Updated user: {user_obj.user.email}")
+                logger.info(
+                    f"Transaction {transaction_id} was successful. Updated user: {user_obj.user.email}"
+                )
             else:
-                logger.warning(f"No FundWithCard entry found for reference: {reference}")
-                return Response(data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
+                logger.warning(
+                    f"No FundWithCard entry found for reference: {reference}"
+                )
+                return Response(
+                    data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND
+                )
 
         logger.error("Event not handled")
-        return Response(data={"status": "event not handled"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            data={"status": "event not handled"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class VerifyCardPaymentTransaction(generics.CreateAPIView):
@@ -57,7 +65,9 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
         user = request.user
         tx_ref = user_data.get("txn_reference")
 
-        user_obj = FundWithCard.objects.filter(txn_reference=tx_ref, user=request.user).first()
+        user_obj = FundWithCard.objects.filter(
+            txn_reference=tx_ref, user=request.user
+        ).first()
         if user_obj:
             if user_obj.status == "success":
                 resp = {
@@ -68,7 +78,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                         "amount": user_obj.amount,
                         "email": user_obj.email,
                         "status": user_obj.status,
-                    }
+                    },
                 }
                 UserNotification.objects.create(
                     user=user,
@@ -92,7 +102,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                         "amount": user_obj.amount,
                         "email": user_obj.email,
                         "status": user_obj.status,
-                    }
+                    },
                 }
                 UserNotification.objects.create(
                     user=user,
@@ -107,4 +117,10 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                 )
                 return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(data={"status": "fail", "message": "No transaction found for this reference."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "No transaction found for this reference.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )

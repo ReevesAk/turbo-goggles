@@ -165,12 +165,15 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
         if queryset is None:
             email = self.kwargs.get("partner_email")
             error_message = (
-                "Email parameter is required" if not email else 
-                "User with the provided email does not exist."
+                "Email parameter is required"
+                if not email
+                else "User with the provided email does not exist."
             )
             return Response(
                 data={"status": "fail", "error": error_message},
-                status=status.HTTP_400_BAD_REQUEST if not email else status.HTTP_404_NOT_FOUND
+                status=status.HTTP_400_BAD_REQUEST
+                if not email
+                else status.HTTP_404_NOT_FOUND,
             )
 
         # Serialize and respond with the queryset data
@@ -181,7 +184,7 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
                 "message": "Services retrieved successfully.",
                 "data": serializer.data,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
@@ -201,12 +204,12 @@ class PartnerSearch(generics.ListAPIView):
 
         # Filter users who have user_type as 'Partner'
         partners = User.objects.filter(
-            Q(accounttype__user_type="Partner") &
-            (
-                Q(business_name__icontains=search_term) |
-                Q(brand_name__icontains=search_term) |
-                Q(business_category__icontains=search_term) |
-                Q(full_name__icontains=search_term)
+            Q(accounttype__user_type="Partner")
+            & (
+                Q(business_name__icontains=search_term)
+                | Q(brand_name__icontains=search_term)
+                | Q(business_category__icontains=search_term)
+                | Q(full_name__icontains=search_term)
             )
         ).distinct()
 
@@ -216,13 +219,13 @@ class PartnerSearch(generics.ListAPIView):
             data = {
                 "status": "success",
                 "message": "Partners fetched successfully.",
-                "data": serializer.data
+                "data": serializer.data,
             }
             return Response(data=data, status=status.HTTP_200_OK)
         else:
             data = {
                 "status": "fail",
                 "message": "No partners matching that query found.",
-                "data": []
+                "data": [],
             }
             return Response(data=data, status=status.HTTP_404_NOT_FOUND)
