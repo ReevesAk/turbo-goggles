@@ -616,24 +616,24 @@ class SetAdminPin(generics.CreateAPIView):
             return Response(data=response, status=status.HTTP_201_CREATED)
 
 
-class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
+class AddRoleToAdmin(generics.GenericAPIView):
     serializer_class = AddRoleToAdminSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
-    authentication_classes = [JWTAuthentication]
     renderer_classes = [CamelCaseJSONRenderer]
 
-    def get_user(self, email):
-        try:
-            return User.objects.get(Q(id=email) | Q(email=email))
-        except User.DoesNotExist:
-            return None
+    def get_user(self, identifier):
+        """Retrieve a user by ID or email."""
+        if identifier.isdigit():  # Check if the identifier is numeric
+            return User.objects.filter(id=int(identifier)).first()
+        else:
+            return User.objects.filter(email=identifier).first()
 
     def post(self, request):
         """Add a role to an admin."""
         user = self.get_user(request.data.get("email"))
         if not user:
-            return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
         new_role = request.data.get("role")
 
@@ -642,7 +642,7 @@ class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
             return Response(
                 data={
                     "status": "fail.",
-                    "message": f"User already has {new_role} as part of their roles.",
+                    "message": f"User  already has {new_role} as part of their roles.",
                     "role": new_role,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -672,32 +672,32 @@ class AddRoleToAdmin(generics.RetrieveUpdateAPIView):
         )
 
 
-class RemoveAdminRole(generics.RetrieveUpdateAPIView):
+class RemoveAdminRole(generics.GenericAPIView):
     serializer_class = RemoveRoleFromAdminSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
-    def get_object(self):
-        email = self.request.data.get("email")
-        try:
-            user = User.objects.get(Q(id=email) | Q(email=email))
-            return user
-        except User.DoesNotExist:
-            return None
+    def get_user(self, identifier):
+        """Retrieve a user by ID or email."""
+        if identifier.isdigit():  # Check if the identifier is numeric
+            return User.objects.filter(id=int(identifier)).first()
+        else:
+            return User.objects.filter(email=identifier).first()
 
     def delete(self, request):
         """Remove a role from an admin."""
         user = self.get_user(request.data.get("email"))
         if not user:
-            return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
-        role_to_remove = request.data.get("role")
+        role_to_remove = request.data.get("role_to_remove")
 
         # Check if the role exists for the user
         account_type_instance = AccountType.objects.filter(
             user=user, user_type=role_to_remove
         ).first()
+
         if not account_type_instance:
             return Response(
                 data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
