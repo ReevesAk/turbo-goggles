@@ -227,7 +227,7 @@ class CreatePartnerService(generics.CreateAPIView):
 
             # Associate the uploaded photo with the PartnerServices instance
             PartnerServicePhotos.objects.create(
-                partner=partner_service,  # Use the PartnerServices instance
+                partner=partner_service.user,  # Use the PartnerServices instance
                 photo=image_url,
             )
         return image_urls
@@ -240,7 +240,7 @@ class CreatePartnerService(generics.CreateAPIView):
             gym_trainer_img_urls.append(gym_trainer_img_url)
 
             AvailablePartnerGymTrainers.objects.create(
-                partner=partner_service,  # Use the PartnerServices instance
+                partner=partner_service.user,  # Use the PartnerServices instance
                 trainer_name=cleaned_data["trainer_name"],
                 trainer_price=cleaned_data["trainer_price"],
                 trainer_photo=gym_trainer_img_url,
@@ -335,7 +335,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
                     # Create new PartnerServicePhotos objects
                     PartnerServicePhotos.objects.create(
-                        partner=partner_service,  # Use the PartnerServices instance
+                        partner=partner_service.user,  # Use the PartnerServices instance
                         photo=image_url,
                     )
 
@@ -348,7 +348,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
                         # Update existing AvailablePartnerGymTrainers objects or create new ones
                         AvailablePartnerGymTrainers.objects.update_or_create(
-                            partner=partner_service,  # Use the PartnerServices instance
+                            partner=partner_service.user,  # Use the PartnerServices instance
                             defaults={
                                 "trainer_name": request.data.get("trainer_name"),
                                 "trainer_price": request.data.get("trainer_price"),
