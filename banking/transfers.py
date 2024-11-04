@@ -414,7 +414,7 @@ class FundWalletWithCard(generics.CreateAPIView):
     FundWalletWithCard handles the POST request of funding your Picadailys wallet with Card.
     """
 
-    serializer_class = InterBankTransfersSerializer
+    serializer_class = PaymentURLSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
