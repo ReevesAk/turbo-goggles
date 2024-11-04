@@ -22,6 +22,7 @@ from .transfers import (
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
+from .webhooks import CardDepositPaystackWebhook, VerifyCardPaymentTransaction
 
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
@@ -63,5 +64,15 @@ urlpatterns = [
         "transfers/inter-bank/<int:tx_reference>/status",
         InterBankTransactionStatus.as_view(),
         name="inter_bank_status",
+    ),
+    path(
+        "webhook/",
+        CardDepositPaystackWebhook.as_view(),
+        name="paystack-webhook",
+    ),
+    path(
+        "verify-card-deposit",
+        VerifyCardPaymentTransaction.as_view(),
+        name="verify_card_deposit",
     ),
 ]
