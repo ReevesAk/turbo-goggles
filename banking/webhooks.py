@@ -6,7 +6,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
 from .models import FundWithCard
-from .serializers import VerifyCardDepositSerializers
+from .serializers import VerifyCardDepositSerializers, WebhookSerializer
 from accounts.models import UserNotification
 from roles.models import ActivityModel
 
@@ -15,8 +15,11 @@ logger = logging.getLogger(__name__)
 
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
-        webhook_data = super().post(request, *args, **kwargs)
-        # Handle the webhook data as needed
+        # Validate the incoming data using the serializer
+        serializer = WebhookSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # This will raise an error if validation fails
+
+        webhook_data = serializer.validated_data
         if webhook_data.get("event") == "charge.success":
             transaction_id = webhook_data["data"]["id"]
             reference = webhook_data["data"]["reference"]

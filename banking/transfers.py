@@ -424,12 +424,12 @@ class FundWalletWithCard(generics.CreateAPIView):
 
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            chaekout_url_response = Paystack.generate_url(
+            checkout_url_response = Paystack.generate_url(
                 email=user.email, amount=user_data["amount"]
             )
 
-            if chaekout_url_response.status_code == 200:
-                url_resp = chaekout_url_response.json()
+            if checkout_url_response.status_code == 200:
+                url_resp = checkout_url_response.json()
                 FundWithCard.objects.create(
                     user=user, txn_reference=url_resp["data"]["reference"]
                 )
@@ -443,8 +443,8 @@ class FundWalletWithCard(generics.CreateAPIView):
                 return Response(data=response, status=status.HTTP_200_OK)
             else:
                 return Response(
-                    data=chaekout_url_response.json(),
-                    status=chaekout_url_response.status_code,
+                    data=checkout_url_response.json(),
+                    status=checkout_url_response.status_code,
                 )
 
         else:

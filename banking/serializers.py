@@ -264,3 +264,20 @@ class VerifyCardDepositSerializers(serializers.ModelSerializer):
     class Meta:
         model = FundWithCard
         fields = ["id", "txn_reference"]
+
+
+class CustomerSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class DataSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    reference = serializers.CharField()
+    customer = CustomerSerializer()
+    status = serializers.CharField()
+    amount = serializers.IntegerField()
+
+
+class WebhookSerializer(serializers.Serializer):
+    event = serializers.CharField()
+    data = DataSerializer()
