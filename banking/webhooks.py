@@ -17,39 +17,49 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         # Validate the incoming data using the serializer
         serializer = WebhookSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)  # This will raise an error if validation fails
+        serializer.is_valid(raise_exception=True)  # Raise an error if validation fails
 
-        webhook_data = serializer.validated_data
-        if webhook_data.get("event") == "charge.success":
-            transaction_id = webhook_data["data"]["id"]
-            reference = webhook_data["data"]["reference"]
-            email = webhook_data["data"]["customer"]["email"]
-            tx_status = webhook_data["data"]["status"]
-            amount = webhook_data["data"]["amount"] / 100
+        webhook_data = serializer.validated_data  # Get validated data
 
-            user_obj = FundWithCard.objects.filter(txn_reference=reference).first()
-            if user_obj:
-                # Update the fields with data from the webhook
-                user_obj.status = tx_status
-                user_obj.email = email
-                user_obj.amount = amount
-                user_obj.save()
+        # Handle different events
+        event_type = webhook_data.get("event")
+        if event_type == "charge.success":
+            return self.handle_charge_success(webhook_data)
+        elif event_type == "hook":
+            return self.handle_hook_event(webhook_data)
+        else:
+            logger.error(f"Unhandled event type: {event_type}")
+            return Response(
+                data={"status": "event not handled"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-                logger.info(
-                    f"Transaction {transaction_id} was successful. Updated user: {user_obj.user.email}"
-                )
-            else:
-                logger.warning(
-                    f"No FundWithCard entry found for reference: {reference}"
-                )
-                return Response(
-                    data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND
-                )
+    def handle_charge_success(self, webhook_data):
+        transaction_id = webhook_data["data"]["id"]
+        reference = webhook_data["data"]["reference"]
+        email = webhook_data["data"]["customer"]["email"]
+        tx_status = webhook_data["data"]["status"]
+        amount = webhook_data["data"]["amount"] / 100  # Convert cents to dollars
 
-        logger.error("Event not handled")
-        return Response(
-            data={"status": "event not handled"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        user_obj = FundWithCard.objects.filter(txn_reference=reference).first()
+        if user_obj:
+            user_obj.status = tx_status
+            user_obj.email = email
+            user_obj.amount = amount
+            user_obj.save()
+
+            logger.info(
+                f"Transaction {transaction_id} was successful. Updated user: {user_obj.user.email}"
+            )
+            return Response(data={"status": "success"}, status=status.HTTP_200_OK)
+        else:
+            logger.warning(f"No FundWithCard entry found for reference: {reference}")
+            return Response(data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def handle_hook_event(self, webhook_data):
+        # Implement your logic for handling the "hook" event here
+        logger.info("Hook event received.")
+        # You can add more processing logic as needed
+        return Response(data={"status": "hook event processed"}, status=status.HTTP_200_OK)
 
 
 class VerifyCardPaymentTransaction(generics.CreateAPIView):
