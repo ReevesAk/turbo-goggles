@@ -19,6 +19,7 @@ from .transfers import (
     InterBankTransfer,
     InterBankTransactionStatus,
     IntraBankTransactionStatus,
+    FundWalletWithCard
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
@@ -65,6 +66,7 @@ urlpatterns = [
         InterBankTransactionStatus.as_view(),
         name="inter_bank_status",
     ),
+    path("fund-with-card", FundWalletWithCard.as_view(), name="fund_with_card"),
     path(
         "webhook/",
         CardDepositPaystackWebhook.as_view(),
