@@ -413,7 +413,7 @@ class PartnerServiceList(generics.ListAPIView):
         if page is not None:
             for service in page:
                 # Get all photos associated with the service
-                photos = PartnerServicePhotos.objects.filter(partner=service)
+                photos = PartnerServicePhotos.objects.filter(partner=service.user)
                 photos_urls = [photo.photo for photo in photos]
 
                 # Serialize the service data
