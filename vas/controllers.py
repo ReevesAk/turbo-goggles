@@ -12,8 +12,8 @@ from rest_framework.response import Response
 from banking.controllers import Account
 from .helpers import VAS
 from .models import (
-    AirtimeTopup,
-    # DataSubscription, ElectricityBill, WaecRegistration,
+    AirtimeTopup, DataSubscription, ElectricityBill
+    #WaecRegistration,
     # TvSubscription, HealthInsurance, VehicleInsurance, AccidentInsurance,
     # HomeCoverInsurance,
 )
@@ -126,14 +126,15 @@ def data(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx = TxModel.objects.filter(user=user).order_by("-id").first()
-                tx.tx_id = data_response.json().get("transactionId", "")
-                tx.tx_reference = data_instance.tx_reference
-                tx.tx_type = "Data"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for data subscription."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=data_response.json().get("transactionId", ""),
+                    tx_reference=data_instance.tx_reference,
+                    tx_type="Data",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for data subscription.",
+                    rwd=new_rewards
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -143,24 +144,21 @@ def data(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": data_response.json(),
-        }
+        DataSubscription.objects.create(
+            user=user,
+            request_id=req_id,
+            amount=amount,
+            phone=phone,
+        )
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return data_response.json(),
     else:
-        response_data = {
-            "data": data_response.json(),
-            "message": "A refund will be issued.",
-        }
 
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user_data["amount"], reason=reason
         )
-        return Response(data=response_data, status=data_response.status_code)
+        return data_response.json()
 
 
 def electricity(user, serializer, reason, user_data):
@@ -197,14 +195,15 @@ def electricity(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx = TxModel.objects.filter(user=user).order_by("-id").first()
-                tx.tx_id = electricity_response.json().get("transactionId", "")
-                tx.tx_reference = electricity_instance.tx_reference
-                tx.tx_type = "Electricity"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for electricity payment."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=electricity_response.json().get("transactionId", ""),
+                    tx_reference=electricity_instance.tx_reference,
+                    tx_type="Electricity",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for electricity payment.",
+                    rwd=new_rewards
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -214,24 +213,21 @@ def electricity(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Payment of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": electricity_response.json(),
-        }
+        ElectricityBill.objects.create(
+            user=user,
+            serviceID=user_data["serviceID"],
+            request_id=req_id,
+            amount=amount,
+            phone=user_data["phone"],
+        )
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return electricity_response.json()
     else:
-        response_data = {
-            "data": electricity_response.json(),
-            "message": "A refund will be issued.",
-        }
-
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(data=response_data, status=electricity_response.status_code)
+        return electricity_response.json()
 
 
 def NewTvSub(user, serializer, reason, user_data):

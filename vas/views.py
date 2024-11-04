@@ -158,7 +158,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Debit for airtime recharge.",
                         user_data=user_data,
                     )
-                    print(debit_response.json())
                     if airtime_response["code"] == 200:
                         response_data = {
                             "status": "success",
@@ -175,7 +174,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-
+                else:
+                    return Response(
+                        data=debit_response.json(),
+                        status=debit_response.status_code,
+                    )
             case "CARD":
                 # Implement card payment logic here
                 return Response(
@@ -261,97 +264,125 @@ class DataSubscriptionView(generics.GenericAPIView):
         use_rewards = request.data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
             account = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if account is not None and account.pin is not None:
             verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            if verification:
-                payment_option = request.data.get("payment_option")
-                if use_bonus:
-                    if user.welcome_bonus >= float(amount):
-                        data(
-                            user=user,
-                            serializer=serializer,
-                            reason="Debit for data subscription.",
-                            user_data=user_data,
-                        )
-                        return Response(
-                            data={
-                                "status": "success",
-                                "message": "Bonus was used to purchase this product",
-                                "bonus ballance": user.welcome_bonus,
-                            },
-                            status=status.HTTP_200_OK,
-                        )
-                    else:
-                        return Response(
-                            data={
-                                "status": "fail",
-                                "message": "You do not have enough bonus to purchase this product",
-                                "bonus ballance": user.welcome_bonus,
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    match payment_option:
-                        case "WALLET":
-                            if use_points:
-                                _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                            else:
-                                pts_amt = 0
-                            if use_rewards:
-                                _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                            else:
-                                rwd_amt = 0
-
-                            new_amount = int(amount) - pts_amt - rwd_amt
-
-                            user_details = AccountCreation.objects.get(user=user)
-                            # Inititate a debit on the customer's account.
-                            debit_response = Account.Debit(
-                                debitAccount=user_details.account_number,
-                                amount=new_amount,
-                                reason="Debit for data subscription.",
-                                transactionReference="",
-                            )
-
-                            if debit_response.status_code == 200:
-                                if serializer.is_valid(raise_exception=True):
-                                    data(
-                                        user=user,
-                                        serializer=serializer,
-                                        reason="Debit for data subscription.",
-                                        user_data=user_data,
-                                    )
-                                    return Response(
-                                        data={
-                                            "status": "success",
-                                            "message": "Account debit successful",
-                                            "data": debit_response.json(),
-                                        },
-                                        status=debit_response.status_code,
-                                    )
-                                else:
-                                    return Response(
-                                        data=serializer.errors,
-                                        status=status.HTTP_400_BAD_REQUEST,
-                                    )
-                            else:
-                                return Response(
-                                    data=debit_response.json(),
-                                    status=debit_response.status_code,
-                                )
-                        case "CARD":
-                            pass
-            else:
-                return Response(
-                    data={"status": "fail", "error": "Incorrect pin"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
         else:
             return Response(
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
+                data={"status": "fail", "error": "Account or pin not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
             )
+
+        if not verification:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        data_response = None
+
+        payment_option = request.data.get("payment_option")
+        if use_bonus:
+            if user.welcome_bonus >= float(amount):
+                data_response = data(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for data subscription.",
+                    user_data=user_data,
+                )
+                if data_response.status_code == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Data purchase of {float(amount)} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "data_response": data_response,
+                    }
+
+                return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Data subscription failed due to insufficient bonus.",
+                        "error": data_response,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        match payment_option:
+            case "WALLET":
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                else:
+                    pts_amt = 0
+                if use_rewards:
+                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                else:
+                    rwd_amt = 0
+
+                new_amount = int(amount) - pts_amt - rwd_amt
+
+                user_details = AccountCreation.objects.get(user=user)
+                # Inititate a debit on the customer's account.
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=new_amount,
+                    reason="Debit for data subscription.",
+                    transactionReference="",
+                )
+
+                if debit_response.status_code == 200:
+                    data_response = data(
+                        user=user,
+                        serializer=serializer,
+                        reason="Debit for data subscription.",
+                        user_data=user_data,
+                    )
+                    if data_response["code"] == 200:
+                        response_data = {
+                            "status": "success",
+                            "message": f"Data purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "data_response": data_response,
+                        }
+                        return Response(
+                            data=response_data, status=debit_response.status_code)
+                    return Response(
+                        data={
+                            "status": "fail",
+                            "message": "Data subscription failed due to insufficient balance.",
+                            "error": data_response,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                else:
+                    return Response(
+                        data=debit_response.json(),
+                        status=debit_response.status_code,
+                    )
+            case "CARD":
+                # Implement card payment logic here
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Card payment not yet implemented",
+                    },
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+            case _:
+
+                return Response(
+                    data={"status": "fail", "message": "Invalid payment option"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
 
 class ElectricityServiceIDListView(APIView):
@@ -451,90 +482,126 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
 
         serializer = self.serializer_class(data=user_data)
-        account = AccountCreation.objects.get(user=user)
-        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            account = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if account is not None and account.pin is not None:
+            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        else:
+            return Response(
+                data={"status": "fail", "error": "Account or pin not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if not verification:
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        electricity_response = None
+
         payment_option = request.data.get("payment_option")
         if use_bonus:
             if user.welcome_bonus >= float(amount):
-                electricity(
+                electricity_response = electricity(
                     user=user,
                     serializer=serializer,
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                return Response(
-                    data={
+                if electricity_response.status_code == 200:
+                    response_data = {
                         "status": "success",
-                        "message": "Bonus was used to purchase this product",
-                        "bonus ballance": user.welcome_bonus,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+                        "message": f"Electricity purchase of {float(amount)} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "electricity_response": electricity_response,
+                    }
+
+                    return Response(
+                        data=response_data, status=status.HTTP_200_OK)
             else:
                 return Response(
-                    data="You do not have enough bonus to purchase this product",
+                    data={
+                        "status": "fail",
+                        "message": "Electricity purchase failed due to insufficient bonus.",
+                        "error": electricity_response,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        match payment_option:
+            case "WALLET":
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                else:
+                    pts_amt = 0
+                if use_rewards:
+                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                else:
+                    rwd_amt = 0
+
+                new_amount = int(amount) - pts_amt - rwd_amt
+
+                user_details = AccountCreation.objects.get(user=user)
+
+                # Initiate a debit on the customer's account.
+                debit_response = Account.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=new_amount,
+                    reason="Debit for electricity bill payment.",
+                    transactionReference="",
+                )
+
+                if debit_response.status_code == 200:
+                    electricity_response = electricity(
+                        user=user,
+                        serializer=serializer,
+                        reason="Debit for electricity bill payment.",
+                        user_data=user_data,
+                    )
+                    if electricity_response["code"] == 200:
+                        response_data = {
+                            "status": "success",
+                            "message": f"Electricity purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "electricity_response": electricity_response,
+                        }
+                        return Response(data=response_data, status=debit_response.status_code)
+                    return Response(
+                        data={
+                            "status": "fail",
+                            "message": "Electricty purchase failed due to insufficient balance.",
+                            "error": electricity_response,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                else:
+                    return Response(
+                        data=debit_response.json(),
+                        status=debit_response.status_code,
+                    )
+
+            case "CARD":
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Card payment not yet implemented",
+                    },
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+            case _:
+
+                return Response(
+                    data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        else:
-            match payment_option:
-                case "WALLET":
-                    if use_points:
-                        _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    else:
-                        pts_amt = 0
-                    if use_rewards:
-                        _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    else:
-                        rwd_amt = 0
-
-                    new_amount = int(amount) - pts_amt - rwd_amt
-
-                    user_details = AccountCreation.objects.get(user=user)
-
-                    # Initiate a debit on the customer's account.
-                    debit_response = Account.Debit(
-                        debitAccount=user_details.account_number,
-                        amount=new_amount,
-                        reason="Debit for electricity bill payment.",
-                        transactionReference="",
-                    )
-                    if debit_response.status_code == 200:
-                        serializer = self.serializer_class(data=user_data)
-                        if serializer.is_valid(raise_exception=True):
-                            electricity(
-                                user=user,
-                                serializer=serializer,
-                                reason="Debit for electricity bill payment.",
-                                user_data=user_data,
-                            )
-
-                            return Response(
-                                data={
-                                    "status": "success",
-                                    "message": "Account debit successful",
-                                    "data": debit_response.json(),
-                                },
-                                status=debit_response.status_code,
-                            )
-                        else:
-                            return Response(
-                                data=serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        return Response(
-                            data=debit_response.json(),
-                            status=debit_response.status_code,
-                        )
-
-                case "CARD":
-                    pass
 
 
 class CableServiceIDListView(APIView):
