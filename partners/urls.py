@@ -26,7 +26,7 @@ urlpatterns = [
         name="create_partner_service",
     ),
     path(
-        "update-service/<int:id>/",
+        "update-service/<int:service_id>/",
         UpdatePartnerService.as_view(),
         name="update_service",
     ),

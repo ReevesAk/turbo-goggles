@@ -56,9 +56,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             return Response(data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def handle_hook_event(self, webhook_data):
-        # Implement your logic for handling the "hook" event here
         logger.info("Hook event received.")
-        # You can add more processing logic as needed
         return Response(data={"status": "hook event processed"}, status=status.HTTP_200_OK)
 
 

@@ -295,27 +295,26 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
     serializer_class = UpdatePartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsPartner)
+    permission_classes = (IsAuthenticated,)
     parser_classes = (
         MultiPartParser,
         JSONParser,
     )
     queryset = PartnerServices.objects.all()
 
-    def get_object(self):
-        # Use `service_id` from the URL kwargs to retrieve the object
-        service_id = self.kwargs.get("service_id")
+    def get_object(self, service_id):
+        print(f"Looking for PartnerServices with id: {service_id}")
         try:
             return PartnerServices.objects.get(id=service_id)
         except PartnerServices.DoesNotExist:
             raise Http404("Partner service not found.")
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request, service_id, *args, **kwargs):
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        partner_service = self.get_object()
+        partner_service = self.get_object(service_id)
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
 
         if serializer.is_valid(raise_exception=True):
@@ -366,7 +365,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
                 ActivityModel.objects.create(
                     user=current_user,
                     title="Partner Service.",
-                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business_name}.",
+                    description=f"{current_user.first_name} {current_user.last_name} has successfully updated their service: {partner_service.business}.",
                 )
 
                 response = {
@@ -394,9 +393,7 @@ class PartnerServiceList(generics.ListAPIView):
 
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [
-        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
-    ]
+    permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -454,9 +451,7 @@ class PartnerServiceDetailView(views.APIView):
 
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [
-        IsAuthenticated & (IsPartner | IsUserOrMember | IsPartnerAdmin)
-    ]
+    permission_classes = [IsAuthenticated]
 
     def get_object(self, service_id):
         try:
