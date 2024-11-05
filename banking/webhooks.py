@@ -53,11 +53,15 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             return Response(data={"status": "success"}, status=status.HTTP_200_OK)
         else:
             logger.warning(f"No FundWithCard entry found for reference: {reference}")
-            return Response(data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
     def handle_hook_event(self, webhook_data):
         logger.info("Hook event received.")
-        return Response(data={"status": "hook event processed"}, status=status.HTTP_200_OK)
+        return Response(
+            data={"status": "hook event processed"}, status=status.HTTP_200_OK
+        )
 
 
 class VerifyCardPaymentTransaction(generics.CreateAPIView):

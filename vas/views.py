@@ -352,9 +352,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "data_response": data_response,
                         }
-                        return Response(
-                            data=response_data, status=debit_response.status_code
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     return Response(
                         data={
                             "status": "fail",
@@ -571,9 +569,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "electricity_response": electricity_response,
                         }
-                        return Response(
-                            data=response_data, status=debit_response.status_code
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     return Response(
                         data={
                             "status": "fail",
@@ -792,7 +788,13 @@ class NewTvSubscription(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        account = AccountCreation.objects.get(user=user)
+        try:
+            account = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         if account is not None and account.pin is not None:
             verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
         else:
@@ -800,13 +802,15 @@ class NewTvSubscription(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account or pin not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
 
         if not verification:
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        new_tv_response = None
+
         payment_option = request.data.get("payment_option")
         match payment_option:
             case "WALLET":
@@ -828,20 +832,27 @@ class NewTvSubscription(generics.GenericAPIView):
                     reason="Debit for Tv subscription.",
                     transactionReference="",
                 )
-                if debit_response == 200:
-                    NewTvSub(
+                if debit_response.status_code == 200:
+                    new_tv_response = NewTvSub(
                         user=user,
                         serializer=serializer,
                         reason="Debit for Tv subscription.",
                         user_data=user_data,
                     )
+                    if new_tv_response["code"] == 200:
+                        response_data = {
+                            "status": "success",
+                            "message": f"Tv subscription purchase of {new_amount} was successful.",
+                            "cable_tv_response": new_tv_response,
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
                     return Response(
                         data={
-                            "status": "success",
-                            "message": "Account debit successful",
-                            "data": debit_response.json(),
+                            "status": "fail",
+                            "message": "Cable TV subscription purchase failed due to insufficient balance.",
+                            "error": new_tv_response,
                         },
-                        status=debit_response.status_code,
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
                     return Response(
@@ -853,9 +864,15 @@ class NewTvSubscription(generics.GenericAPIView):
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment option not yet implemented.",
+                        "message": "Card payment not yet implemented",
                     },
                     status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+
+            case _:
+                return Response(
+                    data={"status": "fail", "message": "Invalid payment option"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
 
@@ -881,14 +898,33 @@ class RenewTvSubscription(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
-        account = AccountCreation.objects.get(user=user)
-        verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            account = AccountCreation.objects.get(user=user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if account is not None and account.pin is not None:
+            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        else:
+            return Response(
+                data={"status": "fail", "error": "Account or pin not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         if not verification:
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        renew_tv_response = None
+
         payment_option = request.data.get("payment_option")
         match payment_option:
             case "WALLET":
@@ -911,39 +947,46 @@ class RenewTvSubscription(generics.GenericAPIView):
                     transactionReference="",
                 )
                 if debit_response.status_code == 200:
-                    serializer = self.serializer_class(data=user_data)
-                    if serializer.is_valid(raise_exception=True):
-                        RenewTvSub(
-                            user=user,
-                            serializer=serializer,
-                            reason="Debit for tv subscription renewal.",
-                            user_data=user_data,
-                        )
-                        return Response(
-                            data={
-                                "status": "success",
-                                "message": "Account debit successful",
-                                "data": debit_response.json(),
-                            },
-                            status=debit_response.status_code,
-                        )
-                    else:
-                        return Response(
-                            data=serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                    renew_tv_response = RenewTvSub(
+                        user=user,
+                        serializer=serializer,
+                        reason="Debit for tv subscription renewal.",
+                        user_data=user_data,
+                    )
+                    if renew_tv_response["code"] == 200:
+                        response_data = {
+                            "status": "success",
+                            "message": f"Tv subscription purchase of {new_amount} was successful.",
+                            "cable_tv_response": renew_tv_response,
+                        }
+                        return Response(data=response_data, status=status.HTTP_200_OK)
+                    return Response(
+                        data={
+                            "status": "fail",
+                            "message": "Cable TV subscription purchase failed due to insufficient balance.",
+                            "error": renew_tv_response,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 else:
                     return Response(
                         data=debit_response.json(),
                         status=debit_response.status_code,
                     )
+
             case "CARD":
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment option not yet implemented.",
+                        "message": "Card payment not yet implemented",
                     },
                     status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+
+            case _:
+                return Response(
+                    data={"status": "fail", "message": "Invalid payment option"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
 

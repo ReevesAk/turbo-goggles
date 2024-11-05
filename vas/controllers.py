@@ -15,8 +15,8 @@ from .models import (
     AirtimeTopup,
     DataSubscription,
     ElectricityBill,
-    # WaecRegistration,
-    # TvSubscription, HealthInsurance, VehicleInsurance, AccidentInsurance,
+    TvSubscription,
+    # WaecRegistration, HealthInsurance, VehicleInsurance, AccidentInsurance,
     # HomeCoverInsurance,
 )
 
@@ -244,7 +244,6 @@ def NewTvSub(user, serializer, reason, user_data):
     )
 
     if new_tv_response.status_code == 200:
-        # Save TvSubscription and get the auto-generated tx_reference
         new_tv_sub_instance = serializer.save()
         tx_reference = new_tv_sub_instance.tx_reference
         amount = user_data["amount"]
@@ -271,13 +270,15 @@ def NewTvSub(user, serializer, reason, user_data):
         # Use the same tx_reference for TxModel
         try:
             with transaction.atomic():
-                tx = TxModel.objects.filter(user=user).order_by("-id").first()
-                tx.tx_reference = tx_reference  # Set the same tx_reference
-                tx.tx_type = "Leisure"
-                tx.amount = amount
-                tx.description = "Debit for new TV subscription payment."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=new_tv_response.json().get("transactionId", ""),
+                    tx_reference=tx_reference,
+                    tx_type="Leisure",
+                    amount=amount,
+                    description="Debit for new TV subscription payment.",
+                    rwd=new_rewards,
+                )
 
                 # Update rewards
                 rwd, _ = Rewards.objects.get_or_create(user=user)
@@ -288,21 +289,22 @@ def NewTvSub(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"TV subscription of {amount} was successful and you have been awarded {new_rewards} rewards.",
-            "data": new_tv_response.json(),
-        }
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        TvSubscription.objects.create(
+            user=user,
+            sericeID=user_data["serviceID"],
+            subscription_type="change",
+            request_id=req_id,
+            quantity=user_data["serviceID"],
+            amount=amount,
+            phone=user_data["phone"],
+        )
+
+        return new_tv_response.json()
 
     # Handle failed subscription response
     else:
-        response_data = {
-            "data": new_tv_response.json(),
-            "message": "A refund will be issued.",
-        }
-        Account.Credit(acct_no=user.accountNumber, amount=amount, reason=reason)
-        return Response(response_data, status=new_tv_response.status_code)
+        _ = Account.Credit(acct_no=user.accountNumber, amount=amount, reason=reason)
+        return new_tv_response.json()
 
 
 def RenewTvSub(user, serializer, reason, user_data):
@@ -312,7 +314,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         amount=user_data["amount"],
         phone=user_data["phone"],
         billersCode=user_data["billersCode"],
-        subscription_type="change",
+        subscription_type="renew",
     )
     if renew_tv_response.status_code == 200:
         renew_tv_sub_instance = serializer.save()
@@ -341,14 +343,15 @@ def RenewTvSub(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx = TxModel.objects.filter(user=user).order_by("-id").first()
-                tx.tx_id = renew_tv_response.json().get("transactionId", "")
-                tx.tx_reference = tx_reference
-                tx.tx_type = "Leisure"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for tv subscription renewal."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=renew_tv_response.json().get("transactionId", ""),
+                    tx_reference=tx_reference,
+                    tx_type="Leisure",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for tv subscription renewal.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -358,24 +361,23 @@ def RenewTvSub(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Tv subscription of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": renew_tv_response.json(),
-        }
+        TvSubscription.objects.create(
+            user=user,
+            sericeID=user_data["serviceID"],
+            subscription_type="renew",
+            request_id=req_id,
+            quantity=user_data["serviceID"],
+            amount=amount,
+            phone=user_data["phone"],
+        )
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return (renew_tv_response.json(),)
+
     else:
-        response_data = {
-            "data": renew_tv_response.json(),
-            "message": "A refund will be issued.",
-        }
-
-        # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(response_data, status=renew_tv_response.status_code)
+        return renew_tv_response.json()
 
 
 def international_topup(user, serializer, reason, user_data):
