@@ -95,11 +95,32 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                     partner_account.is_restricted = True
                     partner_account.save()
 
+                    authenticated_user = request.user
+                    user_name = (
+                        "Superuser"
+                        if authenticated_user.active_role == "Superuser"
+                        else authenticated_user.full_name
+                        if authenticated_user.active_role
+                        in {
+                            "SuperAdmin",
+                            "TaskAdmin",
+                            "AdAdmin",
+                            "MembersAdmin",
+                            "UserAdmin",
+                            "PartnersAdmin",
+                            "ContentAdmin",
+                            "IntegrationAdmin",
+                            "WalletAdmin",
+                            "FmcgAdmin",
+                        }
+                        else "Unknown"
+                    )
+
                     # Register Admin activity.
                     ActivityModel.objects.create(
                         user=request.user,
                         title="Restrict Admin.",
-                        description=f"Partner, {partner.firstname} has been restricted by {request.user.full_name}.",
+                        description=f"Partner, {partner.firstname} has been restricted by {user_name}.",
                     )
 
                     reason = (request.data.get("reason"),)

@@ -1,7 +1,6 @@
 import logging
 import requests
 from django.template.loader import render_to_string
-from django.db.models import Q
 from commons import Message
 
 # In project imports.

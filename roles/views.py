@@ -621,23 +621,24 @@ class AddRoleToAdmin(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
-    def get_user(self, identifier):
-        """Retrieve a user by ID or email."""
-        if identifier.isdigit():  # Check if the identifier is numeric
-            return User.objects.filter(id=int(identifier)).first()
-        else:
-            return User.objects.filter(email=identifier).first()
+    # def get_user(self, identifier):
+    #     """Retrieve a user by ID or email."""
+    #     if identifier.isdigit():  # Check if the identifier is numeric
+    #         return User.objects.filter(id=int(identifier)).first()
+    #     else:
+    #         return User.objects.filter(email=identifier).first()
 
     def post(self, request):
         """Add a role to an admin."""
-        user = self.get_user(request.data.get("email"))
-        if not user:
+        email = request.data.get("email")
+        is_user = User.objects.filter(email=email).first()
+        if not is_user:
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
         new_role = request.data.get("role")
 
         # Check if the role already exists
-        if AccountType.objects.filter(user=user, user_type=new_role).exists():
+        if AccountType.objects.filter(user=is_user, user_type=new_role).exists():
             return Response(
                 data={
                     "status": "fail.",
@@ -648,18 +649,18 @@ class AddRoleToAdmin(generics.GenericAPIView):
             )
 
         # Add the role
-        AccountType.objects.create(user=user, user_type=new_role)
+        AccountType.objects.create(user=is_user, user_type=new_role)
 
         UserNotification.objects.create(
-            user=user,
+            user=is_user,
             title="Updated Admin Role.",
             message=f"'{new_role}' has been added to your Admin's roles.",
         )
 
         ActivityModel.objects.create(
-            user=user,
+            user=is_user,
             title="Admin Role Updated.",
-            description=f"Admin, {user.full_name} assigned new role: {new_role}.",
+            description=f"Admin, {is_user.full_name} assigned new role: {new_role}.",
         )
         return Response(
             data={
@@ -677,24 +678,18 @@ class RemoveAdminRole(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
-    def get_user(self, identifier):
-        """Retrieve a user by ID or email."""
-        if identifier.isdigit():  # Check if the identifier is numeric
-            return User.objects.filter(id=int(identifier)).first()
-        else:
-            return User.objects.filter(email=identifier).first()
-
     def delete(self, request):
         """Remove a role from an admin."""
-        user = self.get_user(request.data.get("email"))
-        if not user:
+        email = request.data.get("email")
+        is_user = User.objects.filter(email=email).first()
+        if not is_user:
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
         role_to_remove = request.data.get("role_to_remove")
 
         # Check if the role exists for the user
         account_type_instance = AccountType.objects.filter(
-            user=user, user_type=role_to_remove
+            user=is_user, user_type=role_to_remove
         ).first()
 
         if not account_type_instance:
@@ -706,15 +701,15 @@ class RemoveAdminRole(generics.GenericAPIView):
         account_type_instance.delete()
 
         UserNotification.objects.create(
-            user=user,
+            user=is_user,
             title="Role Removed",
             message=f"The role '{role_to_remove}' has been removed from your account.",
         )
 
         ActivityModel.objects.create(
-            user=user,
+            user=is_user,
             title="Role Removed",
-            description=f"'{role_to_remove}' has been removed as part of Admin, {user.full_name} roles.",
+            description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
         )
 
         return Response(
