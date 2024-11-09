@@ -1,4 +1,8 @@
 import logging
+
+from django.http import HttpResponse
+from django.views import View
+
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -139,3 +143,8 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class RedirectingPageView(View):
+    def get(self, request, *args, **kwargs):
+        return HttpResponse("Redirecting...")
