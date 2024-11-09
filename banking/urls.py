@@ -23,7 +23,11 @@ from .transfers import (
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
-from .webhooks import CardDepositPaystackWebhook, VerifyCardPaymentTransaction
+from .webhooks import (
+    CardDepositPaystackWebhook,
+    VerifyCardPaymentTransaction,
+    RedirectingPageView,
+)
 
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
@@ -77,4 +81,5 @@ urlpatterns = [
         VerifyCardPaymentTransaction.as_view(),
         name="verify_card_deposit",
     ),
+    path("redirecting/", RedirectingPageView.as_view(), name="redirecting"),
 ]

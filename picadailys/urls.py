@@ -55,6 +55,8 @@ urlpatterns = [
     path("api/v1/roles/", include("roles.urls")),
     # Self service endpoints.
     path("api/v1/self_service/", include("self_service.urls")),
-    # Maplerad banking endpoints.
+    # Providus banking endpoints.
     path("api/v1/banking/", include("banking.urls")),
+    # Support endpoints.
+    path("api/v1/support/", include("support.urls")),
 ]
