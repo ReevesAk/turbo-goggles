@@ -71,7 +71,8 @@ class ProductOrderSerializer(serializers.Serializer):
 
 class FmcgOrderSerializer(serializers.ModelSerializer):
     products = ProductOrderSerializer(many=True)  # Accepts a list of products with IDs and quantities
-    pin = serializers.CharField(max_length=4, min_length=4)
+    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    use_biometrics = serializers.BooleanField(required=False)
     payment_method = serializers.CharField(max_length=50)
     available_addresses = serializers.CharField(max_length=50)
 
@@ -84,7 +85,8 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
             "delivery_address",
             "available_addresses",
             "total_price",
-            "pin"
+            "pin",
+            "use_biometrics"
         ]
 
     def validate(self, data):
