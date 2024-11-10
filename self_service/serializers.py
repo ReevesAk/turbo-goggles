@@ -15,7 +15,9 @@ from partners.models import CustomerRating
 class RestaurantBookingSerializers(serializers.ModelSerializer):
     "serializers for booking a restaurant table."
 
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
     use_biometrics = serializers.BooleanField(required=False)
 
@@ -36,7 +38,9 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
 class GymSubcriptionSerializers(serializers.ModelSerializer):
     "serializers for subscribing to a gym."
 
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
     use_biometrics = serializers.BooleanField(required=False)
 
@@ -57,7 +61,9 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
 class CinemaBookingSerializers(serializers.ModelSerializer):
     "serializers for booking cinema seats."
 
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
     use_biometrics = serializers.BooleanField(required=False)
 
@@ -78,7 +84,9 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
 class CourierBookingSerializers(serializers.ModelSerializer):
     "serializers for booking courier service."
 
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:

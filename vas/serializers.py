@@ -48,7 +48,9 @@ def check_provider(number):
 class AirtimeTopupSerializer(serializers.ModelSerializer):
     """Serializers for airtime topup."""
 
-    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     use_biometrics = serializers.BooleanField(required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -98,7 +100,9 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
 class DataSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for data subscription."""
 
-    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     use_biometrics = serializers.BooleanField(required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -152,7 +156,9 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
 class ElectricityBillSerializer(serializers.ModelSerializer):
     """Serializers for electriicty payment."""
 
-    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     use_biometrics = serializers.BooleanField(required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -183,7 +189,9 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
 class TvSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for tv subscription."""
 
-    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
     use_biometrics = serializers.BooleanField(required=False)
     payment_option = serializers.CharField(max_length=50, write_only=True)
     tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)

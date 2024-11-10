@@ -71,7 +71,7 @@ class ProductOrderSerializer(serializers.Serializer):
 
 class FmcgOrderSerializer(serializers.ModelSerializer):
     products = ProductOrderSerializer(many=True)  # Accepts a list of products with IDs and quantities
-    pin = serializers.CharField(max_length=4, min_length=4, required=False)
+    pin = serializers.CharField(max_length=4, min_length=4, required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(required=False)
     payment_method = serializers.CharField(max_length=50)
     available_addresses = serializers.CharField(max_length=50)
