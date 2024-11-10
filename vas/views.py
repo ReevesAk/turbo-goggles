@@ -43,7 +43,7 @@ from .controllers import (
     HealthInsurance,
 )
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
-from commons import Pay
+from commons import Pay, Biometrics
 
 
 vtpass_url = config("VT_PASS_BASE_URL")
@@ -80,6 +80,8 @@ class AirTimeTopUp(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        biometrics = request.data.get("use_biometrics")
+
         try:
             account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
@@ -87,20 +89,23 @@ class AirTimeTopUp(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if account is not None and account.pin is not None:
-            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if biometrics:
+            verification = Biometrics.authenticate(user.phone_number)
         else:
-            return Response(
-                data={"status": "fail", "error": "Account or pin not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
         airtime_response = None
 
         if use_bonus:
@@ -266,6 +271,8 @@ class DataSubscriptionView(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        biometrics = request.data.get("use_biometrics")
+
         try:
             account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
@@ -273,17 +280,21 @@ class DataSubscriptionView(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if account is not None and account.pin is not None:
-            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if biometrics:
+            verification = Biometrics.authenticate(user.phone_number)
         else:
-            return Response(
-                data={"status": "fail", "error": "Account or pin not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -482,6 +493,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        biometrics = request.data.get("use_biometrics")
+
         try:
             account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
@@ -489,17 +502,21 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if account is not None and account.pin is not None:
-            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if biometrics:
+            verification = Biometrics.authenticate(user.phone_number)
         else:
-            return Response(
-                data={"status": "fail", "error": "Account or pin not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -788,6 +805,8 @@ class NewTvSubscription(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        biometrics = request.data.get("use_biometrics")
+
         try:
             account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
@@ -795,17 +814,21 @@ class NewTvSubscription(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if account is not None and account.pin is not None:
-            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if biometrics:
+            verification = Biometrics.authenticate(user.phone_number)
         else:
-            return Response(
-                data={"status": "fail", "error": "Account or pin not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -902,6 +925,8 @@ class RenewTvSubscription(generics.GenericAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        biometrics = request.data.get("use_biometrics")
+
         try:
             account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
@@ -909,17 +934,21 @@ class RenewTvSubscription(generics.GenericAPIView):
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if account is not None and account.pin is not None:
-            verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+
+        if biometrics:
+            verification = Biometrics.authenticate(user.phone_number)
         else:
-            return Response(
-                data={"status": "fail", "error": "Account or pin not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 

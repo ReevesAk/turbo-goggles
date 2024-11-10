@@ -17,6 +17,7 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = RestaurantBooking
@@ -27,6 +28,7 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
             "amount",
             "number_of_seats",
             "pin",
+            "use_biometrics",
             "payment_option",
         ]
 
@@ -36,6 +38,7 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = GymSubcription
@@ -46,6 +49,7 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
             "amount",
             "number_of_persons",
             "pin",
+            "use_biometrics",
             "payment_option",
         ]
 
@@ -55,6 +59,7 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     amount = serializers.CharField(max_length=255, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = CinemaBooking
@@ -65,6 +70,7 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
             "amount",
             "number_of_persons",
             "pin",
+            "use_biometrics",
             "payment_option",
         ]
 
@@ -73,6 +79,7 @@ class CourierBookingSerializers(serializers.ModelSerializer):
     "serializers for booking courier service."
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = CourierService
@@ -82,6 +89,7 @@ class CourierBookingSerializers(serializers.ModelSerializer):
             "destination",
             "price_per_kg",
             "pin",
+            "use_biometrics",
             "payment_option",
         ]
 

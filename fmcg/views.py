@@ -2,7 +2,7 @@ import random
 import string
 import uuid
 import logging
-from commons import Allocate
+from commons import Allocate, Biometrics
 
 from django.shortcuts import get_object_or_404
 from django.http import Http404
@@ -352,18 +352,30 @@ class FmcgCheckout(generics.CreateAPIView):
 
             # Verify pin
             pin = payload["pin"]
-            account = AccountCreation.objects.get(user=authenticated_user)
-            if account is not None and account.pin is not None:
-                verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
-            else:
+            biometrics = request.data.get("use_biometrics")
+
+            try:
+                account = AccountCreation.objects.get(user=authenticated_user)
+            except AccountCreation.DoesNotExist:
                 return Response(
-                    data={"status": "fail", "error": "Account or pin not found for user"},
+                    data={"status": "fail", "error": "Account not found for user"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            if biometrics:
+                verification = Biometrics.authenticate(authenticated_user.phone_number)
+            else:
+                if account and account.pin is not None:
+                    verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                else:
+                    return Response(
+                        data={"status": "fail", "error": "Account or PIN not found for user"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
             if not verification:
                 return Response(
-                    data={"status": "fail", "error": "Incorrect pin"},
+                    data={"status": "fail", "error": "Invalid credentials"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 

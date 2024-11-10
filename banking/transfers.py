@@ -1,7 +1,7 @@
 from django.http import Http404
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
-from commons import generate_txId, Message
+from commons import generate_txId, Message, Biometrics
 
 # Third party imports.
 from rest_framework import generics
@@ -160,9 +160,15 @@ class IntraBankTransfer(generics.CreateAPIView):
 
         account = AccountCreation.objects.get(user=authenticated_user)
         pin = request.data.get("pin")
-        verification = Pin.verify(
-            user=authenticated_user, pin=pin, hashed_pin=account.pin
-        )
+        biometrics = request.data.get("use_biometrics")
+
+        if biometrics:
+            verification = Biometrics.authenticate(authenticated_user.phone_number)
+        else:
+            verification = Pin.verify(
+                user=authenticated_user, pin=pin, hashed_pin=account.pin
+            )
+
         if verification:
             transfer_resp = Transfers.Intra_bank_transfer(
                 creditAccount=payload["credit_account"],
@@ -260,6 +266,15 @@ class InterBankTransfer(generics.CreateAPIView):
 
         account = AccountCreation.objects.get(user=authenticated_user)
         pin = request.data.get("pin")
+        biometrics = request.data.get("use_biometrics")
+
+        if biometrics:
+            verification = Biometrics.authenticate(authenticated_user.phone_number)
+        else:
+            verification = Pin.verify(
+                user=authenticated_user, pin=pin, hashed_pin=account.pin
+            )
+
         verification = Pin.verify(
             user=authenticated_user, pin=pin, hashed_pin=account.pin
         )

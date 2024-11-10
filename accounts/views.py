@@ -34,6 +34,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import GamificationModel, ActivityModel
 from sms import Message
+from commons import Biometrics
 from permissions import IsUserOrMember
 
 
@@ -294,7 +295,7 @@ class Login(APIView):
 
         # Check if biometrics is requested
         if biometrics:
-            user = self.authenticate_with_biometrics(login)
+            user = Biometrics.authenticate(login)
         else:
             user = authenticate(phone_number=login, password=password)
 
@@ -326,15 +327,6 @@ class Login(APIView):
 
         # Successful login
         return self.handle_login_success(user)
-
-    def authenticate_with_biometrics(self, phone_number):
-        try:
-            # Retrieve user with biometrics enabled
-            user = User.objects.get(phone_number=phone_number)
-            return user
-        except User.DoesNotExist:
-            logging.error("User with biometrics not found or not enabled")
-            return None
 
     def check_device_limit(self, user):
         existing_device_count = DeviceId.objects.filter(user=user).count()

@@ -13,7 +13,7 @@ import inflection
 
 from decouple import config
 
-from accounts.models import Rewards
+from accounts.models import User
 from roles.models import Points
 
 termii_base_url = config("TERMII_BASE_URL")
@@ -35,6 +35,18 @@ def upload_to(instance, filename):
 def generate_txId():
     tx_id = random.randint(100000000000000, 999999999999999)
     return tx_id
+
+
+class Biometrics:
+    @staticmethod
+    def authenticate(phone_number):
+        try:
+            # Retrieve user with biometrics enabled
+            user = User.objects.get(phone_number=phone_number)
+            return user
+        except User.DoesNotExist:
+            logging.error("User with biometrics not found or not enabled")
+            return None
 
 
 class Message:

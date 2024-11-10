@@ -194,12 +194,14 @@ class IntraBankTransfersSerializer(serializers.ModelSerializer):
     )
     debit_account = serializers.CharField(max_length=50, write_only=True, required=True)
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = TransferModel
         fields = [
             "id",
             "pin",
+            "use_biometrics",
             "credit_account",
             "debit_account",
             "narration",
@@ -214,12 +216,14 @@ class InterBankTransfersSerializer(serializers.ModelSerializer):
     )
     narration = serializers.CharField(max_length=50, write_only=True, required=True)
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    use_biometrics = serializers.BooleanField(required=False)
 
     class Meta:
         model = TransferModel
         fields = [
             "id",
             "pin",
+            "use_biometrics",
             "beneficiary_account_name",
             "beneficiary_account_number",
             "beneficiary_bank",
