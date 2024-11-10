@@ -539,52 +539,32 @@ class AllPartnersServiceList(generics.ListAPIView):
         """
         Retrieves all Partner services filtered by business name if provided.
         """
-        queryset = User.objects.filter(active_role="Partner")
+        queryset = PartnerServices.objects.all()
+
         if business:
-            queryset = queryset.filter(partnerservices__business=business).distinct()
+            # Debugging: Print the business parameter
+            print(f"Filtering PartnerServices by business: {business}")
+            queryset = queryset.filter(business=business)
+
+            # Debugging: Print the resulting queryset
+            print(f"Resulting queryset: {queryset}")
+
         return queryset.order_by("created_at")
 
     def list(self, request, *args, **kwargs):
-        business = kwargs.get("business")  # Get business name from query params
+        business = kwargs.get("business")
+
+        # Debugging: Print the incoming request parameter
+        print(f"Received business parameter: {business}")
+
         queryset = self.get_queryset(business=business)
-        page = self.paginate_queryset(queryset)
-        data = []
+        serialized_data = PartnerServiceSerializer(queryset, many=True)
 
-        if page is not None:
-            # Apply pagination
-            for partner in page:
-                partner_data = {
-                    "name": partner.business,
-                    "services": PartnerServiceSerializer(
-                        PartnerServices.objects.filter(user=partner), many=True
-                    ).data,
-                }
-                data.append(partner_data)
-            serialized_data = self.get_paginated_response(data)
-        else:
-            # No pagination applied (small result set or no limit/offset provided)
-            for partner in queryset:
-                partner_data = {
-                    "name": partner.business,
-                    "services": PartnerServiceSerializer(
-                        PartnerServices.objects.filter(user=partner, business=business), many=True
-                    ).data,
-                }
-                data.append(partner_data)
-            serialized_data = Response(data, status=status.HTTP_200_OK)
-
-        # Update response structure to include pagination information (if applicable)
         response = {
             "status": "success",
-            "message": "All Partners services fetched successfully!",
-            "data": (
-                serialized_data.data
-                if hasattr(serialized_data, "data")
-                else serialized_data.content
-            ),  # Handle both paginated and non-paginated responses
+            "message": "Partner services fetched successfully!",
+            "data": serialized_data.data,
         }
-        if hasattr(serialized_data, "pagination"):  # Add pagination details if available
-            response.update(serialized_data.pagination)
 
         return Response(response, status=status.HTTP_200_OK)
 

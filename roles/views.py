@@ -696,7 +696,8 @@ class RemoveAdminRole(generics.GenericAPIView):
         if check_password(password=pin, encoded=request.user.admin_pin):
             if not account_type_instance:
                 return Response(
-                    data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
+                    data="Role not found for the user.",
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Remove the role

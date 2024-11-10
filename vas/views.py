@@ -97,7 +97,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data={
+                        "status": "fail",
+                        "error": "Account or PIN not found for user",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -288,7 +291,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data={
+                        "status": "fail",
+                        "error": "Account or PIN not found for user",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -510,7 +516,10 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data={
+                        "status": "fail",
+                        "error": "Account or PIN not found for user",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -822,7 +831,10 @@ class NewTvSubscription(generics.GenericAPIView):
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data={
+                        "status": "fail",
+                        "error": "Account or PIN not found for user",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -942,7 +954,10 @@ class RenewTvSubscription(generics.GenericAPIView):
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data={
+                        "status": "fail",
+                        "error": "Account or PIN not found for user",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 

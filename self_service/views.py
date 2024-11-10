@@ -80,13 +80,20 @@ class TableBooking(generics.CreateAPIView):
                     )
 
                 if biometrics:
-                    verification = Biometrics.authenticate(authenticated_user.phone_number)
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
                 else:
                     if account and account.pin is not None:
-                        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                        verification = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=account.pin
+                        )
                     else:
                         return Response(
-                            data={"status": "fail", "error": "Account or PIN not found for user"},
+                            data={
+                                "status": "fail",
+                                "error": "Account or PIN not found for user",
+                            },
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
@@ -261,13 +268,20 @@ class GymBooking(generics.CreateAPIView):
                     )
 
                 if biometrics:
-                    verification = Biometrics.authenticate(authenticated_user.phone_number)
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
                 else:
                     if account and account.pin is not None:
-                        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                        verification = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=account.pin
+                        )
                     else:
                         return Response(
-                            data={"status": "fail", "error": "Account or PIN not found for user"},
+                            data={
+                                "status": "fail",
+                                "error": "Account or PIN not found for user",
+                            },
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
@@ -436,13 +450,20 @@ class CinemaBookingView(generics.CreateAPIView):
                     )
 
                 if biometrics:
-                    verification = Biometrics.authenticate(authenticated_user.phone_number)
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
                 else:
                     if account and account.pin is not None:
-                        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                        verification = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=account.pin
+                        )
                     else:
                         return Response(
-                            data={"status": "fail", "error": "Account or PIN not found for user"},
+                            data={
+                                "status": "fail",
+                                "error": "Account or PIN not found for user",
+                            },
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
@@ -612,13 +633,20 @@ class BookCourierSercvice(generics.CreateAPIView):
                     )
 
                 if biometrics:
-                    verification = Biometrics.authenticate(authenticated_user.phone_number)
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
                 else:
                     if account and account.pin is not None:
-                        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                        verification = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=account.pin
+                        )
                     else:
                         return Response(
-                            data={"status": "fail", "error": "Account or PIN not found for user"},
+                            data={
+                                "status": "fail",
+                                "error": "Account or PIN not found for user",
+                            },
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
@@ -1114,13 +1142,20 @@ class BookHotel(generics.GenericAPIView):
                     )
 
                 if biometrics:
-                    verification = Biometrics.authenticate(authenticated_user.phone_number)
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
                 else:
                     if account and account.pin is not None:
-                        verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                        verification = Pin.verify(
+                            user=authenticated_user, pin=pin, hashed_pin=account.pin
+                        )
                     else:
                         return Response(
-                            data={"status": "fail", "error": "Account or PIN not found for user"},
+                            data={
+                                "status": "fail",
+                                "error": "Account or PIN not found for user",
+                            },
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
