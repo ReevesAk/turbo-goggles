@@ -41,7 +41,7 @@ urlpatterns = [
         name="partner-service",
     ),
     path(
-        "all-partners-services",
+        "all-partners-services/<str:business>/",
         AllPartnersServiceList.as_view(),
         name="all_partner_service",
     ),

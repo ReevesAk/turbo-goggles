@@ -535,14 +535,18 @@ class AllPartnersServiceList(generics.ListAPIView):
     ]
     pagination_class = PaginationStyle
 
-    def get_queryset(self):
+    def get_queryset(self, business=None):
         """
-        Retrieves all Partner users.
+        Retrieves all Partner services filtered by business name if provided.
         """
-        return User.objects.filter(active_role="Partner").order_by("created_at")
+        queryset = User.objects.filter(active_role="Partner")
+        if business:
+            queryset = queryset.filter(partnerservices__business=business).distinct()
+        return queryset.order_by("created_at")
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+        business = kwargs.get("business")  # Get business name from query params
+        queryset = self.get_queryset(business=business)
         page = self.paginate_queryset(queryset)
         data = []
 
@@ -550,7 +554,7 @@ class AllPartnersServiceList(generics.ListAPIView):
             # Apply pagination
             for partner in page:
                 partner_data = {
-                    "name": partner.business_name,
+                    "name": partner.business,
                     "services": PartnerServiceSerializer(
                         PartnerServices.objects.filter(user=partner), many=True
                     ).data,
@@ -561,9 +565,9 @@ class AllPartnersServiceList(generics.ListAPIView):
             # No pagination applied (small result set or no limit/offset provided)
             for partner in queryset:
                 partner_data = {
-                    "name": partner.business_name,
+                    "name": partner.business,
                     "services": PartnerServiceSerializer(
-                        PartnerServices.objects.filter(user=partner), many=True
+                        PartnerServices.objects.filter(user=partner, business=business), many=True
                     ).data,
                 }
                 data.append(partner_data)
@@ -579,9 +583,7 @@ class AllPartnersServiceList(generics.ListAPIView):
                 else serialized_data.content
             ),  # Handle both paginated and non-paginated responses
         }
-        if hasattr(
-            serialized_data, "pagination"
-        ):  # Add pagination details if available
+        if hasattr(serialized_data, "pagination"):  # Add pagination details if available
             response.update(serialized_data.pagination)
 
         return Response(response, status=status.HTTP_200_OK)
