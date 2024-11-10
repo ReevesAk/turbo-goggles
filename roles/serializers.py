@@ -189,19 +189,21 @@ class EnableAdminSerializer(serializers.ModelSerializer):
 
 
 class AddRoleToAdminSerializer(serializers.Serializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
     role = serializers.CharField(max_length=50, write_only=True)
 
     class Meta:
         model = User
-        fields = ["email", "role"]
+        fields = ["email", "role", "pin"]
 
 
 class RemoveRoleFromAdminSerializer(serializers.Serializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
     role_to_remove = serializers.CharField(max_length=50, write_only=True)
 
     class Meta:
         model = User
-        fields = ["email", "role_to_remove"]
+        fields = ["email", "role_to_remove", "pin"]
 
 
 class ListAdminSerializer(serializers.ModelSerializer):

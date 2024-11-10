@@ -621,16 +621,10 @@ class AddRoleToAdmin(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     renderer_classes = [CamelCaseJSONRenderer]
 
-    # def get_user(self, identifier):
-    #     """Retrieve a user by ID or email."""
-    #     if identifier.isdigit():  # Check if the identifier is numeric
-    #         return User.objects.filter(id=int(identifier)).first()
-    #     else:
-    #         return User.objects.filter(email=identifier).first()
-
     def post(self, request):
         """Add a role to an admin."""
         email = request.data.get("email")
+        pin = request.data.get("pin")
         is_user = User.objects.filter(email=email).first()
         if not is_user:
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
@@ -648,28 +642,34 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Add the role
-        AccountType.objects.create(user=is_user, user_type=new_role)
+        if check_password(password=pin, encoded=request.user.admin_pin):
+            # Add the role
+            AccountType.objects.create(user=is_user, user_type=new_role)
 
-        UserNotification.objects.create(
-            user=is_user,
-            title="Updated Admin Role.",
-            message=f"'{new_role}' has been added to your Admin's roles.",
-        )
+            UserNotification.objects.create(
+                user=is_user,
+                title="Updated Admin Role.",
+                message=f"'{new_role}' has been added to your Admin's roles.",
+            )
 
-        ActivityModel.objects.create(
-            user=is_user,
-            title="Admin Role Updated.",
-            description=f"Admin, {is_user.full_name} assigned new role: {new_role}.",
-        )
-        return Response(
-            data={
-                "status": "success",
-                "message": f"'{new_role}' assigned to the user.",
-                "new_role": new_role,
-            },
-            status=status.HTTP_200_OK,
-        )
+            ActivityModel.objects.create(
+                user=is_user,
+                title="Admin Role Updated.",
+                description=f"Admin, {is_user.full_name} assigned new role: {new_role}.",
+            )
+            return Response(
+                data={
+                    "status": "success",
+                    "message": f"'{new_role}' assigned to the user.",
+                    "new_role": new_role,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class RemoveAdminRole(generics.GenericAPIView):
@@ -681,6 +681,7 @@ class RemoveAdminRole(generics.GenericAPIView):
     def delete(self, request):
         """Remove a role from an admin."""
         email = request.data.get("email")
+        pin = request.data.get("pin")
         is_user = User.objects.filter(email=email).first()
         if not is_user:
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
@@ -692,34 +693,41 @@ class RemoveAdminRole(generics.GenericAPIView):
             user=is_user, user_type=role_to_remove
         ).first()
 
-        if not account_type_instance:
-            return Response(
-                data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
+        if check_password(password=pin, encoded=request.user.admin_pin):
+            if not account_type_instance:
+                return Response(
+                    data="Role not found for the user.", status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Remove the role
+            account_type_instance.delete()
+
+            UserNotification.objects.create(
+                user=is_user,
+                title="Role Removed",
+                message=f"The role '{role_to_remove}' has been removed from your account.",
             )
 
-        # Remove the role
-        account_type_instance.delete()
+            ActivityModel.objects.create(
+                user=is_user,
+                title="Role Removed",
+                description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
+            )
 
-        UserNotification.objects.create(
-            user=is_user,
-            title="Role Removed",
-            message=f"The role '{role_to_remove}' has been removed from your account.",
-        )
+            return Response(
+                data={
+                    "status": "success",
+                    "message": f"Role '{role_to_remove}' removed successfully.",
+                    "removed_role": role_to_remove,
+                },
+                status=status.HTTP_200_OK,
+            )
 
-        ActivityModel.objects.create(
-            user=is_user,
-            title="Role Removed",
-            description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
-        )
-
-        return Response(
-            data={
-                "status": "success",
-                "message": f"Role '{role_to_remove}' removed successfully.",
-                "removed_role": role_to_remove,
-            },
-            status=status.HTTP_200_OK,
-        )
+        else:
+            return Response(
+                data={"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class DisableAdminrole(generics.RetrieveUpdateAPIView):
