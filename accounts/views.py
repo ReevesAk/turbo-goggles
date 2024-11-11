@@ -1,6 +1,7 @@
 from django.utils import timezone
 
 from exceptions import Customexceptions
+from cloudinary import uploader as cloud
 import logging
 
 # Third party imports.
@@ -14,6 +15,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from drf_spectacular.utils import extend_schema
 
@@ -46,6 +48,9 @@ class Register(generics.GenericAPIView):
     """
 
     serializer_class = RegisterSerializer
+    parser_classes = [
+        MultiPartParser, JSONParser
+    ]
 
     def post(self, request):
         user_data = {
@@ -61,6 +66,8 @@ class Register(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            profile_upload = request.data.get("profile_image")
+
             user = serializer.save()
             AccountType.objects.create(
                 user=user,
@@ -68,6 +75,11 @@ class Register(generics.GenericAPIView):
             )
             user.active_role = "User"
             user.save()
+
+            if profile_upload:
+                image_url = self.upload_image(profile_upload)
+                user.profile_img_url = image_url
+                user.save()
 
             ActivityModel.objects.create(
                 user=user,
@@ -92,6 +104,10 @@ class Register(generics.GenericAPIView):
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def upload_image(self, image_data):
+        profile_img = cloud.upload(file=image_data)
+        self.uploaded_profile_url = profile_img["url"]
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):

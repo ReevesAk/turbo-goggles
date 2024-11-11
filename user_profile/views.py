@@ -51,9 +51,12 @@ from self_service.models import (
 from vas.models import (
     AirtimeTopup,
     DataSubscription,
-    # TvSubscription, WaecRegistration,
-    # HealthInsurance, AccidentInsurance, VehicleInsurance, ElectricityBill,
-    # HomeCoverInsurance
+    TvSubscription,
+    WaecRegistration,
+    HealthInsurance,
+    AccidentInsurance,
+    VehicleInsurance,
+    ElectricityBill,
 )
 from fmcg.models import Product, Favourite
 from cloudinary import uploader as cloud
@@ -797,7 +800,6 @@ class AddToFavourite(generics.CreateAPIView):
                 "ElectricityBill": ElectricityBill,
                 "TvSubscription": TvSubscription,
                 "WaecRegistration": WaecRegistration,
-                "HomeCoverInsurance": HomeCoverInsurance,
                 "AccidentInsurance": AccidentInsurance,
                 "VehicleInsurance": VehicleInsurance,
                 "HealthInsurance": HealthInsurance,

@@ -16,8 +16,10 @@ from .models import (
     DataSubscription,
     ElectricityBill,
     TvSubscription,
-    # WaecRegistration, HealthInsurance, VehicleInsurance, AccidentInsurance,
-    # HomeCoverInsurance,
+    WaecRegistration,
+    HealthInsurance,
+    VehicleInsurance,
+    AccidentInsurance,
 )
 
 current_datetime = datetime.now()
@@ -331,7 +333,7 @@ def RenewTvSub(user, serializer, reason, user_data):
         billersCode = user_data["billersCode"]
         ActivityModel.objects.create(
             user=user,
-            title="Renew Tv subscription.",
+            title="Renew Tv subscription",
             description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
         )
 
@@ -371,81 +373,13 @@ def RenewTvSub(user, serializer, reason, user_data):
             phone=user_data["phone"],
         )
 
-        return (renew_tv_response.json(),)
+        return renew_tv_response.json()
 
     else:
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
         return renew_tv_response.json()
-
-
-def international_topup(user, serializer, reason, user_data):
-    intl_topup_response = VAS.intl_topup(
-        service_id=user_data["serviceID"],
-        amount=user_data["amount"],
-        phone=user_data["phone"],
-        billersCode=user_data["billersCode"],
-        operator_id=user_data["operator_id"],
-        variation_code=user_data["variation_code"],
-        country_code=user_data["country_code"],
-        email=user_data["email"],
-        product_type_id=user_data["product_type_id"],
-    )
-    if intl_topup_response.status_code == 200:
-        intl_topup_instnace = serializer.save()
-        amount = user_data["amount"]
-
-        UserNotification.objects.create(
-            user=user,
-            title="International airtime recharge.",
-            message=f"This is to inform you that your payment of {amount} \
-                for international airtime topup is successful.",
-        )
-
-        # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member" and amount >= 100:
-            new_rewards = Allocate.reward(amount=amount)
-        else:
-            new_rewards = 0
-
-        try:
-            with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = intl_topup_response.json().get("transactionId", "")
-                tx.tx_reference = intl_topup_instnace.tx_reference
-                tx.tx_type = "Airtime"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for international airtime recharge."
-                tx.rwd = new_rewards
-                tx.save()
-
-                rwd, _ = Rewards.objects.get_or_create(user=user)
-                rwd.balance += new_rewards
-                rwd.transaction = tx
-                rwd.save()
-
-        except Exception as e:
-            logging.error(f"Database query error: {str(e)}")
-
-        response_data = {
-            "status": "Success",
-            "message": f"Topup of {amount} was succesful and you have been awarded {new_rewards} rewards",
-            "data": intl_topup_response.json(),
-        }
-
-        return Response(data=response_data, status=status.HTTP_200_OK)
-    else:
-        response_data = {
-            "data": intl_topup_response.json(),
-            "message": "A refund will be issued.",
-        }
-
-        # initiate a credit refund to the customer after failed transaction.
-        _ = Account.Credit(
-            acct_no=user.accountNumber, amount=user["amount"], reason=reason
-        )
-        return Response(data=response_data, status=intl_topup_response.status_code)
 
 
 def waec_reg(user, serializer, reason, user_data):
@@ -457,6 +391,7 @@ def waec_reg(user, serializer, reason, user_data):
     )
     if waec_response.status_code == 200:
         waec_payment_instance = serializer.save()
+        tx_reference = waec_payment_instance.tx_reference
         amount = waec_response.json()["amount"]
 
         UserNotification.objects.create(
@@ -464,6 +399,12 @@ def waec_reg(user, serializer, reason, user_data):
             title="Waec registration.",
             message=f"This is to inform you that your payment of {amount} \
                 for WAEC registration is successful.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Waec registration",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for waec registration.",
         )
 
         # Check is user is a memeber then assign rewards.
@@ -474,14 +415,15 @@ def waec_reg(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = waec_response.json().get("transactionId", "")
-                tx.tx_reference = waec_payment_instance.tx_reference
-                tx.amount = user_data.get("amount", 0)
-                tx.tx_type = "Education"
-                tx.description = "Debit for waec registration."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=waec_response.json().get("transactionId", ""),
+                    tx_reference=tx_reference,
+                    amount=user_data.get("amount", 0),
+                    tx_type="Education",
+                    description="Debit for waec registration.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -491,27 +433,26 @@ def waec_reg(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Waec registration of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": waec_response.json(),
-        }
+        WaecRegistration.objects.create(
+            user=user,
+            sericeID=user_data["serviceID"],
+            request_id=req_id,
+            quantity=user_data["serviceID"],
+            amount=amount,
+            phone=user_data["phone"],
+        )
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return waec_response.json()
+
     else:
-        response_data = {
-            "data": waec_response.json(),
-            "message": "A refund will be issued.",
-        }
-
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             acct_no=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(response_data, status=waec_response.status_code)
+        return waec_response.json()
 
 
-def VehicleInsurance(user, serializer, reason, user_data):
+def MotorInsurance(user, serializer, reason, user_data):
     vehicle_insurance_response = VAS.vehicle_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -531,6 +472,19 @@ def VehicleInsurance(user, serializer, reason, user_data):
         vehicle_insurance_instance = serializer.save()
         amount = vehicle_insurance_response.json()["amount"]
 
+        UserNotification.objects.create(
+            user=user,
+            title="Vehicle Insurance",
+            message=f"This is to inform you that your payment of {amount} \
+                for vehicle insurance is successful.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Vehicle Insurance",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for vehicle insurance.",
+        )
+
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
@@ -539,14 +493,15 @@ def VehicleInsurance(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = vehicle_insurance_response.json().get("transactionId", "")
-                tx.tx_reference = vehicle_insurance_instance.tx_reference
-                tx.tx_type = "Insurance"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for vehicular insurance."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=vehicle_insurance_response.json().get("transactionId", ""),
+                    tx_reference=vehicle_insurance_instance.tx_reference,
+                    tx_type="Insurance",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for vehicular insurance.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -556,30 +511,35 @@ def VehicleInsurance(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Vehicle insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": vehicle_insurance_response.json(),
-        }
+        VehicleInsurance.objects.create(
+            user=user,
+            sericeID=user_data["serviceID"],
+            request_id=req_id,
+            quantity=user_data["serviceID"],
+            amount=amount,
+            phone=user_data["phone"],
+            billersCode=user_data["variation_code"],
+            Insured_Name=user_data["insured_name"],
+            Engine_Number=user_data["engine_number"],
+            Chasis_Number=user_data["chasis_number"],
+            Plate_Number=user_data["plate_number"],
+            Vehicle_Make=user_data["vehicle_make"],
+            Vehicle_Color=user_data["vehicle_color"],
+            Vehicle_Model=user_data["vehicle_model"],
+            Year_of_Make=user_data["year_of_make"],
+            Contact_Address=user_data["contact_address"],
+        )
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return vehicle_insurance_response.json()
     else:
-        response_data = {
-            "data": vehicle_insurance_response.json(),
-            "message": "A refund will be issued.",
-        }
-
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(
-            data=response_data,
-            status=vehicle_insurance_response.status_code,
-        )
+        return vehicle_insurance_response.json()
 
 
-def AccidentInsurance(user, serializer, reason, user_data):
+def Accident_Insurance(user, serializer, reason, user_data):
     accident_insurance_response = VAS.accident_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -604,6 +564,12 @@ def AccidentInsurance(user, serializer, reason, user_data):
                 for accident inssurance is successful.",
         )
 
+        ActivityModel.objects.create(
+            user=user,
+            title="Accident inssurance",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for accident insurance.",
+        )
+
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
@@ -612,14 +578,15 @@ def AccidentInsurance(user, serializer, reason, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = accident_insurance_response.json().get("transactionId", "")
-                tx.tx_reference = accident_insurance_instance.tx_reference
-                tx.tx_type = "Insurance"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for accident insurance."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=accident_insurance_response.json().get("transactionId", ""),
+                    tx_reference=accident_insurance_instance.tx_reference,
+                    tx_type="Insurance",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for accident insurance.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -629,110 +596,31 @@ def AccidentInsurance(user, serializer, reason, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Accident insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": accident_insurance_response.json(),
-        }
-        return Response(data=response_data, status=status.HTTP_200_OK)
-    else:
-        response_data = {
-            "data": accident_insurance_response.json(),
-            "message": "A refund will be issued.",
-        }
+        AccidentInsurance.objects.create(
+            user=user,
+            service_id=user_data["serviceID"],
+            phone=user_data["phone"],
+            variation_code=user_data["variation_code"],
+            billersCode=user_data["variation_code"],
+            phone_no=user_data["phone"],
+            full_name=user_data["full_name"],
+            address=user_data["address"],
+            dob=user_data["dob"],
+            next_kin_name=user_data["next_kin_name"],
+            next_kin_phone=user_data["next_kin_phone"],
+            business_occupation=user_data["business_occupation"],
+        )
 
+        return accident_insurance_response.json()
+    else:
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
-        return Response(
-            response_data,
-            status=accident_insurance_response.status_code,
-        )
+        return accident_insurance_response.json()
 
 
-def HomeCoverInsurance(user, serializer, reason, user_data):
-    home_cover_insurance_response = VAS.home_cover_insurance(
-        service_id=user_data["serviceID"],
-        phone=user_data["phone"],
-        variation_code=user_data["variation_code"],
-        billersCode=user_data["variation_code"],
-        phone_no=user_data["phone"],
-        full_name=user_data["full_name"],
-        address=user_data["address"],
-        dob=user_data["date_of_birth"],
-        type_building=user_data["type_building"],
-        business_occupation=user_data["business_occupation"],
-    )
-    if home_cover_insurance_response.status_code == 200:
-        home_insurance_instance = serializer.save()
-        amount = home_cover_insurance_response.json()["amount"]
-
-        UserNotification.objects.create(
-            user=user,
-            title="Home cover insurance registration.",
-            message=f"This is to inform you that your payment of {amount} \
-                for home cover insurance is successful.",
-        )
-
-        # Check is user is a memeber then assign rewards.
-        if user.active_role == "Member" and amount >= 100:
-            new_rewards = Allocate.reward(amount=amount)
-        else:
-            new_rewards = 0
-
-        try:
-            with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = home_cover_insurance_response.json().get("transactionId", "")
-                tx.tx_reference = home_insurance_instance.tx_reference
-                tx.amount = user_data.get("amount", 0)
-                tx.tx_type = "Insurance"
-                tx.description = "Debit for home cover insurance."
-                tx.rwd = new_rewards
-                tx.save()
-
-                rwd, _ = Rewards.objects.get_or_create(user=user)
-                rwd.balance += new_rewards
-                rwd.transaction = tx
-                rwd.save()
-
-        except Exception as e:
-            logging.error(f"Database query error: {str(e)}")
-
-        response_data = {
-            "status": "Success",
-            "message": f"Home cover insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": home_cover_insurance_response.json(),
-        }
-
-        return Response(data=response_data, status=status.HTTP_200_OK)
-    else:
-        response_data = {
-            "data": home_cover_insurance_response.json(),
-            "message": "A refund will be issued.",
-        }
-
-        # initiate a credit refund to the customer after failed transaction.
-        credit_response = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason="Refund for failed home cover insurance.",
-        )
-        if credit_response.status_code == 200:
-            response = {
-                "data": home_cover_insurance_response.json(),
-                "message": "Wallet refunded.",
-            }
-            return Response(data=response, status=credit_response.status_code)
-        else:
-            return Response(
-                data="A refund will be issued shortly",
-                status=credit_response.status_code,
-            )
-
-
-def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
+def Health_Insurance(uploaded_passport_url, user, serializer, reason, user_data):
     health_insurance_response = VAS.health_insurance(
         service_id=user_data["serviceID"],
         phone=user_data["phone"],
@@ -757,6 +645,12 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
                 for health insurance is successful.",
         )
 
+        ActivityModel.objects.create(
+            user=user,
+            title="Health insurance",
+            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for health insurance.",
+        )
+
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
@@ -765,14 +659,15 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
 
         try:
             with transaction.atomic():
-                tx, _ = TxModel.objects.get_or_create(user=user)
-                tx.tx_id = health_insurance_response.json().get("transactionId", "")
-                tx.tx_reference = health_insurance_instance.tx_reference
-                tx.tx_type = "Health"
-                tx.amount = user_data.get("amount", 0)
-                tx.description = "Debit for health insurance."
-                tx.rwd = new_rewards
-                tx.save()
+                tx = TxModel.objects.create(
+                    user=user,
+                    tx_id=health_insurance_response.json().get("transactionId", ""),
+                    tx_reference=health_insurance_instance.tx_reference,
+                    tx_type="Health",
+                    amount=user_data.get("amount", 0),
+                    description="Debit for health insurance.",
+                    rwd=new_rewards,
+                )
 
                 rwd, _ = Rewards.objects.get_or_create(user=user)
                 rwd.balance += new_rewards
@@ -782,33 +677,26 @@ def HealthInsurance(uploaded_passport_url, user, serializer, user_data):
         except Exception as e:
             logging.error(f"Database query error: {str(e)}")
 
-        response_data = {
-            "status": "Success",
-            "message": f"Health insurance of {amount} was succesful and you have been awarded {new_rewards} rewards.",
-            "data": health_insurance_response.json(),
-        }
-
-        return Response(data=response_data, status=status.HTTP_200_OK)
-    else:
-        response_data = {
-            "data": health_insurance_response.json(),
-            "message": "A refund will be issued.",
-        }
-
-        # initiate a credit refund to the customer after failed transaction.
-        credit_response = Account.Credit(
-            acct_no=user.accountNumber,
-            amount=user["amount"],
-            reason="Refund for failed health insurance.",
+        HealthInsurance.objects.create(
+            user=user,
+            service_id=user_data["serviceID"],
+            phone=user_data["phone"],
+            variation_code=user_data["variation_code"],
+            billersCode=user_data["variation_code"],
+            phone_no=user_data["phone"],
+            full_name=user_data["full_name"],
+            address=user_data["address"],
+            date_of_birth=user_data["date_of_birth"],
+            selected_hospital=user_data["selected_hospital"],
+            Passport_Photo=uploaded_passport_url,
+            extra_info=user_data["extra_info"],
         )
-        if credit_response.status_code == 200:
-            response = {
-                "data": health_insurance_response.json(),
-                "message": "Wallet refunded.",
-            }
-            return Response(data=response, status=credit_response.status_code)
-        else:
-            return Response(
-                data="A refund will be issued shortly",
-                status=credit_response.status_code,
-            )
+
+        return health_insurance_response.json()
+
+    else:
+        # initiate a credit refund to the customer after failed transaction.
+        _ = Account.Credit(
+            accNo=user.accountNumber, amount=user["amount"], reason=reason
+        )
+        return health_insurance_response.json()
