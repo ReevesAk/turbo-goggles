@@ -115,20 +115,6 @@ class WaecRegistration(ItemPurchaseBaseModel):
     phone = models.CharField(max_length=150, null=True)
 
 
-class HomeCoverInsurance(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(max_length=150, null=True)
-    billersCode = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-    full_name = models.CharField(max_length=250, null=True)
-    address = models.CharField(max_length=250, null=True)
-    date_of_birth = models.DateField(max_length=250, null=True)
-    business_occupation = models.CharField(max_length=250, null=True)
-
-
 class AccidentInsurance(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)

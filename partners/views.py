@@ -34,7 +34,6 @@ from .controllers import CAC
 from permissions import (
     IsPartner,
     IsPartnerAdmin,
-    IsUserOrMember,
     IsOwnerOrReadOnly,
     IsPartnerUserOrMember,
     IsSuperAdmin,
@@ -554,16 +553,28 @@ class AllPartnersServiceList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         business = kwargs.get("business")
 
-        # Debugging: Print the incoming request parameter
-        print(f"Received business parameter: {business}")
-
         queryset = self.get_queryset(business=business)
-        serialized_data = PartnerServiceSerializer(queryset, many=True)
+
+        # Prepare the response data
+        response_data = []
+        for service in queryset:
+            # Serialize the service data
+            service_data = PartnerServiceSerializer(service).data
+
+            # Get all photos associated with the service
+            photos = PartnerServicePhotos.objects.filter(partner=service.user)
+            photos_urls = [photo.photo for photo in photos]
+
+            # Add images to the service data
+            service_data["images"] = photos_urls
+
+            # Append the modified service data to the response list
+            response_data.append(service_data)
 
         response = {
             "status": "success",
             "message": "Partner services fetched successfully!",
-            "data": serialized_data.data,
+            "data": response_data,
         }
 
         return Response(response, status=status.HTTP_200_OK)

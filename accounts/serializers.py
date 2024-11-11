@@ -16,6 +16,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=68, min_length=6, write_only=True, style={"input_type": "password"}
     )
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    profile_image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -28,6 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "phone_number",
             "password",
             "password2",
+            "profile_image",
         ]
         extra_kwargs = {
             "password": {"write_only": True},
@@ -46,6 +48,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
+        validated_data.pop("profile_image", None)
+
         user = User.objects.create(
             email=validated_data["email"],
             first_name=validated_data["first_name"],
