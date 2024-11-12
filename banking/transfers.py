@@ -1,4 +1,5 @@
 from django.http import Http404
+from drf_spectacular.utils import extend_schema
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
 from commons import generate_txId, Message, Biometrics
@@ -14,7 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
 from .helpers import Pin
-from accounts.models import TxModel, UserNotification
+from accounts.models import TxModel, UserNotification, User
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack
 from .models import TransferModel, AccountCreation, FundWithCard
@@ -24,6 +25,7 @@ from .serializers import (
     InterBankTransfersSerializer,
     IntraBankTransfersSerializer,
     PaymentURLSerializers,
+    FundWalletSerializers,
 )
 
 
@@ -424,9 +426,9 @@ class InterBankTransactionStatus(generics.GenericAPIView):
             return Response(data=err_resp, status=status_resp.status_code)
 
 
-class FundWalletWithCard(generics.CreateAPIView):
+class PayWithCard(generics.CreateAPIView):
     """
-    FundWalletWithCard handles the POST request of funding your Picadailys wallet with Card.
+    PayWithCard handles the POST request of funding your activities on Picadailys with Card.
     """
 
     serializer_class = PaymentURLSerializers
@@ -464,3 +466,91 @@ class FundWalletWithCard(generics.CreateAPIView):
 
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FundWallet(generics.GenericAPIView):
+    """
+    FundWallet handles the POST request of funding your Picadailys wallet with Card.
+    """
+
+    serializer_class = FundWalletSerializers
+
+    @extend_schema(exclude=True)
+    def post(self, request):
+        user_data = request.data
+
+        serializer = FundWalletSerializers(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = user_data.get("email")
+        amount = user_data.get("amount")
+        tx_ref = user_data.get("tx_ref")
+
+        user = User.objects.get(email=email)
+
+        if not user:
+            return Response(data="user not Found", status=status.HTTP_400_BAD_REQUEST)
+
+        user_details = AccountCreation.objects.get(user=user)
+
+        transfer_resp = Transfers.Intra_bank_transfer(
+            creditAccount=user_details.account_number,
+            debitAccount="7766713636",
+            transactionAmount=amount,
+            narration="You funded your wallet",
+            transactionReference=tx_ref,
+        )
+        tx_id = generate_txId()
+        if transfer_resp.status_code == 200:
+            tx = TxModel.objects.create(
+                user=user,
+                tx_reference="",
+                tx_type="Funding of wallet",
+                tx_id=tx_id,
+                amount=amount,
+                description="You funded your wallet.",
+            )
+
+            TransferModel.objects.create(
+                user=user,
+                tx=tx,
+                beneficiary_account_number=user_details.account_number,
+                source_account_name=user.first_name + " " + user.last_name,
+                transaction_amount=amount,
+            )
+        else:
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Transaction failed, refund will be issued shortly.",
+                    "data": transfer_resp.json(),
+                }
+            )
+
+        account = TransferModel.objects.filter(user=user).first()
+        message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+
+        UserNotification.objects.create(
+            user=user,
+            title="Bank Transfer.",
+            message=f"Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Bank Transfer.",
+            description=f"{user.first_name} {user.last_name} funded their account with ₦{amount}. Available balance is ₦{account.available_balance}.",
+        )
+
+        Message.send_email(
+            subject="Wallet Funding.",
+            content=message,
+            email=user.email,
+        )
+
+        resp = {
+            "status": "success",
+            "message": "Transfer succussful.",
+        }
+        return Response(data=resp, status=status.HTTP_200_OK)

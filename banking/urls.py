@@ -19,7 +19,8 @@ from .transfers import (
     InterBankTransfer,
     InterBankTransactionStatus,
     IntraBankTransactionStatus,
-    FundWalletWithCard,
+    PayWithCard,
+    FundWallet,
 )
 from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
@@ -70,7 +71,7 @@ urlpatterns = [
         InterBankTransactionStatus.as_view(),
         name="inter_bank_status",
     ),
-    path("fund-with-card", FundWalletWithCard.as_view(), name="fund_with_card"),
+    path("pay-with-card", PayWithCard.as_view(), name="fund_with_card"),
     path(
         "webhook/",
         CardDepositPaystackWebhook.as_view(),
@@ -82,4 +83,9 @@ urlpatterns = [
         name="verify_card_deposit",
     ),
     path("redirecting/", RedirectingPageView.as_view(), name="redirecting"),
+    path(
+        "fund-picadailys-wallet-with-other-cards-yesandyes",
+        FundWallet.as_view(),
+        name="fund",
+    ),
 ]

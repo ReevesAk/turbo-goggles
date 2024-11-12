@@ -285,3 +285,9 @@ class DataSerializer(serializers.Serializer):
 class WebhookSerializer(serializers.Serializer):
     event = serializers.CharField()
     data = DataSerializer()
+
+
+class FundWalletSerializers(serializers.Serializer):
+    class Meta:
+        model = FundWithCard
+        fields = ["id", "amount", "email", "tx_ref"]

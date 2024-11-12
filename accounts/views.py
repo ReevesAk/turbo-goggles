@@ -48,9 +48,7 @@ class Register(generics.GenericAPIView):
     """
 
     serializer_class = RegisterSerializer
-    parser_classes = [
-        MultiPartParser, JSONParser
-    ]
+    parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
         user_data = {

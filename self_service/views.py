@@ -226,9 +226,7 @@ class TableBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -455,9 +453,7 @@ class GymBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -686,9 +682,7 @@ class CinemaBookingView(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -917,9 +911,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -1011,9 +1003,7 @@ class BookConsumableSercvice(generics.CreateAPIView):
             )
 
         if biometrics:
-            verification = Biometrics.authenticate(
-                authenticated_user.phone_number
-            )
+            verification = Biometrics.authenticate(authenticated_user.phone_number)
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(
@@ -1046,7 +1036,6 @@ class BookConsumableSercvice(generics.CreateAPIView):
                     transactionReference="",
                 )
                 if debit_response.status_code == 200:
-
                     UserNotification.objects.create(
                         user=authenticated_user,
                         title="Consumables booking.",
@@ -1095,9 +1084,7 @@ class BookConsumableSercvice(generics.CreateAPIView):
                         "status": "fail!",
                         "details": debit_response.json(),
                     }
-                    return Response(
-                        data=response_data, status=status.HTTP_200_OK
-                    )
+                    return Response(data=response_data, status=status.HTTP_200_OK)
             case "CARD":
                 UserNotification.objects.create(
                     user=authenticated_user,
@@ -1566,9 +1553,7 @@ class BookHotel(generics.GenericAPIView):
                             },
                         }
 
-                        return Response(
-                            data=response_data, status=status.HTTP_200_OK
-                        )
+                        return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
                 return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
