@@ -318,150 +318,196 @@ class FmcgCheckout(generics.CreateAPIView):
         payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
         serializer = self.get_serializer(data=payload)
 
-        if serializer.is_valid(raise_exception=True):
-            authenticated_user = request.user
-            tracking_id = generate_tracking_id(10)
-            tx_reference = uuid.uuid4()
-            amount = 0
-            products_data = payload["products"]
+        if not serializer.is_valid(raise_exception=True):
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            order_items = []
+        authenticated_user = request.user
+        tracking_id = generate_tracking_id(10)
+        tx_reference = uuid.uuid4()
+        amount = 0
+        products_data = payload["products"]
 
-            for item in products_data:
-                product = get_object_or_404(Product, id=item["product_id"])
-                quantity = item["quantity"]
-                total_price_for_product = product.price * quantity
-                amount += total_price_for_product
+        order_items = []
 
-                order_items.append({
-                    "product": product,
-                    "quantity": quantity,
-                    "total_price": total_price_for_product
-                })
+        for item in products_data:
+            product = get_object_or_404(Product, id=item["product_id"])
+            quantity = item["quantity"]
+            total_price_for_product = product.price * quantity
+            amount += total_price_for_product
 
-            # Create the order with calculated amount and order items
-            order = FmcgOrder.objects.create(
-                user=authenticated_user,
-                total_price=amount,
-                billing_address=payload["billing_address"],
-                delivery_address=payload.get("delivery_address", ""),
-                status="Pending",
-                tracking_id=tracking_id,
-                tx_reference=tx_reference
+            order_items.append({
+                "product": product,
+                "quantity": quantity,
+                "total_price": total_price_for_product
+            })
+
+        # Create the order with calculated amount and order items
+        order = FmcgOrder.objects.create(
+            user=authenticated_user,
+            total_price=amount,
+            billing_address=payload["billing_address"],
+            delivery_address=payload.get("delivery_address", ""),
+            status="Pending",
+            tracking_id=tracking_id,
+            tx_reference=tx_reference
+        )
+
+        # Verify pin
+        pin = payload["pin"]
+        biometrics = request.data.get("use_biometrics")
+
+        try:
+            account = AccountCreation.objects.get(user=authenticated_user)
+        except AccountCreation.DoesNotExist:
+            return Response(
+                data={"status": "fail", "error": "Account not found for user"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-            # Verify pin
-            pin = payload["pin"]
-            biometrics = request.data.get("use_biometrics")
-
-            try:
-                account = AccountCreation.objects.get(user=authenticated_user)
-            except AccountCreation.DoesNotExist:
+        if biometrics:
+            verification = Biometrics.authenticate(authenticated_user.phone_number)
+        else:
+            if account and account.pin is not None:
+                verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+            else:
                 return Response(
-                    data={"status": "fail", "error": "Account not found for user"},
+                    data={"status": "fail", "error": "Account or PIN not found for user"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if biometrics:
-                verification = Biometrics.authenticate(authenticated_user.phone_number)
-            else:
-                if account and account.pin is not None:
-                    verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
-                else:
-                    return Response(
-                        data={"status": "fail", "error": "Account or PIN not found for user"},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
+        if not verification:
+            return Response(
+                data={"status": "fail", "error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
-            if not verification:
-                return Response(
-                    data={"status": "fail", "error": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
+        # Handle payment using match/case
+        payment_option = payload["payment_method"]
+
+        match payment_option:
+            case "WALLET":
+                debit_response = Account.Debit(
+                    debitAccount=account.account_number,
+                    amount=float(amount),
+                    reason="Payment of FMCG products",
+                    transactionReference=str(tx_reference)
                 )
+                if debit_response.status_code == 200:
+                    order.status = "Completed"
+                    order.save()
 
-            # Handle payment using match/case
-            payment_option = payload["payment_method"]
-
-            match payment_option:
-                case "WALLET":
-                    debit_response = Account.Debit(
-                        debitAccount=account.account_number,
-                        amount=float(amount),
-                        reason="Payment of FMCG products",
-                        transactionReference=str(tx_reference)
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Payment Successful",
+                        message=f"You have successfully paid {amount} for your order."
                     )
-                    if debit_response.status_code == 200:
-                        order.status = "Completed"
-                        order.save()
 
-                        UserNotification.objects.create(
-                            user=authenticated_user,
-                            title="Payment Successful",
-                            message=f"You have successfully paid {amount} for your order."
-                        )
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Payment Successful",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
+                    )
 
-                        ActivityModel.objects.create(
-                            user=authenticated_user,
-                            title="Payment Successful",
-                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
-                        )
-
-                        # Check is user is a member then assign rewards.
-                        if authenticated_user.active_role == "Member" and amount >= 100:
-                            new_rewards = Allocate.reward(amount=amount)
-                        else:
-                            new_rewards = 0
-
-                        try:
-                            with transaction.atomic():
-                                # Create a new transaction entry
-                                tx = TxModel.objects.create(
-                                    user=authenticated_user,
-                                    tx_id="",
-                                    tx_reference="",
-                                    tx_type="FMCG",
-                                    amount=payload.get("amount", 0),
-                                    description="Debit for FMCG purchase.",
-                                    rwd=new_rewards,
-                                )
-
-                                rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
-                                rwd.balance += new_rewards
-                                rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
-                                rwd.save()
-
-                        except Exception as e:
-                            logging.error(f"Database query error: {str(e)}")
-
-                        response_data = serializer.data
-                        response_data["total_price"] = str(amount)  # Set total_price to match amount
-                        response_data.pop("pin", None)  # Remove pin from response data
-
-                        return Response({
-                            "status": "success",
-                            "message": f"Payment of {amount} completed.",
-                            "order": response_data
-                        }, status=status.HTTP_200_OK)
+                    # Check is user is a member then assign rewards.
+                    if authenticated_user.active_role == "Member" and amount >= 100:
+                        new_rewards = Allocate.reward(amount=amount)
                     else:
-                        order.status = "Failed"
-                        order.save()
-                        return Response({
-                            "status": "fail",
-                            "message": "Payment failed.",
-                            "error": debit_response.json()
-                        }, status=status.HTTP_400_BAD_REQUEST)
+                        new_rewards = 0
 
-                case "CARD":
+                    try:
+                        with transaction.atomic():
+                            # Create a new transaction entry
+                            tx = TxModel.objects.create(
+                                user=authenticated_user,
+                                tx_id="",
+                                tx_reference="",
+                                tx_type="FMCG",
+                                amount=payload.get("amount", 0),
+                                description="Debit for FMCG purchase.",
+                                rwd=new_rewards,
+                            )
+
+                            rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
+                            rwd.balance += new_rewards
+                            rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
+                            rwd.save()
+
+                    except Exception as e:
+                        logging.error(f"Database query error: {str(e)}")
+
+                    response_data = serializer.data
+                    response_data["total_price"] = str(amount)  # Set total_price to match amount
+                    response_data.pop("pin", None)  # Remove pin from response data
+
+                    return Response({
+                        "status": "success",
+                        "message": f"Payment of {amount} completed.",
+                        "order": response_data
+                    }, status=status.HTTP_200_OK)
+                else:
+                    order.status = "Failed"
+                    order.save()
                     return Response({
                         "status": "fail",
-                        "message": "Invalid payment method.",
-                        "order": serializer.data
-                    }, status=status.HTTP_200_OK)
+                        "message": "Payment failed.",
+                        "error": debit_response.json()
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
-                case _:
-                    return Response({"status": "fail", "message": "Invalid payment method"}, status=status.HTTP_400_BAD_REQUEST)
+            case "CARD":
+                order.status = "Completed"
+                order.save()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Payment Successful",
+                    message=f"You have successfully paid {amount} for your order."
+                )
+
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="Payment Successful",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
+                )
+
+                # Check is user is a member then assign rewards.
+                if authenticated_user.active_role == "Member" and amount >= 100:
+                    new_rewards = Allocate.reward(amount=amount)
+                else:
+                    new_rewards = 0
+
+                try:
+                    with transaction.atomic():
+                        # Create a new transaction entry
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_id="",
+                            tx_reference="",
+                            tx_type="FMCG",
+                            amount=payload.get("amount", 0),
+                            description="Debit for FMCG purchase.",
+                            rwd=new_rewards,
+                        )
+
+                        rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
+                        rwd.balance += new_rewards
+                        rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
+                        rwd.save()
+
+                except Exception as e:
+                    logging.error(f"Database query error: {str(e)}")
+
+                response_data = serializer.data
+                response_data["total_price"] = str(amount)  # Set total_price to match amount
+                response_data.pop("pin", None)  # Remove pin from response data
+
+                return Response({
+                    "status": "success",
+                    "message": f"Payment of {amount} completed.",
+                    "order": response_data
+                }, status=status.HTTP_200_OK)
+
+            case _:
+                return Response({"status": "fail", "message": "Invalid payment method"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FmcgRatingView(generics.GenericAPIView):

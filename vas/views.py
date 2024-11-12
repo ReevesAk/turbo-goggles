@@ -187,13 +187,27 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                # Implement card payment logic here
+                airtime_response = airtime(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for airtime recharge.",
+                    user_data=user_data,
+                )
+                if airtime_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Airtime purchase of {new_amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "airtime_response": airtime_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Airtime top-up failed.",
+                        "error": airtime_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -383,13 +397,27 @@ class DataSubscriptionView(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                # Implement card payment logic here
+                data_response = data(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for data subscription.",
+                    user_data=user_data,
+                )
+                if data_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Data purchase of {new_amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "data_response": data_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Data subscription failed.",
+                        "error": data_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -610,12 +638,27 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     )
 
             case "CARD":
+                electricity_response = electricity(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for electricity bill payment.",
+                    user_data=user_data,
+                )
+                if electricity_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Electricity purchase of {new_amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "electricity_response": electricity_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Electricty purchase failed.",
+                        "error": electricity_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -895,12 +938,26 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
+                new_tv_response = NewTvSub(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for Tv subscription.",
+                    user_data=user_data,
+                )
+                if new_tv_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Tv subscription purchase of {new_amount} was successful.",
+                        "cable_tv_response": new_tv_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Cable TV subscription purchase failed.",
+                        "error": new_tv_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             case _:
@@ -1018,12 +1075,26 @@ class RenewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
+                renew_tv_response = RenewTvSub(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for tv subscription renewal.",
+                    user_data=user_data,
+                )
+                if renew_tv_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Tv subscription purchase of {new_amount} was successful.",
+                        "cable_tv_response": renew_tv_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Cable TV subscription purchase failed.",
+                        "error": renew_tv_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             case _:
@@ -1173,13 +1244,27 @@ class WaecRegistration(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                # Implement card payment logic here
+                waec_response = waec_reg(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for waec registration.",
+                    user_data=user_data,
+                )
+                if waec_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Waec registration of {amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "waec_response": waec_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Waec registration failed.",
+                        "error": waec_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -1596,13 +1681,27 @@ class VehicleInsuranceView(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                # Implement card payment logic here
+                vehicle_insurance_response = VehicleInsurance(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for vehicle insurance.",
+                    user_data=user_data,
+                )
+                if vehicle_insurance_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Vehicle insurance payment of {amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "waec_response": vehicle_insurance_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Waec registration failed.",
+                        "error": vehicle_insurance_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -1752,13 +1851,27 @@ class AccidentInsuranceView(generics.GenericAPIView):
                     )
 
             case "CARD":
-                # Implement card payment logic here
+                accident_response = AccidentInsurance(
+                    user=user,
+                    serializer=serializer,
+                    reason="Debit for accident inssurance.",
+                    user_data=user_data,
+                )
+                if accident_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Accident Insurance payment of {amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "accident_response": accident_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Accident insurance failed due to insufficient balance.",
+                        "error": accident_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(
@@ -1960,13 +2073,34 @@ class HealthInsuranceView(generics.GenericAPIView):
                     )
 
             case "CARD":
-                # Implement card payment logic here
+                health_response = HealthInsurance(
+                    self.uploaded_passport_url,
+                    user=user,
+                    serializer=serializer,
+                    user_data=user_data,
+                )
+                # Start a separate thread for image upload
+                thread_upload = threading.Thread(
+                    target=self.upload_image,
+                    args=(user_data.get("Passport_Photo"),),
+                )
+                thread_upload.start()
+
+                if health_response["code"] == 200:
+                    response_data = {
+                        "status": "success",
+                        "message": f"Health Insurance payment of {amount} was successful.",
+                        "bonus balance": user.welcome_bonus,
+                        "health_response": health_response,
+                    }
+                    return Response(data=response_data, status=status.HTTP_200_OK)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Card payment not yet implemented",
+                        "message": "Health insurance failed due to insufficient balance.",
+                        "error": health_response,
                     },
-                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
                 return Response(

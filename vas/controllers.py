@@ -454,7 +454,7 @@ def waec_reg(user, serializer, reason, user_data):
 
 def MotorInsurance(user, serializer, reason, user_data):
     vehicle_insurance_response = VAS.vehicle_insurance(
-        service_id=user_data["serviceID"],
+        service_id="ui-insure",
         phone=user_data["phone"],
         variation_code=user_data["variation_code"],
         billersCode=user_data["variation_code"],
@@ -541,7 +541,7 @@ def MotorInsurance(user, serializer, reason, user_data):
 
 def Accident_Insurance(user, serializer, reason, user_data):
     accident_insurance_response = VAS.accident_insurance(
-        service_id=user_data["serviceID"],
+        service_id="personal-accident-insurance",
         phone=user_data["phone"],
         variation_code=user_data["variation_code"],
         billersCode=user_data["variation_code"],

@@ -254,15 +254,12 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
         max_length=4, min_length=4, required=False, allow_blank=True
     )
     use_biometrics = serializers.BooleanField(required=False)
-    use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = VehicleInsurance
         fields = [
             "id",
             "payment_option",
-            "serviceID",
             "billersCode",
             "variation_code",
             "phone",
@@ -277,8 +274,6 @@ class VehicleInsuranceSerializer(serializers.ModelSerializer):
             "contact_address",
             "pin",
             "use_biometrics",
-            "use_points",
-            "use_rewards",
             "tx_reference",
         ]
 
@@ -290,15 +285,12 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
         max_length=4, min_length=4, required=False, allow_blank=True
     )
     use_biometrics = serializers.BooleanField(required=False)
-    use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = AccidentInsurance
         fields = [
             "id",
             "payment_option",
-            "serviceID",
             "billersCode",
             "variation_code",
             "phone",
@@ -310,8 +302,6 @@ class AccidentInsuranceSerializer(serializers.ModelSerializer):
             "business_occupation",
             "pin",
             "use_biometrics",
-            "use_points",
-            "use_rewards",
             "tx_reference",
         ]
 
@@ -323,8 +313,6 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
         max_length=4, min_length=4, required=False, allow_blank=True
     )
     use_biometrics = serializers.BooleanField(required=False)
-    use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = HealthInsurance
@@ -343,8 +331,6 @@ class HealthInsuranceSerializer(serializers.ModelSerializer):
             "extra_info",
             "pin",
             "use_biometrics",
-            "use_points",
-            "use_rewards",
             "tx_reference",
         ]
 
