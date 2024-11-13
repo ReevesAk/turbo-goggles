@@ -54,7 +54,10 @@ class PartnerServicePhotos(models.Model):
     """Model for partner service photos."""
 
     partner = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="service_photos", null=True
+        PartnerServices,
+        on_delete=models.CASCADE,
+        related_name="service_photos",
+        null=True,
     )
     photo = models.CharField(max_length=255, null=True)
 

@@ -226,7 +226,7 @@ class CreatePartnerService(generics.CreateAPIView):
 
             # Associate the uploaded photo with the PartnerServices instance
             PartnerServicePhotos.objects.create(
-                partner=partner_service.user,  # Use the PartnerServices instance
+                partner=partner_service,  # Use the PartnerServices instance
                 photo=image_url,
             )
         return image_urls
@@ -283,7 +283,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
     - `service_id`: ID of the service to update (required for PUT requests).
     - `service_photos`: List of new images to upload (optional).
     - `trainer_photo`: New image for the trainer (optional, only applicable for "Gym" services).
-    - Any other fields you want to update (e.g., `business`, `service`, `price`, etc.).
+    - Any other fields you want to update (e.g., `service_star`, `price`, etc.).
 
     **Example usage (PUT):**
 
@@ -302,18 +302,19 @@ class UpdatePartnerService(generics.UpdateAPIView):
     queryset = PartnerServices.objects.all()
 
     def get_object(self, service_id):
-        print(f"Looking for PartnerServices with id: {service_id}")
         try:
             return PartnerServices.objects.get(id=service_id)
         except PartnerServices.DoesNotExist:
             raise Http404("Partner service not found.")
 
     def update(self, request, service_id, *args, **kwargs):
+        partner_service = self.get_object(service_id)
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        partner_service = self.get_object(service_id)
+
+        # Create a serializer instance with the existing partner_service instance
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
 
         if serializer.is_valid(raise_exception=True):
@@ -323,7 +324,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
             gym_trainer_img_urls = []
 
             try:
-                serializer.save()  # Update basic partner service details
+                # Save the updated partner service details
+                serializer.save()
 
                 # Update service photos
                 for upload in service_uploads:
@@ -333,7 +335,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
                     # Create new PartnerServicePhotos objects
                     PartnerServicePhotos.objects.create(
-                        partner=partner_service.user,  # Use the PartnerServices instance
+                        partner=partner_service,
                         photo=image_url,
                     )
 
@@ -346,7 +348,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
                         # Update existing AvailablePartnerGymTrainers objects or create new ones
                         AvailablePartnerGymTrainers.objects.update_or_create(
-                            partner=partner_service.user,  # Use the PartnerServices instance
+                            partner=partner_service.user,
                             defaults={
                                 "trainer_name": request.data.get("trainer_name"),
                                 "trainer_price": request.data.get("trainer_price"),
@@ -378,11 +380,11 @@ class UpdatePartnerService(generics.UpdateAPIView):
 
             except Exception as err:
                 return Response(
-                    {"error": "An error occurred: {}".format(err)},
+                    {"error": f"An error occurred: {str(err)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PartnerServiceList(generics.ListAPIView):
@@ -409,7 +411,7 @@ class PartnerServiceList(generics.ListAPIView):
         if page is not None:
             for service in page:
                 # Get all photos associated with the service
-                photos = PartnerServicePhotos.objects.filter(partner=service.user)
+                photos = PartnerServicePhotos.objects.filter(partner=queryset)
                 photos_urls = [photo.photo for photo in photos]
 
                 # Serialize the service data
@@ -462,7 +464,7 @@ class PartnerServiceDetailView(views.APIView):
         partner_service = self.get_object(service_id)
 
         # Get all photos associated with the service
-        photos = PartnerServicePhotos.objects.filter(partner=partner_service.user)
+        photos = PartnerServicePhotos.objects.filter(partner=partner_service)
         photos_urls = [photo.photo for photo in photos]
 
         # Serialize the service data
@@ -562,7 +564,7 @@ class AllPartnersServiceList(generics.ListAPIView):
             service_data = PartnerServiceSerializer(service).data
 
             # Get all photos associated with the service
-            photos = PartnerServicePhotos.objects.filter(partner=service.user)
+            photos = PartnerServicePhotos.objects.filter(partner=service)
             photos_urls = [photo.photo for photo in photos]
 
             # Add images to the service data

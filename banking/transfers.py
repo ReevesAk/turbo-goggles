@@ -1,4 +1,5 @@
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
@@ -487,10 +488,17 @@ class FundWallet(generics.GenericAPIView):
         amount = user_data.get("amount")
         tx_ref = user_data.get("tx_ref")
 
-        user = User.objects.get(email=email)
+        # Retrieve the user or return a 404 response if not found
+        user = get_object_or_404(User, email=email)
 
-        if not user:
-            return Response(data="user not Found", status=status.HTTP_400_BAD_REQUEST)
+        reference_exists = FundWithCard.objects.filter(
+            user=user, txn_reference=tx_ref
+        ).exists()
+        if not reference_exists:
+            return Response(
+                data="Transaction reference does not exist or belong to User",
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         user_details = AccountCreation.objects.get(user=user)
 
