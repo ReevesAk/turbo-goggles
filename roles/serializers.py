@@ -227,11 +227,10 @@ class StatusSerializer(serializers.Serializer):
 
 
 class AssignTaskSerializers(serializers.ModelSerializer):
-    user_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = GamificationModel
-        fields = ["user_id", "title", "task_id", "description", "assigned_to"]
+        fields = ["id", "title", "task_id", "description", "assigned_to"]
 
 
 class UpdateTaskSerializer(serializers.ModelSerializer):

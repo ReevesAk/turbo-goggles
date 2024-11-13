@@ -114,7 +114,7 @@ urlpatterns = [
     ),
     path("activity/title-list", ActivityTitleListView.as_view(), name="title-list"),
     # Gamification Tasks endpoints.
-    path("task/assign", AssignTask.as_view(), name="assign_task"),
+    path("task/<int:user_id>/assign", AssignTask.as_view(), name="assign_task"),
     path(
         "task/get-single-task/<uuid:task_id>/",
         GetSingleTask.as_view(),

@@ -8,6 +8,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import Or
 
 from drf_spectacular.utils import extend_schema
 
@@ -23,7 +24,7 @@ from .serializers import (
 )
 from accounts.models import User
 from .models import GamificationModel, Points
-from permissions import IsTaskAdmin
+from permissions import IsTaskAdmin, IsSuperAdmin
 
 
 class AssignTask(generics.CreateAPIView):
@@ -34,12 +35,12 @@ class AssignTask(generics.CreateAPIView):
 
     serializer_class = AssignTaskSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            user_id = serializer.validated_data["user_id"]
+            user_id = kwargs.get("user_id")
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
@@ -78,7 +79,7 @@ class GetAllTasks(generics.ListAPIView):
 
     serializer_class = GetAllTaskSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
     queryset = GamificationModel.objects.all().order_by("-date")
 
     @extend_schema(
@@ -106,7 +107,7 @@ class GetSingleTask(generics.RetrieveAPIView):
 
     serializer_class = GetSingleTaskSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
     @extend_schema(
         description="Get task",
@@ -133,7 +134,7 @@ class UpdateUserTask(generics.UpdateAPIView):
 
     serializer_class = UpdateTaskSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
     def get_object(self):
         return self.request.user
@@ -155,7 +156,7 @@ class GetAllSubmittedTasks(generics.ListAPIView):
 
     serializer_class = GetAllSubittedTasksSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
     def get_queryset(self):
         return GamificationModel.objects.exclude(task_url__exact="")
@@ -181,7 +182,7 @@ class GetSingleSubmittedTask(generics.ListAPIView):
 
     serializer_class = GetSingleSubmittedTaskSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
     def get_queryset(self):
         return GamificationModel.objects.exclude(task_url__exact="")
@@ -208,7 +209,7 @@ class ReviewTask(generics.CreateAPIView):
 
     serializer_class = ReviewTaskSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin)
+    permission_classes = (IsAuthenticated, Or(IsTaskAdmin, IsSuperAdmin))
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
