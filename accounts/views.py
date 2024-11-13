@@ -40,6 +40,9 @@ from commons import Biometrics
 from permissions import IsUserOrMember
 
 
+logger = logging.getLogger('accounts')
+
+
 class Register(generics.GenericAPIView):
     """
     Register handles the POST request of registering a user,
@@ -56,9 +59,12 @@ class Register(generics.GenericAPIView):
             for key, value in request.data.items()
         }
 
+        logger.info("Received registration data: %s", user_data)
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
+                logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
                     data={"status": "fail", "error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -74,10 +80,16 @@ class Register(generics.GenericAPIView):
             user.active_role = "User"
             user.save()
 
+            logger.info("User created: %s", user.email)
+
             if profile_upload:
-                image_url = self.upload_image(profile_upload)
-                user.profile_img_url = image_url
-                user.save()
+                try:
+                    image_url = self.upload_image(profile_upload)
+                    user.profile_img_url = image_url
+                    user.save()
+                    logger.info("Profile image uploaded for user: %s", user.email)
+                except Exception as e:
+                    logger.error("Error uploading profile image for user %s: %s", user.email, str(e))
 
             ActivityModel.objects.create(
                 user=user,
@@ -99,13 +111,16 @@ class Register(generics.GenericAPIView):
                 "message": "User Created Successfully. Check your phone for an OTP",
                 "data": serializer.data,
             }
+            logger.info("Registration successful for user: %s", user.email)
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
+            logger.error("Registration failed for user: %s, errors: %s", user_data.get("email"), serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def upload_image(self, image_data):
         profile_img = cloud.upload(file=image_data)
         self.uploaded_profile_url = profile_img["url"]
+        return self.uploaded_profile_url
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):

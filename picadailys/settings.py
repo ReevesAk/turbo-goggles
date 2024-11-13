@@ -17,6 +17,7 @@ import os
 import sys
 import dj_database_url
 import cloudinary
+import logging
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -239,3 +240,24 @@ if TESTING:
             return None
 
     MIGRATION_MODULES = DisableMigrations()
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}
