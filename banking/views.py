@@ -251,7 +251,6 @@ class CreateBankAccount(generics.GenericAPIView):
                 )
 
             elif acc_response.status_code == 200:
-                print(acc_response.json())
                 user_acc = AccountCreation.objects.create(
                     user=current_user,
                     account_number=acc_response.json()["AccountNUBAN"],

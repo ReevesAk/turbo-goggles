@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlparse
 
 from django.core.validators import URLValidator
@@ -10,11 +11,11 @@ from rest_framework import serializers
 from accounts.models import User
 from .models import CreateAd, AdBudget
 
+logger = logging.getLogger(__name__)
+
 
 class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
     """Serializers for registering brand adverts"""
-
-    # device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = User
@@ -28,19 +29,7 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        # whoareyou = attrs.get("whoareyou", "")
-
-        # if whoareyou:
-        #     whoareyou_exists = User.objects.filter(whoareyou=whoareyou).exists()
-        #     if whoareyou_exists:
-        #         raise serializers.ValidationError(
-        #             f"whoareyou: {whoareyou} has already been used"
-        #         )
-        # else:
-        #     raise serializers.ValidationError(
-        #         "whoareyou: whoareyou field can not be empty"
-        #     )
-
+        logger.info("Starting validation for CreateBrandAdvertSeriailizers.")
         urls = ["facebook", "twitter", "instagram", "telegram"]
         url_validator = URLValidator()
 
@@ -55,7 +44,9 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
 
                 try:
                     url_validator(url)
+                    logger.debug(f"{field_name} URL validated: {url}")
                 except DjangoValidationError:
+                    logger.error(f"Invalid URL format for {field_name}: {url}")
                     raise serializers.ValidationError(
                         {field_name: "Invalid URL format"}
                     )
@@ -63,16 +54,24 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
                 # Update the field with the corrected URL
                 attrs[field_name] = url
 
-            return super().validate(attrs)
+        logger.info("Validation completed successfully.")
+        return super().validate(attrs)
 
     def create(self, validated_data):
-        user = User.objects.update(
-            whoareyou=validated_data["whoareyou"],
-            facebook=validated_data["facebook"],
-            twitter=validated_data["twitter"],
-            instagram=validated_data["instagram"],
-            telegram=validated_data["telegram"],
-        )
+        logger.info("Creating a new User with brand advert details.")
+
+        try:
+            user = User.objects.create(
+                whoareyou=validated_data["whoareyou"],
+                facebook=validated_data["facebook"],
+                twitter=validated_data["twitter"],
+                instagram=validated_data["instagram"],
+                telegram=validated_data["telegram"],
+            )
+            logger.info(f"User created successfully: {user.id}")
+        except Exception as e:
+            logger.error(f"Error creating user: {e}")
+            raise serializers.ValidationError("An error occurred while creating the user.")
 
         return user
 
@@ -159,13 +158,17 @@ class BrandSurveySerializers(serializers.ModelSerializer):
         ]
 
         def validate(self, attrs):
+            logger.info("Validating website format for BrandSurveySerializers.")
             website = attrs.get("website")
 
+            # Ensure the website URL starts with http:// or https://
             if website and not website.startswith(("http://", "https://")):
+                logger.error("Invalid website URL format: %s", website)
                 raise serializers.ValidationError(
-                    "Invalid website format. Please include 'http://' or 'https://'."
+                    {"website": "Invalid website format. Please include 'http://' or 'https://'."}
                 )
 
+            logger.info("Validation successful for BrandSurveySerializers.")
             return attrs
 
 

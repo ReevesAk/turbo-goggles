@@ -50,7 +50,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
-    use_biometrics = serializers.BooleanField(required=False)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
@@ -91,7 +91,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Exclude non-model fields
         validated_data.pop("pin", None)
-
+        validated_data.pop("use_biometrics", None)
         airtime_instance = AirtimeTopup.objects.create(**validated_data)
         return airtime_instance
 
@@ -102,7 +102,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
-    use_biometrics = serializers.BooleanField(required=False)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
@@ -147,7 +147,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Exclude non-model fields
         validated_data.pop("pin", None)
-
+        validated_data.pop("use_biometrics", None)
         data_instance = DataSubscription.objects.create(**validated_data)
         return data_instance
 
@@ -158,7 +158,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
-    use_biometrics = serializers.BooleanField(required=False)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
@@ -184,6 +184,13 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "tx_reference",
         ]
 
+    def create(self, validated_data):
+        # Exclude non-model fields
+        validated_data.pop("pin", None)
+        validated_data.pop("use_biometrics", None)
+        electricity_instance = ElectricityBill.objects.create(**validated_data)
+        return electricity_instance
+
 
 class TvSubscriptionSerializer(serializers.ModelSerializer):
     """Serializers for tv subscription."""
@@ -191,7 +198,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
-    use_biometrics = serializers.BooleanField(required=False)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=50, write_only=True)
     tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
@@ -217,6 +224,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("pin", None)
+        validated_data.pop("use_biometrics", None)
         return super().create(validated_data)
 
 
@@ -245,6 +253,11 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
             "use_rewards",
             "tx_reference",
         ]
+
+    def create(self, validated_data):
+        validated_data.pop("pin", None)
+        validated_data.pop("use_biometrics", None)
+        return super().create(validated_data)
 
 
 class VehicleInsuranceSerializer(serializers.ModelSerializer):

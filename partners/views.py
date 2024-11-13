@@ -543,12 +543,7 @@ class AllPartnersServiceList(generics.ListAPIView):
         queryset = PartnerServices.objects.all()
 
         if business:
-            # Debugging: Print the business parameter
-            print(f"Filtering PartnerServices by business: {business}")
             queryset = queryset.filter(business=business)
-
-            # Debugging: Print the resulting queryset
-            print(f"Resulting queryset: {queryset}")
 
         return queryset.order_by("created_at")
 
