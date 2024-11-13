@@ -137,38 +137,56 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.debug("Received user data for OTP verification: %s", user_data)
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
+            logger.info("OTP received: %s", received_otp)
 
-            # Validate otp.
+            # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
-
             if not user_id:
+                logger.warning("Invalid or expired OTP: %s", received_otp)
                 return Response(
                     data={"error": "Invalid or expired OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            user = User.objects.get(id=user_id)
-            # Send welcome message to user.
-            msg = "Welcome to Picadailys App...we are thrilled to have you onboard .Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!."
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error("User with id %s does not exist.", user_id)
+                return Response(
+                    data={"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Send welcome message to user
+            msg = "Welcome to Picadailys App...we are thrilled to have you onboard. Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
             recipient = user.phone_number
 
             Message.send_otp(msg=str(msg), to=recipient)
+            logger.info("Welcome message sent to user %s at %s", user.id, recipient)
+
+            # Update user verification status
             user.is_verified = True
             user.is_active = True
             user.save()
+            logger.info("User %s has been verified and activated.", user.id)
 
+            # Log activity
             ActivityModel.objects.create(
                 user=user,
-                title="Verify Account.",
-                description=f"{user.first_name} {user.last_name} verified otp after registration.",
+                title="Verify Account",
+                description=f"{user.first_name} {user.last_name} verified OTP after registration.",
             )
+            logger.info("Activity logged for user %s verification.", user.id)
 
-            verified_resonse = {"status": "success", "message": "Account is verified"}
-            return Response(data=verified_resonse, status=status.HTTP_200_OK)
+            verified_response = {"status": "success", "message": "Account is verified"}
+            return Response(data=verified_response, status=status.HTTP_200_OK)
         else:
+            logger.error("Serializer validation failed with errors: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -186,37 +204,54 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.debug("Received data for password reset OTP verification: %s", user_data)
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
+            logger.info("OTP received for password reset: %s", received_otp)
 
-            # Validate otp.
+            # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
-
             if not user_id:
+                logger.warning("Invalid or expired OTP during password reset: %s", received_otp)
                 return Response(
                     data={"error": "Invalid or expired OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            user = User.objects.get(id=user_id)
-            # Send welcome message to user.
-            msg = "User is verified... You can reset now your password!"
-            recipient = user.phone_number
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error("User with id %s not found for password reset verification.", user_id)
+                return Response(
+                    data={"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
+            # Send confirmation message to the user
+            msg = "User is verified... You can reset your password now!"
+            recipient = user.phone_number
             Message.send_msg(msg=str(msg), to=recipient)
-            verified_resonse = {
+            logger.info("Password reset verification message sent to user %s at %s", user.id, recipient)
+
+            # Log activity for verification
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account",
+                description=f"{user.first_name} {user.last_name} verified OTP for password reset.",
+            )
+            logger.info("Password reset OTP verification activity logged for user %s.", user.id)
+
+            verified_response = {
                 "status": "success",
                 "message": "Account is verified",
                 "user_id": user_id,
             }
-
-            ActivityModel.objects.create(
-                user=user,
-                title="Verify Account.",
-                description=f"{user.first_name} {user.last_name}, verified otp after password reset reset.",
-            )
-            return Response(data=verified_resonse, status=status.HTTP_200_OK)
+            return Response(data=verified_response, status=status.HTTP_200_OK)
+        else:
+            logger.error("Serializer validation failed with errors: %s", serializer.errors)
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResendOTP(generics.GenericAPIView):
@@ -229,29 +264,42 @@ class ResendOTP(generics.GenericAPIView):
     serializer_class = ResendOTPSerializer
 
     def post(self, request):
+        # Log initial data received
+        logger.debug("Resend OTP request data: %s", request.data)
+
+        # Clean up input data
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
         serializer = self.serializer_class(data=user_data)
+
+        # Validate serializer data
         if serializer.is_valid(raise_exception=True):
-            phone_number = serializer.data["phone_number"][1:]
+            # Process phone number and user ID
+            phone_number = serializer.data["phone_number"][1:]  # Remove first character
+            user_id = serializer.data["id"]
+            logger.info("Resending OTP for user ID %s to phone number %s", user_id, phone_number)
 
-            # Generate otp.
-            otp = otp_manager.create_otp(user_id=str(serializer.data["id"]))
-            msg = (
-                "Welcome aboard! To protect your account, please enter this {}.".format(
-                    otp
-                )
-            )
+            # Generate OTP
+            otp = otp_manager.create_otp(user_id=str(user_id))
+            logger.info("Generated OTP %s for user ID %s", otp, user_id)
 
+            # Send OTP message
+            msg = "Welcome aboard! To protect your account, please enter this OTP: {}.".format(otp)
             Message.send_otp(msg=str(msg), to=phone_number)
+            logger.info("OTP message sent to phone number %s", phone_number)
+
+            # Prepare response
             response = {
                 "status": "success",
-                "message": "Otp resent Successfully. Check your phone for validation",
+                "message": "OTP resent successfully. Check your phone for validation.",
             }
             return Response(data=response, status=status.HTTP_200_OK)
+
         else:
+            # Log validation errors
+            logger.error("Resend OTP validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -265,27 +313,32 @@ class PasswordResendOTP(generics.GenericAPIView):
     serializer_class = PasswordResendOTPSerializer
 
     def post(self, request):
+        logger.debug("Received OTP resend request data: %s", request.data)
+
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
         serializer = self.serializer_class(data=user_data)
+
         if serializer.is_valid(raise_exception=True):
             phone_number = serializer.data["phone_number"][1:]
+            logger.info("Processing OTP resend for phone number: %s", phone_number)
 
             try:
                 user = User.objects.get(phone_number=serializer.data["phone_number"])
+                logger.info("User found with phone number: %s", phone_number)
 
-                # Generate otp using the user's ID
+                # Generate OTP using the user's ID
                 otp = otp_manager.create_otp(user_id=str(user.id))
-                msg = "To reset your password, please enter this One Time Password {}.".format(
-                    otp
-                )
+                logger.info("Generated OTP: %s for user ID: %s", otp, user.id)
+
+                msg = "To reset your password, please enter this One Time Password {}.".format(otp)
 
                 # Send OTP
-                Message.send_otp(
-                    msg=str(msg), to=phone_number[1:]
-                )  # Skip the country code
+                Message.send_otp(msg=str(msg), to=phone_number)
+                logger.info("Sent OTP to phone number: %s", phone_number)
+
                 response = {
                     "status": "success",
                     "message": "OTP resent successfully. Check your phone for validation.",
@@ -293,6 +346,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                 return Response(data=response, status=status.HTTP_200_OK)
 
             except User.DoesNotExist:
+                logger.warning("User with phone number %s does not exist.", phone_number)
                 return Response(
                     {
                         "status": "fail",
@@ -302,6 +356,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                 )
 
         else:
+            logger.error("OTP resend validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -314,6 +369,8 @@ class Login(APIView):
     serializer_class = LoginSerializers
 
     def post(self, request):
+        logger.debug("Received login request data: %s", request.data)
+        
         data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
@@ -322,14 +379,19 @@ class Login(APIView):
         password = data.get("password")
         biometrics = data.get("use_biometrics")
 
+        logger.info("Login attempt for phone number: %s", login)
+
         # Check if biometrics is requested
         if biometrics:
             user = Biometrics.authenticate(login)
+            logger.info("Biometric authentication attempted for user: %s", login)
         else:
             user = authenticate(phone_number=login, password=password)
+            logger.info("Password authentication attempted for user: %s", login)
 
         # If authentication fails, return an error
         if not user:
+            logger.warning("Invalid credentials for user: %s", login)
             return Response(
                 data={"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -337,6 +399,7 @@ class Login(APIView):
 
         # Ensure user is verified if using password login
         if not biometrics and not user.is_verified:
+            logger.warning("User %s is not verified, cannot login", login)
             return Response(
                 data={
                     "status": "fail",
@@ -347,6 +410,7 @@ class Login(APIView):
 
         # Check device limit for password login only
         if not biometrics and not self.check_device_limit(user):
+            logger.warning("User %s has reached device limit. Deleting oldest device.", login)
             return Response(
                 data={
                     "error": "User cannot log in on more than two devices; oldest device deleted."
@@ -361,14 +425,15 @@ class Login(APIView):
         existing_device_count = DeviceId.objects.filter(user=user).count()
         if existing_device_count >= 2:
             if existing_device_count >= 3:
-                oldest_device = DeviceId.objects.filter(user=user).earliest(
-                    "created_at"
-                )
+                oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
+                logger.info("Deleting oldest device %s for user %s", oldest_device.id, user.phone_number)
                 oldest_device.delete()
             return False
         return True
 
     def handle_login_success(self, user):
+        logger.info("User %s successfully logged in.", user.phone_number)
+
         # Log successful login event
         UserNotification.objects.create(
             user=user, title="Login", message="Login successful."
@@ -383,6 +448,8 @@ class Login(APIView):
 
         # Create JWT tokens
         tokens = create_jwt_pair_for_user(user)
+        logger.info("JWT tokens generated for user %s", user.phone_number)
+
         response = {
             "status": "success",
             "message": "Login successful",
@@ -406,46 +473,47 @@ class ForgotPassword(generics.GenericAPIView):
             for key, value in request.data.items()
         }
         serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            phone_no = user_data["phone_number"][1:]
-            try:
-                user = User.objects.get(phone_number=user_data["phone_number"])
-            except User.DoesNotExist:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "detail": "A user with this phone number does not exist",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            user_id = user.id
-            # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(user_id))
-            msg = "Enter this {} to verify your account and reset your password".format(
-                otp
+        phone_no = user_data["phone_number"][1:]
+        try:
+            user = User.objects.get(phone_number=user_data["phone_number"])
+            logger.info(f"User found for phone number: {user.phone_number}")
+        except User.DoesNotExist:
+            logger.warning(f"No user found with phone number: {user_data['phone_number']}")
+            return Response(
+                data={
+                    "status": "fail",
+                    "detail": "A user with this phone number does not exist",
+                },
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-            Message.send_otp(msg=str(msg), to=phone_no)
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your password"
 
-            UserNotification.objects.create(
-                user=user,
-                title="Forgot Password Request.",
-                message="This is to inform you that your forgot password request is successful\
-                    check your phone for an OTP.",
-            )
+        Message.send_otp(msg=str(msg), to=phone_no)
+        logger.info(f"OTP sent to phone number: {phone_no}")
 
-            ActivityModel.objects.create(
-                user=user,
-                title="Forgot Password Request.",
-                description=f"{user.first_name} {user.last_name} successfully submitted a forgot password request.",
-            )
+        UserNotification.objects.create(
+            user=user,
+            title="Forgot Password Request.",
+            message="Check your phone for an OTP.",
+        )
 
-            response = {
-                "status": "success",
-                "message": "Check your phone for an OTP",
-            }
-            return Response(data=response, status=status.HTTP_201_CREATED)
+        ActivityModel.objects.create(
+            user=user,
+            title="Forgot Password Request.",
+            description=f"{user.first_name} {user.last_name} submitted a forgot password request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your phone for an OTP",
+        }
+        return Response(data=response, status=status.HTTP_201_CREATED)
 
 
 class ResetPassword(generics.CreateAPIView):
@@ -457,20 +525,24 @@ class ResetPassword(generics.CreateAPIView):
             for key, value in request.data.items()
         }
         serializer = self.get_serializer(data=payload)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user_data = serializer.validated_data
         user_id = payload.get("user_id")
 
         try:
             user = User.objects.get(id=user_id)
+            logger.info(f"User found for ID: {user.id}")
         except User.DoesNotExist:
+            logger.error(f"User not found with ID: {user_id}")
             return Response(
                 data={"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if user_data["password"] != user_data["password2"]:
+            logger.warning("Passwords do not match for user ID: %s", user_id)
             return Response(
                 data={"error": "Passwords do not match!"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -479,24 +551,24 @@ class ResetPassword(generics.CreateAPIView):
         password = user_data["password"]
         user.password = make_password(password)
 
-        # Retrieve existing tokens and blacklist them.
         user_token = request.data.get("refresh_token")
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {user_id}")
 
         user.save()
 
         UserNotification.objects.create(
             user=user,
             title="Password Reset.",
-            message="This is to inform you that your password reset is successful.",
+            message="Your password reset is successful.",
         )
 
         ActivityModel.objects.create(
             user=user,
             title="Password Reset.",
-            description=f"{user.first_name} {user.last_name} successfully reset password.",
+            description=f"{user.first_name} {user.last_name} reset their password.",
         )
 
         response = {"status": "success!", "message": "Password reset successfully"}
@@ -505,7 +577,7 @@ class ResetPassword(generics.CreateAPIView):
 
 class SubmitGamification(generics.CreateAPIView):
     """
-    SubmitGamification is the GET request handler that allows a User/Memeber
+    SubmitGamification handles the POST request that allows a User/Member
     to submit a gamification task result.
     """
 
@@ -521,41 +593,45 @@ class SubmitGamification(generics.CreateAPIView):
 
         current_user = request.user
         serializer = self.get_serializer(data=payload)
-        if serializer.is_valid(raise_exception=True):
-            task_id = serializer.validated_data["task_id"]
+        if not serializer.is_valid(raise_exception=True):
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                task = GamificationModel.objects.get(task_id=task_id)
-            except User.DoesNotExist:
-                raise Customexceptions.not_found(item_not_found=task_id)
+        task_id = serializer.validated_data["task_id"]
 
-            # Retrieve and save the url of done task.
-            task.url = serializer.validated_data["task_url"]
-            task.save()
+        try:
+            task = GamificationModel.objects.get(task_id=task_id)
+            logger.info(f"Gamification task found: {task_id}")
+        except User.DoesNotExist:
+            logger.error(f"Gamification task not found for ID: {task_id}")
+            raise Customexceptions.not_found(item_not_found=task_id)
 
-            UserNotification.objects.create(
-                user=request.user,
-                title="Submit Gamification.",
-                message="You have successfully submitted your gamification task.",
-            )
+        task.url = serializer.validated_data["task_url"]
+        task.save()
 
-            ActivityModel.objects.create(
-                user=current_user,
-                title="Submit Gamification.",
-                description=f"{current_user.first_name} {current_user.last_name} successfully submitted gamification task.",
-            )
+        UserNotification.objects.create(
+            user=request.user,
+            title="Submit Gamification.",
+            message="You have successfully submitted your gamification task.",
+        )
 
-            response_data = {
-                "status": "Success",
-                "message": "Task submitted successfully, please wait patiently as our agent reviews your work.",
-                "data": {
-                    "task_id": task.task_id,
-                    "title": task.title,
-                    "description": task.description,
-                },
-            }
+        ActivityModel.objects.create(
+            user=current_user,
+            title="Submit Gamification.",
+            description=f"{current_user.first_name} {current_user.last_name} submitted a gamification task.",
+        )
 
-            return Response(data=response_data, status=status.HTTP_200_OK)
+        response_data = {
+            "status": "Success",
+            "message": "Task submitted successfully, please wait for review.",
+            "data": {
+                "task_id": task.task_id,
+                "title": task.title,
+                "description": task.description,
+            },
+        }
+
+        logger.info(f"Gamification task {task_id} submission completed successfully")
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
 
 class Logout(APIView):
@@ -575,12 +651,14 @@ class Logout(APIView):
         try:
             refresh_token = payload["refresh_token"]
             if refresh_token is None:
+                logger.warning("Refresh token is missing for logout request.")
                 return Response(
                     {"error": "Refresh token is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             token = RefreshToken(refresh_token)
             token.blacklist()
+            logger.info("Refresh token blacklisted for user: %s", request.user.id)
 
             current_user = request.user
             UserNotification.objects.create(
@@ -601,4 +679,5 @@ class Logout(APIView):
             )
 
         except Exception as e:
+            logger.error(f"Error during logout: {str(e)}")
             return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e)})

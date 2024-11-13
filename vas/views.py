@@ -1910,7 +1910,6 @@ class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
                     headers=fetch_all_variation_codes_headers,
                 )
                 if response.status_code == 200:
-                    print("status code:", response.status_code)
                     resp = response.json()["content"]["variations"]
                     response_data = {
                         "data": resp,

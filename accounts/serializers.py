@@ -1,9 +1,13 @@
+import logging
+
 # Third party imports.
 from rest_framework import serializers
 
 # In project imports.
 from .models import User
 from roles.models import GamificationModel
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -37,13 +41,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email", "")
-
         if email:
             email_exists = User.objects.filter(email=email).exists()
             if email_exists:
+                logger.warning("Registration attempt with already used email: %s", email)
                 raise serializers.ValidationError("Email has already been used")
         else:
-            raise serializers.ValidationError("email: email field can not be empty")
+            logger.error("Registration attempt with empty email field.")
+            raise serializers.ValidationError("email: email field cannot be empty")
 
         return super().validate(attrs)
 
@@ -60,6 +65,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.save()
 
+        logger.info("New user registered with email: %s", user.email)
         return user
 
 
@@ -106,9 +112,19 @@ class LoginSerializers(serializers.ModelSerializer):
         model = User
         fields = ["phone_number", "password", "use_biometrics"]
 
+    def validate(self, attrs):
+        phone_number = attrs.get("phone_number")
+        logger.info("Login attempt with phone number: %s", phone_number)
+        return super().validate(attrs)
+
 
 class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
+
+    def validate(self, attrs):
+        otp = attrs.get("otp")
+        logger.info("OTP verification attempt for OTP: %s", otp)
+        return attrs
 
 
 class ResendOTPSerializer(serializers.Serializer):
@@ -121,6 +137,11 @@ class ResendOTPSerializer(serializers.Serializer):
         model = User
         fields = ["id", "phone_number"]
 
+    def validate(self, attrs):
+        phone_number = attrs.get("phone_number")
+        logger.info("OTP resend request for phone number: %s", phone_number)
+        return attrs
+
 
 class ForgotPasswordSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
@@ -128,6 +149,11 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["phone_number"]
+
+    def validate(self, attrs):
+        phone_number = attrs.get("phone_number")
+        logger.info("Forgot password request for phone number: %s", phone_number)
+        return attrs
 
 
 class PasswordResendOTPSerializer(serializers.Serializer):
@@ -139,6 +165,11 @@ class PasswordResendOTPSerializer(serializers.Serializer):
         model = User
         fields = ["id", "phone_number"]
 
+    def validate(self, attrs):
+        phone_number = attrs.get("phone_number")
+        logger.info("Password reset request for phone number: %s", phone_number)
+        return attrs
+
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=68, min_length=6, write_only=True)
@@ -148,6 +179,12 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("user_id", "password", "password2")
+
+    def validate(self, attrs):
+        user_id = attrs.get("user_id")
+        user = User.objects.get(id=user_id)
+        logger.info("OTP resend request for phone number: %s", user.phone_number)
+        return attrs
 
 
 class LogoutSerializer(serializers.Serializer):
@@ -164,3 +201,8 @@ class SubmitGamificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = GamificationModel
         fields = ["task_id", "task_url"]
+
+    def validate(self, attrs):
+        task_id = attrs.get("task_id")
+        logger.info("Submit task request for phone number: %s", task_id)
+        return attrs

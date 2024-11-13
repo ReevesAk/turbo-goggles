@@ -480,7 +480,6 @@ class AddAdmin(generics.CreateAPIView):
                 "user_id": user.id,
                 "data": user_data,
             }
-            print("Response Data:", resp)
             return Response(
                 data=resp,
                 status=status.HTTP_201_CREATED,
