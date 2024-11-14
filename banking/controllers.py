@@ -19,6 +19,8 @@ headers = {
     "Content-Type": "application/json",
 }
 
+logger = logging.getLogger(__name__)
+
 
 def login():
     resource = "login"
@@ -41,6 +43,14 @@ class BVN:
             "BVN": bvn,
         }
         bearer_token = login()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         headers = {
             "accept": "application/json",
             "content-Type": "application/json",
@@ -125,6 +135,14 @@ class Account:
         }
 
         bearer_token = login()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         headers = {
             "accept": "application/json",
             "Authorization": bearer_token,
