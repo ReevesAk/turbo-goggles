@@ -5,3 +5,157 @@ INFO 2024-11-14 17:53:14,180 views Biometric authentication attempted for user: 
 INFO 2024-11-14 17:53:14,180 views User 08134649680 successfully logged in.
 INFO 2024-11-14 17:53:15,338 views JWT tokens generated for user 08134649680
 INFO 2024-11-14 17:53:15,339 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569
+INFO 2024-11-14 21:43:53,978 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 21:45:26,271 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 21:46:42,508 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-11-14 21:46:42,966 views Retrieving queryset for BrandAd users.
+ERROR 2024-11-14 21:46:43,370 log Internal Server Error: /api/v1/schema/
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 83, in get
+    return self._get_schema_response(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 91, in _get_schema_response
+    data=generator.get_schema(request=request, public=self.serve_public),
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/generators.py", line 268, in get_schema
+    paths=self.parse(request, public),
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/generators.py", line 239, in parse
+    operation = view.schema.get_operation(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 83, in get_operation
+    request_body = self._get_request_body()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1277, in _get_request_body
+    schema, request_body_required = self._get_request_for_media_type(request_serializer, direction)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1308, in _get_request_for_media_type
+    component = self.resolve_serializer(serializer, direction)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1575, in resolve_serializer
+    component.schema = self._map_serializer(serializer, direction, bypass_extensions)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 907, in _map_serializer
+    schema = self._map_basic_serializer(serializer, direction)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 999, in _map_basic_serializer
+    for field in serializer.fields.values():
+                 ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/utils/functional.py", line 57, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+                                         ^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 356, in fields
+    for key, value in self.get_fields().items():
+                      ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1076, in get_fields
+    field_class, field_kwargs = self.build_field(
+                                ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1222, in build_field
+    return self.build_unknown_field(field_name, model_class)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1340, in build_unknown_field
+    raise ImproperlyConfigured(
+django.core.exceptions.ImproperlyConfigured: Field name `id` is not valid for model `GamificationModel`.
+ERROR 2024-11-14 21:46:43,373 basehttp "GET /api/v1/schema/ HTTP/1.1" 500 185699
+INFO 2024-11-14 21:46:43,425 views Retrieving queryset for BrandAd users.
+ERROR 2024-11-14 21:46:43,648 log Internal Server Error: /api/v1/schema/
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 83, in get
+    return self._get_schema_response(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 91, in _get_schema_response
+    data=generator.get_schema(request=request, public=self.serve_public),
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/generators.py", line 268, in get_schema
+    paths=self.parse(request, public),
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/generators.py", line 239, in parse
+    operation = view.schema.get_operation(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 83, in get_operation
+    request_body = self._get_request_body()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1277, in _get_request_body
+    schema, request_body_required = self._get_request_for_media_type(request_serializer, direction)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1308, in _get_request_for_media_type
+    component = self.resolve_serializer(serializer, direction)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 1575, in resolve_serializer
+    component.schema = self._map_serializer(serializer, direction, bypass_extensions)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 907, in _map_serializer
+    schema = self._map_basic_serializer(serializer, direction)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/openapi.py", line 999, in _map_basic_serializer
+    for field in serializer.fields.values():
+                 ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/utils/functional.py", line 57, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+                                         ^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 356, in fields
+    for key, value in self.get_fields().items():
+                      ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1076, in get_fields
+    field_class, field_kwargs = self.build_field(
+                                ^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1222, in build_field
+    return self.build_unknown_field(field_name, model_class)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 1340, in build_unknown_field
+    raise ImproperlyConfigured(
+django.core.exceptions.ImproperlyConfigured: Field name `id` is not valid for model `GamificationModel`.
+ERROR 2024-11-14 21:46:43,652 basehttp "GET /api/v1/schema/ HTTP/1.1" 500 185699
+INFO 2024-11-14 21:48:31,509 autoreload /Users/macbookpro/projects/miniature-waddle/roles/serializers.py changed, reloading.
+INFO 2024-11-14 21:48:32,531 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 21:48:35,687 autoreload /Users/macbookpro/projects/miniature-waddle/roles/serializers.py changed, reloading.
+INFO 2024-11-14 21:48:36,554 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 21:48:44,160 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-11-14 21:48:44,271 views Retrieving queryset for BrandAd users.
+INFO 2024-11-14 21:48:44,526 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 434148
+INFO 2024-11-14 21:49:03,815 autoreload /Users/macbookpro/projects/miniature-waddle/roles/serializers.py changed, reloading.
+INFO 2024-11-14 21:49:04,960 autoreload Watching for file changes with StatReloader

@@ -230,7 +230,7 @@ class AssignTaskSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = GamificationModel
-        fields = ["id", "title", "task_id", "description", "assigned_to"]
+        fields = ["title", "task_id", "description", "assigned_to"]
 
 
 class UpdateTaskSerializer(serializers.ModelSerializer):
