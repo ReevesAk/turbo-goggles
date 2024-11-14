@@ -1,0 +1,7 @@
+INFO 2024-11-14 16:12:58,784 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 17:52:49,660 autoreload Watching for file changes with StatReloader
+INFO 2024-11-14 17:53:12,074 views Login attempt for phone number: 08134649680
+INFO 2024-11-14 17:53:14,180 views Biometric authentication attempted for user: 08134649680
+INFO 2024-11-14 17:53:14,180 views User 08134649680 successfully logged in.
+INFO 2024-11-14 17:53:15,338 views JWT tokens generated for user 08134649680
+INFO 2024-11-14 17:53:15,339 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569
