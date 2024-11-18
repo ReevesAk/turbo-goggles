@@ -1,3 +1,4 @@
+import logging
 import random
 import string
 import uuid
@@ -33,6 +34,8 @@ from banking.models import AccountCreation
 from banking.helpers import Pin
 from roles.models import ActivityModel
 
+logger = logging.getLogger(__name__)
+
 
 class PaginationStyle(PageNumberPagination):
     page_size = 20
@@ -52,14 +55,28 @@ class CategoryListView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        categories = [category[1] for category in PRODUCT_CATEGORY]
-        return Response(
-            data={
-                "status": "success.",
-                "message": "FMCG Categories retrieved successfully.",
-                "categories": categories,
-            },
-            status=status.HTTP_200_OK)
+
+        try:
+            categories = [category[1] for category in PRODUCT_CATEGORY]
+            logger.debug("Categories retrieved: %s", categories)
+
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "FMCG Categories retrieved successfully.",
+                    "categories": categories,
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error("Error retrieving categories: %s", str(e))
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "An error occurred while retrieving categories.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CompanyListView(APIView):
@@ -70,14 +87,28 @@ class CompanyListView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        companies = [company[1] for company in COMPANY]
-        return Response(
-            data={
-                "status": "success.",
-                "message": "FMCG Companies retrieved successfully.",
-                "categories": companies,
-            },
-            status=status.HTTP_200_OK)
+
+        try:
+            companies = [company[1] for company in COMPANY]
+            logger.debug("Companies retrieved: %s", companies)
+
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "FMCG Companies retrieved successfully.",
+                    "companies": companies,
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error("Error retrieving companies: %s", str(e))
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "An error occurred while retrieving companies.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ListAllProducts(generics.ListAPIView):
@@ -93,23 +124,29 @@ class ListAllProducts(generics.ListAPIView):
 
     def get_queryset(self):
         category = self.request.query_params.get('category', None)
+        logger.info("ListAllProducts: GET request received with category: %s", category)
 
         # If a category is passed, filter the products by category
         if category:
-            return Product.objects.filter(category__iexact=category)
+            queryset = Product.objects.filter(category__iexact=category)
+            logger.debug("Filtered products by category '%s': %d products found.", category, queryset.count())
+            return queryset
         else:
-            return Product.objects.all()
+            queryset = Product.objects.all()
+            logger.debug("No category filter applied: %d products found.", queryset.count())
+            return queryset
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         total_count = queryset.count()
+        logger.info("Total products to be returned: %d", total_count)
 
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response({
                 "status": "success",
-                "message": "All Fmcg products retrieved successfully.",
+                "message": "All FMCG products retrieved successfully.",
                 "count": total_count,
                 "data": serializer.data
             })
@@ -117,7 +154,7 @@ class ListAllProducts(generics.ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             "status": "success",
-            "message": "All Fmcg products retrieved successfully.",
+            "message": "All FMCG products retrieved successfully.",
             "count": total_count,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
@@ -138,22 +175,37 @@ class ProductDetails(generics.RetrieveAPIView):
         return Product.objects.all()
 
     def get(self, request, *args, **kwargs):
+        product_id = kwargs.get(self.lookup_field)
+        logger.info("ProductDetails: GET request received for product ID: %s", product_id)
+
         try:
-            # Retrieve product by UUID
+            # Retrieve product by ID
             product = self.get_object()
             serializer = self.get_serializer(product)
+            logger.debug("Product details retrieved: %s", serializer.data)
+
             return Response({
                 "status": "success",
                 "message": "Product details retrieved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
         except Product.DoesNotExist:
+            logger.warning("Product with ID %s not found.", product_id)
             return Response(
                 data={
                     "status": "error",
                     "message": "Product not found."
                 },
                 status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error("Error retrieving product with ID %s: %s", product_id, str(e))
+            return Response(
+                data={
+                    "status": "error",
+                    "message": "An error occurred while retrieving the product."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 

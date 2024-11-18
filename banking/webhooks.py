@@ -52,7 +52,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             user_obj.save()
 
             logger.info(
-                f"Transaction {transaction_id} was successful. Updated user: {user_obj.user.email}"
+                f"Transaction {transaction_id} was successful. Updated user: {email}"
             )
             return Response(data={"status": "success"}, status=status.HTTP_200_OK)
         else:

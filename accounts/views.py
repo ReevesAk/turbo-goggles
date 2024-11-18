@@ -106,10 +106,13 @@ class Register(generics.GenericAPIView):
 
             Message.send_msg(msg=str(msg), to=recipient)
 
+            response_data = serializer.data
+            response_data["profile_image"] = user.profile_img_url
+
             response = {
                 "status": "success",
                 "message": "User Created Successfully. Check your phone for an OTP",
-                "data": serializer.data,
+                "data": response_data,
             }
             logger.info("Registration successful for user: %s", user.email)
             return Response(data=response, status=status.HTTP_201_CREATED)
