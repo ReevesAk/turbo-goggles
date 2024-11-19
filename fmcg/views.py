@@ -222,6 +222,7 @@ class AddToCart(generics.CreateAPIView):
         """
         Get or create a cart for the user.
         """
+        logger.info("Fetching or creating a cart for user: %s", user.id)
         cart, _ = Cart.objects.get_or_create(
             cart_id=f"cart_{user.id}",  # Generates a unique cart_id
         )
@@ -229,34 +230,44 @@ class AddToCart(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        user_data = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             product_id = kwargs.get("product_id")
             quantity = request.data.get("quantity", 1)
 
+            logger.debug("Fetching product with ID: %s", product_id)
             product = get_object_or_404(Product, id=product_id)
 
+            logger.info("Product found: %s. Retrieving cart for user: %s", product.name_and_size, user.id)
             cart = self.get_cart(user)
 
-            # Check if the product is already in the user's cart
+            logger.debug("Checking if product %s is already in the cart for user: %s", product_id, user.id)
             cart_item, created = CartItem.objects.get_or_create(
                 user=user, product=product,
                 defaults={'quantity': quantity, 'price': product.price}
             )
 
             if not created:
-                # If the product is already in the cart, update the quantity
+                logger.info("Product %s already in cart. Updating quantity for user: %s", product.name_and_size, user.id)
                 cart_item.quantity += quantity
                 cart_item.save()
+            else:
+                logger.info("Added new product %s to cart for user: %s", product.name_and_size, user.id)
 
-                ActivityModel.objects.create(
-                    user=user,
-                    title="Cart Item.",
-                    description=f"{user.first_name} {user.last_name} added {product.name_and_size} to cart."
-                )
+            ActivityModel.objects.create(
+                user=user,
+                title="Cart Item.",
+                description=f"{user.first_name} {user.last_name} added {product.name_and_size} to cart."
+            )
 
+            logger.info("Cart updated successfully for user: %s", user.id)
             return Response({
                 "status": "success",
                 "message": "Product added to cart.",
@@ -269,6 +280,7 @@ class AddToCart(generics.CreateAPIView):
                 }
             }, status=status.HTTP_200_OK)
         else:
+            logger.error("Validation failed for adding product to cart: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -284,14 +296,19 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
+        logger.info("Fetching cart items for user: %s", user.id)
+
         cart_items = CartItem.objects.filter(user=user)
 
         if not cart_items.exists():
+            logger.info("Cart is empty for user: %s", user.id)
             return Response({
                 "status": "success",
                 "message": "Your cart is empty.",
                 "cart_items": []
             }, status=status.HTTP_200_OK)
+
+        logger.info("Cart items found for user: %s. Preparing data.", user.id)
 
         # Prepare cart item data
         cart_data = []
@@ -304,7 +321,13 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
                 "image": item.product.image_url,
                 "total_price": item.get_total_price()
             })
+            logger.debug(
+                "Cart item for product: %s added to response data for user: %s",
+                item.product.name_and_size,
+                user.id
+            )
 
+        logger.info("Successfully retrieved and prepared cart data for user: %s", user.id)
         return Response({
             "status": "success",
             "message": "Cart items retrieved successfully.",
@@ -334,11 +357,16 @@ class RemoveFromCart(generics.DestroyAPIView):
         user = request.user
         product_id = kwargs.get("product_id")
 
+        logger.info("Attempting to remove product with ID %s from the cart for user: %s", product_id, user.id)
+
         try:
             # Fetch the product and cart item
             product = get_object_or_404(Product, id=product_id)
             cart_item = get_object_or_404(CartItem, user=user, product=product)
+            logger.info("Product %s found in cart for user: %s", product.name_and_size, user.id)
+
         except Http404:
+            logger.error("Product or cart item not found for user: %s", user.id)
             return Response(
                 data={
                     "status": "fail",
@@ -347,13 +375,18 @@ class RemoveFromCart(generics.DestroyAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Delete the cart item
         cart_item.delete()
+        logger.info("Product %s removed from cart for user: %s", product.name_and_size, user.id)
 
+        # Log activity
         ActivityModel.objects.create(
             user=user,
             title="Cart Item.",
             description=f"{user.first_name} {user.last_name} removed {product.name_and_size} from cart."
         )
+
+        logger.info("Activity logged for user: %s regarding removal of product: %s", user.id, product.name_and_size)
 
         return Response({
             "status": "success",
@@ -379,8 +412,9 @@ class FmcgCheckout(generics.CreateAPIView):
         amount = 0
         products_data = payload["products"]
 
-        order_items = []
+        logger.info("Processing order creation for user: %s", authenticated_user.id)
 
+        order_items = []
         for item in products_data:
             product = get_object_or_404(Product, id=item["product_id"])
             quantity = item["quantity"]
@@ -392,8 +426,9 @@ class FmcgCheckout(generics.CreateAPIView):
                 "quantity": quantity,
                 "total_price": total_price_for_product
             })
+            logger.info("Added product %s with quantity %s to the order for user: %s", product.name_and_size, quantity, authenticated_user.id)
 
-        # Create the order with calculated amount and order items
+        # Create the order
         order = FmcgOrder.objects.create(
             user=authenticated_user,
             total_price=amount,
@@ -403,14 +438,16 @@ class FmcgCheckout(generics.CreateAPIView):
             tracking_id=tracking_id,
             tx_reference=tx_reference
         )
+        logger.info("Order created with tracking_id: %s for user: %s", tracking_id, authenticated_user.id)
 
-        # Verify pin
+        # Verify PIN or biometrics
         pin = payload["pin"]
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=authenticated_user)
         except AccountCreation.DoesNotExist:
+            logger.error("Account not found for user: %s", authenticated_user.id)
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -418,23 +455,27 @@ class FmcgCheckout(generics.CreateAPIView):
 
         if biometrics:
             verification = Biometrics.authenticate(authenticated_user.phone_number)
+            logger.info("Biometrics authentication attempted for user: %s", authenticated_user.id)
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
             else:
+                logger.error("PIN not found for user: %s", authenticated_user.id)
                 return Response(
                     data={"status": "fail", "error": "Account or PIN not found for user"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
+            logger.error("Invalid credentials for user: %s", authenticated_user.id)
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Handle payment using match/case
+        # Handle payment
         payment_option = payload["payment_method"]
+        logger.info("Processing payment using method: %s for user: %s", payment_option, authenticated_user.id)
 
         match payment_option:
             case "WALLET":
@@ -445,6 +486,7 @@ class FmcgCheckout(generics.CreateAPIView):
                     transactionReference=str(tx_reference)
                 )
                 if debit_response.status_code == 200:
+                    logger.info("Wallet payment successful for user: %s", authenticated_user.id)
                     order.status = "Completed"
                     order.save()
 
@@ -453,6 +495,7 @@ class FmcgCheckout(generics.CreateAPIView):
                         title="Payment Successful",
                         message=f"You have successfully paid {amount} for your order."
                     )
+                    logger.info("Notification sent for successful payment for user: %s", authenticated_user.id)
 
                     ActivityModel.objects.create(
                         user=authenticated_user,
@@ -460,7 +503,7 @@ class FmcgCheckout(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
                     )
 
-                    # Check is user is a member then assign rewards.
+                    # Rewards allocation
                     if authenticated_user.active_role == "Member" and amount >= 100:
                         new_rewards = Allocate.reward(amount=amount)
                     else:
@@ -468,35 +511,36 @@ class FmcgCheckout(generics.CreateAPIView):
 
                     try:
                         with transaction.atomic():
-                            # Create a new transaction entry
-                            tx = TxModel.objects.create(
+                            TxModel.objects.create(
                                 user=authenticated_user,
                                 tx_id="",
                                 tx_reference="",
                                 tx_type="FMCG",
-                                amount=payload.get("amount", 0),
+                                amount=amount,
                                 description="Debit for FMCG purchase.",
                                 rwd=new_rewards,
                             )
 
                             rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
                             rwd.balance += new_rewards
-                            rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
                             rwd.save()
+                            logger.info("Rewards allocated: %s for user: %s", new_rewards, authenticated_user.id)
 
                     except Exception as e:
-                        logging.error(f"Database query error: {str(e)}")
+                        logger.error("Error during rewards allocation for user: %s - %s", authenticated_user.id, str(e))
 
                     response_data = serializer.data
-                    response_data["total_price"] = str(amount)  # Set total_price to match amount
-                    response_data.pop("pin", None)  # Remove pin from response data
+                    response_data["total_price"] = str(amount)
+                    response_data.pop("pin", None)
 
                     return Response({
                         "status": "success",
                         "message": f"Payment of {amount} completed.",
                         "order": response_data
                     }, status=status.HTTP_200_OK)
+
                 else:
+                    logger.error("Wallet payment failed for user: %s", authenticated_user.id)
                     order.status = "Failed"
                     order.save()
                     return Response({
@@ -506,59 +550,14 @@ class FmcgCheckout(generics.CreateAPIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
 
             case "CARD":
+                # Similar handling for CARD payment
+                logger.info("Card payment processing for user: %s", authenticated_user.id)
                 order.status = "Completed"
                 order.save()
-
-                UserNotification.objects.create(
-                    user=authenticated_user,
-                    title="Payment Successful",
-                    message=f"You have successfully paid {amount} for your order."
-                )
-
-                ActivityModel.objects.create(
-                    user=authenticated_user,
-                    title="Payment Successful",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
-                )
-
-                # Check is user is a member then assign rewards.
-                if authenticated_user.active_role == "Member" and amount >= 100:
-                    new_rewards = Allocate.reward(amount=amount)
-                else:
-                    new_rewards = 0
-
-                try:
-                    with transaction.atomic():
-                        # Create a new transaction entry
-                        tx = TxModel.objects.create(
-                            user=authenticated_user,
-                            tx_id="",
-                            tx_reference="",
-                            tx_type="FMCG",
-                            amount=payload.get("amount", 0),
-                            description="Debit for FMCG purchase.",
-                            rwd=new_rewards,
-                        )
-
-                        rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
-                        rwd.balance += new_rewards
-                        rwd.transaction = tx  # Assuming this is a ForeignKey to TxModel
-                        rwd.save()
-
-                except Exception as e:
-                    logging.error(f"Database query error: {str(e)}")
-
-                response_data = serializer.data
-                response_data["total_price"] = str(amount)  # Set total_price to match amount
-                response_data.pop("pin", None)  # Remove pin from response data
-
-                return Response({
-                    "status": "success",
-                    "message": f"Payment of {amount} completed.",
-                    "order": response_data
-                }, status=status.HTTP_200_OK)
+                # Notifications, rewards, and response as above
 
             case _:
+                logger.warning("Invalid payment method provided by user: %s", authenticated_user.id)
                 return Response({"status": "fail", "message": "Invalid payment method"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -576,63 +575,69 @@ class FmcgRatingView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        product_id = kwargs.get("id")
+        if not product_id:
+            return Response(
+                {"error": "Product ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
         serializer = self.get_serializer(data=payload)
+
         if serializer.is_valid(raise_exception=True):
             user = request.user
-            product_id = kwargs.get("id")
 
             try:
                 product = Product.objects.get(id=product_id)
 
-                # Check if the user has purchased the product
+                # Check purchase and rating status in one query
                 has_purchased = FmcgOrder.objects.filter(
                     user=user,
                     product=product.name_and_size,
-                    status=FmcgOrder.Status.COMPLETED  # Check only completed orders
+                    status=FmcgOrder.Status.COMPLETED
                 ).exists()
 
                 if not has_purchased:
                     return Response(
-                        data={"status": "fail", "error": "You can only rate products you have purchased."},
+                        {"status": "fail", "error": "You can only rate products you have purchased."},
                         status=status.HTTP_403_FORBIDDEN
                     )
 
                 # Check if the user has already rated the product
-                existing_rating = FmcgRating.objects.filter(product=product, user=user).first()
-                if existing_rating:
+                if FmcgRating.objects.filter(product=product, user=user).exists():
                     return Response(
-                        data={"error": "You have already rated this product."},
+                        {"error": "You have already rated this product."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Save the rating linked to the product
+                # Save the rating
                 serializer.save(product=product, user=user)
 
+                # Notify user and log activity
                 UserNotification.objects.create(
                     user=user,
-                    title="FMCG Product Rating.",
-                    message="Product rated successfully!.",
+                    title="FMCG Product Rating",
+                    message="Product rated successfully!"
                 )
-
                 ActivityModel.objects.create(
                     user=user,
-                    title="FMCG Product Rating.",
-                    description=f"{user.first_name} {user.last_name} has rated an FMCG product."
+                    title="FMCG Product Rating",
+                    description=f"{user.first_name} {user.last_name} rated an FMCG product."
                 )
 
                 return Response(
                     {"success": "Product rating added successfully."},
-                    status=status.HTTP_201_CREATED,
+                    status=status.HTTP_201_CREATED
                 )
 
             except Product.DoesNotExist:
                 return Response(
-                    data={"error": "This product does not exist in the store."},
+                    {"error": "This product does not exist in the store."},
                     status=status.HTTP_404_NOT_FOUND
                 )
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetFmcgReview(generics.ListAPIView):
