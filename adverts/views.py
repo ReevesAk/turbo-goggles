@@ -49,27 +49,30 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
         authenticated_user = request.user
         serializer = self.serializer_class(data=user_data)
 
-        logger.info("Attempting to create brand advert account for user: %s", authenticated_user.email)
+        logger.info(
+            "Attempting to create brand advert account for user: %s",
+            authenticated_user.email,
+        )
 
         if serializer.is_valid(raise_exception=True):
             # Save the new brand advert data
             serializer.save()
-            logger.info("Brand advert data saved successfully for user: %s", authenticated_user.email)
+            logger.info(
+                "Brand advert data saved successfully for user: %s",
+                authenticated_user.email,
+            )
 
             # Create a user notification
             UserNotification.objects.create(
                 user=authenticated_user,
                 title="Brand Account",
-                message="Brand advert account created successfully."
+                message="Brand advert account created successfully.",
             )
             logger.info("User notification created for brand advert account.")
 
             # Retrieve the saved brand user and update account type
             brand_user = User.objects.get(email=authenticated_user.email)
-            AccountType.objects.create(
-                user=brand_user,
-                user_type="BrandAd"
-            )
+            AccountType.objects.create(user=brand_user, user_type="BrandAd")
             brand_user.active_role = "BrandAd"
             brand_user.save()
             logger.info("User's active role set to 'BrandAd' and AccountType updated.")
@@ -78,9 +81,11 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=brand_user,
                 title="Brand Register",
-                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}."
+                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}.",
             )
-            logger.info("Activity logged for brand registration of user: %s", brand_user.email)
+            logger.info(
+                "Activity logged for brand registration of user: %s", brand_user.email
+            )
 
             # Build the response
             response = {
@@ -122,12 +127,17 @@ class ListAllBrandAds(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.serializer_class(page, many=True)
-            logger.info("Paginated response for BrandAd users. Page size: %d", len(page))
+            logger.info(
+                "Paginated response for BrandAd users. Page size: %d", len(page)
+            )
             return self.get_paginated_response(serializer.data)
 
         # If pagination is not applied, return the full response
         serializer = self.serializer_class(queryset, many=True)
-        logger.info("Returning full response for BrandAd users. Total count: %d", queryset.count())
+        logger.info(
+            "Returning full response for BrandAd users. Total count: %d",
+            queryset.count(),
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -163,7 +173,9 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
         instance = self.get_object()
 
         # Logging the attempt to update profile
-        logger.info("User %s is attempting to update their BrandAd profile.", instance.email)
+        logger.info(
+            "User %s is attempting to update their BrandAd profile.", instance.email
+        )
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
 
@@ -173,7 +185,11 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
             logger.info("Profile updated successfully for user: %s", instance.email)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            logger.error("Failed to update profile for user: %s. Errors: %s", instance.email, serializer.errors)
+            logger.error(
+                "Failed to update profile for user: %s. Errors: %s",
+                instance.email,
+                serializer.errors,
+            )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -224,13 +240,17 @@ class BrandSurveyView(generics.CreateAPIView):
                 description=f"{brand_survey_instance.brand_user} conducted a brand survey successfully.",
             )
 
-            logger.info("Brand survey created successfully for user: %s", request.user.email)
+            logger.info(
+                "Brand survey created successfully for user: %s", request.user.email
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as err:
             logger.error("Brand advert survey creation failed: %s", err)
-            return Response({"error": "An error occurred while creating the brand survey."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "An error occurred while creating the brand survey."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class BrandPromote(generics.CreateAPIView):
@@ -239,7 +259,10 @@ class BrandPromote(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
-        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
         serializer = self.get_serializer(data=payload)
 
         if serializer.is_valid(raise_exception=True):
@@ -250,8 +273,12 @@ class BrandPromote(generics.CreateAPIView):
                 # Verify PIN
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
                 if not is_verified:
-                    logger.warning("PIN verification failed for user %s", authenticated_user.email)
-                    return Response({"error": "Invalid PIN."}, status=status.HTTP_403_FORBIDDEN)
+                    logger.warning(
+                        "PIN verification failed for user %s", authenticated_user.email
+                    )
+                    return Response(
+                        {"error": "Invalid PIN."}, status=status.HTTP_403_FORBIDDEN
+                    )
 
                 # Debit Account
                 price = request.data.get("price")
@@ -278,7 +305,10 @@ class BrandPromote(generics.CreateAPIView):
                         description=f"{authenticated_user.whoareyou} promoted their brand successfully.",
                     )
 
-                    logger.info("Brand promotion payment successful for user %s", authenticated_user.email)
+                    logger.info(
+                        "Brand promotion payment successful for user %s",
+                        authenticated_user.email,
+                    )
 
                     response_data = {
                         "status": "Success!",
@@ -288,20 +318,36 @@ class BrandPromote(generics.CreateAPIView):
 
                 else:
                     # Handle debit failure
-                    logger.error("Debit failed with response: %s", debit_response.json())
+                    logger.error(
+                        "Debit failed with response: %s", debit_response.json()
+                    )
                     response_data = {
                         "status": "Failure",
                         "details": debit_response.json(),
                     }
-                    return Response(data=response_data, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=response_data, status=status.HTTP_400_BAD_REQUEST
+                    )
 
             except AccountCreation.DoesNotExist:
-                logger.error("Account details not found for user %s", authenticated_user.email)
-                return Response({"error": "Account details not found."}, status=status.HTTP_404_NOT_FOUND)
+                logger.error(
+                    "Account details not found for user %s", authenticated_user.email
+                )
+                return Response(
+                    {"error": "Account details not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             except Exception as err:
-                logger.exception("An error occurred during brand promotion for user %s: %s", authenticated_user.email, err)
-                return Response({"error": "An error occurred during promotion."}, status=status.HTTP_400_BAD_REQUEST)
+                logger.exception(
+                    "An error occurred during brand promotion for user %s: %s",
+                    authenticated_user.email,
+                    err,
+                )
+                return Response(
+                    {"error": "An error occurred during promotion."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # If serializer errors exist
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

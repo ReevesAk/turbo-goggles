@@ -110,37 +110,47 @@ class RegisterSuperAdmin(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 current_user = serializer.save()
+                logger.info(
+                    f"SuperAdmin registration initiated for user: {current_user.email}"
+                )
 
                 # Set the user's role and create AccountType
                 current_user.active_role = "SuperAdmin"
                 current_user.save()
+                logger.info(f"SuperAdmin role assigned to user: {current_user.email}")
 
                 AccountType.objects.create(
                     user=current_user,
                     user_type="SuperAdmin",
                 )
+                logger.info(
+                    f"AccountType 'SuperAdmin' created for user: {current_user.email}"
+                )
 
                 # Create and send OTP
                 otp = otp_manager.create_otp(user_id=str(current_user.id))
-                print(current_user.id)
+                logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
                 msg = f"Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {otp}."
                 recipient = current_user.phone_number
 
                 # Send OTP message
                 Message.send_otp(msg=msg, to=recipient)
+                logger.info(f"OTP sent to phone number: {recipient}")
 
                 # Log the creation of the SuperUser
                 UserNotification.objects.create(
                     user=current_user,
                     title="Create SuperUser.",
-                    message="SuperUser acount created Successfully.",
+                    message="SuperUser account created Successfully.",
                 )
+                logger.info(f"UserNotification created for user: {current_user.id}")
 
                 ActivityModel.objects.create(
                     user=current_user,
                     title="Create SuperUser.",
-                    description="SuperUser acount created Successfully.",
+                    description="SuperUser account created Successfully.",
                 )
+                logger.info(f"ActivityModel created for user: {current_user.id}")
 
                 response = {
                     "status": "success",
@@ -150,6 +160,7 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 return Response(data=response, status=status.HTTP_201_CREATED)
 
             except Exception as err:
+                logger.error(f"Error occurred while creating SuperUser: {str(err)}")
                 return Response(
                     {
                         "status": "fail",
@@ -158,13 +169,13 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
+        logger.warning("Invalid data received for SuperAdmin registration.")
         return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginAdmin(APIView):
     """LoginAPIView handles the POST request of logging in
     a verified user with valid login credentials.
-    {"phone_number": "8129187363", "password": "13092830"}.
     """
 
     serializer_class = AdminLoginSerializers
@@ -182,6 +193,7 @@ class LoginAdmin(APIView):
             # Retrieve the user by email to get the phone number
             user = User.objects.get(email=email)
         except User.DoesNotExist:
+            logger.warning(f"Login attempt failed: User with email {email} not found.")
             return Response(
                 data={"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -191,15 +203,19 @@ class LoginAdmin(APIView):
         user = authenticate(phone_number=user.phone_number, password=password)
 
         if user:
+            logger.info(f"User {user.email} authenticated successfully.")
+
             # Check if the user has more than two devices registered
             existing_device_count = DeviceId.objects.filter(user=user).count()
             if existing_device_count >= 2:
-                # Delete the oldest device if the limit is exceeded
                 if existing_device_count == 3:
                     oldest_device = DeviceId.objects.filter(user=user).earliest(
                         "created_at"
                     )
                     oldest_device.delete()
+                    logger.info(
+                        f"Device limit exceeded for user {user.email}. Oldest device deleted."
+                    )
 
                 return Response(
                     data={
@@ -209,6 +225,9 @@ class LoginAdmin(APIView):
                 )
 
             if not user.is_verified:
+                logger.warning(
+                    f"User {user.email} is not verified. Login attempt blocked."
+                )
                 return Response(
                     data={
                         "status": "fail",
@@ -216,6 +235,8 @@ class LoginAdmin(APIView):
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
+
+            logger.info(f"User {user.email} successfully logged in.")
 
             user_name = (
                 "SuperAdmin"
@@ -276,6 +297,9 @@ class LoginAdmin(APIView):
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
+            logger.warning(
+                f"Login attempt failed for user with email {email}. Invalid credentials."
+            )
             return Response(
                 data={"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -299,6 +323,7 @@ class AddProduct(generics.GenericAPIView):
     def post(self, request):
         user_data = request.data
         authenticated_user = request.user
+        logger.info(f"User {authenticated_user.email} is attempting to add a product.")
         serializer = ProductSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             additional_img_uploads = request.data.getlist("additional_images")
@@ -316,6 +341,7 @@ class AddProduct(generics.GenericAPIView):
                         add_img_urls.append(add_img_url)
 
             except Exception as err:
+                logger.error(f"Error uploading product images: {err}")
                 return Response(
                     {"error": "An error occurred: {}".format(err)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -341,6 +367,10 @@ class AddProduct(generics.GenericAPIView):
             )
             product_entry.additional_images_urls = ",".join(add_img_urls)
             product_entry.save()
+
+            logger.info(
+                f"Product {product_entry.name_and_size} added by {authenticated_user.email}."
+            )
 
             ActivityModel.objects.create(
                 user=authenticated_user,
@@ -373,6 +403,9 @@ class AddProduct(generics.GenericAPIView):
             return Response(data=resp, status=status.HTTP_201_CREATED)
 
         else:
+            logger.warning(
+                f"Invalid product data received for user {authenticated_user.email}."
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def upload_files(self, doc_file):
@@ -396,6 +429,8 @@ class AddAddress(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+
+        logger.info(f"User {authenticated_user.email} is attempting to add an address.")
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -424,6 +459,9 @@ class AddAddress(generics.GenericAPIView):
             )
             name = user_data["name"]
             state = user_data["state"]
+
+            logger.info(f"Address {name}, {state} added by {authenticated_user.email}.")
+
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Add FMCG product.",
@@ -437,6 +475,9 @@ class AddAddress(generics.GenericAPIView):
             return Response(data=resp, status=status.HTTP_201_CREATED)
         else:
             error_resp = {"status": "fail.", "data": serializer.errors}
+            logger.warning(
+                f"Invalid address data received from user {authenticated_user.email}."
+            )
             return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -455,39 +496,69 @@ class AddAdmin(generics.CreateAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request):
-        payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        serializer = AddAdminSerializer(data=payload)
-        if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
-            user_data = AddAdminSerializer(user).data
+        try:
+            # Log request initiation
+            logger.info("Received request to add a new admin.")
 
-            signup_link = (
-                f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
-            )
-            body = f"Use this link: {signup_link} to complete your registration."
-
-            # Send link to mailbox
-            Message.send_email(
-                subject="Admin role registration", content=body, email=user.email
-            )
-
-            resp = {
-                "status": "Success",
-                "message": "Created Successfully, a link has been sent to your mail",
-                "user_id": user.id,
-                "data": user_data,
+            # Process payload
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in request.data.items()
             }
-            return Response(
-                data=resp,
-                status=status.HTTP_201_CREATED,
-            )
+            logger.debug(f"Processed payload: {payload}")
 
-        else:
-            raise ValidationError(
-                message=serializer.errors, code=status.HTTP_400_BAD_REQUEST
+            # Validate and save user
+            serializer = AddAdminSerializer(data=payload)
+            if serializer.is_valid(raise_exception=True):
+                user = serializer.save()
+                user_data = AddAdminSerializer(user).data
+                logger.info(f"Admin user created successfully: {user.email}")
+
+                # Generate signup link
+                signup_link = (
+                    f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
+                )
+                body = f"Use this link: {signup_link} to complete your registration."
+
+                # Send link to mailbox
+                try:
+                    Message.send_email(
+                        subject="Admin role registration",
+                        content=body,
+                        email=user.email,
+                    )
+                    logger.info(f"Signup email sent to {user.email}")
+                except Exception as e:
+                    logger.error(f"Failed to send email to {user.email}: {e}")
+                    return Response(
+                        data={
+                            "status": "Failure",
+                            "message": f"Admin created, but email could not be sent: {str(e)}",
+                        },
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+                # Prepare response
+                resp = {
+                    "status": "Success",
+                    "message": "Created successfully, a link has been sent to your mail",
+                    "user_id": user.id,
+                    "data": user_data,
+                }
+                logger.info(f"Response prepared for user creation: {resp}")
+
+                return Response(
+                    data=resp,
+                    status=status.HTTP_201_CREATED,
+                )
+        except ValidationError as e:
+            logger.warning(f"Validation error: {e.detail}")
+            raise ValidationError(message=e.detail, code=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return Response(
+                data={"status": "Error", "message": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -529,23 +600,32 @@ class AdAdminContd(generics.UpdateAPIView):
             return None
 
     def update(self, request, *args, **kwargs):
+        user_id = kwargs.get("id")  # Assuming the user ID is passed in the URL
+        logger.info("Update request received for user ID: %s", user_id)
+
         instance = self.get_object()
         if instance is None:
-            return Response(data="User not found.", status=status.HTTP_404_NOT_FOUND)
+            logger.warning("User  with ID %s not found.", user_id)
+            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
         elif isinstance(instance, Response):  # Return Response if not an admin
+            logger.warning(
+                "User  with ID %s is not an admin, returning response.", user_id
+            )
             return instance
 
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        serializer = self.get_serializer(
-            instance=instance, data=payload
-        )  # Pass `instance=instance`
+        logger.debug("Payload for update: %s", payload)
+
+        serializer = self.get_serializer(instance=instance, data=payload)
 
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            user.set_password(serializer.validated_data["password"])
+            user.set_password(
+                serializer.validated_data.get("password", user.password)
+            )  # Ensure password is set correctly
             user.is_verified = True
             user.save()
 
@@ -554,15 +634,23 @@ class AdAdminContd(generics.UpdateAPIView):
                 title="Admin Complete Signup.",
                 description=f"Admin user {instance.full_name} completed signup.",
             )
+            logger.info(
+                "User  registration completed successfully for user ID: %s", user_id
+            )
             return Response(
                 data={
                     "status": "success",
-                    "message": "User registration completed successfully.",
+                    "message": "User  registration completed successfully.",
                     "data": serializer.data,
                 },
                 status=status.HTTP_200_OK,
             )
         else:
+            logger.error(
+                "Error during user update for user ID %s: %s",
+                user_id,
+                serializer.errors,
+            )
             return Response(
                 data={"status": "error", "message": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -581,15 +669,25 @@ class SetAdminPin(generics.CreateAPIView):
 
     def perform_create(self, serializer, request):
         pin = request.data.get("pin")
+        logger.info("Creating admin pin for user: %s", request.user.username)
+
+        if not pin:
+            logger.warning("No pin provided for user: %s", request.user.username)
+            return Response(
+                data={"status": "error", "message": "Pin is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Hash the pin using make_password.
         hashed_pin = make_password(pin)
+        logger.debug("Hashed pin for user %s: %s", request.user.username, hashed_pin)
 
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
         authenticated_user.admin_pin = hashed_pin
         authenticated_user.is_admin_pin_set = True
         authenticated_user.save()
+        logger.info("Admin pin set for user: %s", authenticated_user.username)
 
         # Create a user notification
         UserNotification.objects.create(
@@ -597,12 +695,16 @@ class SetAdminPin(generics.CreateAPIView):
             title="Admin Pin",
             message="Admin pin created successfully.",
         )
+        logger.info(
+            "User  notification created for user: %s", authenticated_user.username
+        )
 
     def create(self, request, *args, **kwargs):
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.info("Create request received with data: %s", user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -611,7 +713,16 @@ class SetAdminPin(generics.CreateAPIView):
                 "status": "success",
                 "message": "Admin pin created successfully!",
             }
+            logger.info(
+                "Admin pin created successfully for user: %s", request.user.username
+            )
             return Response(data=response, status=status.HTTP_201_CREATED)
+        else:
+            logger.error("Validation errors occurred: %s", serializer.errors)
+            return Response(
+                data={"status": "error", "message": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class AddRoleToAdmin(generics.GenericAPIView):
@@ -624,17 +735,22 @@ class AddRoleToAdmin(generics.GenericAPIView):
         """Add a role to an admin."""
         email = request.data.get("email")
         pin = request.data.get("pin")
+        logger.info("Received request to add role for email: %s", email)
+
         is_user = User.objects.filter(email=email).first()
         if not is_user:
+            logger.warning("User  not found for email: %s", email)
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
         new_role = request.data.get("role")
+        logger.info("Checking if user already has the role: %s", new_role)
 
         # Check if the role already exists
         if AccountType.objects.filter(user=is_user, user_type=new_role).exists():
+            logger.warning("User  already has the role: %s", new_role)
             return Response(
                 data={
-                    "status": "fail.",
+                    "status": "fail",
                     "message": f"User  already has {new_role} as part of their roles.",
                     "role": new_role,
                 },
@@ -644,18 +760,26 @@ class AddRoleToAdmin(generics.GenericAPIView):
         if check_password(password=pin, encoded=request.user.admin_pin):
             # Add the role
             AccountType.objects.create(user=is_user, user_type=new_role)
+            logger.info("Role '%s' assigned to user: %s", new_role, is_user.email)
 
             UserNotification.objects.create(
                 user=is_user,
                 title="Updated Admin Role.",
                 message=f"'{new_role}' has been added to your Admin's roles.",
             )
+            logger.info("User  notification created for user: %s", is_user.email)
 
             ActivityModel.objects.create(
                 user=is_user,
                 title="Admin Role Updated.",
                 description=f"Admin, {is_user.full_name} assigned new role: {new_role}.",
             )
+            logger.info(
+                "Activity logged for user: %s with new role: %s",
+                is_user.email,
+                new_role,
+            )
+
             return Response(
                 data={
                     "status": "success",
@@ -665,6 +789,7 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 status=status.HTTP_200_OK,
             )
         else:
+            logger.warning("Incorrect pin provided for user: %s", request.user.username)
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -681,11 +806,15 @@ class RemoveAdminRole(generics.GenericAPIView):
         """Remove a role from an admin."""
         email = request.data.get("email")
         pin = request.data.get("pin")
+        logger.info("Received request to remove role for email: %s", email)
+
         is_user = User.objects.filter(email=email).first()
         if not is_user:
+            logger.warning("User  not found for email: %s", email)
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
         role_to_remove = request.data.get("role_to_remove")
+        logger.info("Attempting to remove role: %s for user: %s", role_to_remove, email)
 
         # Check if the role exists for the user
         account_type_instance = AccountType.objects.filter(
@@ -694,6 +823,9 @@ class RemoveAdminRole(generics.GenericAPIView):
 
         if check_password(password=pin, encoded=request.user.admin_pin):
             if not account_type_instance:
+                logger.warning(
+                    "Role '%s' not found for user: %s", role_to_remove, email
+                )
                 return Response(
                     data="Role not found for the user.",
                     status=status.HTTP_400_BAD_REQUEST,
@@ -701,17 +833,26 @@ class RemoveAdminRole(generics.GenericAPIView):
 
             # Remove the role
             account_type_instance.delete()
+            logger.info("Role '%s' removed for user: %s", role_to_remove, email)
 
             UserNotification.objects.create(
                 user=is_user,
                 title="Role Removed",
                 message=f"The role '{role_to_remove}' has been removed from your account.",
             )
+            logger.info(
+                "User  notification created for user: %s regarding role removal", email
+            )
 
             ActivityModel.objects.create(
                 user=is_user,
                 title="Role Removed",
                 description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
+            )
+            logger.info(
+                "Activity logged for user: %s with removed role: %s",
+                email,
+                role_to_remove,
             )
 
             return Response(
@@ -724,6 +865,7 @@ class RemoveAdminRole(generics.GenericAPIView):
             )
 
         else:
+            logger.warning("Incorrect pin provided for user: %s", request.user.username)
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -749,42 +891,57 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
         }
         email = payload.get("email")
         pin = payload.get("pin")
+        logger.info("Received request to disable admin for email: %s", email)
 
         try:
             user = User.objects.filter(Q(email=email)).first()
 
+            if user is None:
+                logger.warning("Admin with email '%s' does not exist.", email)
+                return Response(
+                    f"Admin with '{email}' does not exist.",
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             if check_password(password=pin, encoded=request.user.admin_pin):
                 user.is_admin_disabled = True
                 user.save()
+                logger.info("Admin account for '%s' has been disabled.", email)
 
                 UserNotification.objects.create(
                     user=user,
                     title="Disable Admin.",
                     message="Your account has been disabled!.",
                 )
+                logger.info("User  notification created for admin '%s'.", email)
 
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Disable Admin.",
                     description=f"Admin user, {user.full_name} disabled.",
                 )
+                logger.info("Activity logged for disabling admin '%s'.", user.full_name)
 
                 resp = {
                     "status": "success",
-                    "message": "Admin disabbled successfully",
+                    "message": "Admin disabled successfully",
                     "data": user.is_admin_disabled,
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
+                logger.warning(
+                    "Incorrect pin provided for user: %s", request.user.username
+                )
                 return Response(
                     data={"status": "fail", "error": "Incorrect pin"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-        except User.DoesNotExist:
+        except Exception as e:
+            logger.error("An error occurred while disabling admin: %s", str(e))
             return Response(
-                f"Admin with '{email}' does not exist.",
-                status=status.HTTP_404_NOT_FOUND,
+                data={"status": "fail", "error": "An error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -801,30 +958,43 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
-        _ = {
+        payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        email = self.request.data.get("email")
-        pin = self.request.data.get("pin")
+        email = payload.get("email")
+        pin = payload.get("pin")
+        logger.info("Received request to re-enable admin for email: %s", email)
 
         try:
             user = User.objects.filter(Q(email=email)).first()
 
+            if user is None:
+                logger.warning("Admin with email '%s' does not exist.", email)
+                return Response(
+                    f"Admin with '{email}' does not exist.",
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             if check_password(password=pin, encoded=request.user.admin_pin):
                 user.is_admin_disabled = False
                 user.save()
+                logger.info("Admin account for '%s' has been re-enabled.", email)
 
                 UserNotification.objects.create(
                     user=user,
                     title="Re-Enable Admin.",
                     message="Your account has been re-enabled successfully.",
                 )
+                logger.info("User  notification created for admin '%s'.", email)
 
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Re-Enable Admin.",
-                    description=f"Admin user, {user.first} was re-enabled.",
+                    description=f"Admin user, {user.full_name} was re-enabled.",
+                )
+                logger.info(
+                    "Activity logged for re-enabling admin '%s'.", user.full_name
                 )
 
                 resp = {
@@ -834,15 +1004,19 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
+                logger.warning(
+                    "Incorrect pin provided for user: %s", request.user.username
+                )
                 return Response(
                     data={"status": "fail", "error": "Incorrect pin"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-        except User.DoesNotExist:
+        except Exception as e:
+            logger.error("An error occurred while re-enabling admin: %s", str(e))
             return Response(
-                f"Admin with '{email}' does not exist.",
-                status=status.HTTP_404_NOT_FOUND,
+                data={"status": "fail", "error": "An error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -857,37 +1031,57 @@ class DeleteAdmin(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             email = serializer.validated_data.get("email")
             pin = serializer.validated_data.get("pin")
+            logger.info("Received request to delete admin for email: %s", email)
 
             try:
                 user = User.objects.get(Q(id=email) | Q(email=email))
+                logger.info("Admin user found: %s", user.full_name)
+
                 if check_password(password=pin, encoded=request.user.admin_pin):
                     user.delete()
+                    logger.info("Admin user '%s' deleted successfully.", user.full_name)
 
-                UserNotification.objects.create(
-                    user=request.user,
-                    title="Delete Admin.",
-                    message=f"Admin with '{email}' deleted successfully.",
-                )
+                    UserNotification.objects.create(
+                        user=request.user,
+                        title="Delete Admin.",
+                        message=f"Admin with '{email}' deleted successfully.",
+                    )
+                    logger.info(
+                        "User  notification created for admin deletion: %s", email
+                    )
 
-                # Register Admin activity.
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Delete Admin.",
-                    description=f"Admin user, {user.full_name} deleted successfully.",
-                )
-                # TODO
-                # Send email to the admin user.
+                    # Register Admin activity.
+                    ActivityModel.objects.create(
+                        user=request.user,
+                        title="Delete Admin.",
+                        description=f"Admin user, {user.full_name} deleted successfully.",
+                    )
+                    logger.info(
+                        "Activity logged for deleting admin: %s", user.full_name
+                    )
 
-                return Response(
-                    f"Admin with '{email}' deleted successfully.",
-                    status=status.HTTP_204_NO_CONTENT,
-                )
+                    # TODO: Send email to the admin user.
+
+                    return Response(
+                        f"Admin with '{email}' deleted successfully.",
+                        status=status.HTTP_204_NO_CONTENT,
+                    )
+                else:
+                    logger.warning(
+                        "Incorrect pin provided for user: %s", request.user.username
+                    )
+                    return Response(
+                        data={"status": "fail", "error": "Incorrect pin"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
             except User.DoesNotExist:
+                logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
                     f"Admin with '{email}' does not exist.",
                     status=status.HTTP_404_NOT_FOUND,
                 )
         else:
+            logger.error("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1125,17 +1319,33 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
         return User.objects.filter(has_promoted=True).order_by("created_at")
 
     def list(self, request, *args, **kwargs):
+        logger.info("Accessing VerifiedBrandAdsCount view.")
         queryset = self.get_queryset()
+        promoted_ads_count = queryset.count()
+        logger.info("Number of promoted ads retrieved: %d", promoted_ads_count)
+
         page = self.paginate_queryset(queryset)
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
+            logger.info("Successfully serialized promoted ads.")
             return Response(
                 data={
                     "status": "success",
                     "message": "Promoted Ads retrieved successfully",
-                    "promotedAds_count": queryset.count(),
+                    "promotedAds_count": promoted_ads_count,
                     "promotedAds": serialized_users.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            logger.warning("No promoted ads found for pagination.")
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "No promoted ads found.",
+                    "promotedAds_count": promoted_ads_count,
+                    "promotedAds": [],
                 },
                 status=status.HTTP_200_OK,
             )
@@ -1155,21 +1365,28 @@ class GetAllAdminUsers(generics.ListAPIView):
     renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
+        logger.info("Retrieving admin users.")
         admin_users = (
             User.objects.filter(accounttype__user_type__icontains="Admin")
             .distinct()
             .order_by("accounttype__created_at")
         )
+        logger.info("Admin users retrieved successfully.")
         return admin_users
 
     def list(self, request, *args, **kwargs):
+        logger.info("Accessing admin users list view.")
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         active_admin_count = queryset.filter(is_admin_disabled=False).count()
         disabled_admin_count = queryset.filter(is_admin_disabled=True).count()
 
+        logger.info("Count of active admin users: %d", active_admin_count)
+        logger.info("Count of disabled admin users: %d", disabled_admin_count)
+
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
+            logger.info("Admin users serialized successfully.")
             return Response(
                 data={
                     "status": "success",
@@ -1178,6 +1395,19 @@ class GetAllAdminUsers(generics.ListAPIView):
                     "num_of_active_admin_users": active_admin_count,
                     "num_of_disabled_admin_users": disabled_admin_count,
                     "admin_users": serialized_users.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            logger.warning("No admin users found for pagination.")
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "No admin users found.",
+                    "num_of_admin_users": queryset.count(),
+                    "num_of_active_admin_users": active_admin_count,
+                    "num_of_disabled_admin_users": disabled_admin_count,
+                    "admin_users": [],
                 },
                 status=status.HTTP_200_OK,
             )
@@ -1308,20 +1538,36 @@ class SwitchRoles(generics.RetrieveAPIView):
         return self.request.user
 
     def put(self, request):
-        _ = {
+        logger.info("Received request to switch roles.")
+
+        # Process the incoming request data
+        payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.debug(f"Processed payload: {payload}")
+
         current_user = self.get_object()
+        logger.info(
+            f"Processing role switch for user: {current_user.full_name} (ID: {current_user.id})"
+        )
+
         new_role = request.data.get("user_type")
+        logger.debug(f"Requested new role: {new_role}")
 
         serializer = SwitchRolesSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
             try:
                 account_types = AccountType.objects.filter(user=current_user)
+                logger.debug(
+                    f"Found account types for user: {account_types.values_list('user_type', flat=True)}"
+                )
 
                 # Check if the user has the role they want to switch to
                 if not account_types.filter(user_type=new_role).exists():
+                    logger.warning(
+                        f"User {current_user.full_name} does not have the role: {new_role}"
+                    )
                     data = {
                         "status": "fail",
                         "message": f"Sorry, you have not been assigned the role of {new_role}.",
@@ -1330,12 +1576,18 @@ class SwitchRoles(generics.RetrieveAPIView):
                     return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
             except AccountType.DoesNotExist:
+                logger.error(
+                    f"AccountType does not exist for user: {current_user.full_name} (ID: {current_user.id})"
+                )
                 raise exceptions.ValidationError(
                     "AccountType for the user does not exist."
                 )
 
-            # Handle already switched to the desired role
+            # Handle case where user is already on the desired role
             if current_user.active_role == new_role:
+                logger.info(
+                    f"User {current_user.full_name} is already in the role: {new_role}"
+                )
                 data = {
                     "status": "success",
                     "message": f"You are already on the {new_role} screen.",
@@ -1343,16 +1595,27 @@ class SwitchRoles(generics.RetrieveAPIView):
                 }
                 return Response(data=data, status=status.HTTP_200_OK)
 
-            # Register Admin activity.
-            ActivityModel.objects.create(
-                user=current_user,
-                title="Switch Admin Roles.",
-                description=f"Admin user, {current_user.full_name} switched from {current_user.active_role} to {new_role}.",
-            )
+            # Register Admin activity
+            try:
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Switch Admin Roles.",
+                    description=f"Admin user, {current_user.full_name} switched from {current_user.active_role} to {new_role}.",
+                )
+                logger.info(
+                    f"Activity logged for role switch: {current_user.full_name} switched to {new_role}."
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to log activity for user {current_user.full_name}: {e}"
+                )
 
-            # User has the requested account type, switch the role
+            # Switch the user's active role
             current_user.active_role = new_role
             current_user.save()
+            logger.info(
+                f"User {current_user.full_name}'s role successfully switched to: {new_role}"
+            )
 
             data = {
                 "status": "success",
@@ -1361,6 +1624,9 @@ class SwitchRoles(generics.RetrieveAPIView):
             }
             return Response(data=data, status=status.HTTP_200_OK)
         else:
+            logger.warning(
+                f"Validation errors for role switch request: {serializer.errors}"
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1404,15 +1670,37 @@ class GetAllAppActivites(generics.ListAPIView):
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
+        logger.info("Fetching app activity logs.")
+
         # Define non-admin roles (adjust these based on your application's logic)
         non_admin_roles = {"User", "Member", "Partner", "BrandAd"}
+        logger.debug(f"Filtering activities for non-admin roles: {non_admin_roles}")
 
-        activities = ActivityModel.objects.filter(
-            user__active_role__in=non_admin_roles
-        ).order_by("-created_at")
+        try:
+            activities = ActivityModel.objects.filter(
+                user__active_role__in=non_admin_roles
+            ).order_by("-created_at")
+            logger.debug(f"Found {activities.count()} activities matching criteria.")
+        except Exception as e:
+            logger.error(f"Error fetching activities: {e}")
+            return Response(
+                {"status": "fail", "message": "Error fetching activity logs."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
+        # Paginate the activities
         paginator = self.pagination_class()
-        paginated_activities = paginator.paginate_queryset(activities, request)
+        try:
+            paginated_activities = paginator.paginate_queryset(activities, request)
+            logger.info(
+                f"Paginated activities: page {paginator.page.number}, size {paginator.page.paginator.per_page}"
+            )
+        except Exception as e:
+            logger.error(f"Pagination error: {e}")
+            return Response(
+                {"status": "fail", "message": "Error during pagination."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Prepare response data
         data = []
@@ -1421,6 +1709,9 @@ class GetAllAppActivites(generics.ListAPIView):
                 f"{activity.user.first_name} {activity.user.last_name}"
                 if activity.user
                 else "Unknown"
+            )
+            logger.debug(
+                f"Processed activity ID {activity.id}: authorised_by={authorised_by}"
             )
             data.append(
                 {
@@ -1442,6 +1733,8 @@ class GetAllAppActivites(generics.ListAPIView):
             "total_count": paginator.page.paginator.count,
             "data": data,
         }
+        logger.info("Activity logs fetched and prepared for response.")
+
         return Response(response, status=status.HTTP_200_OK)
 
 
@@ -1458,13 +1751,15 @@ class GetAllAdminActivites(generics.ListAPIView):
     pagination_class = CustomPageNumberPagination
 
     def get(self, request, *args, **kwargs):
+        logger.info("Accessing admin activity logs.")
+
         # Define admin roles to include only admin logs
         admin_roles = {
             "SuperAdmin",
             "TaskAdmin",
             "AdAdmin",
             "MembersAdmin",
-            "UserAdmin",
+            "User Admin",
             "PartnersAdmin",
             "ContentAdmin",
             "IntegrationAdmin",
@@ -1477,9 +1772,13 @@ class GetAllAdminActivites(generics.ListAPIView):
             user__active_role__in=admin_roles
         ).order_by("-created_at")
 
+        logger.info("Total activities found for admin roles: %d", activities.count())
+
         # Apply pagination
         paginator = self.pagination_class()
         paginated_activities = paginator.paginate_queryset(activities, request)
+
+        logger.info("Paginated activities: %d", len(paginated_activities))
 
         # Prepare response data
         data = []
@@ -1512,6 +1811,12 @@ class GetAllAdminActivites(generics.ListAPIView):
             "total_count": paginator.page.paginator.count,
             "data": data,
         }
+
+        logger.info(
+            "Returning response with %d activities on page %d.",
+            len(data),
+            paginator.page.number,
+        )
         return Response(response, status=status.HTTP_200_OK)
 
 
@@ -1528,9 +1833,14 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     lookup_field = "activity_id"
 
     def retrieve(self, request, *args, **kwargs):
+        logger.info("Accessing retrieve activity log endpoint.")
+
+        activity_id = kwargs.get("activity_id")
+        logger.debug("Requested activity ID: %s", activity_id)
+
         try:
-            activity_id = kwargs["activity_id"]
             activity = ActivityModel.objects.get(id=activity_id)
+            logger.info("Activity log found: %s", activity)
 
             authorised_by = (
                 "Superuser"
@@ -1542,7 +1852,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "TaskAdmin",
                     "AdAdmin",
                     "MembersAdmin",
-                    "UserAdmin",
+                    "User Admin",
                     "PartnersAdmin",
                     "ContentAdmin",
                     "IntegrationAdmin",
@@ -1552,7 +1862,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 else activity.user.first_name + " " + activity.user.last_name
                 if activity.user.active_role
                 in {
-                    "User",
+                    "User ",
                     "Member",
                     "Partner",
                     "BrandAd",
@@ -1576,12 +1886,27 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "last_login": activity.user.last_login,
                 },
             }
+            logger.info(
+                "Response prepared successfully for activity ID: %s", activity_id
+            )
             return Response(data=response, status=status.HTTP_200_OK)
 
         except ActivityModel.DoesNotExist:
+            logger.error("Activity log not found for ID: %s", activity_id)
             return Response(
                 {"status": "fail", "message": "Activity log not found."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.exception(
+                "An error occurred while retrieving activity log: %s", str(e)
+            )
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "An error occurred while retrieving the activity log.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -1599,15 +1924,25 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
 
     def get_queryset(self):
         admin_email = self.kwargs["email"]
+        logger.debug("Fetching activities for admin email: %s", admin_email)
+
         try:
             user = User.objects.get(email=admin_email)
+            logger.info("User  found: %s", user)
             return ActivityModel.objects.filter(user=user).order_by("-created_at")
         except User.DoesNotExist:
+            logger.warning("User  with email %s does not exist.", admin_email)
             return ActivityModel.objects.none()
 
     def list(self, request, *args, **kwargs):
+        logger.info(
+            "Accessing list of activity logs for admin email: %s", kwargs["email"]
+        )
+
         queryset = self.get_queryset()
+
         if not queryset.exists():
+            logger.info("No activity logs found for admin email: %s", kwargs["email"])
             return Response(
                 data={"status": "fail", "message": "Activity log not found."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -1626,17 +1961,17 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
                     "TaskAdmin",
                     "AdAdmin",
                     "MembersAdmin",
-                    "UserAdmin",
+                    "User Admin",
                     "PartnersAdmin",
                     "ContentAdmin",
                     "IntegrationAdmin",
                     "WalletAdmin",
                     "FmcgAdmin",
                 }
-                else activity.user.first_name + activity.user.last_name
+                else activity.user.first_name + " " + activity.user.last_name
                 if activity.user.active_role
                 in {
-                    "User",
+                    "User ",
                     "Member",
                     "Partner",
                     "BrandAd",
@@ -1660,6 +1995,11 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
             "message": "Activity logs retrieved successfully!",
             "data": response_data,
         }
+        logger.info(
+            "Successfully retrieved %d activity logs for admin email: %s",
+            len(response_data),
+            kwargs["email"],
+        )
         return Response(data=response, status=status.HTTP_200_OK)
 
 
@@ -1692,42 +2032,63 @@ class ActivityTitleListView(APIView):
     authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
+        logger.info("Accessing the get method to fetch unique activity titles.")
+
         # Define admin roles based on user type choices
         admin_roles = {
             "SuperAdmin",
             "TaskAdmin",
             "AdAdmin",
             "MembersAdmin",
-            "UserAdmin",
+            "User Admin",
             "PartnersAdmin",
             "ContentAdmin",
             "IntegrationAdmin",
             "WalletAdmin",
             "FmcgAdmin",
         }
+        logger.debug("Defined admin roles: %s", admin_roles)
 
-        # Filter titles based on the user type through AccountType model
-        admin_titles = (
-            ActivityModel.objects.filter(
-                Q(user__accounttype__user_type__in=admin_roles)
+        try:
+            # Filter titles based on the user type through AccountType model
+            admin_titles = (
+                ActivityModel.objects.filter(
+                    Q(user__accounttype__user_type__in=admin_roles)
+                )
+                .values_list("title", flat=True)
+                .distinct()
             )
-            .values_list("title", flat=True)
-            .distinct()
-        )
+            logger.info("Fetched %d unique admin titles.", admin_titles.count())
 
-        non_admin_titles = (
-            ActivityModel.objects.exclude(
-                Q(user__accounttype__user_type__in=admin_roles)
+            non_admin_titles = (
+                ActivityModel.objects.exclude(
+                    Q(user__accounttype__user_type__in=admin_roles)
+                )
+                .values_list("title", flat=True)
+                .distinct()
             )
-            .values_list("title", flat=True)
-            .distinct()
-        )
+            logger.info("Fetched %d unique non-admin titles.", non_admin_titles.count())
 
-        # Prepare response
-        response = {
-            "status": "success",
-            "message": "All unique activity titles fetched successfully!",
-            "admin_titles": list(admin_titles),
-            "non_admin_titles": list(non_admin_titles),
-        }
-        return Response(response, status=status.HTTP_200_OK)
+            # Prepare response
+            response = {
+                "status": "success",
+                "message": "All unique activity titles fetched successfully!",
+                "admin_titles": list(admin_titles),
+                "non_admin_titles": list(non_admin_titles),
+            }
+            logger.info(
+                "Response prepared successfully with admin and non-admin titles."
+            )
+            return Response(response, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(
+                "An error occurred while fetching activity titles: %s", str(e)
+            )
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "An error occurred while fetching activity titles.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

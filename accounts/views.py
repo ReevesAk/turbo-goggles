@@ -40,7 +40,7 @@ from commons import Biometrics
 from permissions import IsUserOrMember
 
 
-logger = logging.getLogger('accounts')
+logger = logging.getLogger("accounts")
 
 
 class Register(generics.GenericAPIView):
@@ -89,7 +89,11 @@ class Register(generics.GenericAPIView):
                     user.save()
                     logger.info("Profile image uploaded for user: %s", user.email)
                 except Exception as e:
-                    logger.error("Error uploading profile image for user %s: %s", user.email, str(e))
+                    logger.error(
+                        "Error uploading profile image for user %s: %s",
+                        user.email,
+                        str(e),
+                    )
 
             ActivityModel.objects.create(
                 user=user,
@@ -117,7 +121,11 @@ class Register(generics.GenericAPIView):
             logger.info("Registration successful for user: %s", user.email)
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
-            logger.error("Registration failed for user: %s, errors: %s", user_data.get("email"), serializer.errors)
+            logger.error(
+                "Registration failed for user: %s, errors: %s",
+                user_data.get("email"),
+                serializer.errors,
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def upload_image(self, image_data):
@@ -189,7 +197,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             verified_response = {"status": "success", "message": "Account is verified"}
             return Response(data=verified_response, status=status.HTTP_200_OK)
         else:
-            logger.error("Serializer validation failed with errors: %s", serializer.errors)
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -217,7 +227,9 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning("Invalid or expired OTP during password reset: %s", received_otp)
+                logger.warning(
+                    "Invalid or expired OTP during password reset: %s", received_otp
+                )
                 return Response(
                     data={"error": "Invalid or expired OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -226,7 +238,10 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
-                logger.error("User with id %s not found for password reset verification.", user_id)
+                logger.error(
+                    "User with id %s not found for password reset verification.",
+                    user_id,
+                )
                 return Response(
                     data={"error": "User not found"},
                     status=status.HTTP_404_NOT_FOUND,
@@ -236,7 +251,11 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             msg = "User is verified... You can reset your password now!"
             recipient = user.phone_number
             Message.send_msg(msg=str(msg), to=recipient)
-            logger.info("Password reset verification message sent to user %s at %s", user.id, recipient)
+            logger.info(
+                "Password reset verification message sent to user %s at %s",
+                user.id,
+                recipient,
+            )
 
             # Log activity for verification
             ActivityModel.objects.create(
@@ -244,7 +263,9 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                 title="Verify Account",
                 description=f"{user.first_name} {user.last_name} verified OTP for password reset.",
             )
-            logger.info("Password reset OTP verification activity logged for user %s.", user.id)
+            logger.info(
+                "Password reset OTP verification activity logged for user %s.", user.id
+            )
 
             verified_response = {
                 "status": "success",
@@ -253,7 +274,9 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             }
             return Response(data=verified_response, status=status.HTTP_200_OK)
         else:
-            logger.error("Serializer validation failed with errors: %s", serializer.errors)
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -282,14 +305,18 @@ class ResendOTP(generics.GenericAPIView):
             # Process phone number and user ID
             phone_number = serializer.data["phone_number"][1:]  # Remove first character
             user_id = serializer.data["id"]
-            logger.info("Resending OTP for user ID %s to phone number %s", user_id, phone_number)
+            logger.info(
+                "Resending OTP for user ID %s to phone number %s", user_id, phone_number
+            )
 
             # Generate OTP
             otp = otp_manager.create_otp(user_id=str(user_id))
             logger.info("Generated OTP %s for user ID %s", otp, user_id)
 
             # Send OTP message
-            msg = "Welcome aboard! To protect your account, please enter this OTP: {}.".format(otp)
+            msg = "Welcome aboard! To protect your account, please enter this OTP: {}.".format(
+                otp
+            )
             Message.send_otp(msg=str(msg), to=phone_number)
             logger.info("OTP message sent to phone number %s", phone_number)
 
@@ -336,7 +363,9 @@ class PasswordResendOTP(generics.GenericAPIView):
                 otp = otp_manager.create_otp(user_id=str(user.id))
                 logger.info("Generated OTP: %s for user ID: %s", otp, user.id)
 
-                msg = "To reset your password, please enter this One Time Password {}.".format(otp)
+                msg = "To reset your password, please enter this One Time Password {}.".format(
+                    otp
+                )
 
                 # Send OTP
                 Message.send_otp(msg=str(msg), to=phone_number)
@@ -349,7 +378,9 @@ class PasswordResendOTP(generics.GenericAPIView):
                 return Response(data=response, status=status.HTTP_200_OK)
 
             except User.DoesNotExist:
-                logger.warning("User with phone number %s does not exist.", phone_number)
+                logger.warning(
+                    "User with phone number %s does not exist.", phone_number
+                )
                 return Response(
                     {
                         "status": "fail",
@@ -373,7 +404,7 @@ class Login(APIView):
 
     def post(self, request):
         logger.debug("Received login request data: %s", request.data)
-        
+
         data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
@@ -413,7 +444,9 @@ class Login(APIView):
 
         # Check device limit for password login only
         if not biometrics and not self.check_device_limit(user):
-            logger.warning("User %s has reached device limit. Deleting oldest device.", login)
+            logger.warning(
+                "User %s has reached device limit. Deleting oldest device.", login
+            )
             return Response(
                 data={
                     "error": "User cannot log in on more than two devices; oldest device deleted."
@@ -428,8 +461,14 @@ class Login(APIView):
         existing_device_count = DeviceId.objects.filter(user=user).count()
         if existing_device_count >= 2:
             if existing_device_count >= 3:
-                oldest_device = DeviceId.objects.filter(user=user).earliest("created_at")
-                logger.info("Deleting oldest device %s for user %s", oldest_device.id, user.phone_number)
+                oldest_device = DeviceId.objects.filter(user=user).earliest(
+                    "created_at"
+                )
+                logger.info(
+                    "Deleting oldest device %s for user %s",
+                    oldest_device.id,
+                    user.phone_number,
+                )
                 oldest_device.delete()
             return False
         return True
@@ -484,7 +523,9 @@ class ForgotPassword(generics.GenericAPIView):
             user = User.objects.get(phone_number=user_data["phone_number"])
             logger.info(f"User found for phone number: {user.phone_number}")
         except User.DoesNotExist:
-            logger.warning(f"No user found with phone number: {user_data['phone_number']}")
+            logger.warning(
+                f"No user found with phone number: {user_data['phone_number']}"
+            )
             return Response(
                 data={
                     "status": "fail",

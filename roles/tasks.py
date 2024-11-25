@@ -2,6 +2,7 @@ import logging
 from exceptions import UserDoesNotExist
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db import transaction
 
 # Third party imports.
 from rest_framework import generics, status
@@ -26,6 +27,9 @@ from .models import GamificationModel, Points
 from permissions import IsTaskAdmin, IsSuperAdmin
 
 
+logger = logging.getLogger(__name__)
+
+
 class AssignTask(generics.CreateAPIView):
     """
     AssignTask is the POST request handler that allows a Task Admin
@@ -37,24 +41,39 @@ class AssignTask(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsTaskAdmin | IsSuperAdmin)
 
     def post(self, request, *args, **kwargs):
+        logger.info("Received POST request to assign a task.")
+
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             user_id = kwargs.get("user_id")
+            logger.info(f"Attempting to assign task to user_id: {user_id}")
+
             try:
                 user = User.objects.get(id=user_id)
+                logger.info(f"User found: {user.first_name} {user.last_name}")
             except User.DoesNotExist:
+                logger.error(f"User with id {user_id} does not exist.")
                 raise UserDoesNotExist
 
-            # Assuming your Task model has a 'assigned_to' field for the user
+            # Prepare task data
             task_data = {
                 "task_id": serializer.validated_data["task_id"],
                 "title": serializer.validated_data["title"],
                 "description": serializer.validated_data["description"],
                 "assigned_to": user,
             }
+            logger.info(f"Task data prepared for task_id: {task_data['task_id']}")
 
-            # Create a new task
-            task = GamificationModel.objects.create(**task_data)
+            try:
+                # Create a new task
+                task = GamificationModel.objects.create(**task_data)
+                logger.info(f"Task created successfully with task_id: {task.task_id}")
+            except Exception as e:
+                logger.error(f"Error creating task: {str(e)}")
+                return Response(
+                    {"status": "error", "message": "Error creating task."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
             response_data = {
                 "status": "Success",
@@ -62,10 +81,11 @@ class AssignTask(generics.CreateAPIView):
                 "data": {
                     "task_id": task.task_id,
                     "title": task.title,
-                    "assigned_to": user.first_name + user.last_name,
+                    "assigned_to": user.first_name + " " + user.last_name,
                     "description": task.description,
                 },
             }
+            logger.info(f"Task assigned successfully, task_id: {task.task_id}")
 
             return Response(data=response_data, status=status.HTTP_201_CREATED)
 
@@ -211,35 +231,49 @@ class ReviewTask(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsTaskAdmin | IsSuperAdmin)
 
     def post(self, request):
+        logger.info("Received POST request to review task.")
+
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             user_id = serializer.validated_data["user_id"]
+            logger.info(f"Processing task for user_id: {user_id}")
+
             try:
                 user = User.objects.get(id=user_id)
+                logger.info(f"User found: {user.full_name}")
             except User.DoesNotExist:
+                logger.error(f"User with id {user_id} does not exist.")
                 raise UserDoesNotExist
 
             new_pts = serializer.validated_data["pts"]
+            logger.info(f"New points to be added: {new_pts}")
+
             serializer.save()
+
             try:
                 with transaction.atomic():
                     game = GamificationModel.objects.get(user=user)
                     game.pts = new_pts
                     game.is_done = True
                     game.save()
+                    logger.info(
+                        f"Gamification points updated for user: {user.full_name}"
+                    )
 
                     pts = Points.objects.get(user=user)
                     pts.balance += new_pts
                     pts.gamification = game
                     pts.save()
+                    logger.info(f"Points balance updated for user: {user.full_name}")
 
             except Exception as e:
-                logging.error(f"Database query error: {str(e)}")
+                logger.error(f"Database query error while updating points: {str(e)}")
 
         response_data = {
             "status": "Success",
             "message": "Task reviewed successfully.",
             "data": serializer.data,
         }
+        logger.info("Task review successfully completed.")
 
         return Response(data=response_data, status=status.HTTP_200_OK)

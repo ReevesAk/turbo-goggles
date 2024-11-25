@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth.hashers import check_password
 
 # In project imports.
@@ -17,6 +18,8 @@ from permissions import (
     IsNotDisabled,
     IsAdAdminOrSuperAdmin,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PaginationStyle(PageNumberPagination):
@@ -38,21 +41,38 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
         user_id = kwargs.get("brand_id")
 
         try:
+            logger.info(
+                f"Received request to restrict BrandAd account for user_id: {user_id}. Initiated by admin: {request.user.id}."
+            )
+
             brand_ad = User.objects.get(id=user_id)
+            logger.info(f"Successfully retrieved User object for user_id: {user_id}.")
 
             account_types = AccountType.objects.filter(user=brand_ad)
+            logger.debug(
+                f"Retrieved account types for user_id: {user_id}: {account_types}."
+            )
+
             # Check if any AccountType has "BrandAd" in user_type
             is_brandAd = any(acct.user_type == "BrandAd" for acct in account_types)
-
             if not is_brandAd:
-                raise exceptions.ValidationError(
-                    "User as not regsitered as a brand ad."
+                logger.warning(
+                    f"User with id {user_id} is not registered as a BrandAd."
                 )
+                raise exceptions.ValidationError("User is not registered as a BrandAd.")
 
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid(raise_exception=True):
+                logger.info(
+                    f"Serializer validation successful for user_id: {user_id}. Data: {serializer.validated_data}"
+                )
+
                 pin = serializer.validated_data.get("pin")
                 if check_password(password=pin, encoded=request.user.admin_pin):
+                    logger.info(
+                        f"Pin verification successful for admin: {request.user.id}."
+                    )
+
                     brand_account = RestrictBrandAdAccount.objects.create(
                         user=brand_ad,
                         reason=request.data.get("reason"),
@@ -60,9 +80,16 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                         maximum_debit=request.data.get("maximum_debit"),
                         post_per_day=request.data.get("post_per_day"),
                     )
+                    logger.info(
+                        f"Restricted BrandAd account created for user_id: {user_id}. ID: {brand_account.id}."
+                    )
+
                     # Set the is_restricted flag to true.
                     brand_account.is_restricted = True
                     brand_account.save()
+                    logger.info(
+                        f"BrandAd account restriction flag set to True for user_id: {user_id}."
+                    )
 
                     # Register Admin activity.
                     ActivityModel.objects.create(
@@ -70,12 +97,18 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                         title="Restrict Admin.",
                         description=f"Brand, {brand_account.firstname} has been restricted by {request.user.full_name}.",
                     )
+                    logger.info(
+                        f"Admin activity logged for user_id: {request.user.id}."
+                    )
 
-                    reason = (request.data.get("reason"),)
+                    reason = request.data.get("reason")
                     UserNotification.objects.create(
-                        user=brand_account,
+                        user=brand_account.user,
                         title="Restrict Account.",
                         message=f"Your account has been restricted for this reason: {reason}.",
+                    )
+                    logger.info(
+                        f"Notification sent to user_id: {user_id} about account restriction."
                     )
 
                     return Response(
@@ -83,25 +116,45 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                             "status": "success",
                             "message": "BrandAd account restricted successfully.",
                             "data": {
-                                "restricetd_account_id": brand_account.id,
+                                "restricted_account_id": brand_account.id,
                                 "user_detail": serializer.data,
                             },
                         },
                         status=status.HTTP_200_OK,
                     )
                 else:
+                    logger.warning(
+                        f"Pin verification failed for admin: {request.user.id}."
+                    )
                     return Response(
                         data={"status": "fail", "error": "Incorrect pin"},
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
         except User.DoesNotExist:
+            logger.error(f"User with id {user_id} does not exist.")
             return Response(
                 {
                     "status": "error",
                     "message": "User does not exist.",
                 },
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except exceptions.ValidationError as ve:
+            logger.warning(
+                f"Validation error while processing request for user_id: {user_id}. Error: {ve}"
+            )
+            return Response(
+                {"status": "fail", "message": str(ve)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.exception(
+                f"Unexpected error occurred while processing request for user_id: {user_id}."
+            )
+            return Response(
+                {"status": "error", "message": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

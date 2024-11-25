@@ -48,7 +48,7 @@ class BVN:
             logging.error("Bearer token is invalid or missing")
             return Response(
                 {"error": "Bearer token missing or invalid"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         headers = {
@@ -139,8 +139,8 @@ class Account:
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
             return Response(
-                {"error": "Bearer token missing or invalid"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         headers = {

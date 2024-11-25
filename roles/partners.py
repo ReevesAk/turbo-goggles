@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q
 
@@ -20,6 +22,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.models import User, AccountType, UserNotification
 from commons import CamelCaseJSONRenderer
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
+
+logger = logging.getLogger(__name__)
 
 
 class GetAllPartnersUsers(generics.ListAPIView):
@@ -71,19 +75,36 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
         user_id = kwargs.get("partner_id")
 
         try:
+            logger.info(
+                f"Received request to restrict partner account for user_id: {user_id} by admin: {request.user.id}"
+            )
+
             partner = User.objects.get(id=user_id)
+            logger.info(f"Successfully retrieved User object for user_id: {user_id}")
 
             account_types = AccountType.objects.filter(user=partner)
+            logger.debug(f"Account types for user_id {user_id}: {account_types}")
+
             # Check if any AccountType has "Partner" in user_type
             is_partner = any(acct.user_type == "Partner" for acct in account_types)
-
             if not is_partner:
-                raise exceptions.ValidationError("User is not regsitered as a partner.")
+                logger.warning(
+                    f"User with id {user_id} is not registered as a partner."
+                )
+                raise exceptions.ValidationError("User is not registered as a partner.")
 
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid(raise_exception=True):
+                logger.info(
+                    f"Serializer validation successful for user_id: {user_id}. Data: {serializer.validated_data}"
+                )
+
                 pin = serializer.validated_data.get("pin")
                 if check_password(password=pin, encoded=request.user.admin_pin):
+                    logger.info(
+                        f"Pin verification successful for admin: {request.user.id}"
+                    )
+
                     partner_account = RestrictPartnerAccount.objects.create(
                         user=partner,
                         reason=request.data.get("reason"),
@@ -91,9 +112,16 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                         maximum_debit=request.data.get("maximum_debit"),
                         post_per_day=request.data.get("post_per_day"),
                     )
-                    # Set the is_restricted flag to true.
+                    logger.info(
+                        f"Created restricted partner account for user_id: {user_id}, ID: {partner_account.id}"
+                    )
+
+                    # Set the is_restricted flag to true
                     partner_account.is_restricted = True
                     partner_account.save()
+                    logger.info(
+                        f"Set is_restricted flag to True for user_id: {user_id}"
+                    )
 
                     authenticated_user = request.user
                     user_name = (
@@ -116,18 +144,24 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                         else "Unknown"
                     )
 
-                    # Register Admin activity.
+                    # Register Admin activity
                     ActivityModel.objects.create(
                         user=request.user,
                         title="Restrict Admin.",
                         description=f"Partner, {partner.firstname} has been restricted by {user_name}.",
                     )
+                    logger.info(
+                        f"Admin activity logged for user_id: {user_id} by admin: {request.user.id}"
+                    )
 
-                    reason = (request.data.get("reason"),)
+                    reason = request.data.get("reason")
                     UserNotification.objects.create(
                         user=partner,
                         title="Restrict Account.",
                         message=f"Your account has been restricted for this reason: {reason}.",
+                    )
+                    logger.info(
+                        f"Notification sent to user_id: {user_id} about account restriction"
                     )
 
                     return Response(
@@ -135,25 +169,43 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                             "status": "success",
                             "message": "Partner account restricted successfully.",
                             "data": {
-                                "restricetd_account_id": partner_account.id,
+                                "restricted_account_id": partner_account.id,
                                 "user_detail": serializer.data,
                             },
                         },
                         status=status.HTTP_200_OK,
                     )
                 else:
+                    logger.warning(
+                        f"Pin verification failed for admin: {request.user.id}"
+                    )
                     return Response(
                         data={"status": "fail", "error": "Incorrect pin"},
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
         except User.DoesNotExist:
+            logger.error(f"User with id {user_id} does not exist.")
             return Response(
                 {
                     "status": "error",
                     "message": "User does not exist.",
                 },
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except exceptions.ValidationError as ve:
+            logger.warning(f"Validation error for user_id: {user_id}. Error: {ve}")
+            return Response(
+                {"status": "fail", "message": str(ve)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.exception(
+                f"Unexpected error occurred while processing request for user_id: {user_id}."
+            )
+            return Response(
+                {"status": "error", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -222,31 +274,49 @@ class PartnerSearch(generics.ListAPIView):
 
     def get(self, request, *args, **kwargs):
         search_term = kwargs.get("search_term")
+        logger.info(f"Received search request for term: {search_term}")
 
-        # Filter users who have user_type as 'Partner'
-        partners = User.objects.filter(
-            Q(accounttype__user_type="Partner")
-            & (
-                Q(business_name__icontains=search_term)
-                | Q(brand_name__icontains=search_term)
-                | Q(business_category__icontains=search_term)
-                | Q(full_name__icontains=search_term)
+        try:
+            # Filter users who have user_type as 'Partner'
+            partners = User.objects.filter(
+                Q(accounttype__user_type="Partner")
+                & (
+                    Q(business_name__icontains=search_term)
+                    | Q(brand_name__icontains=search_term)
+                    | Q(business_category__icontains=search_term)
+                    | Q(full_name__icontains=search_term)
+                )
+            ).distinct()
+
+            serializer = self.get_serializer(partners, many=True)
+
+            if partners.exists():
+                data = {
+                    "status": "success",
+                    "message": "Partners fetched successfully.",
+                    "data": serializer.data,
+                }
+                logger.info(
+                    f"Found {partners.count()} partners matching the search term: {search_term}"
+                )
+                return Response(data=data, status=status.HTTP_200_OK)
+            else:
+                data = {
+                    "status": "fail",
+                    "message": "No partners matching that query found.",
+                    "data": [],
+                }
+                logger.warning(
+                    f"No partners found matching the search term: {search_term}"
+                )
+                return Response(data=data, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            logger.exception(f"Error occurred while searching for partners: {e}")
+            return Response(
+                {
+                    "status": "error",
+                    "message": "An error occurred while processing the request.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        ).distinct()
-
-        serializer = self.get_serializer(partners, many=True)
-
-        if partners.exists():
-            data = {
-                "status": "success",
-                "message": "Partners fetched successfully.",
-                "data": serializer.data,
-            }
-            return Response(data=data, status=status.HTTP_200_OK)
-        else:
-            data = {
-                "status": "fail",
-                "message": "No partners matching that query found.",
-                "data": [],
-            }
-            return Response(data=data, status=status.HTTP_404_NOT_FOUND)

@@ -71,7 +71,9 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
             logger.info(f"User created successfully: {user.id}")
         except Exception as e:
             logger.error(f"Error creating user: {e}")
-            raise serializers.ValidationError("An error occurred while creating the user.")
+            raise serializers.ValidationError(
+                "An error occurred while creating the user."
+            )
 
         return user
 
@@ -165,7 +167,9 @@ class BrandSurveySerializers(serializers.ModelSerializer):
             if website and not website.startswith(("http://", "https://")):
                 logger.error("Invalid website URL format: %s", website)
                 raise serializers.ValidationError(
-                    {"website": "Invalid website format. Please include 'http://' or 'https://'."}
+                    {
+                        "website": "Invalid website format. Please include 'http://' or 'https://'."
+                    }
                 )
 
             logger.info("Validation successful for BrandSurveySerializers.")

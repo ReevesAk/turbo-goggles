@@ -13,7 +13,7 @@ base_url = config("DOJAH_BBASE_URL")
 class CAC:
     @staticmethod
     def verify(rc_number, business_name):
-        resource = "https://sandbox.dojah.io/api/v1/kyc/cac/basic"
+        resource = "https://api.dojah.io/api/v1/kyc/cac/basic"
         payload = {"rc_number": rc_number, "company_type": business_name}
         headers = {
             "AppId": app_id,

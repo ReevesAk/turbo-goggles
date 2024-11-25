@@ -57,7 +57,9 @@ class GetQuotation(generics.GenericAPIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
-            logger.error(f"Failed to retrieve Forex data. Status code: {fx_resp.status_code}")
+            logger.error(
+                f"Failed to retrieve Forex data. Status code: {fx_resp.status_code}"
+            )
             resp = {
                 "status": "fail",
                 "message": "Request failed, please try again!.",

@@ -44,7 +44,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         if email:
             email_exists = User.objects.filter(email=email).exists()
             if email_exists:
-                logger.warning("Registration attempt with already used email: %s", email)
+                logger.warning(
+                    "Registration attempt with already used email: %s", email
+                )
                 raise serializers.ValidationError("Email has already been used")
         else:
             logger.error("Registration attempt with empty email field.")

@@ -81,7 +81,9 @@ class GetProvidusAccount(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def post(self, request):
-        logger.info("Received request to validate and retrieve Providus account details.")
+        logger.info(
+            "Received request to validate and retrieve Providus account details."
+        )
 
         # Clean up and prepare payload
         payload = {
@@ -92,10 +94,14 @@ class GetProvidusAccount(generics.GenericAPIView):
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            logger.info(f"Payload validation successful for account number: {validated_data['account_number']}")
+            logger.info(
+                f"Payload validation successful for account number: {validated_data['account_number']}"
+            )
 
             # Call external service to retrieve account details
-            acc_resp = Transfers.getProvidusAccount(acct_num=validated_data["account_number"])
+            acc_resp = Transfers.getProvidusAccount(
+                acct_num=validated_data["account_number"]
+            )
 
             if acc_resp.status_code == 200:
                 logger.info("Successfully retrieved Providus account details.")
@@ -118,7 +124,9 @@ class GetProvidusAccount(generics.GenericAPIView):
                 }
                 return Response(data=err_resp, status=acc_resp.status_code)
         else:
-            logger.warning("Payload validation failed with errors: %s", serializer.errors)
+            logger.warning(
+                "Payload validation failed with errors: %s", serializer.errors
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -144,7 +152,9 @@ class GetAccount(generics.GenericAPIView):
         serializer = GetAccountSerializer(data=payload)
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            logger.info(f"Validation successful for account number: {validated_data['account_number']} and bank code: {validated_data['bankCode']}")
+            logger.info(
+                f"Validation successful for account number: {validated_data['account_number']} and bank code: {validated_data['bankCode']}"
+            )
 
             # Call external API to retrieve account details
             acc_resp = Transfers.getAccount(
@@ -251,7 +261,11 @@ class IntraBankTransfer(generics.CreateAPIView):
                 )
 
                 # Notify user
-                account_balance = TransferModel.objects.filter(user=authenticated_user).first().available_balance
+                account_balance = (
+                    TransferModel.objects.filter(user=authenticated_user)
+                    .first()
+                    .available_balance
+                )
                 message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['transaction_amount']} has been confirmed. Your available balance is ₦{account_balance}."
 
                 UserNotification.objects.create(
@@ -271,7 +285,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                     content=message,
                     email=authenticated_user.email,
                 )
-                logger.info(f"Transfer notification sent to user {authenticated_user.id}.")
+                logger.info(
+                    f"Transfer notification sent to user {authenticated_user.id}."
+                )
 
                 resp = {
                     "status": "success",
@@ -304,7 +320,10 @@ class IntraBankTransfer(generics.CreateAPIView):
         except Exception as e:
             logger.exception(f"Unexpected error during transfer: {str(e)}")
             return Response(
-                data={"status": "fail", "error": "An error occurred. Please try again later."},
+                data={
+                    "status": "fail",
+                    "error": "An error occurred. Please try again later.",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -331,7 +350,9 @@ class InterBankTransfer(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            logger.warning(f"Invalid payload for user {authenticated_user.id}: {serializer.errors}")
+            logger.warning(
+                f"Invalid payload for user {authenticated_user.id}: {serializer.errors}"
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Retrieve user account details and PIN or biometric verification
@@ -344,7 +365,9 @@ class InterBankTransfer(generics.CreateAPIView):
             verification = (
                 Biometrics.authenticate(authenticated_user.phone_number)
                 if biometrics
-                else Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                else Pin.verify(
+                    user=authenticated_user, pin=pin, hashed_pin=account.pin
+                )
             )
             if not verification:
                 logger.error(f"Verification failed for user {authenticated_user.id}")
@@ -354,7 +377,9 @@ class InterBankTransfer(generics.CreateAPIView):
                 )
             logger.info(f"Verification successful for user {authenticated_user.id}")
         except Exception as e:
-            logger.exception(f"Error during verification for user {authenticated_user.id}: {e}")
+            logger.exception(
+                f"Error during verification for user {authenticated_user.id}: {e}"
+            )
             return Response(
                 data={"status": "fail", "error": "Verification error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -372,7 +397,9 @@ class InterBankTransfer(generics.CreateAPIView):
                 beneficiaryAccountNumber=payload["beneficiary_account_number"],
             )
         except Exception as e:
-            logger.exception(f"Transfer request failed for user {authenticated_user.id}: {e}")
+            logger.exception(
+                f"Transfer request failed for user {authenticated_user.id}: {e}"
+            )
             return Response(
                 data={"status": "fail", "error": "Transfer service error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -382,7 +409,9 @@ class InterBankTransfer(generics.CreateAPIView):
             tx_id = generate_txId()
             try:
                 # Log transaction creation
-                logger.info(f"Creating transaction record for user {authenticated_user.id}")
+                logger.info(
+                    f"Creating transaction record for user {authenticated_user.id}"
+                )
                 tx = TxModel.objects.create(
                     user=authenticated_user,
                     tx_reference=payload["transaction_reference"],
@@ -432,17 +461,23 @@ class InterBankTransfer(generics.CreateAPIView):
                     "message": "Transfer successful.",
                     "data": {
                         "recipient_name": payload["beneficiary_account_name"],
-                        "beneficiary_account_number": payload["beneficiary_account_number"],
+                        "beneficiary_account_number": payload[
+                            "beneficiary_account_number"
+                        ],
                         "amount": payload["transaction_amount"],
                         "narration": payload["narration"],
                         "beneficiaryBank": payload["beneficiary_bank"],
                         "transactionReference": payload["transaction_reference"],
                     },
                 }
-                logger.info(f"Transfer completed successfully for user {authenticated_user.id}")
+                logger.info(
+                    f"Transfer completed successfully for user {authenticated_user.id}"
+                )
                 return Response(data=resp, status=status.HTTP_200_OK)
             except Exception as e:
-                logger.exception(f"Transaction record creation failed for user {authenticated_user.id}: {e}")
+                logger.exception(
+                    f"Transaction record creation failed for user {authenticated_user.id}: {e}"
+                )
                 return Response(
                     data={"status": "fail", "error": "Internal transaction error"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -453,7 +488,9 @@ class InterBankTransfer(generics.CreateAPIView):
                 "error": "Transfer failed.",
                 "data": transfer_resp.json(),
             }
-            logger.warning(f"Transfer failed for user {authenticated_user.id}: {transfer_resp.json()}")
+            logger.warning(
+                f"Transfer failed for user {authenticated_user.id}: {transfer_resp.json()}"
+            )
             return Response(data=err_resp, status=transfer_resp.status_code)
 
 
@@ -471,11 +508,15 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         tx_reference = kwargs.get("tx_reference")
         user_id = request.user.id
-        logger.info(f"User {user_id} requested transaction status for reference: {tx_reference}")
+        logger.info(
+            f"User {user_id} requested transaction status for reference: {tx_reference}"
+        )
 
         # Check if transaction reference is provided
         if not tx_reference:
-            logger.warning(f"Transaction reference not found in request by user {user_id}")
+            logger.warning(
+                f"Transaction reference not found in request by user {user_id}"
+            )
             raise Http404("Transaction reference not found")
 
         # Attempt to retrieve transaction status
@@ -484,7 +525,9 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
                 transactionReference=tx_reference,
             )
             if status_resp.status_code == 200:
-                logger.info(f"Transaction status retrieved successfully for reference {tx_reference}")
+                logger.info(
+                    f"Transaction status retrieved successfully for reference {tx_reference}"
+                )
                 resp = {
                     "status": "success",
                     "data": status_resp.json(),
@@ -492,7 +535,9 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 # Log failed status retrieval
-                logger.error(f"Failed to retrieve transaction status for reference {tx_reference}. Status code: {status_resp.status_code}")
+                logger.error(
+                    f"Failed to retrieve transaction status for reference {tx_reference}. Status code: {status_resp.status_code}"
+                )
                 err_resp = {
                     "status": "fail",
                     "error": "Could not retrieve transaction status.",
@@ -501,9 +546,14 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
                 return Response(data=err_resp, status=status_resp.status_code)
         except Exception as e:
             # Log exceptions that occur during the status retrieval
-            logger.exception(f"Exception occurred while retrieving transaction status for reference {tx_reference}: {e}")
+            logger.exception(
+                f"Exception occurred while retrieving transaction status for reference {tx_reference}: {e}"
+            )
             return Response(
-                data={"status": "fail", "error": "Internal server error while retrieving status"},
+                data={
+                    "status": "fail",
+                    "error": "Internal server error while retrieving status",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -521,11 +571,15 @@ class InterBankTransactionStatus(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         tx_reference = kwargs.get("tx_reference")
         user_id = request.user.id
-        logger.info(f"User {user_id} requested status for interbank transaction with reference: {tx_reference}")
+        logger.info(
+            f"User {user_id} requested status for interbank transaction with reference: {tx_reference}"
+        )
 
         # Check if transaction reference is provided
         if not tx_reference:
-            logger.warning(f"Transaction reference not found in request by user {user_id}")
+            logger.warning(
+                f"Transaction reference not found in request by user {user_id}"
+            )
             raise Http404("Transaction reference not found")
 
         # Attempt to retrieve transaction status
@@ -534,7 +588,9 @@ class InterBankTransactionStatus(generics.GenericAPIView):
                 transactionReference=tx_reference,
             )
             if status_resp.status_code == 200:
-                logger.info(f"Transaction status successfully retrieved for reference {tx_reference}")
+                logger.info(
+                    f"Transaction status successfully retrieved for reference {tx_reference}"
+                )
                 resp = {
                     "status": "success",
                     "data": status_resp.json(),
@@ -542,7 +598,9 @@ class InterBankTransactionStatus(generics.GenericAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 # Log failed status retrieval
-                logger.error(f"Failed to retrieve transaction status for reference {tx_reference}. Status code: {status_resp.status_code}")
+                logger.error(
+                    f"Failed to retrieve transaction status for reference {tx_reference}. Status code: {status_resp.status_code}"
+                )
                 err_resp = {
                     "status": "fail",
                     "error": "Could not retrieve transaction status.",
@@ -551,9 +609,14 @@ class InterBankTransactionStatus(generics.GenericAPIView):
                 return Response(data=err_resp, status=status_resp.status_code)
         except Exception as e:
             # Log exceptions that occur during the status retrieval
-            logger.exception(f"Exception occurred while retrieving transaction status for reference {tx_reference}: {e}")
+            logger.exception(
+                f"Exception occurred while retrieving transaction status for reference {tx_reference}: {e}"
+            )
             return Response(
-                data={"status": "fail", "error": "Internal server error while retrieving status"},
+                data={
+                    "status": "fail",
+                    "error": "Internal server error while retrieving status",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -570,7 +633,9 @@ class PayWithCard(generics.CreateAPIView):
     def post(self, request):
         user_data = request.data
         user = request.user
-        logger.info(f"User {user.id} initiated a PayWithCard request with data: {user_data}")
+        logger.info(
+            f"User {user.id} initiated a PayWithCard request with data: {user_data}"
+        )
 
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -582,7 +647,9 @@ class PayWithCard(generics.CreateAPIView):
                 if checkout_url_response.status_code == 200:
                     # Log successful URL generation
                     url_resp = checkout_url_response.json()
-                    logger.info(f"Checkout URL generated successfully for user {user.id} with reference {url_resp['data']['reference']}")
+                    logger.info(
+                        f"Checkout URL generated successfully for user {user.id} with reference {url_resp['data']['reference']}"
+                    )
 
                     # Save transaction in FundWithCard model
                     FundWithCard.objects.create(
@@ -598,21 +665,30 @@ class PayWithCard(generics.CreateAPIView):
                     return Response(data=response, status=status.HTTP_200_OK)
                 else:
                     # Log unsuccessful URL generation attempt
-                    logger.error(f"Failed to generate checkout URL for user {user.id}. Status code: {checkout_url_response.status_code}")
+                    logger.error(
+                        f"Failed to generate checkout URL for user {user.id}. Status code: {checkout_url_response.status_code}"
+                    )
                     return Response(
                         data=checkout_url_response.json(),
                         status=checkout_url_response.status_code,
                     )
             except Exception as e:
                 # Log exceptions in checkout URL generation process
-                logger.exception(f"Exception occurred while generating checkout URL for user {user.id}: {e}")
+                logger.exception(
+                    f"Exception occurred while generating checkout URL for user {user.id}: {e}"
+                )
                 return Response(
-                    data={"status": "fail", "error": "Internal server error during checkout URL generation"},
+                    data={
+                        "status": "fail",
+                        "error": "Internal server error during checkout URL generation",
+                    },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             # Log validation errors
-            logger.warning(f"Validation failed for PayWithCard request by user {user.id} with errors: {serializer.errors}")
+            logger.warning(
+                f"Validation failed for PayWithCard request by user {user.id} with errors: {serializer.errors}"
+            )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -636,15 +712,25 @@ class FundWallet(generics.GenericAPIView):
         email = user_data.get("email")
         amount = user_data.get("amount")
         tx_ref = user_data.get("tx_ref")
-        logger.info("Processing FundWallet for user with email: %s and tx_ref: %s", email, tx_ref)
+        logger.info(
+            "Processing FundWallet for user with email: %s and tx_ref: %s",
+            email,
+            tx_ref,
+        )
 
         # Retrieve the user or return a 404 response if not found
         user = get_object_or_404(User, email=email)
         logger.info("User %s found for wallet funding.", user.id)
 
-        reference_exists = FundWithCard.objects.filter(user=user, txn_reference=tx_ref).exists()
+        reference_exists = FundWithCard.objects.filter(
+            user=user, txn_reference=tx_ref
+        ).exists()
         if not reference_exists:
-            logger.error("Transaction reference %s does not exist or belong to user %s", tx_ref, user.id)
+            logger.error(
+                "Transaction reference %s does not exist or belong to user %s",
+                tx_ref,
+                user.id,
+            )
             return Response(
                 data="Transaction reference does not exist or belong to User",
                 status=status.HTTP_403_FORBIDDEN,
@@ -702,7 +788,9 @@ class FundWallet(generics.GenericAPIView):
                     content=message,
                     email=user.email,
                 )
-                logger.info("Confirmation email sent to user %s at %s", user.id, user.email)
+                logger.info(
+                    "Confirmation email sent to user %s at %s", user.id, user.email
+                )
 
                 resp = {
                     "status": "success",
@@ -710,7 +798,11 @@ class FundWallet(generics.GenericAPIView):
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
-                logger.error("Transfer failed with status code: %s, response: %s", transfer_resp.status_code, transfer_resp.json())
+                logger.error(
+                    "Transfer failed with status code: %s, response: %s",
+                    transfer_resp.status_code,
+                    transfer_resp.json(),
+                )
                 return Response(
                     data={
                         "status": "fail",
@@ -721,8 +813,15 @@ class FundWallet(generics.GenericAPIView):
                 )
 
         except Exception as e:
-            logger.exception("An error occurred during wallet funding for user %s: %s", user.id, str(e))
+            logger.exception(
+                "An error occurred during wallet funding for user %s: %s",
+                user.id,
+                str(e),
+            )
             return Response(
-                data={"status": "fail", "message": "Internal server error during wallet funding"},
+                data={
+                    "status": "fail",
+                    "message": "Internal server error during wallet funding",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
