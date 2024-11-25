@@ -10,9 +10,9 @@ from .serializers import (
 from .models import Ticket
 
 # Third party imports.
-from rest_framework import generics, status, exceptions
+from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -21,6 +21,9 @@ from roles.models import ActivityModel
 from permissions import (
     IsSuperAdmin,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -37,52 +40,69 @@ class CreateTicket(generics.CreateAPIView):
     serializer_class = CreateTicketSerializers
 
     def create(self, request, *args, **kwargs):
+        logger.info("Received request to create a support ticket.")
+
+        # Clean up the payload
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.debug("Payload after stripping: %s", payload)
+
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user_data = serializer.validated_data
         user_email = payload.get("email")
+        logger.debug("User  email extracted from payload: %s", user_email)
 
         try:
             user = User.objects.get(email=user_email)
+            logger.info("User  found: %s", user)
         except User.DoesNotExist:
+            logger.error("User  with email %s not found.", user_email)
             return Response(
-                data={"error": "User not found"},
+                data={"error": "User  not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         title = payload.get("tilte")
+        logger.debug("Creating ticket with title: %s", title)
 
-        Ticket.objects.create(
+        # Create the ticket
+        ticket = Ticket.objects.create(
             user=user,
-            title=payload.get("tilte"),
-            escalation_level="Managament",
+            title=title,
+            escalation_level="Management",
             status="Queuing",
         )
+        logger.info("Ticket created successfully: %s", ticket)
 
+        # Create user notification
         UserNotification.objects.create(
             user=user,
             title="Create Ticket",
             message="Support ticket has been created for your issue."
         )
+        logger.info("User  notification created for user: %s", user)
 
+        # Log activity
         ActivityModel.objects.create(
             user=user,
             title="Create Ticket",
             message="Support ticket has been created for your issue"
         )
+        logger.info("Activity logged for user: %s", user)
 
         resp = {
             "status": "success",
-            "message": f"Support ticket created for {user.first_name} {user.last_login}, for {title}",
+            "message": f"Support ticket created for {user.first_name} {user.last_name}, for {title}",
             "data": serializer.data,
             "created_at": user_data["created_at"],
         }
+        logger.info("Response prepared successfully: %s", resp)
         return Response(data=resp, status=status.HTTP_201_CREATED)
 
 
@@ -97,24 +117,31 @@ class AssignTicket(generics.GenericAPIView):
     permission_classes = [IsSuperAdmin]
 
     def post(self, request):
+        logger.info("Received request to assign a support ticket.")
+
         authenticated_user = request.user
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        logger.debug("Payload after stripping: %s", payload)
 
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         admin_email = payload.get("agent_email")
         ticket_id = payload.get("ticket_id")
         pin = request.data.get("pin")
+        logger.debug("Admin email: %s, Ticket ID: %s", admin_email, ticket_id)
 
         # Attempt to retrieve the ticket
         try:
             ticket = Ticket.objects.get(id=ticket_id)
+            logger.info("Ticket found: %s", ticket)
         except Ticket.DoesNotExist:
+            logger.error("Ticket with ID %s does not exist.", ticket_id)
             return Response(
                 data={
                     "status": "fail",
@@ -126,7 +153,9 @@ class AssignTicket(generics.GenericAPIView):
         # Attempt to retrieve the user by email
         try:
             user = User.objects.get(email=admin_email)
+            logger.info("User  found: %s", user)
         except User.DoesNotExist:
+            logger.error("User  with email %s does not exist.", admin_email)
             return Response(
                 data={
                     "status": "fail",
@@ -141,7 +170,7 @@ class AssignTicket(generics.GenericAPIView):
             "TaskAdmin",
             "AdAdmin",
             "MembersAdmin",
-            "User Admin",
+            "User  Admin",
             "PartnersAdmin",
             "ContentAdmin",
             "IntegrationAdmin",
@@ -153,13 +182,16 @@ class AssignTicket(generics.GenericAPIView):
         ).exists()
 
         if not is_admin:
+            logger.warning("User  %s exists, but is not an admin.", user.email)
             raise PermissionDenied("User  exists, but is not an admin.")
 
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
+            logger.info("Pin verification successful for user: %s", authenticated_user)
 
             # Assign the ticket to the user
             ticket.assigned_to = user
             ticket.save()
+            logger.info("Ticket %s assigned to user: %s", ticket_id, user.full_name)
 
             # Log the activity
             ActivityModel.objects.create(
@@ -167,14 +199,17 @@ class AssignTicket(generics.GenericAPIView):
                 title="Assign Ticket",
                 message=f"Support ticket {ticket_id} has been assigned to {user.full_name}."
             )
+            logger.info("Activity logged for assigning ticket %s to user: %s", ticket_id, user.full_name)
 
             response = {
                 "status": "success",
                 "message": f"Support ticket {ticket_id} has been successfully assigned to {user.full_name}",
                 "data": serializer.data,
             }
+            logger.info("Response prepared successfully: %s", response)
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
+            logger.warning("Incorrect pin provided for user: %s", authenticated_user)
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -193,11 +228,14 @@ class GetAllSupportTickets(generics.ListAPIView):
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
+        logger.info("Received request to list all support tickets.")
 
         tickets = Ticket.objects.all().order_by("-created_at")
+        logger.debug("Total tickets found: %d", tickets.count())
 
         paginator = self.pagination_class()
         paginated_tickets = paginator.paginate_queryset(tickets, request)
+        logger.debug("Paginated tickets: %s", paginated_tickets)
 
         # Prepare response data
         data = []
@@ -205,7 +243,7 @@ class GetAllSupportTickets(generics.ListAPIView):
             data.append(
                 {
                     "ticket_id": ticket.id,
-                    "authorised_by": "SuperAdmin",
+                    "authorised_by": "SuperAdmin",  # This could be dynamic based on your logic
                     "title": ticket.title,
                     "description": ticket.description,
                     "created_at": ticket.created_at,
@@ -223,6 +261,7 @@ class GetAllSupportTickets(generics.ListAPIView):
             "total_count": paginator.page.paginator.count,
             "data": data,
         }
+        logger.info("Response prepared successfully with %d tickets.", len(data))
         return Response(response, status=status.HTTP_200_OK)
 
 
@@ -239,9 +278,14 @@ class GetSingleTicket(generics.RetrieveAPIView):
     lookup_field = "ticket_id"
 
     def retrieve(self, request, *args, **kwargs):
+        logger.info("Received request to retrieve support ticket.")
+
+        ticket_id = kwargs.get("ticket_id")
+        logger.debug("Attempting to retrieve ticket with ID: %s", ticket_id)
+
         try:
-            ticket_id = kwargs["ticket_id"]
             ticket = Ticket.objects.get(id=ticket_id)
+            logger.info("Ticket found: %s", ticket)
 
             # Prepare the response data
             response = {
@@ -257,9 +301,11 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "status": ticket.status
                 },
             }
+            logger.info("Response prepared successfully for ticket ID: %s", ticket_id)
             return Response(data=response, status=status.HTTP_200_OK)
 
         except Ticket.DoesNotExist:
+            logger.error("Ticket with ID %s not found.", ticket_id)
             return Response(
                 {"status": "fail", "message": "Ticket not found."},
                 status=status.HTTP_404_NOT_FOUND,
