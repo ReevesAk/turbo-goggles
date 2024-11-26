@@ -2,7 +2,6 @@ import logging
 from exceptions import UserDoesNotExist
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.db import transaction
 
 # Third party imports.
 from rest_framework import generics, status

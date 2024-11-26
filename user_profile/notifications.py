@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -12,6 +14,9 @@ from .serializers import (
     DeleteNotificationStatusSerializer,
 )
 from accounts.models import UserNotification
+
+
+logger = logging.getLogger(__name__)
 
 
 class PaginationStyle(PageNumberPagination):
@@ -30,7 +35,11 @@ class GetAllNotifications(generics.ListAPIView):
     queryset = UserNotification.objects.all().order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
+        logger.info("Received request to list notifications for user: %s", request.user.email)
+
         notifications = self.get_queryset().filter(user=request.user)
+        logger.debug("Total notifications found for user %s: %d", request.user.email, notifications.count())
+
         user_data = request.user
 
         data = []
@@ -50,6 +59,7 @@ class GetAllNotifications(generics.ListAPIView):
             "message": f"All notifications for {user_data.first_name} {user_data.last_name} fetched successfully!",
             "data": data,
         }
+        logger.info("Response prepared successfully with %d notifications for user: %s", len(data), user_data.email)
         return Response(response, status=status.HTTP_200_OK)
 
 
@@ -66,11 +76,15 @@ class GetSingleNotification(generics.RetrieveAPIView):
     lookup_field = "id"
 
     def retrieve(self, request, *args, **kwargs):
+        logger.info("Received request to retrieve notification with ID: %s", kwargs.get("id"))
+
         try:
-            user_notifcation = self.get_object()
+            user_notification = self.get_object()
+            logger.debug("User  notification object retrieved: %s", user_notification)
 
             # Check if the notification belongs to the authenticated user
-            if user_notifcation.user != request.user:
+            if user_notification.user != request.user:
+                logger.warning("Unauthorized access attempt by user: %s for notification ID: %s", request.user.email, kwargs.get("id"))
                 return Response(
                     {
                         "status": "fail",
@@ -80,21 +94,25 @@ class GetSingleNotification(generics.RetrieveAPIView):
                 )
 
             ntfn_id = kwargs["id"]
-            notifcation = UserNotification.objects.get(id=ntfn_id)
+            notification = UserNotification.objects.get(id=ntfn_id)
+            logger.info("Notification found: %s", notification)
+
             response = {
-                "status": "success.",
-                "message": "Notification retrieved successfully!.",
-                "title": notifcation.title,
+                "status": "success",
+                "message": "Notification retrieved successfully!",
+                "title": notification.title,
                 "data": {
                     "notification_id": ntfn_id,
-                    "message": notifcation.message,
-                    "is_read": notifcation.is_read,
-                    "created_at": notifcation.created_at,
+                    "message": notification.message,
+                    "is_read": notification.is_read,
+                    "created_at": notification.created_at,
                 },
             }
+            logger.info("Response prepared successfully for notification ID: %s", ntfn_id)
             return Response(data=response, status=status.HTTP_200_OK)
 
         except UserNotification.DoesNotExist:
+            logger.error("Notification with ID %s not found.", kwargs.get("id"))
             return Response(
                 {"status": "fail", "message": "Notification not found."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -113,15 +131,20 @@ class ClearNotifications(generics.DestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         user = self.request.user
+        logger.info("Received request to delete notifications for user: %s", user.email)
+
         notifications = UserNotification.objects.filter(user=user)
 
         if not notifications.exists():
+            logger.info("No notifications found for user: %s to delete.", user.email)
             return Response(
                 {"message": "No notifications found to delete."},
                 status=status.HTTP_200_OK,
             )
 
-        notifications.delete()
+        deleted_count, _ = notifications.delete()
+        logger.info("Deleted %d notifications for user: %s", deleted_count, user.email)
+
         return Response(
             {"message": "Notifications cleared."}, status=status.HTTP_200_OK
         )
@@ -139,15 +162,20 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
 
     def post(self, request):
         user = request.user
+        logger.info("Received request to mark notifications as read for user: %s", user.email)
+
         notifications = UserNotification.objects.filter(user=user)
 
         if not notifications.exists():
+            logger.info(":User  %s has no notifications to mark as read.", user.email)
             return Response(
                 {"message": "You have no notifications to mark as read."},
                 status=status.HTTP_200_OK,
             )
 
-        notifications.update(is_read=True)
+        updated_count = notifications.update(is_read=True)
+        logger.info("Marked %d notifications as read for user: %s", updated_count, user.email)
+
         return Response(
             {"message": "All notifications marked as read."}, status=status.HTTP_200_OK
         )
@@ -165,22 +193,28 @@ class DeleteNotification(generics.DestroyAPIView):
     lookup_field = "id"
 
     def destroy(self, request, *args, **kwargs):
+        logger.info("Received request to delete notification with ID: %s", kwargs.get("id"))
+
         try:
             notification = self.get_object()
+            logger.debug("Notification object retrieved: %s", notification)
 
             if notification.user == request.user:
                 notification.delete()
+                logger.info("Notification with ID: %s deleted by user: %s", notification.id, request.user.email)
                 return Response(
                     {"status": "Notification deleted."},
                     status=status.HTTP_204_NO_CONTENT,
                 )
             else:
+                logger.warning("Unauthorized delete attempt by user: %s for notification ID: %s", request.user.email, notification.id)
                 return Response(
                     {"detail": "You are not authorized to delete this notification."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
         except UserNotification.DoesNotExist:
+            logger.error("Notification with ID %s not found.", kwargs.get("id"))
             return Response(
                 {"detail": "Notification not found."},
                 status=status.HTTP_404_NOT_FOUND,

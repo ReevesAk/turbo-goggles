@@ -1,3 +1,5 @@
+import logging
+
 from django.template.loader import render_to_string
 
 from sms import Message
@@ -62,6 +64,8 @@ from fmcg.models import Product, Favourite
 from cloudinary import uploader as cloud
 
 
+logger = logging.getLogger(__name__)
+
 fincra_webhook_key = config("WEBHOOK_SECRET_KEY")
 
 
@@ -84,10 +88,13 @@ class SwitchToUser(generics.RetrieveAPIView):
 
     def put(self, request):
         user = self.get_object()
+        logger.info("User  %s is attempting to switch account type.", user.email)
 
         try:
             account_types = AccountType.objects.filter(user=user)
-            # Check if any AccountType has "User" in user_type
+            logger.debug("Account types retrieved for user %s: %s", user.email, account_types)
+
+            # Check if any AccountType has "User " in user_type
             is_user = any(acct.user_type == "User" for acct in account_types)
 
             if not is_user:
@@ -96,19 +103,25 @@ class SwitchToUser(generics.RetrieveAPIView):
                     "message": "Oops, you haven't registered as a User yet.",
                     "data": user.active_role,
                 }
+                logger.warning("User  %s attempted to switch to User but is not registered as one.", user.email)
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
+            logger.error("AccountType for user %s does not exist.", user.email)
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
-        # Handle already switched to Partner
+        # Handle already switched to User
         if user.active_role == "User":
             data = {
                 "status": "success",
                 "message": "You are already on the User screen.",
                 "data": user.active_role,
             }
+            logger.info("User  %s is already on the User screen.", user.email)
             return Response(data=data, status=status.HTTP_200_OK)
+
+        # Log the switch action
+        logger.info("User  %s is switching account type from %s to User.", user.email, user.active_role)
 
         UserNotification.objects.create(
             user=user,
@@ -118,7 +131,7 @@ class SwitchToUser(generics.RetrieveAPIView):
 
         ActivityModel.objects.create(
             user=user,
-            title="User Type Switch.",
+            title="User  Type Switch.",
             description=f"{user.first_name} {user.last_name} switched account from {user.active_role} to User.",
         )
 
@@ -131,6 +144,7 @@ class SwitchToUser(generics.RetrieveAPIView):
             "message": "Account type switched to User successfully.",
             "data": user.active_role,
         }
+        logger.info("User  %s successfully switched account type to User.", user.email)
         return Response(data=data, status=status.HTTP_200_OK)
 
 
@@ -153,9 +167,12 @@ class SwitchToPartner(generics.RetrieveAPIView):
 
     def put(self, request):
         user = self.get_object()
+        logger.info("User  %s is attempting to switch account type.", user.email)
 
         try:
             account_types = AccountType.objects.filter(user=user)
+            logger.debug("Account types retrieved for user %s: %s", user.email, account_types)
+
             # Check if any AccountType has "Partner" in user_type
             is_partner = any(acct.user_type == "Partner" for acct in account_types)
 
@@ -165,9 +182,11 @@ class SwitchToPartner(generics.RetrieveAPIView):
                     "message": "Oops, you haven't registered as a Partner yet.",
                     "data": user.active_role,
                 }
+                logger.warning("User  %s attempted to switch to Partner but is not registered as one.", user.email)
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
+            logger.error("AccountType for user %s does not exist.", user.email)
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
         # Handle already switched to Partner
@@ -177,7 +196,11 @@ class SwitchToPartner(generics.RetrieveAPIView):
                 "message": "You are already on the Partner screen.",
                 "data": user.active_role,
             }
+            logger.info("User  %s is already on the Partner screen.", user.email)
             return Response(data=data, status=status.HTTP_200_OK)
+
+        # Log the switch action
+        logger.info("User  %s is switching account type from %s to Partner.", user.email, user.active_role)
 
         UserNotification.objects.create(
             user=user,
@@ -200,6 +223,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
             "message": "Account type switched to Partner successfully.",
             "data": user.active_role,
         }
+        logger.info("User  %s successfully switched account type to Partner.", user.email)
         return Response(data=data, status=status.HTTP_200_OK)
 
 
@@ -222,9 +246,12 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
 
     def put(self, request):
         user = self.get_object()
+        logger.info("User  %s is attempting to switch account type.", user.email)
 
         try:
             account_types = AccountType.objects.filter(user=user)
+            logger.debug("Account types retrieved for user %s: %s", user.email, account_types)
+
             # Check if any AccountType has "BrandAd" in user_type
             is_brandAd = any(acct.user_type == "BrandAd" for acct in account_types)
 
@@ -234,19 +261,25 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
                     "message": "Oops, you haven't registered as a BrandAd yet.",
                     "data": user.active_role,
                 }
+                logger.warning("User  %s attempted to switch to BrandAd but is not registered as one.", user.email)
                 return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
+            logger.error("AccountType for user %s does not exist.", user.email)
             raise exceptions.ValidationError("AccountType for the user does not exist.")
 
-        # Handle already switched to Partner
+        # Handle already switched to BrandAd
         if user.active_role == "BrandAd":
             data = {
                 "status": "success",
                 "message": "You are already on the BrandAd screen.",
                 "data": user.active_role,
             }
+            logger.info("User  %s is already on the BrandAd screen.", user.email)
             return Response(data=data, status=status.HTTP_200_OK)
+
+        # Log the switch action
+        logger.info("User  %s is switching account type from %s to BrandAd.", user.email, user.active_role)
 
         UserNotification.objects.create(
             user=user,
@@ -260,7 +293,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
             description=f"{user.first_name} {user.last_name} switched account type from {user.active_role} to BrandAd.",
         )
 
-        # User has a Partner account type, switch the role
+        # Switch the role to BrandAd
         user.active_role = "BrandAd"
         user.save()
 
@@ -269,6 +302,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
             "message": "Account type switched to BrandAd successfully.",
             "data": user.active_role,
         }
+        logger.info("User  %s successfully switched account type to BrandAd.", user.email)
         return Response(data=data, status=status.HTTP_200_OK)
 
 
@@ -284,55 +318,63 @@ class ProfileImage(generics.CreateAPIView):
     parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
     def create(self, request):
+        logger.info("User  %s is attempting to upload a profile image.", request.user.email)
+
         serializer = ProfileImageSerializer(data=request.data)
 
         if serializer.is_valid():
             profile_image = serializer.validated_data["profile_image"]
 
-            # Upload the image to Cloudinary
-            result = cloud.upload(profile_image)
+            try:
+                # Upload the image to Cloudinary
+                result = cloud.upload(profile_image)
+                logger.debug("Image uploaded to Cloudinary: %s", result["url"])
 
-            request.user.profile_img_url = result["url"]
-            request.user.save()
+                # Update user's profile image URL
+                request.user.profile_img_url = result["url"]
+                request.user.save()
 
-            UserNotification.objects.create(
-                user=request.user,
-                title="Profile Image.",
-                message="You have successfully uploaded your profile image.",
-            )
+                UserNotification.objects.create(
+                    user=request.user,
+                    title="Profile Image.",
+                    message="You have successfully uploaded your profile image.",
+                )
 
-            # Check if user is an admin and adjust the description
-            if request.user.active_role in {
-                "SuperAdmin",
-                "TaskAdmin",
-                "AdAdmin",
-                "MembersAdmin",
-                "UserAdmin",
-                "PartnersAdmin",
-                "ContentAdmin",
-                "IntegrationAdmin",
-                "WalletAdmin",
-                "FmcgAdmin",
-            }:
-                description = f"Admin with email: {request.user.email} and role: {request.user.active_role} uploaded their profile image."
-            else:
-                description = f"{request.user.first_name} {request.user.last_name} uploaded their profile image."
+                # Check if user is an admin and adjust the description
+                if request.user.active_role in {
+                    "SuperAdmin",
+                    "TaskAdmin",
+                    "AdAdmin",
+                    "MembersAdmin",
+                    "User Admin",
+                    "PartnersAdmin",
+                    "ContentAdmin",
+                    "IntegrationAdmin",
+                    "WalletAdmin",
+                    "FmcgAdmin",
+                }:
+                    description = f"Admin with email: {request.user.email} and role: {request.user.active_role} uploaded their profile image."
+                else:
+                    description = f"{request.user.first_name} {request.user.last_name} uploaded their profile image."
 
-            ActivityModel.objects.create(
-                user=request.user,
-                title="Profile Image.",
-                description=description,
-            )
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Profile Image.",
+                    description=description,
+                )
 
-            response = {
-                "status": "success",
-                "message": "Profile picture uploaded successfully",
-            }
-            return Response(
-                data=response,
-                status=status.HTTP_200_OK,
-            )
+                response = {
+                    "status": "success",
+                    "message": "Profile picture uploaded successfully",
+                }
+                logger.info("User  %s uploaded their profile image successfully.", request.user.email)
+                return Response(data=response, status=status.HTTP_200_OK)
 
+            except Exception as e:
+                logger.error("Error uploading image for user %s: %s", request.user.email, str(e))
+                return Response({"status": "fail", "message": "Image upload failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.warning("Profile image upload failed for user %s: %s", request.user.email, serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -360,44 +402,58 @@ class UpdateUserProfile(generics.UpdateAPIView):
         return self.request.user
 
     def update(self, request, *args, **kwargs):
+        logger.info("User  %s is attempting to update their profile.", request.user.email)
+
+        # Prepare the payload by stripping whitespace from string values
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=payload, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
 
-        UserNotification.objects.create(
-            user=request.user,
-            title="Update Profile.",
-            message="You have been successfully updated your profile.",
-        )
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
 
-        ActivityModel.objects.create(
-            user=request.user,
-            title="Update Profile.",
-            description=f"{request.user.first_name} {request.user.last_name} updated their profile.",
-        )
+            # Create user notification
+            UserNotification.objects.create(
+                user=request.user,
+                title="Update Profile.",
+                message="You have successfully updated your profile.",
+            )
 
-        body = "This is to inform you that you have just your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+            # Log the profile update activity
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Update Profile.",
+                description=f"{request.user.first_name} {request.user.last_name} updated their profile.",
+            )
 
-        email_content = render_to_string(
-            "email_template.html",
-            {
-                "email": "OGafekemor@picadailys.com",
-                "picadailys_phone": "08134649680",
-                "message_body": body,
-            },
-        )
+            # Prepare and send the email notification
+            body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
 
-        Message.send_email(
-            content=email_content, email=request.user.email, subject="Profile Update."
-        )
+            email_content = render_to_string(
+                "email_template.html",
+                {
+                    "email": "OGafekemor@picadailys.com",
+                    "picadailys_phone": "08134649680",
+                    "message_body": body,
+                },
+            )
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            Message.send_email(
+                content=email_content, email=request.user.email, subject="Profile Update."
+            )
+
+            logger.info("User  %s successfully updated their profile.", request.user.email)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error("Error updating profile for user %s: %s", request.user.email, str(e))
+            return Response({"status": "fail", "message": "Profile update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ChangePassword(generics.UpdateAPIView):
@@ -406,43 +462,57 @@ class ChangePassword(generics.UpdateAPIView):
     permission_classes = (IsAuthenticated,)
 
     def update(self, request, *args, **kwargs):
+        logger.info("User  %s is attempting to change their password.", request.user.email)
+
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        
         user = request.user
-        serializer = self.get_serializer(data=payload)
+        serializer = PasswordChangeSerializer(data=payload)
 
         if serializer.is_valid():
             old_password = serializer.validated_data["old_password"]
             new_password = serializer.validated_data["new_password"]
 
+            # Check if the old password is correct
             if not check_password(old_password, user.password):
                 response = {"status": "fail", "message": "Old password is incorrect."}
+                logger.warning("User  %s provided an incorrect old password.", user.email)
                 return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
+            # Update the user's password
             user.set_password(new_password)
 
-            # Retrieve existing tokens and blacklist them.
+            # Retrieve existing tokens and blacklist them
             user_token = request.data.get("refresh_token")
-            token = RefreshToken(user_token)
-            token.blacklist()
+            if user_token:
+                try:
+                    token = RefreshToken(user_token)
+                    token.blacklist()
+                    logger.info("User  %s's refresh token has been blacklisted.", user.email)
+                except Exception as e:
+                    logger.error("Error blacklisting token for user %s: %s", user.email, str(e))
+
             user.save()
 
+            # Create user notification
             UserNotification.objects.create(
                 user=request.user,
                 title="Change Password.",
                 message="You have successfully changed your password.",
             )
 
+            # Log the password change activity
             ActivityModel.objects.create(
                 user=request.user,
                 title="Change Password.",
                 description=f"{request.user.first_name} {request.user.last_name} changed their password.",
             )
 
-            # body = "This is to inform you that your Picadailys account password has been beem changes successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
-
+            # Uncomment the following lines to send an email notification
+            # body = "This is to inform you that your Picadailys account password has been changed successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
             # email_content = render_to_string(
             #     "email_template.html",
             #     {
@@ -451,7 +521,6 @@ class ChangePassword(generics.UpdateAPIView):
             #         "message_body": body,
             #     },
             # )
-
             # Message.send_email(
             #     content=email_content,
             #     email=request.user.email,
@@ -462,8 +531,10 @@ class ChangePassword(generics.UpdateAPIView):
                 "status": "success",
                 "message": "Password updated successfully.",
             }
+            logger.info("User  %s successfully changed their password.", user.email)
             return Response(data=response, status=status.HTTP_200_OK)
 
+        logger.warning("Password change failed for user %s: %s", user.email, serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -481,10 +552,14 @@ class MemberUserSwitch(generics.UpdateAPIView):
 
     def put(self, request):
         user = self.get_object()
+        logger.info(f"User  {user.username} initiated a role switch request.")
 
         game_point = Points.objects.get(user=user)
-        if user.active_role == "User":
+
+        if user.active_role == "User ":
             try:
+                logger.info(f"User  {user.username} has current balance: {game_point.balance}")
+
                 if game_point.balance is not None:
                     if game_point.balance >= 10.0:
                         AccountType.objects.update_or_create(
@@ -494,14 +569,12 @@ class MemberUserSwitch(generics.UpdateAPIView):
                         user.active_role = "Member"
                         game_point.balance -= 10.0
                         user.save()
+                        game_point.save()  # Don't forget to save the updated game_point
 
                         UserNotification.objects.create(
                             user=request.user,
                             title="Member Switch.",
-                            message="Congratulations you have been \
-                                upgraded to a member You can now enagage in\
-                                gamifications and enjoy amazing discounts and\
-                                offers with us.",
+                            message="Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
                         )
 
                         ActivityModel.objects.create(
@@ -512,32 +585,34 @@ class MemberUserSwitch(generics.UpdateAPIView):
 
                         resp = {
                             "status": "success!",
-                            "data": "Congratulations you have been \
-                            upgraded to a member You can now enagage in\
-                            gamifications and enjoy amazing discounts and\
-                            offers with us.",
+                            "data": "Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
                         }
+                        logger.info(f"User  {user.username} successfully upgraded to Member.")
                         return Response(data=resp, status=status.HTTP_200_OK)
                     else:
                         resp = {
                             "status": "fail",
                             "error": "You do not have enough points.",
                         }
+                        logger.warning(f"User  {user.username} attempted to switch roles but does not have enough points.")
                         return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     resp = {
                         "status": "fail!",
                         "error": "You have not started earning points.",
                     }
+                    logger.warning(f"User  {user.username} has not started earning points.")
                     return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
 
             except Exception as e:
+                logger.error(f"An error occurred while processing the role switch for user {user.username}: {str(e)}")
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         elif user.active_role == "Member":
-            user.active_role = "User"
+            user.active_role = "User "
             user.save()
+            logger.info(f"User  {user.username} switched from Member to User.")
             return Response(
                 {"status": "success", "message": "Member has been switched to a User."},
                 status=status.HTTP_200_OK,
@@ -554,20 +629,25 @@ class PostMemberSurvey(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsUserOrMember)
 
     def create(self, request):
+        logger.info(f"User  {request.user.username} initiated a survey completion request.")
+        
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+        
         serializer = MemberSurverySerializers(data=payload)
+        
         if serializer.is_valid(raise_exception=True):
             serializer.save()
+            logger.info(f"Survey data is valid for user {request.user.username}. Saving to database.")
 
             user = User.objects.create(user=request.user)
 
             UserNotification.objects.create(
                 user=request.user,
                 title="Member Survey.",
-                message="Survey completed successully!.",
+                message="Survey completed successfully!",
             )
 
             ActivityModel.objects.create(
@@ -578,14 +658,17 @@ class PostMemberSurvey(generics.CreateAPIView):
 
             user.done_survey = True
             user.save()
+            logger.info(f"User  {request.user.username} has completed the survey and updated done_survey status.")
 
             response = {
                 "status": "success",
-                "message": "Survey completed successully!",
+                "message": "Survey completed successfully!",
                 "data": serializer.data,
             }
+            logger.info(f"Survey completion successful for user {request.user.username}.")
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
+            logger.warning(f"Survey validation failed for user {request.user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -596,9 +679,11 @@ class DeleteUser(generics.DestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         email = self.request.data.get("email")
+        logger.info(f"User  {request.user.username} initiated account deletion request for email: {email}")
 
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
+            logger.info(f"User  found: {user.username}. Proceeding with account deletion.")
 
             ActivityModel.objects.create(
                 user=user,
@@ -606,11 +691,11 @@ class DeleteUser(generics.DestroyAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} has deleted their account.",
             )
             user.delete()
+            logger.info(f"User  {user.username} has been deleted successfully.")
 
-            recipient = user.phone_number[1:]
+            recipient = user.phone_number[1:]  # Assuming phone_number is a string
             Message.send_msg(
-                msg="This is to inform you that your account Picadailys has been deleted.\
-                    We regret to lose you, we hope to see you again soon.",
+                msg="This is to inform you that your account Picadailys has been deleted. We regret to lose you, we hope to see you again soon.",
                 to=recipient,
             )
             response = {
@@ -622,13 +707,20 @@ class DeleteUser(generics.DestroyAPIView):
                 status=status.HTTP_204_NO_CONTENT,
             )
         except User.DoesNotExist:
+            logger.warning(f"Attempt to delete account failed: User with '{email}' does not exist.")
             resp = {
                 "status": "fail",
-                "message": f"User with '{email}' does not exist.",
+                "message": f"User  with '{email}' does not exist.",
             }
             return Response(
                 data=resp,
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"An error occurred while trying to delete user {email}: {str(e)}")
+            return Response(
+                {"error": "An error occurred while deleting the account."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -647,45 +739,63 @@ class OpenRewardBox(generics.GenericAPIView):
     )
     def get(self, request):
         user = request.user
-        user_reward = Rewards.objects.get(user=user)
+        logger.info(f"User  {user.username} initiated a request to open the mystery box.")
 
-        if user_reward.balance >= 100:
-            item, form = MysteryBox.open()
-            user_reward.mystery_box = item
-            user_reward.form_of_gift = form
-            user_reward.save()
+        try:
+            user_reward = Rewards.objects.get(user=user)
+            logger.info(f"User  {user.username} has a reward balance of {user_reward.balance}.")
 
-            response_data = {
-                "status": "success",
-                "message": "Wow, you have have an item in your box, click to claim reward!",
-            }
+            if user_reward.balance >= 100:
+                item, form = MysteryBox.open()
+                user_reward.mystery_box = item
+                user_reward.form_of_gift = form
+                user_reward.save()
 
-            UserNotification.objects.create(
-                user=request.user,
-                title="Myestery Box.",
-                message="Congratulations, you have have an item in your box, click to claim reward!.",
+                response_data = {
+                    "status": "success",
+                    "message": "Wow, you have an item in your box, click to claim reward!",
+                }
+
+                UserNotification.objects.create(
+                    user=request.user,
+                    title="Mystery Box.",
+                    message="Congratulations, you have an item in your box, click to claim reward!",
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Mystery Box.",
+                    description=f"{request.user.first_name} {request.user.last_name} has opened their mystery box.",
+                )
+
+                logger.info(f"User  {user.username} opened the mystery box and received an item.")
+                return Response(data=response_data, status=status.HTTP_200_OK)
+
+            elif user_reward.balance < 100:
+                logger.warning(f"User  {user.username} attempted to open the mystery box but does not have enough rewards.")
+                raise exceptions.ValidationError(
+                    detail="Not enough rewards to access the mystery box.",
+                    code=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except Rewards.DoesNotExist:
+            logger.error(f"Rewards record not found for user {user.username}.")
+            return Response(
+                {"status": "fail", "message": "Rewards record not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
-
-            ActivityModel.objects.create(
-                user=user,
-                title="Myestery Box.",
-                description=f"{request.user.first_name} {request.user.last_name} has opened their mystery box.",
+        except exceptions.ValidationError as ve:
+            logger.warning(f"Validation error for user {user.username}: {str(ve)}")
+            return Response(
+                {"status": "fail", "message": str(ve.detail)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-            return Response(data=response_data, status=status.HTTP_200_OK)
-
-        elif user_reward.balance < 100:
-            raise exceptions.ValidationError(
-                detail="Not enough rewards to access the mystery box.",
-                code=status.HTTP_400_BAD_REQUEST,
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while processing the mystery box for user {user.username}: {str(e)}")
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-        else:
-            error_response = {
-                "status": "fail",
-                "message": "Sorry, you do not have any item in the your mystery box.",
-            }
-            return Response(data=error_response, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ClaimMysteryBoxGift(generics.GenericAPIView):
@@ -700,22 +810,30 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
 
     def get(self, request):
         authenticated_user = request.user
+        logger.info(f"User  {authenticated_user.username} initiated a gift claim request.")
+
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
+
         serializer = self.get_serializer(data=user_data)
+
         if serializer.is_valid(raise_exception=True):
             user_reward = Rewards.objects.get(user=authenticated_user)
+            logger.info(f"User  {authenticated_user.username} has valid data. Reward type: {user_reward.form_of_gift}")
 
             match user_reward.form_of_gift:
                 case "airtime":
                     amount = Rewards.objects.get(user=authenticated_user)
+                    logger.info(f"Processing airtime for user {authenticated_user.username}, amount: {amount.mystery_box}")
+
                     airtime_response = VAS.aritime(
                         service_id=user_data["serviceID"],
                         amount=amount.mystery_box,
                         phone=user_data["phone"],
                     )
+
                     if airtime_response.status_code == 200:
                         UserNotification.objects.create(
                             user=authenticated_user,
@@ -726,21 +844,24 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         ActivityModel.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            description=f"{authenticated_user.first_name} {authenticated_user.last_name}  claimed their mystery box item of {amount.mystery_box} airtime.",
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} claimed their mystery box item of {amount.mystery_box} airtime.",
                         )
 
                         response_data = {
                             "status": "Success",
-                            "message": f"Recharge of {amount} was succesful.\
-                                continue to purchase items to get rewards.",
+                            "message": f"Recharge of {amount} was successful. continue to purchase items to get rewards.",
                             "data": airtime_response.json(),
                         }
+                        logger.info(f"Airtime claim successful for user {authenticated_user.username}: {response_data}")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+
                 case "data":
                     amount = Rewards.objects.get(user=authenticated_user)
                     variation_code = VariationCodes.get(
                         service_id=user_data["serviceID"], amount=amount.mystery_box
                     )
+                    logger.info(f"Processing data for user {authenticated_user.username}, amount: {amount.mystery_box}")
+
                     data_response = VAS.data(
                         service_id=user_data["serviceID"],
                         amount=amount.mystery_box,
@@ -748,6 +869,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         billersCode=user_data["phone"],
                         variation_code=variation_code,
                     )
+
                     if data_response.status_code == 200:
                         UserNotification.objects.create(
                             user=authenticated_user,
@@ -758,16 +880,34 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         ActivityModel.objects.create(
                             user=authenticated_user,
                             title="Claim Gift box reward.",
-                            description=f"{authenticated_user.first_name} {authenticated_user.last_name}  claimed their mystery box item of {amount.mystery_box} data subscription.",
+                            description=f"{authenticated_user.first_name} {authenticated_user.last_name} claimed their mystery box item of {amount.mystery_box} data subscription.",
                         )
 
                         response = {
                             "status": "Success",
-                            "message": f"Data subscription of {amount} was succesful.\
-                                continue to purchase items to get rewards.",
+                            "message": f"Data subscription of {amount} was successful. continue to purchase items to get rewards.",
                             "data": data_response.json(),
                         }
+                        logger.info(f"Data claim successful for user {authenticated_user.username}: {response}")
                         return Response(data=response, status=status.HTTP_200_OK)
+                    else:
+                        response = {
+                            "status": "fail",
+                            "message": f"Data subscription of {amount} was unsuccessful.",
+                            "data": data_response.json(),
+                        }
+                        logger.error(f"Data claim failed for user {authenticated_user.username}: {response}")
+                        return Response(data=response, status=data_response.status_code)
+
+                case _:
+                    logger.warning(f"Invalid option for user {authenticated_user.username}.")
+                    return Response(
+                        data={"status": "fail", "message": "Invalid option"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        else:
+            logger.error(f"Validation failed for user {authenticated_user.username}: {serializer.errors}")
+            return Response(data=serializer.errors, status=status.HTTP_404_NOT_FOUND)
 
 
 class AddToFavourite(generics.CreateAPIView):
@@ -781,13 +921,16 @@ class AddToFavourite(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
+        logger.info("User  %s is attempting to favorite an item.", request.user.email)
+
         authenticated_user = request.user
         object_id = request.data.get("object_id")
         model_name = request.data.get("model_name")
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = FavouriteSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             if not object_id or not model_name:
+                logger.warning("User  %s did not provide both object_id and model_name.", authenticated_user.email)
                 raise ValidationError("Both object_id and model_name are required.")
 
             # Map model_name to actual model classes
@@ -815,6 +958,7 @@ class AddToFavourite(generics.CreateAPIView):
             # Get the model class from the model name
             model_class = model_mapping.get(model_name)
             if not model_class:
+                logger.warning("User  %s provided an invalid model_name.", authenticated_user.email)
                 raise ValidationError(f"Model '{model_name}' is not valid.")
 
             content_type = ContentType.objects.get_for_model(model_class)
@@ -822,10 +966,12 @@ class AddToFavourite(generics.CreateAPIView):
             try:
                 service_object = model_class.objects.get(id=object_id)
             except model_class.DoesNotExist:
+                logger.warning("User  %s tried to favorite a non-existent object with id '%s'.", authenticated_user.email, object_id)
                 raise ValidationError(f"Object with id '{object_id}' not found.")
 
             # Check if the user has purchased the item before allowing it to be favorited
             if not service_object.purchased:
+                logger.warning("User  %s tried to favorite an unpurchased item.", authenticated_user.email)
                 raise ValidationError("You can only favorite items you have purchased.")
 
             # Create the favorite entry
@@ -836,16 +982,19 @@ class AddToFavourite(generics.CreateAPIView):
             )
 
             if created:
+                logger.info("User   %s successfully favorited an item.", authenticated_user.email)
                 return Response(
                     {"status": "success", "message": "Item favorited successfully!"},
                     status=status.HTTP_201_CREATED,
                 )
             else:
+                logger.info("User  %s tried to favorite an already favorited item.", authenticated_user.email)
                 return Response(
                     {"message": "Item is already in your favorites."},
                     status=status.HTTP_200_OK,
                 )
         else:
+            logger.warning("User  %s provided invalid data for favoriting an item.", authenticated_user.email)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -859,8 +1008,14 @@ class ListFavourites(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Return only the favorites belonging to the authenticated user
-        return Favourite.objects.filter(user=self.request.user)
+        user = self.request.user
+        logger.info("Fetching favorites for user: %s", user.email)
+
+        queryset = Favourite.objects.filter(user=user)
+
+        logger.debug("Retrieved %d favorites for user: %s", queryset.count(), user.email)
+
+        return queryset
 
 
 class RetrieveFavourite(generics.RetrieveAPIView):
@@ -873,7 +1028,14 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Return only the favorites belonging to the authenticated user
-        return Favourite.objects.filter(user=self.request.user)
+        user = self.request.user
+        logger.info("Fetching favorites for user: %s", user.email)
 
+        queryset = Favourite.objects.filter(user=user)
+
+        logger.debug("Retrieved %d favorites for user: %s", queryset.count(), user.email)
+
+        return queryset
+
+    # Specify the field used for lookups
     lookup_field = "id"
