@@ -630,14 +630,14 @@ class PostMemberSurvey(generics.CreateAPIView):
 
     def create(self, request):
         logger.info(f"User  {request.user.username} initiated a survey completion request.")
-        
+
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        
+
         serializer = MemberSurverySerializers(data=payload)
-        
+
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             logger.info(f"Survey data is valid for user {request.user.username}. Saving to database.")

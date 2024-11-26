@@ -1,3 +1,4 @@
+import logging
 import requests
 import threading
 from decouple import config
@@ -50,6 +51,8 @@ x_secret = config("VT_PASS_SECRET_KEY")
 api_key = config("VT_PASS_API_KEY")
 x_token = config("VT_PASS_PUBLIC_KEY")
 
+logger = logging.getLogger(__name__)
+
 
 class AirTimeTopUp(generics.GenericAPIView):
     """
@@ -75,15 +78,20 @@ class AirTimeTopUp(generics.GenericAPIView):
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
+        logger.info(f"User  {user.username} is attempting to make a purchase with amount: {amount}, payment option: {payment_option}")
+
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning(f"Serializer validation failed for user {user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=user)
+            logger.info(f"Account found for user {user.username}.")
         except AccountCreation.DoesNotExist:
+            logger.error(f"Account not found for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -91,10 +99,13 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         if biometrics:
             verification = Biometrics.authenticate(user.phone_number)
+            logger.info(f"User  {user.username} is using biometrics for authentication.")
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                logger.info(f"User  {user.username} is using PIN for authentication.")
             else:
+                logger.error(f"Account or PIN not found for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
@@ -104,13 +115,16 @@ class AirTimeTopUp(generics.GenericAPIView):
                 )
 
         if not verification:
+            logger.warning(f"Invalid credentials provided for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
         airtime_response = None
 
         if use_bonus:
+            logger.info(f"User  {user.username} is attempting to use bonus for purchase.")
             if user.welcome_bonus >= float(amount):
                 airtime_response = airtime(
                     user=user,
@@ -125,25 +139,30 @@ class AirTimeTopUp(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "airtime_response": airtime_response,
                     }
+                    logger.info(f"User  {user.username} successfully purchased airtime using bonus.")
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            logger.warning(f"Airtime top-up failed for user {user.username} due to insufficient bonus.")
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Airtime top-up failed due to insufficient bonus.",
+                    "error": airtime_response,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-                return Response(data=response_data, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Airtime top-up failed due to insufficient bonus.",
-                        "error": airtime_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
         match payment_option:
             case "WALLET":
+                logger.info(f"User  {user.username} selected WALLET as payment option.")
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used points amounting to {pts_amt}.")
                 else:
                     pts_amt = 0
+
                 if use_rewards:
                     _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used rewards amounting to {rwd_amt}.")
                 else:
                     rwd_amt = 0
 
@@ -162,7 +181,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     airtime_response = airtime(
                         user=user,
                         serializer=serializer,
-                        reason="Debit for airtime recharge.",
+                        reason="Debit for airtime recharge .",
                         user_data=user_data,
                     )
                     if airtime_response["code"] == 200:
@@ -172,7 +191,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "airtime_response": airtime_response,
                         }
+                        logger.info(f"User   {user.username} successfully purchased airtime with WALLET option.")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+                    logger.warning(f"Airtime top-up failed for user {user.username} with WALLET option due to insufficient balance.")
                     return Response(
                         data={
                             "status": "fail",
@@ -181,12 +202,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
+                logger.error(f"Debit failed for user {user.username} with WALLET option: {debit_response.json()}.")
+                return Response(
+                    data=debit_response.json(),
+                    status=debit_response.status_code,
+                )
             case "CARD":
+                logger.info(f"User   {user.username} selected CARD as payment option.")
                 airtime_response = airtime(
                     user=user,
                     serializer=serializer,
@@ -196,11 +218,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                 if airtime_response["code"] == 200:
                     response_data = {
                         "status": "success",
-                        "message": f"Airtime purchase of {new_amount} was successful.",
+                        "message": f"Airtime purchase of {amount} was successful.",
                         "bonus balance": user.welcome_bonus,
                         "airtime_response": airtime_response,
                     }
+                    logger.info(f"User   {user.username} successfully purchased airtime with CARD option.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                logger.warning(f"Airtime top-up failed for user {user.username} with CARD option.")
                 return Response(
                     data={
                         "status": "fail",
@@ -210,6 +234,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
+                logger.error(f"Invalid payment option selected by user {user.username}: {payment_option}.")
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -235,29 +260,48 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
         user = self.request.user  # Get the authenticated user.
 
         param_value = kwargs.get("service_ID")
+        logger.info(f"User  {user.username} is requesting service variations for service ID: {param_value}")
 
         if user:
-            resource = "service-variations?serviceID=" + param_value
+            resource = f"service-variations?serviceID={param_value}"
             fetch_all_variation_codes_headers = {
                 "accept": "application/json",
                 "api-key": api_key,
                 "secret-key": x_secret,
             }
+
             try:
+                logger.info(f"Making API call to {vtpass_url + resource} for user {user.username}.")
                 response = requests.get(
                     url=vtpass_url + resource,
                     headers=fetch_all_variation_codes_headers,
                 )
+
                 if response.status_code == 200:
-                    resp = response.json()["content"]["variations"]
+                    resp = response.json().get("content", {}).get("variations", [])
+                    logger.info(f"Successful response received for user {user.username}: {resp}")
                     response_data = {
                         "data": resp,
                     }
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    logger.error(f"Failed response for user {user.username}: {response.status_code} - {response.text}")
+                    return Response(
+                        {"error": "Failed to retrieve service variations"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             except requests.exceptions.RequestException as e:
+                logger.error(f"RequestException for user {user.username}: {str(e)}")
                 return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+        else:
+            logger.warning("Unauthenticated user attempted to access service variations.")
+            return Response(
+                {"error": "User  not authenticated"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
 
 class DataSubscriptionView(generics.GenericAPIView):
@@ -283,15 +327,20 @@ class DataSubscriptionView(generics.GenericAPIView):
         use_points = request.data.get("use_points")
         use_rewards = request.data.get("use_rewards")
 
+        logger.info(f"User  {user.username} is attempting to make a data purchase of amount: {amount}.")
+
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning(f"Serializer validation failed for user {user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=user)
+            logger.info(f"Account found for user {user.username}.")
         except AccountCreation.DoesNotExist:
+            logger.error(f"Account not found for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -299,10 +348,13 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         if biometrics:
             verification = Biometrics.authenticate(user.phone_number)
+            logger.info(f"User  {user.username} is using biometrics for authentication.")
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                logger.info(f"User  {user.username} is using PIN for authentication.")
             else:
+                logger.error(f"Account or PIN not found for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
@@ -312,15 +364,17 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
 
         if not verification:
+            logger.warning(f"Invalid credentials provided for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         data_response = None
-
         payment_option = request.data.get("payment_option")
+
         if use_bonus:
+            logger.info(f"User  {user.username} is attempting to use bonus for data purchase.")
             if user.welcome_bonus >= float(amount):
                 data_response = data(
                     user=user,
@@ -335,32 +389,38 @@ class DataSubscriptionView(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "data_response": data_response,
                     }
+                    logger.info(f"User  {user.username} successfully purchased data using bonus.")
+                    return Response(data=response_data, status=status.HTTP_200_OK)
+            logger.warning(f"Data subscription failed for user {user.username} due to insufficient bonus.")
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Data subscription failed due to insufficient bonus.",
+                    "error": data_response,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-                return Response(data=response_data, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Data subscription failed due to insufficient bonus.",
-                        "error": data_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
         match payment_option:
             case "WALLET":
+                logger.info(f"User  {user.username} selected WALLET as payment option.")
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used points amounting to {pts_amt}.")
                 else:
                     pts_amt = 0
+
                 if use_rewards:
                     _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used rewards amounting to {rwd_amt}.")
                 else:
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
-
                 user_details = AccountCreation.objects.get(user=user)
-                # Inititate a debit on the customer's account.
+                logger.info(f"Initiating debit for user {user.username}. New amount after points and rewards: {new_amount}.")
+
+                # Initiate a debit on the customer's account.
                 debit_response = Account.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
@@ -382,7 +442,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "data_response": data_response,
                         }
+                        logger.info(f"User   {user.username} successfully purchased data with WALLET option.")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+                    logger.warning(f"Data subscription failed for user {user.username} with WALLET option due to insufficient balance.")
                     return Response(
                         data={
                             "status": "fail",
@@ -391,12 +453,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
+                logger.error(f"Debit failed for user {user.username} with WALLET option: {debit_response.json()}.")
+                return Response(
+                    data=debit_response.json(),
+                    status=debit_response.status_code,
+                )
             case "CARD":
+                logger.info(f"User   {user.username} selected CARD as payment option.")
                 data_response = data(
                     user=user,
                     serializer=serializer,
@@ -406,11 +469,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                 if data_response["code"] == 200:
                     response_data = {
                         "status": "success",
-                        "message": f"Data purchase of {new_amount} was successful.",
+                        "message": f"Data purchase of {amount} was successful.",
                         "bonus balance": user.welcome_bonus,
                         "data_response": data_response,
                     }
+                    logger.info(f"User   {user.username} successfully purchased data with CARD option.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                logger.warning(f"Data subscription failed for user {user.username} with CARD option.")
                 return Response(
                     data={
                         "status": "fail",
@@ -420,6 +485,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
+                logger.error(f"Invalid payment option selected by user {user.username}: {payment_option}.")
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -468,6 +534,8 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
             for key, value in request.data.items()
         }
 
+        logger.info(f"User  {request.user.username} is attempting to verify meter number with data: {user_data}")
+
         resource = "merchant-verify"
         payload = {
             "serviceID": user_data["serviceID"],
@@ -480,7 +548,9 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
             "api-key": api_key,
             "secret-key": x_secret,
         }
+
         try:
+            logger.info(f"Sending POST request to {vtpass_url + resource} with payload: {payload}")
             response = requests.post(
                 url=vtpass_url + resource,
                 json=payload,
@@ -491,12 +561,14 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
                 response_data = {
                     "data": response.json(),
                 }
-
+                logger.info(f"Meter verification successful for user {request.user.username}: {response_data}")
                 return Response(data=response_data, status=status.HTTP_200_OK)
             else:
+                logger.warning(f"Meter verification failed for user {request.user.username}: {response.json()}")
                 return Response(response.json(), status=response.status_code)
 
         except requests.exceptions.RequestException as e:
+            logger.error(f"RequestException occurred for user {request.user.username}: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -522,15 +594,20 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
 
+        logger.info(f"User  {user.username} is attempting to make an electricity payment of {amount}.")
+
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning(f"Serializer validation failed for user {user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=user)
+            logger.info(f"Account found for user {user.username}.")
         except AccountCreation.DoesNotExist:
+            logger.error(f"Account not found for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -538,10 +615,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
         if biometrics:
             verification = Biometrics.authenticate(user.phone_number)
+            logger.info(f"User  {user.username} is using biometrics for authentication.")
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                logger.info(f"User  {user.username} is using PIN for authentication.")
             else:
+                logger.error(f"Account or PIN not found for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
@@ -551,15 +631,17 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 )
 
         if not verification:
+            logger.warning(f"Invalid credentials provided for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         electricity_response = None
-
         payment_option = request.data.get("payment_option")
+
         if use_bonus:
+            logger.info(f"User  {user.username} is attempting to use bonus for electricity payment.")
             if user.welcome_bonus >= float(amount):
                 electricity_response = electricity(
                     user=user,
@@ -574,31 +656,37 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "electricity_response": electricity_response,
                     }
-
+                    logger.info(f"User  {user.username} successfully purchased electricity using bonus.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Electricity purchase failed due to insufficient bonus.",
-                        "error": electricity_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            logger.warning(f"Electricity purchase failed for user {user.username} due to insufficient bonus.")
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Electricity purchase failed due to insufficient bonus.",
+                    "error": electricity_response,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         match payment_option:
             case "WALLET":
+                logger.info(f"User  {user.username} selected WALLET as payment option.")
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used points amounting to {pts_amt}.")
                 else:
                     pts_amt = 0
+                
                 if use_rewards:
                     _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used rewards amounting to {rwd_amt}.")
                 else:
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
 
                 user_details = AccountCreation.objects.get(user=user)
+                logger.info(f"Initiating debit for user {user.username}. New amount after points and rewards: {new_amount}.")
 
                 # Initiate a debit on the customer's account.
                 debit_response = Account.Debit(
@@ -622,22 +710,26 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "electricity_response": electricity_response,
                         }
+                        logger.info(f"User   {user.username} successfully purchased electricity with WALLET option.")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+                    logger.warning(f"Electricity purchase failed for user {user.username} due to insufficient balance.")
                     return Response(
                         data={
                             "status": "fail",
-                            "message": "Electricty purchase failed due to insufficient balance.",
+                            "message": "Electricity purchase failed due to insufficient balance.",
                             "error": electricity_response,
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
+                    logger.error(f"Debit failed for user {user.username}: {debit_response.json()}")
                     return Response(
                         data=debit_response.json(),
                         status=debit_response.status_code,
                     )
 
             case "CARD":
+                logger.info(f"User   {user.username} selected CARD as payment option.")
                 electricity_response = electricity(
                     user=user,
                     serializer=serializer,
@@ -647,20 +739,23 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 if electricity_response["code"] == 200:
                     response_data = {
                         "status": "success",
-                        "message": f"Electricity purchase of {new_amount} was successful.",
+                        "message": f"Electricity purchase of {amount} was successful.",
                         "bonus balance": user.welcome_bonus,
                         "electricity_response": electricity_response,
                     }
+                    logger.info(f"User   {user.username} successfully purchased electricity with CARD option.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                logger.warning(f"Electricity purchase failed for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Electricty purchase failed.",
+                        "message": "Electricity purchase failed.",
                         "error": electricity_response,
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
+                logger.warning(f"Invalid payment option selected by user {user.username}.")
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -705,6 +800,8 @@ class ProductStatus(generics.RetrieveAPIView):
     def post(self, request):
         user = self.request.user
 
+        logger.info(f"User  {user.username} is attempting to requery with request_id: {user['request_id']}")
+
         resource = "requery"
         payload = {
             "request_id": user["request_id"],
@@ -719,13 +816,21 @@ class ProductStatus(generics.RetrieveAPIView):
             response = requests.get(
                 url=vtpass_url + resource, headers=status_headers, json=payload
             )
+            logger.info(f"API call to {vtpass_url + resource} made by user {user.username}.")
             if response.status_code == 200:
                 resp = response.json()
+                logger.info(f"Successful response received for user {user.username}: {resp}")
                 response_data = {
                     "data": resp,
                 }
                 return Response(data=response_data, status=status.HTTP_200_OK)
+            else:
+                logger.error(f"Failed response for user {user.username}: {response.status_code} - {response.text}")
+                return Response(
+                    {"error": "Failed to retrieve data"}, status=status.HTTP_400_BAD_REQUEST
+                )
         except requests.exceptions.RequestException as e:
+            logger.error(f"RequestException for user {user.username}: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -748,8 +853,9 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
     )
     def get(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user.
-
         param_value = kwargs.get("service_ID")
+
+        logger.info(f"User  {user.username} is requesting service variations for service ID: {param_value}")
 
         if user:
             resource = (
@@ -761,20 +867,32 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
                 "secret-key": x_secret,
             }
             try:
+                logger.info(f"Sending GET request to {resource} with headers: {fetch_all_variation_codes_headers}")
                 response = requests.get(
                     url=resource,
                     headers=fetch_all_variation_codes_headers,
                 )
                 if response.status_code == 200:
-                    resp = response.json()["content"]
+                    resp = response.json().get("content", [])
                     response_data = {
                         "data": resp,
                     }
+                    logger.info(f"Successfully fetched service variations for user {user.username}: {resp}")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                else:
+                    logger.error(f"Failed to fetch service variations for user {user.username}: {response.json()}")
+                    return Response(response.json(), status=response.status_code)
             except requests.exceptions.RequestException as e:
+                logger.error(f"RequestException occurred for user {user.username}: {str(e)}")
                 return Response(
                     {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+        else:
+            logger.warning("User  is not authenticated.")
+            return Response(
+                {"error": "User  is not authenticated."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
 
 class VerifySmartCardNumber(generics.GenericAPIView):
@@ -795,12 +913,14 @@ class VerifySmartCardNumber(generics.GenericAPIView):
         responses={200: {"description": "Verify smart cards"}},
     )
     def post(self, request):
-        user = request.data
+        user_data = request.data  # Get data from the request
+
+        logger.info(f"User   is attempting to verify smart card with data: {user_data}")
 
         resource = "merchant-verify"
         payload = {
-            "serviceID": user["serviceID"],
-            "billersCode": user["billersCode"],
+            "serviceID": user_data["serviceID"],
+            "billersCode": user_data["billersCode"],
         }
 
         verify_smart_card_headers = {
@@ -808,7 +928,9 @@ class VerifySmartCardNumber(generics.GenericAPIView):
             "api-key": api_key,
             "secret-key": x_secret,
         }
+
         try:
+            logger.info(f"Sending POST request to {vtpass_url + resource} with payload: {payload}")
             response = requests.post(
                 url=vtpass_url + resource,
                 json=payload,
@@ -819,12 +941,14 @@ class VerifySmartCardNumber(generics.GenericAPIView):
                 response_data = {
                     "data": response.json(),
                 }
-
+                logger.info(f"Smart card verification successful: {response_data}")
                 return Response(data=response_data, status=status.HTTP_200_OK)
             else:
+                logger.warning(f"Smart card verification failed: {response.json()}")
                 return Response(response.json(), status=response.status_code)
 
         except requests.exceptions.RequestException as e:
+            logger.error(f"RequestException occurred: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -847,6 +971,8 @@ class NewTvSubscription(generics.GenericAPIView):
         }
         user = request.user
 
+        logger.info(f"User  {user.username} is attempting to make a TV subscription purchase with data: {user_data}")
+
         pin = user_data.get("pin")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
@@ -854,24 +980,30 @@ class NewTvSubscription(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning(f"Serializer validation failed for user {user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=user)
+            logger.info(f"Account found for user {user.username}.")
         except AccountCreation.DoesNotExist:
+            logger.error(f"Account not found for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if biometrics:
+            logger.info(f"User  {user.username} is using biometrics for authentication.")
             verification = Biometrics.authenticate(user.phone_number)
         else:
             if account and account.pin is not None:
+                logger.info(f"User  {user.username} is using PIN for authentication.")
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
+                logger.error(f"Account or PIN not found for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
@@ -881,48 +1013,57 @@ class NewTvSubscription(generics.GenericAPIView):
                 )
 
         if not verification:
+            logger.warning(f"Invalid credentials provided for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         new_tv_response = None
-
         payment_option = request.data.get("payment_option")
+
         match payment_option:
             case "WALLET":
+                logger.info(f"User  {user.username} selected WALLET as payment option.")
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used points amounting to {pts_amt}.")
                 else:
                     pts_amt = 0
+
                 if use_rewards:
                     _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used rewards amounting to {rwd_amt}.")
                 else:
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
+                logger.info(f"New amount after applying points and rewards for user {user.username}: {new_amount}")
 
                 user_details = AccountCreation.objects.get(user=user)
                 debit_response = Account.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
-                    reason="Debit for Tv subscription.",
+                    reason="Debit for TV subscription.",
                     transactionReference="",
                 )
+
                 if debit_response.status_code == 200:
                     new_tv_response = NewTvSub(
                         user=user,
                         serializer=serializer,
-                        reason="Debit for Tv subscription.",
+                        reason="Debit for TV subscription.",
                         user_data=user_data,
                     )
                     if new_tv_response["code"] == 200:
                         response_data = {
                             "status": "success",
-                            "message": f"Tv subscription purchase of {new_amount} was successful.",
+                            "message": f"TV subscription purchase of {new_amount} was successful.",
                             "cable_tv_response": new_tv_response,
                         }
+                        logger.info(f"User  {user.username} successfully purchased TV subscription.")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+                    logger.warning(f"TV subscription purchase failed for user {user.username} due to insufficient balance.")
                     return Response(
                         data={
                             "status": "fail",
@@ -932,25 +1073,29 @@ class NewTvSubscription(generics.GenericAPIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
+                    logger.error(f"Debit failed for user {user.username}: {debit_response.json()}")
                     return Response(
                         data=debit_response.json(),
                         status=debit_response.status_code,
                     )
 
             case "CARD":
+                logger.info(f"User   {user.username} selected CARD as payment option.")
                 new_tv_response = NewTvSub(
                     user=user,
                     serializer=serializer,
-                    reason="Debit for Tv subscription.",
+                    reason="Debit for TV subscription.",
                     user_data=user_data,
                 )
                 if new_tv_response["code"] == 200:
                     response_data = {
                         "status": "success",
-                        "message": f"Tv subscription purchase of {new_amount} was successful.",
+                        "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": new_tv_response,
                     }
+                    logger.info(f"User   {user.username} successfully purchased TV subscription via CARD.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                logger.warning(f"TV subscription purchase failed for user {user.username} via CARD.")
                 return Response(
                     data={
                         "status": "fail",
@@ -961,6 +1106,7 @@ class NewTvSubscription(generics.GenericAPIView):
                 )
 
             case _:
+                logger.error(f"Invalid payment option selected by user {user.username}.")
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -984,6 +1130,8 @@ class RenewTvSubscription(generics.GenericAPIView):
         }
         user = request.user
 
+        logger.info(f"User  {user.username} is attempting to renew TV subscription with data: {user_data}")
+
         pin = user_data.get("pin")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
@@ -991,24 +1139,30 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
+            logger.warning(f"Serializer validation failed for user {user.username}: {serializer.errors}")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         biometrics = request.data.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=user)
+            logger.info(f"Account found for user {user.username}.")
         except AccountCreation.DoesNotExist:
+            logger.error(f"Account not found for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Account not found for user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if biometrics:
+            logger.info(f"User  {user.username} is using biometrics for authentication.")
             verification = Biometrics.authenticate(user.phone_number)
         else:
             if account and account.pin is not None:
+                logger.info(f"User  {user.username} is using PIN for authentication.")
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
+                logger.error(f"Account or PIN not found for user {user.username}.")
                 return Response(
                     data={
                         "status": "fail",
@@ -1018,48 +1172,58 @@ class RenewTvSubscription(generics.GenericAPIView):
                 )
 
         if not verification:
+            logger.warning(f"Invalid credentials provided for user {user.username}.")
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         renew_tv_response = None
-
         payment_option = request.data.get("payment_option")
+        logger.info(f"User  {user.username} selected payment option: {payment_option}")
+
         match payment_option:
             case "WALLET":
+                logger.info(f"User  {user.username} selected WALLET as payment option.")
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used points amounting to {pts_amt}.")
                 else:
                     pts_amt = 0
+
                 if use_rewards:
                     _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
+                    logger.info(f"User  {user.username} used rewards amounting to {rwd_amt}.")
                 else:
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
+                logger.info(f"New amount after applying points and rewards for user {user.username}: {new_amount}")
 
                 user_details = AccountCreation.objects.get(user=user)
                 debit_response = Account.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
-                    reason="Debit for tv subscription renewal.",
+                    reason="Debit for TV subscription renewal.",
                     transactionReference="",
                 )
+
                 if debit_response.status_code == 200:
                     renew_tv_response = RenewTvSub(
                         user=user,
                         serializer=serializer,
-                        reason="Debit for tv subscription renewal.",
+                        reason="Debit for TV subscription renewal.",
                         user_data=user_data,
                     )
                     if renew_tv_response["code"] == 200:
                         response_data = {
                             "status": "success",
-                            "message": f"Tv subscription purchase of {new_amount} was successful.",
+                            "message": f"TV subscription purchase of {new_amount} was successful.",
                             "cable_tv_response": renew_tv_response,
                         }
+                        logger.info(f"User  {user.username} successfully renewed TV subscription.")
                         return Response(data=response_data, status=status.HTTP_200_OK)
+                    logger.warning(f"TV subscription renewal failed for user {user.username} due to insufficient balance.")
                     return Response(
                         data={
                             "status": "fail",
@@ -1069,25 +1233,26 @@ class RenewTvSubscription(generics.GenericAPIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
+                    logger.error(f"Debit failed for user {user.username}: {debit_response.json()}")
+                    return Response(data=debit_response.json(), status=debit_response.status_code)
 
             case "CARD":
+                logger.info(f"User   {user.username} selected CARD as payment option.")
                 renew_tv_response = RenewTvSub(
                     user=user,
                     serializer=serializer,
-                    reason="Debit for tv subscription renewal.",
+                    reason="Debit for TV subscription renewal.",
                     user_data=user_data,
                 )
                 if renew_tv_response["code"] == 200:
                     response_data = {
                         "status": "success",
-                        "message": f"Tv subscription purchase of {new_amount} was successful.",
+                        "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": renew_tv_response,
                     }
+                    logger.info(f"User   {user.username} successfully renewed TV subscription via CARD.")
                     return Response(data=response_data, status=status.HTTP_200_OK)
+                logger.warning(f"TV subscription renewal failed for user {user.username} via CARD.")
                 return Response(
                     data={
                         "status": "fail",
@@ -1098,6 +1263,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                 )
 
             case _:
+                logger.error(f"Invalid payment option selected by user {user.username}.")
                 return Response(
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
