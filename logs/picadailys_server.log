@@ -184,3 +184,11 @@ INFO 2024-12-02 19:53:09,565 views Retrieving queryset for BrandAd users.
 INFO 2024-12-02 19:53:09,604 views ListAllProducts: GET request received with category: None
 INFO 2024-12-02 19:53:11,576 views Fetching services for user: None ()
 INFO 2024-12-02 19:53:11,793 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
+INFO 2024-12-02 20:11:08,169 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 20:12:12,490 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-02 20:12:13,464 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 20:12:42,480 views Login attempt for phone number: 08134649680
+INFO 2024-12-02 20:12:44,429 views Biometric authentication attempted for user: 08134649680
+INFO 2024-12-02 20:12:44,429 views User 08134649680 successfully logged in.
+INFO 2024-12-02 20:12:45,878 views JWT tokens generated for user 08134649680
+INFO 2024-12-02 20:12:45,879 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569

@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "self_service",
     "banking",
     "support",
+    "csp",
 ]
 
 MIDDLEWARE = [
@@ -187,6 +188,25 @@ REST_FRAMEWORK = {
     ],
     "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
 }
+
+# CSP configuration.
+CSP_DEFAULT_SRC = ("'self'",)  # Only allow resources from the same origin
+CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com")  # Allow external styles from Google Fonts
+CSP_SCRIPT_SRC = ("'self'", "https://code.jquery.com")  # Allow external scripts
+CSP_IMG_SRC = ("'self'", "data:", "https://images.example.com")  # Allow images from specified sources
+
+# Enable HTTP Strict Transport Security (HSTS)
+SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Apply HSTS to all subdomains
+SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
+
+X_FRAME_OPTIONS = 'DENY'
+
+# Prevent browsers from interpreting files as a different MIME type
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Set Referrer-Policy to control what information is sent in referrer headers
+SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
