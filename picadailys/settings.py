@@ -81,7 +81,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "http://localhost:5174",
-    "https://admin-dashboard-jade-phi.vercel.app"
+    "https://admin-dashboard-jade-phi.vercel.app",
+    "https://admin.picadailys.com"
 ]
 
 ROOT_URLCONF = "picadailys.urls"
