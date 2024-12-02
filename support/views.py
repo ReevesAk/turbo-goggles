@@ -1,13 +1,16 @@
 import logging
+
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.contrib.auth.hashers import check_password
 
 # In project imports.
 from .serializers import (
-    CreateTicketSerializers, AssignTicketSerializers
+    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers
 )
-from .models import Ticket
+from .models import Ticket, AgentRating
 
 # Third party imports.
 from rest_framework import generics, status
@@ -310,3 +313,86 @@ class GetSingleTicket(generics.RetrieveAPIView):
                 {"status": "fail", "message": "Ticket not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class RateSupportAgent(generics.GenericAPIView):
+    """
+    RateSupportAgent is the POST request handler that allows a user to rate asupport agent.
+    """
+
+    serializer_class = AgentRatingSerializers
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "ticket_id"
+
+    def post(self, request, *args, **kwargs):
+        logger.info("Received request to retrieve support ticket.")
+
+        authenticated_user = request.user
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            logger.warning("Serializer validation failed: %s", serializer.errors)
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        ticket_id = kwargs.get("ticket_id")
+        agent_id = kwargs.get("agent_id")
+
+        logger.debug("Attempting to retrieve ticket with ID: %s", ticket_id)
+
+        try:
+            with transaction.atomic():
+                ticket = Ticket.objects.select_for_update().get(id=ticket_id)
+                agent = User.objects.get(id=agent_id)
+
+            # Proceed with your logic using `ticket` and `agent`
+            # For example, you might want to return some data or perform some action
+
+        except Ticket.DoesNotExist:
+            logger.error("Ticket with ID %s does not exist.", ticket_id)
+            return Response({"error": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        except User.DoesNotExist:
+            logger.error("User  with ID %s does not exist.", agent_id)
+            return Response({"error": "User  not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            logger.exception("An unexpected error occurred: %s", str(e))
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.info("Ticket found: %s", ticket)
+        AgentRating.objects.create(
+            user=authenticated_user,
+            agent=agent,
+            ticket=ticket,
+            rating=request.data.get("rating"),
+            rating_comment=request.get("rating_comment")
+        )
+
+        # Create user notification
+        UserNotification.objects.create(
+            user=authenticated_user,
+            title="Agent Rating",
+            message=f"Your rating of agent: {agent.full_name} has been recorded."
+        )
+        logger.info("User  notification created for user: %s", authenticated_user)
+
+        # Log activity
+        rating = request.data.get("rating")
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Agent Rating",
+            message=f"{authenticated_user.first_name} {authenticated_user.last_name} rated {agent.full_name} as {rating}."
+        )
+        logger.info("Activity logged for user: %s", authenticated_user)
+
+        resp = {
+            "status": "success",
+            "message": "Agent rating was successful.",
+            "data": serializer.data
+        }
+        return Response(data=resp, status=status.HTTP_201_CREATED)

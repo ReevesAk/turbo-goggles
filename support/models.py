@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 from basemodel import BaseModel
@@ -15,6 +17,13 @@ STATUS = (
 )
 
 
+AGENT_RATING = (
+    ("Awesome", "Awesome"),
+    ("Okay", "Okay"),
+    ("Terrible", "Terrible")
+)
+
+
 class Ticket(BaseModel):
     user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_tickets")
     title = models.CharField(max_length=150, null=True)
@@ -28,3 +37,11 @@ class Ticket(BaseModel):
         if self.assigned_to and not self.assigned_at:
             self.assigned_at = timezone.now()
         super().save(*args, **kwargs)
+
+
+class AgentRating(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_rating")
+    agent = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="agent_rated")
+    ticket = models.UUIDField(default=uuid.uuid4, editable=False)
+    rating = models.CharField(max_length=150, choices=AGENT_RATING, null=True)
+    rating_comment = models.TextField(null=True, blank=True)

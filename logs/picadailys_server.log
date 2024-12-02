@@ -165,3 +165,22 @@ INFO 2024-11-28 00:41:19,529 views Biometric authentication attempted for user: 
 INFO 2024-11-28 00:41:19,529 views User 08134649680 successfully logged in.
 INFO 2024-11-28 00:41:20,879 views JWT tokens generated for user 08134649680
 INFO 2024-11-28 00:41:20,880 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 566
+INFO 2024-12-02 19:11:52,497 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:16:51,513 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:20:02,229 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:27:29,774 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:42:44,477 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:52:36,504 autoreload Watching for file changes with StatReloader
+INFO 2024-12-02 19:52:55,750 basehttp "GET /api/v1/redoc HTTP/1.1" 301 0
+INFO 2024-12-02 19:52:55,790 basehttp "GET /api/v1/redoc/ HTTP/1.1" 200 727
+INFO 2024-12-02 19:52:57,422 views Retrieving queryset for BrandAd users.
+INFO 2024-12-02 19:52:57,474 views ListAllProducts: GET request received with category: None
+WARNING 2024-12-02 19:52:57,492 log Not Found: /favicon.ico
+WARNING 2024-12-02 19:52:57,493 basehttp "GET /favicon.ico HTTP/1.1" 404 3654
+INFO 2024-12-02 19:52:59,597 views Fetching services for user: None ()
+INFO 2024-12-02 19:53:00,124 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 215567
+INFO 2024-12-02 19:53:09,053 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-02 19:53:09,565 views Retrieving queryset for BrandAd users.
+INFO 2024-12-02 19:53:09,604 views ListAllProducts: GET request received with category: None
+INFO 2024-12-02 19:53:11,576 views Fetching services for user: None ()
+INFO 2024-12-02 19:53:11,793 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309

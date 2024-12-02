@@ -2,11 +2,8 @@
 from rest_framework import serializers
 
 # In project imports.
-from accounts.models import User
-from banking.models import AccountCreation
-
 from .models import (
-    Ticket
+    Ticket, AgentRating
 )
 
 
@@ -34,4 +31,14 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "pin",
             "ticket_id",
             "agent_email",
+        ]
+
+
+class AgentRatingSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = AgentRating
+        fields = [
+            "id",
+            "rating",
+            "rating_comment"
         ]
