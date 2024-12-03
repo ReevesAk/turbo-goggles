@@ -193,7 +193,7 @@ REST_FRAMEWORK = {
 CSP_DEFAULT_SRC = ("'self'",)  # Only allow resources from the same origin
 CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com")  # Allow external styles from Google Fonts
 CSP_SCRIPT_SRC = ("'self'", "https://code.jquery.com")  # Allow external scripts
-CSP_IMG_SRC = ("'self'", "data:", "https://images.example.com")  # Allow images from specified sources
+CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr")  # Allow images from specified sources
 
 # Enable HTTP Strict Transport Security (HSTS)
 SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
