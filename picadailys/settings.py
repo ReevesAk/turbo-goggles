@@ -192,7 +192,7 @@ REST_FRAMEWORK = {
 
 # CSP configuration.
 CSP_DEFAULT_SRC = ("'self'",)  # Only allow resources from the same origin
-CSP_STYLE_SRC = ("'self'",)  # Allow external styles from Google Fonts
+CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com')  # Allow external styles from Google Fonts
 CSP_SCRIPT_SRC = ("'self'", "http://localhost:5174", "https://admin-dashboard-jade-phi.vercel.app", "https://admin.picadailys.com")  # Allow external scripts
 CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr")  # Allow images from specified sources
 
