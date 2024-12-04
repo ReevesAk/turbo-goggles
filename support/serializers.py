@@ -42,3 +42,14 @@ class AgentRatingSerializers(serializers.ModelSerializer):
             "rating",
             "rating_comment"
         ]
+
+
+class PusherSerializers(serializers.ModelSerializer):
+    message = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = AgentRating
+        fields = [
+            "id",
+            "message",
+        ]
