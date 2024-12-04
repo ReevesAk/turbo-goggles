@@ -6,12 +6,9 @@ from Crypto.Util.Padding import pad
 from decouple import config
 
 
-# Load the AES key and ID from environment variables
-ACCESS_KEY = config("AES_ACCESS_KEY")
-AES_ID = config("AES_ID")
+# Load the AES key and IV from environment.
 AES_KEY = config("AES_KEY")
 AES_IV = config("AES_IV")
-SESSION_KEY = config("SESSION_KEY")
 
 
 def sha512_to_hex(key: str) -> str:
@@ -22,16 +19,8 @@ def sha512_to_hex(key: str) -> str:
     return hex_digest
 
 
-a_key_hex = sha512_to_hex(ACCESS_KEY)
 aes_key = b64decode(AES_KEY)
 aes_iv = b64decode(AES_IV)
-
-# Define the resource URL and headers
-headers = {
-    "X-Access-Key": a_key_hex,
-    "X-Access-Id": AES_ID,
-    "X-Session-Key": SESSION_KEY,
-}
 
 
 def decrypt(cipher_text):

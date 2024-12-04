@@ -35,10 +35,16 @@ class GetAllNotifications(generics.ListAPIView):
     queryset = UserNotification.objects.all().order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
-        logger.info("Received request to list notifications for user: %s", request.user.email)
+        logger.info(
+            "Received request to list notifications for user: %s", request.user.email
+        )
 
         notifications = self.get_queryset().filter(user=request.user)
-        logger.debug("Total notifications found for user %s: %d", request.user.email, notifications.count())
+        logger.debug(
+            "Total notifications found for user %s: %d",
+            request.user.email,
+            notifications.count(),
+        )
 
         user_data = request.user
 
@@ -59,7 +65,11 @@ class GetAllNotifications(generics.ListAPIView):
             "message": f"All notifications for {user_data.first_name} {user_data.last_name} fetched successfully!",
             "data": data,
         }
-        logger.info("Response prepared successfully with %d notifications for user: %s", len(data), user_data.email)
+        logger.info(
+            "Response prepared successfully with %d notifications for user: %s",
+            len(data),
+            user_data.email,
+        )
         return Response(response, status=status.HTTP_200_OK)
 
 
@@ -76,7 +86,9 @@ class GetSingleNotification(generics.RetrieveAPIView):
     lookup_field = "id"
 
     def retrieve(self, request, *args, **kwargs):
-        logger.info("Received request to retrieve notification with ID: %s", kwargs.get("id"))
+        logger.info(
+            "Received request to retrieve notification with ID: %s", kwargs.get("id")
+        )
 
         try:
             user_notification = self.get_object()
@@ -84,7 +96,11 @@ class GetSingleNotification(generics.RetrieveAPIView):
 
             # Check if the notification belongs to the authenticated user
             if user_notification.user != request.user:
-                logger.warning("Unauthorized access attempt by user: %s for notification ID: %s", request.user.email, kwargs.get("id"))
+                logger.warning(
+                    "Unauthorized access attempt by user: %s for notification ID: %s",
+                    request.user.email,
+                    kwargs.get("id"),
+                )
                 return Response(
                     {
                         "status": "fail",
@@ -108,7 +124,9 @@ class GetSingleNotification(generics.RetrieveAPIView):
                     "created_at": notification.created_at,
                 },
             }
-            logger.info("Response prepared successfully for notification ID: %s", ntfn_id)
+            logger.info(
+                "Response prepared successfully for notification ID: %s", ntfn_id
+            )
             return Response(data=response, status=status.HTTP_200_OK)
 
         except UserNotification.DoesNotExist:
@@ -162,7 +180,9 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
 
     def post(self, request):
         user = request.user
-        logger.info("Received request to mark notifications as read for user: %s", user.email)
+        logger.info(
+            "Received request to mark notifications as read for user: %s", user.email
+        )
 
         notifications = UserNotification.objects.filter(user=user)
 
@@ -174,7 +194,9 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
             )
 
         updated_count = notifications.update(is_read=True)
-        logger.info("Marked %d notifications as read for user: %s", updated_count, user.email)
+        logger.info(
+            "Marked %d notifications as read for user: %s", updated_count, user.email
+        )
 
         return Response(
             {"message": "All notifications marked as read."}, status=status.HTTP_200_OK
@@ -193,7 +215,9 @@ class DeleteNotification(generics.DestroyAPIView):
     lookup_field = "id"
 
     def destroy(self, request, *args, **kwargs):
-        logger.info("Received request to delete notification with ID: %s", kwargs.get("id"))
+        logger.info(
+            "Received request to delete notification with ID: %s", kwargs.get("id")
+        )
 
         try:
             notification = self.get_object()
@@ -201,13 +225,21 @@ class DeleteNotification(generics.DestroyAPIView):
 
             if notification.user == request.user:
                 notification.delete()
-                logger.info("Notification with ID: %s deleted by user: %s", notification.id, request.user.email)
+                logger.info(
+                    "Notification with ID: %s deleted by user: %s",
+                    notification.id,
+                    request.user.email,
+                )
                 return Response(
                     {"status": "Notification deleted."},
                     status=status.HTTP_204_NO_CONTENT,
                 )
             else:
-                logger.warning("Unauthorized delete attempt by user: %s for notification ID: %s", request.user.email, notification.id)
+                logger.warning(
+                    "Unauthorized delete attempt by user: %s for notification ID: %s",
+                    request.user.email,
+                    notification.id,
+                )
                 return Response(
                     {"detail": "You are not authorized to delete this notification."},
                     status=status.HTTP_403_FORBIDDEN,

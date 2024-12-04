@@ -192,9 +192,20 @@ REST_FRAMEWORK = {
 
 # CSP configuration.
 CSP_DEFAULT_SRC = ("'self'",)  # Only allow resources from the same origin
-CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com')  # Allow external styles from Google Fonts
-CSP_SCRIPT_SRC = ("'self'", "http://localhost:5174", "https://admin-dashboard-jade-phi.vercel.app", "https://admin.picadailys.com")  # Allow external scripts
-CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr")  # Allow images from specified sources
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net")  # Allow external styles from Google Fonts
+CSP_STYLE_SRC_ELEM = CSP_STYLE_SRC
+
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "http://localhost:5174",
+    "https://cdn.jsdelivr.net",
+    "https://admin-dashboard-jade-phi.vercel.app",
+    "https://admin.picadailys.com",
+    "https://miniature-waddle.onrender.com/api/v1",
+    "127.0.0.1:8000/api/v1",
+)  # Allow external scripts
+CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
 
 # Enable HTTP Strict Transport Security (HSTS)
 SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
@@ -224,6 +235,11 @@ SPECTACULAR_SETTINGS = {
     "online intermediary services, e.g" "```Value Added Servies(VAS)```",
     "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "USE_SESSION_AUTH": False,
+    "SECURITY_DEFINITIONS": None,
+    "DOC_EXPANSION": "none",
+    "DEFAULT_MODEL_RENDERING": "example",
+    "DEFAULT_MODEL_DEPTH": 1,
 }
 
 # SMTP email configuration.

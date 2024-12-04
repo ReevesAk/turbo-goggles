@@ -192,3 +192,105 @@ INFO 2024-12-02 20:12:44,429 views Biometric authentication attempted for user: 
 INFO 2024-12-02 20:12:44,429 views User 08134649680 successfully logged in.
 INFO 2024-12-02 20:12:45,878 views JWT tokens generated for user 08134649680
 INFO 2024-12-02 20:12:45,879 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569
+INFO 2024-12-04 19:00:23,662 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:02:29,837 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 19:03:07,370 basehttp "GET /api/v1/redoc/ HTTP/1.1" 200 727
+INFO 2024-12-04 19:05:20,615 basehttp "GET /api/v1/redoc/ HTTP/1.1" 200 727
+INFO 2024-12-04 19:09:15,827 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:09:17,290 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:09:22,533 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 19:09:51,233 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:09:52,148 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:09:56,208 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:09:57,527 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:10:00,735 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:10:01,748 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:10:03,760 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:10:04,759 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:10:14,728 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 19:57:15,942 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 19:57:17,232 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:58:56,871 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 19:59:46,128 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:01:38,054 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:01:53,589 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:02:04,910 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:02:23,214 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:03:00,248 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:03:01,201 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:03:11,727 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:03:12,660 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:03:57,336 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:03:58,802 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:04:02,306 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:04:03,380 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:04:07,799 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:04:08,803 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:04:18,482 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:04:18,607 views Retrieving queryset for BrandAd users.
+INFO 2024-12-04 20:04:18,651 views ListAllProducts: GET request received with category: None
+INFO 2024-12-04 20:04:20,797 views Fetching services for user: None ()
+INFO 2024-12-04 20:04:20,973 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
+INFO 2024-12-04 20:04:21,680 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:04:21,785 views Retrieving queryset for BrandAd users.
+INFO 2024-12-04 20:04:21,824 views ListAllProducts: GET request received with category: None
+INFO 2024-12-04 20:04:23,766 views Fetching services for user: None ()
+INFO 2024-12-04 20:04:23,999 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
+INFO 2024-12-04 20:04:42,630 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:04:44,029 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:04:49,464 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:04:49,606 views Retrieving queryset for BrandAd users.
+INFO 2024-12-04 20:04:49,654 views ListAllProducts: GET request received with category: None
+INFO 2024-12-04 20:04:51,640 views Fetching services for user: None ()
+INFO 2024-12-04 20:04:51,828 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
+INFO 2024-12-04 20:05:04,565 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:05:05,727 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:05:08,837 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:05:09,814 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:05:11,735 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:05:12,764 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:05:14,748 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:05:15,951 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:06:46,604 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:06:48,639 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:07:19,725 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:09:11,431 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:09:12,914 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:10:18,145 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:10:19,636 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:12:30,550 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:12:31,708 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:12:40,968 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:12:45,507 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:16:37,926 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:18:28,848 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:18:30,165 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:18:42,880 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:18:44,257 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:18:54,058 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:18:55,406 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:18:58,751 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:18:59,719 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:19:06,782 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:19:07,737 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:30:38,584 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:30:40,865 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:31:14,097 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:31:15,548 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:31:20,207 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:31:21,216 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:31:25,773 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:31:26,787 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:31:34,113 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:32:21,290 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:32:56,687 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:33:16,758 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:33:39,446 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:33:40,461 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:33:42,673 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-04 20:33:43,697 autoreload Watching for file changes with StatReloader
+INFO 2024-12-04 20:33:51,338 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-04 20:33:51,522 views Retrieving queryset for BrandAd users.
+INFO 2024-12-04 20:33:51,576 views ListAllProducts: GET request received with category: None
+INFO 2024-12-04 20:33:53,444 views Fetching services for user: None ()
+INFO 2024-12-04 20:33:53,641 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
