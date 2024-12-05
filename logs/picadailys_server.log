@@ -294,3 +294,4 @@ INFO 2024-12-04 20:33:51,522 views Retrieving queryset for BrandAd users.
 INFO 2024-12-04 20:33:51,576 views ListAllProducts: GET request received with category: None
 INFO 2024-12-04 20:33:53,444 views Fetching services for user: None ()
 INFO 2024-12-04 20:33:53,641 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 437309
+INFO 2024-12-05 20:35:53,087 autoreload Watching for file changes with StatReloader
