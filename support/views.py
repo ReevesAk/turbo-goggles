@@ -57,7 +57,7 @@ class CreateTicket(generics.CreateAPIView):
 
         user_data = serializer.validated_data
         user_email = payload.get("email")
-        logger.debug("User  email extracted from payload: %s", user_email)
+        logger.debug("User email extracted from payload: %s", user_email)
 
         try:
             user = User.objects.get(email=user_email)
@@ -69,13 +69,13 @@ class CreateTicket(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        title = payload.get("tilte")
-        logger.debug("Creating ticket with title: %s", title)
+        category = payload.get("category")
+        logger.debug("Creating ticket with category: %s", category)
 
         # Create the ticket
         ticket = Ticket.objects.create(
             user=user,
-            title=title,
+            title=category,
             escalation_level="Management",
             status="Queuing",
         )
@@ -99,7 +99,7 @@ class CreateTicket(generics.CreateAPIView):
 
         resp = {
             "status": "success",
-            "message": f"Support ticket created for {user.first_name} {user.last_name}, for {title}",
+            "message": f"Support ticket created for {user.first_name} {user.last_name}, for {category} issues.",
             "data": serializer.data,
             "created_at": user_data["created_at"],
         }
@@ -171,7 +171,7 @@ class AssignTicket(generics.GenericAPIView):
             "TaskAdmin",
             "AdAdmin",
             "MembersAdmin",
-            "User  Admin",
+            "UserAdmin",
             "PartnersAdmin",
             "ContentAdmin",
             "IntegrationAdmin",
@@ -243,13 +243,15 @@ class GetAllSupportTickets(generics.ListAPIView):
         for ticket in paginated_tickets:
             data.append(
                 {
-                    "ticket_id": ticket.id,
-                    "authorised_by": "SuperAdmin",  # This could be dynamic based on your logic
-                    "title": ticket.title,
+                    "ticket_number": ticket.ticket_number,
+                    "authorised_by": "SuperAdmin",
+                    "category": ticket.category,
                     "description": ticket.description,
                     "created_at": ticket.created_at,
                     "assigned_to": ticket.assigned_to,
                     "assigned_at": ticket.assigned_at,
+                    "ticket_channel": ticket.channel,
+                    "escalation_level": ticket.escalation_level,
                     "status": ticket.status
                 }
             )
@@ -276,12 +278,12 @@ class GetSingleTicket(generics.RetrieveAPIView):
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "ticket_id"
+    lookup_field = "ticket_number"
 
     def retrieve(self, request, *args, **kwargs):
         logger.info("Received request to retrieve support ticket.")
 
-        ticket_id = kwargs.get("ticket_id")
+        ticket_id = kwargs.get("ticket_number")
         logger.debug("Attempting to retrieve ticket with ID: %s", ticket_id)
 
         try:
@@ -295,10 +297,13 @@ class GetSingleTicket(generics.RetrieveAPIView):
                 "title": ticket.title,
                 "data": {
                     "ticket_id": ticket_id,
+                    "category": ticket.category,
                     "description": ticket.description,
                     "created_at": ticket.created_at,
                     "assigned_to": ticket.assigned_to,
                     "assigned_at": ticket.assigned_at,
+                    "ticket_channel": ticket.channel,
+                    "escalation_level": ticket.escalation_level,
                     "status": ticket.status
                 },
             }
@@ -321,7 +326,7 @@ class RateSupportAgent(generics.GenericAPIView):
     serializer_class = AgentRatingSerializers
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "ticket_id"
+    lookup_field = "ticket_number"
 
     def post(self, request, *args, **kwargs):
         logger.info("Received request to retrieve support ticket.")
@@ -337,7 +342,7 @@ class RateSupportAgent(generics.GenericAPIView):
             logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        ticket_id = kwargs.get("ticket_id")
+        ticket_id = kwargs.get("ticket_number")
         agent_id = kwargs.get("agent_id")
 
         logger.debug("Attempting to retrieve ticket with ID: %s", ticket_id)

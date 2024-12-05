@@ -14,7 +14,8 @@ class CreateTicketSerializers(serializers.ModelSerializer):
         model = Ticket
         fields = [
             "id",
-            "title",
+            "category",
+            "channel",
             "email",
             "description",
         ]
@@ -23,18 +24,22 @@ class CreateTicketSerializers(serializers.ModelSerializer):
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
     pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
-    ticket_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    ticket_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = Ticket
         fields = [
             "pin",
-            "ticket_id",
+            "ticket_number",
             "agent_email",
+            "status",
+            "escalation_level"
         ]
 
 
 class AgentRatingSerializers(serializers.ModelSerializer):
+    rating_comment = serializers.CharField(max_length=68, min_length=6, write_only=True, required=False)
+
     class Meta:
         model = AgentRating
         fields = [

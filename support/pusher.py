@@ -1,7 +1,6 @@
 import pusher
 from decouple import config
 
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
@@ -10,23 +9,33 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import PusherSerializers
 
 
-class NotifyView(APIView):
+# Initialize Pusher client
+pusher_client = pusher.Pusher(
+    app_id=config("PUSHER_APP_ID"),
+    key=config("PUSHER_APP_KEY"),
+    secret=config("PUSHER_APP_SECRET"),
+    cluster=config("PUSHER_APP_CLUSTER"),
+    ssl=True
+)
+
+
+class SupportChat(generics.GenericAPIView):
+    serializer_class = PusherSerializers
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
     def post(self, request, *args, **kwargs):
-        message = request.data.get("message", "Hello from Pusher!")
+        message = request.data.get("message")
+        user_id_1 = kwargs.get('user_id_1')
+        user_id_2 = kwargs.get('user_id_2')
 
-        # Initialize Pusher client
-        pusher_client = pusher.Pusher(
-            app_id=config("PUSHER_APP_ID"),
-            key=config("PUSHER_KEY"),
-            secret=config("PUSHER_SECRET"),
-            cluster=config("PUSHER_CLUSTER"),
-            ssl=config("PUSHER_SSL"),
-        )
+        # Create a unique channel name for the two users
+        channel_name = f'chat-{min(user_id_1, user_id_2)}-{max(user_id_1, user_id_2)}'
 
-        # Trigger event on the Pusher channel
-        pusher_client.trigger("my-channel", "my-event", {"message": message})
+        # Trigger an event on the Pusher channel
+        pusher_client.trigger(channel_name, 'new-message', {'message': message})
 
-        return Response(data={"status": "success", "message": "Message broadcasted"}, status=status.HTTP_200_OK)
+        return Response(data={"status": "success", "message": "Message sent"}, status=status.HTTP_200_OK)
 
 
 class GetSingleTicket(generics.RetrieveAPIView):
