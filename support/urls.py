@@ -1,11 +1,14 @@
 from django.urls import path
 
 from .views import CreateTicket, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent
+from .pusher import SupportChat
 
 urlpatterns = [
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign", AssignTicket.as_view(), name="assign_ticket"),
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
-    path("get-single/<uuid:ticket_id>/", GetSingleTicket.as_view(), name="get_single_ticket"),
-    path("rate-support-agent/<uuid:ticket_id>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
+    path("chat/<int:user_id_1>/<int:user_id_2>/", SupportChat.as_view(), name="chat"),
+    path("get-single/<uuid:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
+    path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
+
 ]
