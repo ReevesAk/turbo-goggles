@@ -4,3 +4,9 @@ INFO 2024-12-06 00:41:04,675 views Retrieving queryset for BrandAd users.
 INFO 2024-12-06 00:41:04,718 views ListAllProducts: GET request received with category: None
 INFO 2024-12-06 00:41:06,911 views Fetching services for user: None ()
 INFO 2024-12-06 00:41:07,099 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 442109
+INFO 2024-12-06 00:45:32,758 autoreload Watching for file changes with StatReloader
+INFO 2024-12-06 00:45:47,882 views Login attempt for phone number: 08134649680
+INFO 2024-12-06 00:45:49,985 views Biometric authentication attempted for user: 08134649680
+INFO 2024-12-06 00:45:49,986 views User 08134649680 successfully logged in.
+INFO 2024-12-06 00:45:51,343 views JWT tokens generated for user 08134649680
+INFO 2024-12-06 00:45:51,345 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569
