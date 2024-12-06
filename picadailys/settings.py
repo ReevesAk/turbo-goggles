@@ -368,3 +368,9 @@ LOGGING = {
         },
     },
 }
+
+if DEBUG is False:
+    LOGGING['handlers']['file'] = {
+        'level': 'INFO',
+        'class': 'logging.NullHandler',
+    }

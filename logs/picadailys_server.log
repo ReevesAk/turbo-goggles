@@ -1,0 +1,6 @@
+INFO 2024-12-06 00:40:56,031 autoreload Watching for file changes with StatReloader
+INFO 2024-12-06 00:41:04,387 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-06 00:41:04,675 views Retrieving queryset for BrandAd users.
+INFO 2024-12-06 00:41:04,718 views ListAllProducts: GET request received with category: None
+INFO 2024-12-06 00:41:06,911 views Fetching services for user: None ()
+INFO 2024-12-06 00:41:07,099 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 442109
