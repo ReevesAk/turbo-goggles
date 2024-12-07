@@ -35,7 +35,18 @@ class SupportChat(generics.GenericAPIView):
         # Trigger an event on the Pusher channel
         pusher_client.trigger(channel_name, 'new-message', {'message': message})
 
-        return Response(data={"status": "success", "message": "Message sent"}, status=status.HTTP_200_OK)
+        return Response(
+            data={
+                "status": "success",
+                "message": "Chat intitiated",
+                "data": {
+                    "api_key": config("PUSHER_APP_KEY"),
+                    "cluster": config("PUSHER_APP_CLUSTER"),
+                    "channels": channel_name
+                }
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class GetSingleTicket(generics.RetrieveAPIView):
