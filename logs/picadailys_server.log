@@ -10,3 +10,17 @@ INFO 2024-12-06 00:45:49,985 views Biometric authentication attempted for user: 
 INFO 2024-12-06 00:45:49,986 views User 08134649680 successfully logged in.
 INFO 2024-12-06 00:45:51,343 views JWT tokens generated for user 08134649680
 INFO 2024-12-06 00:45:51,345 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 569
+INFO 2024-12-09 22:32:29,789 autoreload Watching for file changes with StatReloader
+INFO 2024-12-09 22:32:40,900 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-09 22:32:42,021 views Retrieving queryset for BrandAd users.
+INFO 2024-12-09 22:32:42,084 views ListAllProducts: GET request received with category: None
+INFO 2024-12-09 22:32:44,668 views Fetching services for user: None ()
+INFO 2024-12-09 22:32:44,859 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 444662
+INFO 2024-12-09 22:38:49,548 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-09 22:38:51,167 autoreload Watching for file changes with StatReloader
+INFO 2024-12-09 22:39:25,655 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-09 22:39:26,730 autoreload Watching for file changes with StatReloader
+INFO 2024-12-09 22:39:34,313 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-09 22:39:35,233 autoreload Watching for file changes with StatReloader
+INFO 2024-12-09 22:39:37,742 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-09 22:39:38,631 autoreload Watching for file changes with StatReloader

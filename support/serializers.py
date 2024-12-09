@@ -21,6 +21,17 @@ class CreateTicketSerializers(serializers.ModelSerializer):
         ]
 
 
+class TicketSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Ticket
+        fields = [
+            "id",
+            "category",
+            "channel",
+            "description",
+        ]
+
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
     pin = serializers.CharField(max_length=5, min_length=6, write_only=True)

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import CreateTicket, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent
+from .views import CreateTicket, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel
 from .pusher import SupportChat
 
 urlpatterns = [
@@ -10,5 +10,6 @@ urlpatterns = [
     path("chat/<int:user_id_1>/<int:user_id_2>/", SupportChat.as_view(), name="chat"),
     path("get-single/<uuid:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
     path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
+    path("search-by-channel/<str:search_term>/", GetTicketByChannel.as_view(), name="serach_channel")
 
 ]

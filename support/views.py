@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import check_password
 
 # In project imports.
 from .serializers import (
-    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers
+    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers, TicketSerializers
 )
 from .models import Ticket, AgentRating
 
@@ -315,6 +315,58 @@ class GetSingleTicket(generics.RetrieveAPIView):
             return Response(
                 {"status": "fail", "message": "Ticket not found."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class GetTicketByChannel(generics.ListAPIView):
+    """
+    GetTicketByChannel handles the GET request for searching
+    tickets by ticket chanell.
+    """
+
+    serializer_class = TicketSerializers
+    authentication_classes = [JWTAuthentication, IsSuperAdmin]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        search_term = kwargs.get("search_term")
+        logger.info(f"Received search request for term: {search_term}")
+
+        try:
+            # Filter tickets based on channel type.'
+            tickets = Ticket.objects.filter(channel=search_term).distinct()
+
+            serializer = self.get_serializer(tickets, many=True)
+
+            if tickets.exists():
+                data = {
+                    "status": "success",
+                    "message": "Tikcets fetched successfully.",
+                    "data": serializer.data,
+                }
+                logger.info(
+                    f"Found {tickets.count()} tickets matching the channel search term: {search_term}"
+                )
+                return Response(data=data, status=status.HTTP_200_OK)
+            else:
+                data = {
+                    "status": "fail",
+                    "message": "No tickets matching that query found.",
+                    "data": [],
+                }
+                logger.warning(
+                    f"No tickets found matching the channel search term: {search_term}"
+                )
+                return Response(data=data, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            logger.exception(f"Error occurred while searching for partners: {e}")
+            return Response(
+                {
+                    "status": "error",
+                    "message": "An error occurred while processing the request.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
