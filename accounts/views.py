@@ -1,4 +1,3 @@
-from decouple import config
 from django.utils import timezone
 
 from exceptions import Customexceptions

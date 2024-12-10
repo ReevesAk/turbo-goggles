@@ -119,3 +119,59 @@ INFO 2024-12-10 23:09:13,787 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-10 23:09:15,157 autoreload Watching for file changes with StatReloader
 INFO 2024-12-10 23:09:29,892 autoreload /Users/macbookpro/projects/miniature-waddle/security.py changed, reloading.
 INFO 2024-12-10 23:09:31,014 autoreload Watching for file changes with StatReloader
+INFO 2024-12-10 23:25:11,714 autoreload Watching for file changes with StatReloader
+INFO 2024-12-10 23:25:41,367 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-10 23:25:42,487 autoreload Watching for file changes with StatReloader
+INFO 2024-12-10 23:25:45,951 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-10 23:25:47,364 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-10 23:26:16,220 log Internal Server Error: /api/v1/accounts/login
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/security.py", line 21, in decrypt
+    byte_data = b64decode(cipher_text)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/base64.py", line 83, in b64decode
+    s = _bytes_from_decode_data(s)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/base64.py", line 45, in _bytes_from_decode_data
+    raise TypeError("argument should be a bytes-like object or ASCII "
+TypeError: argument should be a bytes-like object or ASCII string, not 'dict'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 409, in post
+    decrypted_payload = decrypt(request.data)
+                        ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/security.py", line 37, in decrypt
+    raise ValueError(f"Decryption failed: {e}")
+ValueError: Decryption failed: argument should be a bytes-like object or ASCII string, not 'dict'
+ERROR 2024-12-10 23:26:16,221 basehttp "POST /api/v1/accounts/login HTTP/1.1" 500 116897
+WARNING 2024-12-10 23:29:22,309 log Bad Request: /api/v1/accounts/login
+WARNING 2024-12-10 23:29:22,309 basehttp "POST /api/v1/accounts/login HTTP/1.1" 400 83
+INFO 2024-12-10 23:29:43,258 views Login attempt for phone number: 08134649680
+INFO 2024-12-10 23:29:45,488 views Biometric authentication attempted for user: 08134649680
+INFO 2024-12-10 23:29:45,488 views User 08134649680 successfully logged in.
+INFO 2024-12-10 23:29:47,127 views JWT tokens generated for user 08134649680
+INFO 2024-12-10 23:29:47,128 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 794
