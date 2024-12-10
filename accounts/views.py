@@ -1,3 +1,4 @@
+from decouple import config
 from django.utils import timezone
 
 from exceptions import Customexceptions
@@ -38,6 +39,7 @@ from roles.models import GamificationModel, ActivityModel
 from sms import Message
 from commons import Biometrics
 from permissions import IsUserOrMember
+from security import encrypt, decrypt
 
 
 logger = logging.getLogger("accounts")
@@ -405,9 +407,10 @@ class Login(APIView):
     def post(self, request):
         logger.debug("Received login request data: %s", request.data)
 
+        decrypted_payload = decrypt(request.data)
         data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         login = data.get("phone_number")
         password = data.get("password")
@@ -498,7 +501,8 @@ class Login(APIView):
             "active_role": user.active_role,
             "tokens": tokens,
         }
-        return Response(data=response, status=status.HTTP_200_OK)
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class ForgotPassword(generics.GenericAPIView):
