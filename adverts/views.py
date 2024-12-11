@@ -25,6 +25,7 @@ from banking.helpers import Pin
 from banking.controllers import Account
 from banking.models import AccountCreation
 from roles.models import ActivityModel
+from security import encrypt, decrypt
 
 
 picadailys_email = config("EMAIL_HOST_USER")
@@ -41,10 +42,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
     serializer_class = CreateBrandAdvertSeriailizers
 
     def post(self, request):
-        # Clean up input data by stripping whitespace from string fields
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         authenticated_user = request.user
         serializer = self.serializer_class(data=user_data)
@@ -99,7 +100,8 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                     "telegram": request.data.get("telegram"),
                 },
             }
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            encrypt_response = encrypt(response)
+            return Response(data=encrypt_response, status=status.HTTP_201_CREATED)
 
         # Log errors if serializer is invalid
         logger.error("Failed to create brand advert account: %s", serializer.errors)
@@ -138,7 +140,8 @@ class ListAllBrandAds(generics.ListAPIView):
             "Returning full response for BrandAd users. Total count: %d",
             queryset.count(),
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        encrypted_response = encrypt(serializer.data)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class GetBrandAdDetails(generics.RetrieveAPIView):
@@ -155,7 +158,8 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         # Serialize and return the user's profile details
         serializer = self.get_serializer(user)
         logger.info("Successfully retrieved profile for user: %s", user.email)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        encrypted_response = encrypt(serializer.data)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class UpdateBrandAdProfile(generics.UpdateAPIView):
@@ -201,36 +205,38 @@ class BrandSurveyView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
 
-        if not serializer.is_valid(raise_exception=True):
+        decrypted_data = decrypt(serializer)
+
+        if not decrypted_data.is_valid(raise_exception=True):
             # In case of validation errors
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(decrypted_data.errors, status=status.HTTP_400_BAD_REQUEST)
         try:
             # Attach authenticated user to the survey data
-            serializer.validated_data["user"] = request.user
-            brand_survey = serializer.save()
+            decrypted_data.validated_data["user"] = request.user
+            brand_survey = decrypted_data.save()
 
             # Create survey instance in CreateAd model
             brand_survey_instance = CreateAd.objects.create(
                 brand_user=brand_survey.user,
-                brand_type=serializer.validated_data["brand_type"],
-                product_type=serializer.validated_data["product_type"],
-                online_presence=serializer.validated_data["online_presence"],
-                online_preferences=serializer.validated_data["online_preferences"],
-                metric_to_increase=serializer.validated_data["metric_to_increase"],
-                demography=serializer.validated_data["demography"],
-                website=serializer.validated_data["website"],
-                type=serializer.validated_data["type"],
-                category=serializer.validated_data["category"],
-                address=serializer.validated_data["address"],
-                description=serializer.validated_data["description"],
-                duration=serializer.validated_data["duration"],
+                brand_type=decrypted_data.validated_data["brand_type"],
+                product_type=decrypted_data.validated_data["product_type"],
+                online_presence=decrypted_data.validated_data["online_presence"],
+                online_preferences=decrypted_data.validated_data["online_preferences"],
+                metric_to_increase=decrypted_data.validated_data["metric_to_increase"],
+                demography=decrypted_data.validated_data["demography"],
+                website=decrypted_data.validated_data["website"],
+                type=decrypted_data.validated_data["type"],
+                category=decrypted_data.validated_data["category"],
+                address=decrypted_data.validated_data["address"],
+                description=decrypted_data.validated_data["description"],
+                duration=decrypted_data.validated_data["duration"],
             )
 
             # Create AdLocation entry for the survey
             AdLocation.objects.create(
                 brand=brand_survey_instance,
-                state=serializer.validated_data.get("state"),
-                city=serializer.validated_data.get("city"),
+                state=decrypted_data.validated_data.get("state"),
+                city=decrypted_data.validated_data.get("city"),
             )
 
             # Log the brand survey activity
@@ -243,7 +249,7 @@ class BrandSurveyView(generics.CreateAPIView):
             logger.info(
                 "Brand survey created successfully for user: %s", request.user.email
             )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(decrypted_data.data, status=status.HTTP_201_CREATED)
 
         except Exception as err:
             logger.error("Brand advert survey creation failed: %s", err)
@@ -259,9 +265,10 @@ class BrandPromote(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
+        decrypted_data = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_data.items()
         }
         serializer = self.get_serializer(data=payload)
 
@@ -314,7 +321,8 @@ class BrandPromote(generics.CreateAPIView):
                         "status": "Success!",
                         "message": "Brand advert promoted successfully.",
                     }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
+                    encrypted_success = encrypt(response_data)
+                    return Response(data=encrypted_success, status=status.HTTP_200_OK)
 
                 else:
                     # Handle debit failure
@@ -325,16 +333,19 @@ class BrandPromote(generics.CreateAPIView):
                         "status": "Failure",
                         "details": debit_response.json(),
                     }
+                    encrypted_response = encrypt(response_data)
                     return Response(
-                        data=response_data, status=status.HTTP_400_BAD_REQUEST
+                        data=encrypted_response, status=status.HTTP_400_BAD_REQUEST
                     )
 
             except AccountCreation.DoesNotExist:
                 logger.error(
                     "Account details not found for user %s", authenticated_user.email
                 )
+                resp = {"error": "Account details not found."}
+                encrypted_response = encrypt(resp)
                 return Response(
-                    {"error": "Account details not found."},
+                    data=encrypted_response,
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -344,8 +355,10 @@ class BrandPromote(generics.CreateAPIView):
                     authenticated_user.email,
                     err,
                 )
+                resp = {"error": "An error occurred during promotion."}
+                encrypted_response = encrypt(resp)
                 return Response(
-                    {"error": "An error occurred during promotion."},
+                    data=encrypted_response,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
