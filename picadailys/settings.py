@@ -198,6 +198,7 @@ CSP_STYLE_SRC_ELEM = CSP_STYLE_SRC
 CSP_SCRIPT_SRC = (
     "'self'",
     "'unsafe-inline'",
+    "blob:",
     "http://localhost:5174",
     "https://cdn.jsdelivr.net",
     "https://admin-dashboard-jade-phi.vercel.app",

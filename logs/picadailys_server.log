@@ -175,3 +175,9 @@ INFO 2024-12-10 23:29:45,488 views Biometric authentication attempted for user: 
 INFO 2024-12-10 23:29:45,488 views User 08134649680 successfully logged in.
 INFO 2024-12-10 23:29:47,127 views JWT tokens generated for user 08134649680
 INFO 2024-12-10 23:29:47,128 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 794
+INFO 2024-12-11 00:07:54,166 autoreload Watching for file changes with StatReloader
+INFO 2024-12-11 00:08:03,320 views Login attempt for phone number: 07067581951
+INFO 2024-12-11 00:08:05,952 views Password authentication attempted for user: 07067581951
+INFO 2024-12-11 00:08:06,412 views User 07067581951 successfully logged in.
+INFO 2024-12-11 00:08:07,948 views JWT tokens generated for user 07067581951
+INFO 2024-12-11 00:08:07,950 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 770
