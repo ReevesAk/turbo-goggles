@@ -55,9 +55,10 @@ class Register(generics.GenericAPIView):
     parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         logger.info("Received registration data: %s", user_data)
@@ -120,7 +121,8 @@ class Register(generics.GenericAPIView):
                 "data": response_data,
             }
             logger.info("Registration successful for user: %s", user.email)
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            encrypted_response = encrypt(response)
+            return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
         else:
             logger.error(
                 "Registration failed for user: %s, errors: %s",
@@ -145,9 +147,10 @@ class PhoneVerifyOTP(generics.GenericAPIView):
     serializer_class = VerifyOTPSerializer
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         logger.debug("Received user data for OTP verification: %s", user_data)
 
@@ -196,7 +199,8 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             logger.info("Activity logged for user %s verification.", user.id)
 
             verified_response = {"status": "success", "message": "Account is verified"}
-            return Response(data=verified_response, status=status.HTTP_200_OK)
+            encrypted_response = encrypt(verified_response)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
         else:
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
@@ -214,9 +218,10 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
     serializer_class = VerifyOTPSerializer
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         logger.debug("Received data for password reset OTP verification: %s", user_data)
 
@@ -273,7 +278,8 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                 "message": "Account is verified",
                 "user_id": user_id,
             }
-            return Response(data=verified_response, status=status.HTTP_200_OK)
+            encrypted_response = encrypt(verified_response)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
         else:
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
@@ -293,11 +299,12 @@ class ResendOTP(generics.GenericAPIView):
     def post(self, request):
         # Log initial data received
         logger.debug("Resend OTP request data: %s", request.data)
+        decrypted_payload = decrypt(request.data)
 
         # Clean up input data
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.serializer_class(data=user_data)
 
@@ -326,7 +333,8 @@ class ResendOTP(generics.GenericAPIView):
                 "status": "success",
                 "message": "OTP resent successfully. Check your phone for validation.",
             }
-            return Response(data=response, status=status.HTTP_200_OK)
+            encrypted_response = encrypt(response)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
         else:
             # Log validation errors
@@ -345,10 +353,11 @@ class PasswordResendOTP(generics.GenericAPIView):
 
     def post(self, request):
         logger.debug("Received OTP resend request data: %s", request.data)
+        decrypted_payload = decrypt(request.data)
 
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.serializer_class(data=user_data)
 
@@ -382,11 +391,13 @@ class PasswordResendOTP(generics.GenericAPIView):
                 logger.warning(
                     "User with phone number %s does not exist.", phone_number
                 )
+                resp = {
+                    "status": "fail",
+                    "message": "User with the provided phone number does not exist.",
+                }
+                encrypted_response = encrypt(resp)
                 return Response(
-                    {
-                        "status": "fail",
-                        "message": "User with the provided phone number does not exist.",
-                    },
+                    data=encrypted_response,
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -513,9 +524,10 @@ class ForgotPassword(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
@@ -560,16 +572,18 @@ class ForgotPassword(generics.GenericAPIView):
             "status": "success",
             "message": "Check your phone for an OTP",
         }
-        return Response(data=response, status=status.HTTP_201_CREATED)
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
 class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
 
     def create(self, request):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
@@ -619,7 +633,8 @@ class ResetPassword(generics.CreateAPIView):
         )
 
         response = {"status": "success!", "message": "Password reset successfully"}
-        return Response(data=response, status=status.HTTP_200_OK)
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class SubmitGamification(generics.CreateAPIView):
@@ -633,9 +648,10 @@ class SubmitGamification(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsUserOrMember)
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         current_user = request.user
@@ -676,9 +692,10 @@ class SubmitGamification(generics.CreateAPIView):
                 "description": task.description,
             },
         }
+        encrypt_response = encrypt(response_data)
 
         logger.info(f"Gamification task {task_id} submission completed successfully")
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt_response, status=status.HTTP_200_OK)
 
 
 class Logout(APIView):
@@ -691,9 +708,10 @@ class Logout(APIView):
         responses={200: {"description": "Logout message"}},
     )
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         try:
             refresh_token = payload["refresh_token"]
@@ -720,8 +738,10 @@ class Logout(APIView):
                 description=f"{current_user.first_name} {current_user.last_name} logged out.",
             )
 
+            response = {"status": "success", "logout": "Logout successful!"}
+            encrypted_response = encrypt(response)
             return Response(
-                data={"status": "success", "logout": "Logout successful!"},
+                data=encrypted_response,
                 status=status.HTTP_205_RESET_CONTENT,
             )
 
