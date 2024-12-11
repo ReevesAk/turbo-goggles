@@ -33,6 +33,7 @@ from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
 from roles.models import ActivityModel
+from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -61,20 +62,20 @@ class CategoryListView(APIView):
             logger.debug("Categories retrieved: %s", categories)
 
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "FMCG Categories retrieved successfully.",
                     "categories": categories,
-                },
+                }),
                 status=status.HTTP_200_OK
             )
         except Exception as e:
             logger.error("Error retrieving categories: %s", str(e))
             return Response(
-                data={
+                data=encrypt({
                     "status": "fail",
                     "message": "An error occurred while retrieving categories.",
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -93,20 +94,20 @@ class CompanyListView(APIView):
             logger.debug("Companies retrieved: %s", companies)
 
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "FMCG Companies retrieved successfully.",
                     "companies": companies,
-                },
+                }),
                 status=status.HTTP_200_OK
             )
         except Exception as e:
             logger.error("Error retrieving companies: %s", str(e))
             return Response(
-                data={
+                data=encrypt({
                     "status": "fail",
                     "message": "An error occurred while retrieving companies.",
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -152,12 +153,14 @@ class ListAllProducts(generics.ListAPIView):
             })
 
         serializer = self.get_serializer(queryset, many=True)
-        return Response({
+        resp = {
             "status": "success",
             "message": "All FMCG products retrieved successfully.",
             "count": total_count,
             "data": serializer.data
-        }, status=status.HTTP_200_OK)
+        }
+        encrypted_response = encrypt(resp)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class ProductDetails(generics.RetrieveAPIView):
@@ -184,27 +187,29 @@ class ProductDetails(generics.RetrieveAPIView):
             serializer = self.get_serializer(product)
             logger.debug("Product details retrieved: %s", serializer.data)
 
-            return Response({
+            resp = {
                 "status": "success",
                 "message": "Product details retrieved successfully.",
                 "data": serializer.data
-            }, status=status.HTTP_200_OK)
+            }
+
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         except Product.DoesNotExist:
             logger.warning("Product with ID %s not found.", product_id)
             return Response(
-                data={
+                data=encrypt({
                     "status": "error",
                     "message": "Product not found."
-                },
+                }),
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
             logger.error("Error retrieving product with ID %s: %s", product_id, str(e))
             return Response(
-                data={
+                data=encrypt({
                     "status": "error",
                     "message": "An error occurred while retrieving the product."
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -230,9 +235,10 @@ class AddToCart(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         user = request.user
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
@@ -268,7 +274,7 @@ class AddToCart(generics.CreateAPIView):
             )
 
             logger.info("Cart updated successfully for user: %s", user.id)
-            return Response({
+            resp = {
                 "status": "success",
                 "message": "Product added to cart.",
                 "cart_item": {
@@ -278,10 +284,11 @@ class AddToCart(generics.CreateAPIView):
                     "price": cart_item.price,
                     "total_price": cart_item.get_total_price()
                 }
-            }, status=status.HTTP_200_OK)
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         else:
             logger.error("Validation failed for adding product to cart: %s", serializer.errors)
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class RetrieveCartProducts(generics.RetrieveAPIView):
@@ -302,11 +309,12 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
         if not cart_items.exists():
             logger.info("Cart is empty for user: %s", user.id)
-            return Response({
+            resp = {
                 "status": "success",
                 "message": "Your cart is empty.",
                 "cart_items": []
-            }, status=status.HTTP_200_OK)
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
         logger.info("Cart items found for user: %s. Preparing data.", user.id)
 
@@ -328,11 +336,12 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
             )
 
         logger.info("Successfully retrieved and prepared cart data for user: %s", user.id)
-        return Response({
+        response = {
             "status": "success",
             "message": "Cart items retrieved successfully.",
             "cart_items": cart_data
-        }, status=status.HTTP_200_OK)
+        }
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class RemoveFromCart(generics.DestroyAPIView):
@@ -367,11 +376,12 @@ class RemoveFromCart(generics.DestroyAPIView):
 
         except Http404:
             logger.error("Product or cart item not found for user: %s", user.id)
+            response = {
+                "status": "fail",
+                "error": "Product or cart item not found."
+            }
             return Response(
-                data={
-                    "status": "fail",
-                    "error": "Product or cart item not found."
-                },
+                data=encrypt(response),
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -388,10 +398,11 @@ class RemoveFromCart(generics.DestroyAPIView):
 
         logger.info("Activity logged for user: %s regarding removal of product: %s", user.id, product.name_and_size)
 
-        return Response({
-            "status": "success",
-            "message": "Product removed from cart."
-        }, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            encrypt(data={
+                "status": "success",
+                "message": "Product removed from cart."
+            }), status=status.HTTP_204_NO_CONTENT)
 
 
 class FmcgCheckout(generics.CreateAPIView):
@@ -449,7 +460,7 @@ class FmcgCheckout(generics.CreateAPIView):
         except AccountCreation.DoesNotExist:
             logger.error("Account not found for user: %s", authenticated_user.id)
             return Response(
-                data={"status": "fail", "error": "Account not found for user"},
+                data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -462,14 +473,14 @@ class FmcgCheckout(generics.CreateAPIView):
             else:
                 logger.error("PIN not found for user: %s", authenticated_user.id)
                 return Response(
-                    data={"status": "fail", "error": "Account or PIN not found for user"},
+                    data=encrypt({"status": "fail", "error": "Account or PIN not found for user"}),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
             logger.error("Invalid credentials for user: %s", authenticated_user.id)
             return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
+                data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -533,21 +544,25 @@ class FmcgCheckout(generics.CreateAPIView):
                     response_data["total_price"] = str(amount)
                     response_data.pop("pin", None)
 
-                    return Response({
-                        "status": "success",
-                        "message": f"Payment of {amount} completed.",
-                        "order": response_data
-                    }, status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt({
+                            "status": "success",
+                            "message": f"Payment of {amount} completed.",
+                            "order": response_data
+                        }),
+                        status=status.HTTP_200_OK)
 
                 else:
                     logger.error("Wallet payment failed for user: %s", authenticated_user.id)
                     order.status = "Failed"
                     order.save()
-                    return Response({
-                        "status": "fail",
-                        "message": "Payment failed.",
-                        "error": debit_response.json()
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        data=encrypt({
+                            "status": "fail",
+                            "message": "Payment failed.",
+                            "error": debit_response.json()
+                        }),
+                        status=status.HTTP_400_BAD_REQUEST)
 
             case "CARD":
                 # Similar handling for CARD payment
@@ -558,7 +573,7 @@ class FmcgCheckout(generics.CreateAPIView):
 
             case _:
                 logger.warning("Invalid payment method provided by user: %s", authenticated_user.id)
-                return Response({"status": "fail", "message": "Invalid payment method"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt({"status": "fail", "message": "Invalid payment method"}), status=status.HTTP_400_BAD_REQUEST)
 
 
 class FmcgRatingView(generics.GenericAPIView):
@@ -578,11 +593,12 @@ class FmcgRatingView(generics.GenericAPIView):
         product_id = kwargs.get("id")
         if not product_id:
             return Response(
-                {"error": "Product ID is required."},
+                data=encrypt({"error": "Product ID is required."}),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
+        decrypted_data = decrypt(request.data)
+        payload = {key: value.strip() if isinstance(value, str) else value for key, value in decrypted_data.items()}
         serializer = self.get_serializer(data=payload)
 
         if serializer.is_valid(raise_exception=True):
@@ -600,14 +616,14 @@ class FmcgRatingView(generics.GenericAPIView):
 
                 if not has_purchased:
                     return Response(
-                        {"status": "fail", "error": "You can only rate products you have purchased."},
+                        data=encrypt({"status": "fail", "error": "You can only rate products you have purchased."}),
                         status=status.HTTP_403_FORBIDDEN
                     )
 
                 # Check if the user has already rated the product
                 if FmcgRating.objects.filter(product=product, user=user).exists():
                     return Response(
-                        {"error": "You have already rated this product."},
+                        data=encrypt({"error": "You have already rated this product."}),
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
@@ -627,17 +643,17 @@ class FmcgRatingView(generics.GenericAPIView):
                 )
 
                 return Response(
-                    {"success": "Product rating added successfully."},
+                    data=encrypt({"success": "Product rating added successfully."}),
                     status=status.HTTP_201_CREATED
                 )
 
             except Product.DoesNotExist:
                 return Response(
-                    {"error": "This product does not exist in the store."},
+                    data=encrypt({"error": "This product does not exist in the store."}),
                     status=status.HTTP_404_NOT_FOUND
                 )
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetFmcgReview(generics.ListAPIView):
@@ -664,7 +680,7 @@ class GetFmcgReview(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class PickupAddressListView(generics.ListAPIView):
@@ -681,4 +697,4 @@ class PickupAddressListView(generics.ListAPIView):
             "message": "Pick-up addresses fetched succesfully.",
             "data": serializer.data
         }
-        return Response(data=data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(data), status=status.HTTP_200_OK)
