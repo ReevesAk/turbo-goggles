@@ -11,7 +11,7 @@ from accounts.models import TxModel
 from vas.models import (
     AirtimeTopup,
     DataSubscription,
-    # TvSubscription,
+    TvSubscription,
     # WaecRegistration,
     # HealthInsurance,
     # VehicleInsurance,
@@ -23,13 +23,14 @@ from banking.serializers import TxModelSerializer
 from vas.serializers import (
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
-    # TvSubscriptionSerializer,
+    TvSubscriptionSerializer,
     # WaecRegistrationSerializer,
     # HealthInsuranceSerializer,
     # VehicleInsuranceSerializer,
     # AccidentInsuranceSerializer,
     # HomeCoverInsuranceSerializer,
 )
+from security import encrypt, decrypt
 
 
 class PaginationStyle(PageNumberPagination):
@@ -55,7 +56,8 @@ class AllTransactions(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        encrypt_resp = encrypt(serializer.data)
+        return Response(data=encrypt_resp, status=status.HTTP_200_OK)
 
 
 class RetrieveTransaction(generics.GenericAPIView):
@@ -72,12 +74,14 @@ class RetrieveTransaction(generics.GenericAPIView):
             ).first()
             if airtime_instance:
                 serializer = AirtimeTopupSerializer(airtime_instance)
+                resp = {
+                    "status": "success",
+                    "message:": f"Transaction for {tx_reference} found!",
+                    "data": serializer.data,
+                }
+                encrypt_resp = encrypt(resp)
                 return Response(
-                    data={
-                        "status": "success",
-                        "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data,
-                    },
+                    data=encrypt_resp,
                     status=status.HTTP_200_OK,
                 )
 
@@ -87,12 +91,14 @@ class RetrieveTransaction(generics.GenericAPIView):
             ).first()
             if data_instance:
                 serializer = DataSubscriptionSerializer(data_instance)
+                resp = {
+                    "status": "success",
+                    "message:": f"Transaction for {tx_reference} found!",
+                    "data": serializer.data,
+                }
+                encrypt_resp = encrypt(resp)
                 return Response(
-                    data={
-                        "status": "success",
-                        "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data,
-                    },
+                    data=encrypt_resp,
                     status=status.HTTP_200_OK,
                 )
 
@@ -102,12 +108,14 @@ class RetrieveTransaction(generics.GenericAPIView):
             ).first()
             if tvSub_instance:
                 serializer = TvSubscriptionSerializer(tvSub_instance)
+                resp = {
+                    "status": "success",
+                    "message:": f"Transaction for {tx_reference} found!",
+                    "data": serializer.data,
+                }
+                encrypt_resp = encrypt(resp)
                 return Response(
-                    data={
-                        "status": "success",
-                        "message:": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data,
-                    },
+                    data=encrypt_resp,
                     status=status.HTTP_200_OK,
                 )
 

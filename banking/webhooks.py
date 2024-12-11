@@ -13,6 +13,7 @@ from .models import FundWithCard
 from .serializers import VerifyCardDepositSerializers, WebhookSerializer
 from accounts.models import UserNotification
 from roles.models import ActivityModel
+from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        user_data = request.data
+        user_data = decrypt(request.data)
         user = request.user
         tx_ref = user_data.get("txn_reference")
 
@@ -99,6 +100,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                         "status": user_obj.status,
                     },
                 }
+                encrypted_resp = encrypt(resp)
                 UserNotification.objects.create(
                     user=user,
                     title="Card Payment",
@@ -111,7 +113,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                     description=f"{user.first_name} {user.last_name} has successfully paid {user_obj.amount} from his card.",
                 )
 
-                return Response(data=resp, status=status.HTTP_200_OK)
+                return Response(data=encrypted_resp, status=status.HTTP_200_OK)
             else:
                 resp = {
                     "status": "fail",
@@ -134,7 +136,8 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                     title="Card Payment",
                     description=f"Card payment of {user_obj.amount} by {user.first_name} {user.last_name} was unsuccessful.",
                 )
-                return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
+                encrypted_resp = encrypt(resp)
+                return Response(data=encrypted_resp, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(
                 data={

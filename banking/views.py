@@ -42,6 +42,7 @@ from .models import (
     BVNData,
 )
 from .controllers import BVN, Account
+from security import encrypt, decrypt
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -73,9 +74,10 @@ class VerifYBVN(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         authenticated_user = request.user
 
@@ -106,11 +108,13 @@ class VerifYBVN(generics.GenericAPIView):
             number = BVNData.objects.filter(bvn=user_data.get("bvn")).exists()
             num = request.data.get("bvn")
             if number:
+                resp = {
+                    "status": "fail",
+                    "message": f"User with this bvn: {num} already exist",
+                }
+                encrypt_resp = encrypt(resp)
                 return Response(
-                    data={
-                        "status": "fail",
-                        "message": f"User with this bvn: {num} already exist",
-                    },
+                    data=encrypt_resp,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # Verify the user's BVN.
@@ -128,11 +132,13 @@ class VerifYBVN(generics.GenericAPIView):
                         (user_data.get("phone_number"), "Phone"),
                     ]
                 ):
+                    resp = {
+                        "status": "fail",
+                        "message": "Date of birth or phone number provided does not match the one on bvn",
+                    }
+                    encrypt_resp = encrypt(resp)
                     return Response(
-                        data={
-                            "status": "fail",
-                            "message": "Date of birth or phone number provided does not match the one on bvn",
-                        },
+                        data=encrypt_resp,
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -172,11 +178,12 @@ class VerifYBVN(generics.GenericAPIView):
                         "bvn": user_data.get("bvn"),
                     },
                 }
-                return Response(data=response, status=status.HTTP_201_CREATED)
+                encrypt_resp = encrypt(response)
+                return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
             else:
-                return Response(data=bvn_response.json(), status=bvn_status_code)
+                return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateBankAccount(generics.GenericAPIView):
@@ -195,9 +202,10 @@ class CreateBankAccount(generics.GenericAPIView):
 
     def post(self, request):
         current_user = request.user
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         passport = request.FILES.get("passport")
@@ -208,7 +216,7 @@ class CreateBankAccount(generics.GenericAPIView):
         serializer = BankAccountCreationSerializers(data=payload)
         if not serializer.is_valid():
             logging.error(f"Validation Errors: {serializer.errors}")
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
         try:
             acc_response = Account.Open(
@@ -241,12 +249,14 @@ class CreateBankAccount(generics.GenericAPIView):
                     f"Error {response_code}: {response_data['ResponseDetInfo']}"
                 )
                 error_message = "The operation has timed out. Please try again later."
+                resp = {
+                    "status": "fail",
+                    "error": error_message,
+                    "details": response_data["ResponseDetInfo"],
+                }
+                encrypted_repsonse = encrypt(resp)
                 return Response(
-                    data={
-                        "status": "fail",
-                        "error": error_message,
-                        "details": response_data["ResponseDetInfo"],
-                    },
+                    data=encrypted_repsonse,
                     status=status.HTTP_408_REQUEST_TIMEOUT,
                 )
 
@@ -292,15 +302,15 @@ class CreateBankAccount(generics.GenericAPIView):
                     "accountName": acc_response.json()["AccountName"],
                     "CustomerNumber": acc_response.json()["CustomerNumber"],
                 }
-                return Response(data=resp, status=status.HTTP_201_CREATED)
+                return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             else:
                 return Response(
-                    data=acc_response.json(), status=acc_response.status_code
+                    data=encrypt(acc_response.json()), status=acc_response.status_code
                 )
         except requests.exceptions.RequestException as e:
             logging.error(f"Account creation API request error: {str(e)}")
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -315,9 +325,10 @@ class NotificationView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
+        decrypted_resp = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_resp.items()
         }
         account_number = user_data.get("accountNumber")
         transactiontype = user_data.get("transactiontype")
@@ -329,7 +340,7 @@ class NotificationView(generics.CreateAPIView):
             user = AccountCreation.objects.get(account_number=account_number)
         except AccountCreation.DoesNotExist:
             return Response(
-                data={"error": "User with this account number does not exist."},
+                data=encrypt({"error": "User with this account number does not exist."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -402,9 +413,9 @@ class NotificationView(generics.CreateAPIView):
                 "status": "Successful",
                 "message": "Transaction created successfully.",
             }
-            return Response(data=response_data, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetAccountDetails(generics.GenericAPIView):
@@ -427,14 +438,14 @@ class GetAccountDetails(generics.GenericAPIView):
                 "status": "fail",
                 "message": "Customer does not have an account.",
             }
-            return Response(data=resp, status=status.HTTP_404_NOT_FOUND)
+            return Response(data=encrypt(resp), status=status.HTTP_404_NOT_FOUND)
         serializer = AccountDetailsSerializer(acct_details)
         response = {
             "status": "success",
             "message": "Account details retrieve operation succesful.",
             "data": serializer.data,
         }
-        return Response(data=response, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class SetWalletPin(generics.CreateAPIView):
@@ -448,9 +459,10 @@ class SetWalletPin(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request, *args, **kwargs):
+        decrypted_resp = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_resp.items()
         }
         authenticated_user = request.user
 
@@ -458,7 +470,7 @@ class SetWalletPin(generics.CreateAPIView):
             user = AccountCreation.objects.get(user=authenticated_user)
         except AccountCreation.DoesNotExist:
             return Response(
-                data={"error": "Wallet not found for the authenticated user."},
+                data=encrypt({"error": "Wallet not found for the authenticated user."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -469,7 +481,7 @@ class SetWalletPin(generics.CreateAPIView):
 
             if pin != pin2:
                 return Response(
-                    data={"error": "Pins do not match!"},
+                    data=encrypt({"error": "Pins do not match!"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -506,7 +518,7 @@ class SetWalletPin(generics.CreateAPIView):
                 "status": "success",
                 "message": "Wallet pin created succesfully!",
             }
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
 
 class ForgotWalletPin(generics.GenericAPIView):
@@ -533,7 +545,7 @@ class ForgotWalletPin(generics.GenericAPIView):
         response = Message.send_otp(msg=str(msg), to=phone_no)
         if response.status_code == 200:
             try:
-                response = {
+                resp = {
                     "status": "success",
                     "message": "Check your phone for an OTP",
                 }
@@ -544,17 +556,17 @@ class ForgotWalletPin(generics.GenericAPIView):
                     description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
                 )
 
-                return Response(data=response, status=status.HTTP_201_CREATED)
+                return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             except Exception as err:
                 return Response(
-                    {
+                    encrypt({
                         "status": "fail",
                         "message": err,
-                    },
+                    }),
                     status=status.HTTP_409_CONFLICT,
                 )
         else:
-            return Response(data=response, status=response.status_code)
+            return Response(data=encrypt(response), status=response.status_code)
 
 
 class PinResendOTP(generics.GenericAPIView):
@@ -581,13 +593,13 @@ class PinResendOTP(generics.GenericAPIView):
 
         response = Message.send_otp(msg=str(msg), to=phone_number)
         if response.status_code == 200:
-            response = {
+            resp = {
                 "status": "success",
                 "message": "Otp resent Successfully. Check your phone for validation",
             }
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         else:
-            return Response(data=response, status=response.status_code)
+            return Response(data=encrypt(response), status=response.status_code)
 
 
 class PinVerifyOTP(generics.GenericAPIView):
@@ -601,9 +613,10 @@ class PinVerifyOTP(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
+        decrypted_resp = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_resp.items()
         }
         user = request.user
         serializer = self.serializer_class(data=user_data)
@@ -615,7 +628,7 @@ class PinVerifyOTP(generics.GenericAPIView):
 
             if not user_id:
                 return Response(
-                    data={"error": "Invalid or expired OTP"},
+                    data=encrypt({"error": "Invalid or expired OTP"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -632,9 +645,9 @@ class PinVerifyOTP(generics.GenericAPIView):
                 )
 
                 data = {"status": "success", "message": "Account is verified"}
-                return Response(data=data, status=status.HTTP_200_OK)
+                return Response(data=encrypt(data), status=status.HTTP_200_OK)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResetPin(generics.CreateAPIView):
@@ -644,9 +657,10 @@ class ResetPin(generics.CreateAPIView):
 
     def create(self, request):
         authenticated_user = request.user
+        decrypted_data = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_data.items()
         }
         serializer = self.get_serializer(data=request.data)
 
@@ -654,7 +668,7 @@ class ResetPin(generics.CreateAPIView):
             user = AccountCreation.objects.get(user=authenticated_user)
         except AccountCreation.DoesNotExist:
             return Response(
-                data={"error": "Wallet not found for the authenticated user."},
+                data=encrypt({"error": "Wallet not found for the authenticated user."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -664,7 +678,7 @@ class ResetPin(generics.CreateAPIView):
 
             if not user_id:
                 return Response(
-                    data={"error": "Invalid or expired OTP"},
+                    data=encrypt({"error": "Invalid or expired OTP"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -673,7 +687,7 @@ class ResetPin(generics.CreateAPIView):
 
             if pin != pin2:
                 return Response(
-                    data={"error": "Pins do not match!"},
+                    data=encrypt({"error": "Pins do not match!"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -694,6 +708,6 @@ class ResetPin(generics.CreateAPIView):
 
             # send transactional email.
             response = {"status": "success", "message": "Pin reset successfully"}
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
