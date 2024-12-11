@@ -511,7 +511,7 @@ class PartnerServiceList(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        logger.info(f"Fetching services for user: {user.id} ({user.username})")
+        logger.info(f"Fetching services for user: {user.id} ({user.first_name} {user.last_name})")
         # Use prefetch_related to optimize queries
         return PartnerServices.objects.filter(user=user).prefetch_related(
             Prefetch(
@@ -632,7 +632,7 @@ class DeletePartnerService(generics.DestroyAPIView):
             if service.user == current_user:
                 # Log the service deletion request
                 logger.info(
-                    f"User {current_user.id} ({current_user.username}) is attempting to delete service {service.id} ({service.business})."
+                    f"User {current_user.id} ({user.first_name} {user.last_name}) is attempting to delete service {service.id} ({service.business})."
                 )
 
                 # Create a user notification
@@ -674,7 +674,7 @@ class DeletePartnerService(generics.DestroyAPIView):
             else:
                 # Log unauthorized delete attempt
                 logger.warning(
-                    f"Unauthorized deletion attempt: User {current_user.id} ({current_user.username}) tried to delete service {service.id} ({service.business}) owned by another user."
+                    f"Unauthorized deletion attempt: User {current_user.id} ({user.first_name} {user.last_name}) tried to delete service {service.id} ({service.business}) owned by another user."
                 )
                 return Response(
                     data=encrypt({"detail": "You can only delete a service you uploaded."}),
@@ -684,7 +684,7 @@ class DeletePartnerService(generics.DestroyAPIView):
         except PartnerServices.DoesNotExist:
             # Log service not found error
             logger.error(
-                f"Service not found. User {request.user.id} ({request.user.username}) attempted to delete a non-existent service."
+                f"Service not found. User {request.user.id} ({request.user.first_name} {request.user.last_name}) attempted to delete a non-existent service."
             )
             return Response(
                 data=encrypt({"detail": "Service not found."}),
@@ -693,7 +693,7 @@ class DeletePartnerService(generics.DestroyAPIView):
         except Exception as e:
             # Log unexpected exceptions
             logger.exception(
-                f"An unexpected error occurred while deleting a service for user {request.user.id} ({request.user.username}): {str(e)}"
+                f"An unexpected error occurred while deleting a service for user {request.user.id} ({request.user.first_name} {request.user.last_name}): {str(e)}"
             )
             return Response(
                 data=encrypt({"detail": "An unexpected error occurred. Please try again later."}),
@@ -837,7 +837,7 @@ class VerifyCACView(generics.GenericAPIView):
             current_user = request.user
 
             logger.info(
-                f"User {current_user.id} ({current_user.username}) initiated a business verification request."
+                f"User {current_user.id} ({current_user.first_name} {current_user.last_name}) initiated a business verification request."
             )
 
             serializer = self.serializer_class(data=payload)
@@ -944,7 +944,7 @@ class VerifyCACView(generics.GenericAPIView):
 
         except Exception as e:
             logger.exception(
-                f"An unexpected error occurred during business verification for user {request.user.id} ({request.user.username}): {str(e)}"
+                f"An unexpected error occurred during business verification for user {request.user.id} ({request.user.first_name} {request.user.last_name}): {str(e)}"
             )
             return Response(
                 data=encrypt({"status": "fail", "message": "An unexpected error occurred."}),

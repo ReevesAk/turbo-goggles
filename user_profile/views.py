@@ -62,6 +62,7 @@ from vas.models import (
 )
 from fmcg.models import Product, Favourite
 from cloudinary import uploader as cloud
+from security import encrypt, decrypt
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ class SwitchToUser(generics.RetrieveAPIView):
                     "User  %s attempted to switch to User but is not registered as one.",
                     user.email,
                 )
-                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt(data), status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
@@ -123,7 +124,7 @@ class SwitchToUser(generics.RetrieveAPIView):
                 "data": user.active_role,
             }
             logger.info("User  %s is already on the User screen.", user.email)
-            return Response(data=data, status=status.HTTP_200_OK)
+            return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
         # Log the switch action
         logger.info(
@@ -154,7 +155,7 @@ class SwitchToUser(generics.RetrieveAPIView):
             "data": user.active_role,
         }
         logger.info("User  %s successfully switched account type to User.", user.email)
-        return Response(data=data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
 class SwitchToPartner(generics.RetrieveAPIView):
@@ -197,7 +198,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
                     "User  %s attempted to switch to Partner but is not registered as one.",
                     user.email,
                 )
-                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt(data), status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
@@ -211,7 +212,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
                 "data": user.active_role,
             }
             logger.info("User  %s is already on the Partner screen.", user.email)
-            return Response(data=data, status=status.HTTP_200_OK)
+            return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
         # Log the switch action
         logger.info(
@@ -244,7 +245,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
         logger.info(
             "User  %s successfully switched account type to Partner.", user.email
         )
-        return Response(data=data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
 class SwitchToBrandAd(generics.RetrieveAPIView):
@@ -287,7 +288,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
                     "User  %s attempted to switch to BrandAd but is not registered as one.",
                     user.email,
                 )
-                return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt(data), status=status.HTTP_400_BAD_REQUEST)
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
@@ -301,7 +302,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
                 "data": user.active_role,
             }
             logger.info("User  %s is already on the BrandAd screen.", user.email)
-            return Response(data=data, status=status.HTTP_200_OK)
+            return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
         # Log the switch action
         logger.info(
@@ -334,7 +335,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         logger.info(
             "User  %s successfully switched account type to BrandAd.", user.email
         )
-        return Response(data=data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
 class ProfileImage(generics.CreateAPIView):
@@ -353,7 +354,8 @@ class ProfileImage(generics.CreateAPIView):
             "User  %s is attempting to upload a profile image.", request.user.email
         )
 
-        serializer = ProfileImageSerializer(data=request.data)
+        decrypted_data = decrypt(request.data)
+        serializer = ProfileImageSerializer(data=decrypted_data)
 
         if serializer.is_valid():
             profile_image = serializer.validated_data["profile_image"]
@@ -404,14 +406,14 @@ class ProfileImage(generics.CreateAPIView):
                     "User  %s uploaded their profile image successfully.",
                     request.user.email,
                 )
-                return Response(data=response, status=status.HTTP_200_OK)
+                return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
             except Exception as e:
                 logger.error(
                     "Error uploading image for user %s: %s", request.user.email, str(e)
                 )
                 return Response(
-                    {"status": "fail", "message": "Image upload failed."},
+                    data=encrypt({"status": "fail", "message": "Image upload failed."}),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
@@ -420,7 +422,7 @@ class ProfileImage(generics.CreateAPIView):
             request.user.email,
             serializer.errors,
         )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetUserDetails(generics.RetrieveAPIView):
@@ -433,7 +435,7 @@ class GetUserDetails(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         user = self.request.user  # Get the authenticated user
         serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class UpdateUserProfile(generics.UpdateAPIView):
@@ -451,10 +453,11 @@ class UpdateUserProfile(generics.UpdateAPIView):
             "User  %s is attempting to update their profile.", request.user.email
         )
 
+        decrypted_payload = decrypt(request.data)
         # Prepare the payload by stripping whitespace from string values
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         partial = kwargs.pop("partial", False)
@@ -500,14 +503,14 @@ class UpdateUserProfile(generics.UpdateAPIView):
             logger.info(
                 "User  %s successfully updated their profile.", request.user.email
             )
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(
                 "Error updating profile for user %s: %s", request.user.email, str(e)
             )
             return Response(
-                {"status": "fail", "message": "Profile update failed."},
+                data=encrypt({"status": "fail", "message": "Profile update failed."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -522,13 +525,14 @@ class ChangePassword(generics.UpdateAPIView):
             "User  %s is attempting to change their password.", request.user.email
         )
 
+        decrypted_payload = decrypt(request.user)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         user = request.user
-        serializer = PasswordChangeSerializer(data=payload)
+        serializer = ChangePasswordSerializer(data=payload)
 
         if serializer.is_valid():
             old_password = serializer.validated_data["old_password"]
@@ -540,7 +544,7 @@ class ChangePassword(generics.UpdateAPIView):
                 logger.warning(
                     "User  %s provided an incorrect old password.", user.email
                 )
-                return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt(response), status=status.HTTP_400_BAD_REQUEST)
 
             # Update the user's password
             user.set_password(new_password)
@@ -596,12 +600,12 @@ class ChangePassword(generics.UpdateAPIView):
                 "message": "Password updated successfully.",
             }
             logger.info("User  %s successfully changed their password.", user.email)
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         logger.warning(
             "Password change failed for user %s: %s", user.email, serializer.errors
         )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class MemberUserSwitch(generics.UpdateAPIView):
@@ -618,14 +622,14 @@ class MemberUserSwitch(generics.UpdateAPIView):
 
     def put(self, request):
         user = self.get_object()
-        logger.info(f"User  {user.username} initiated a role switch request.")
+        logger.info(f"User {user.first_name} {user.last_name} initiated a role switch request.")
 
         game_point = Points.objects.get(user=user)
 
         if user.active_role == "User ":
             try:
                 logger.info(
-                    f"User  {user.username} has current balance: {game_point.balance}"
+                    f"User {user.first_name} {user.last_name} has current balance: {game_point.balance}"
                 )
 
                 if game_point.balance is not None:
@@ -656,41 +660,41 @@ class MemberUserSwitch(generics.UpdateAPIView):
                             "data": "Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
                         }
                         logger.info(
-                            f"User  {user.username} successfully upgraded to Member."
+                            f"User {user.first_name} {user.last_name} successfully upgraded to Member."
                         )
-                        return Response(data=resp, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(resp), status=status.HTTP_200_OK)
                     else:
                         resp = {
                             "status": "fail",
                             "error": "You do not have enough points.",
                         }
                         logger.warning(
-                            f"User  {user.username} attempted to switch roles but does not have enough points."
+                            f"User {user.first_name} {user.last_name} attempted to switch roles but does not have enough points."
                         )
-                        return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
+                        return Response(data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST)
                 else:
                     resp = {
                         "status": "fail!",
                         "error": "You have not started earning points.",
                     }
                     logger.warning(
-                        f"User  {user.username} has not started earning points."
+                        f"User {user.first_name} {user.last_name} has not started earning points."
                     )
-                    return Response(data=resp, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST)
 
             except Exception as e:
                 logger.error(
-                    f"An error occurred while processing the role switch for user {user.username}: {str(e)}"
+                    f"An error occurred while processing the role switch for user {user.first_name} {user.last_name}: {str(e)}"
                 )
                 return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         elif user.active_role == "Member":
             user.active_role = "User "
             user.save()
-            logger.info(f"User  {user.username} switched from Member to User.")
+            logger.info(f"User {user.first_name} {user.last_name} switched from Member to User.")
             return Response(
-                {"status": "success", "message": "Member has been switched to a User."},
+                data=encrypt({"status": "success", "message": "Member has been switched to a User."}),
                 status=status.HTTP_200_OK,
             )
 
@@ -706,12 +710,13 @@ class PostMemberSurvey(generics.CreateAPIView):
 
     def create(self, request):
         logger.info(
-            f"User  {request.user.username} initiated a survey completion request."
+            f"User {user.first_name} {user.last_name} initiated a survey completion request."
         )
 
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         serializer = MemberSurverySerializers(data=payload)
@@ -719,7 +724,7 @@ class PostMemberSurvey(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             logger.info(
-                f"Survey data is valid for user {request.user.username}. Saving to database."
+                f"Survey data is valid for user {user.first_name} {user.last_name}. Saving to database."
             )
 
             user = User.objects.create(user=request.user)
@@ -739,7 +744,7 @@ class PostMemberSurvey(generics.CreateAPIView):
             user.done_survey = True
             user.save()
             logger.info(
-                f"User  {request.user.username} has completed the survey and updated done_survey status."
+                f"User {user.first_name} {user.last_name} has completed the survey and updated done_survey status."
             )
 
             response = {
@@ -748,14 +753,14 @@ class PostMemberSurvey(generics.CreateAPIView):
                 "data": serializer.data,
             }
             logger.info(
-                f"Survey completion successful for user {request.user.username}."
+                f"Survey completion successful for user {user.first_name} {user.last_name}."
             )
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
         else:
             logger.warning(
-                f"Survey validation failed for user {request.user.username}: {serializer.errors}"
+                f"Survey validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class DeleteUser(generics.DestroyAPIView):
@@ -766,13 +771,13 @@ class DeleteUser(generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         email = self.request.data.get("email")
         logger.info(
-            f"User  {request.user.username} initiated account deletion request for email: {email}"
+            f"User {self.request.user.first_name} {self.request.user.last_name} initiated account deletion request for email: {email}"
         )
 
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
             logger.info(
-                f"User  found: {user.username}. Proceeding with account deletion."
+                f"User found: {user.first_name} {user.last_name}. Proceeding with account deletion."
             )
 
             ActivityModel.objects.create(
@@ -781,7 +786,7 @@ class DeleteUser(generics.DestroyAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} has deleted their account.",
             )
             user.delete()
-            logger.info(f"User  {user.username} has been deleted successfully.")
+            logger.info(f"User {user.first_name} {user.last_name} has been deleted successfully.")
 
             recipient = user.phone_number[1:]  # Assuming phone_number is a string
             Message.send_msg(
@@ -793,7 +798,7 @@ class DeleteUser(generics.DestroyAPIView):
                 "message": f"Account with '{email}' deleted successfully.",
             }
             return Response(
-                data=response,
+                data=encrypt(response),
                 status=status.HTTP_204_NO_CONTENT,
             )
         except User.DoesNotExist:
@@ -805,7 +810,7 @@ class DeleteUser(generics.DestroyAPIView):
                 "message": f"User  with '{email}' does not exist.",
             }
             return Response(
-                data=resp,
+                data=encrypt(resp),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
@@ -813,7 +818,7 @@ class DeleteUser(generics.DestroyAPIView):
                 f"An error occurred while trying to delete user {email}: {str(e)}"
             )
             return Response(
-                {"error": "An error occurred while deleting the account."},
+                data=encrypt({"error": "An error occurred while deleting the account."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -834,13 +839,13 @@ class OpenRewardBox(generics.GenericAPIView):
     def get(self, request):
         user = request.user
         logger.info(
-            f"User  {user.username} initiated a request to open the mystery box."
+            f"User {user.first_name} {user.last_name} initiated a request to open the mystery box."
         )
 
         try:
             user_reward = Rewards.objects.get(user=user)
             logger.info(
-                f"User  {user.username} has a reward balance of {user_reward.balance}."
+                f"User {user.first_name} {user.last_name} has a reward balance of {user_reward.balance}."
             )
 
             if user_reward.balance >= 100:
@@ -867,13 +872,13 @@ class OpenRewardBox(generics.GenericAPIView):
                 )
 
                 logger.info(
-                    f"User  {user.username} opened the mystery box and received an item."
+                    f"User {user.first_name} {user.last_name} opened the mystery box and received an item."
                 )
                 return Response(data=response_data, status=status.HTTP_200_OK)
 
             elif user_reward.balance < 100:
                 logger.warning(
-                    f"User  {user.username} attempted to open the mystery box but does not have enough rewards."
+                    f"User {user.first_name} {user.last_name} attempted to open the mystery box but does not have enough rewards."
                 )
                 raise exceptions.ValidationError(
                     detail="Not enough rewards to access the mystery box.",
@@ -881,23 +886,23 @@ class OpenRewardBox(generics.GenericAPIView):
                 )
 
         except Rewards.DoesNotExist:
-            logger.error(f"Rewards record not found for user {user.username}.")
+            logger.error(f"Rewards record not found for user {user.first_name} {user.last_name}.")
             return Response(
-                {"status": "fail", "message": "Rewards record not found."},
+                data=encrypt({"status": "fail", "message": "Rewards record not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except exceptions.ValidationError as ve:
-            logger.warning(f"Validation error for user {user.username}: {str(ve)}")
+            logger.warning(f"Validation error for user {user.first_name} {user.last_name}: {str(ve)}")
             return Response(
-                {"status": "fail", "message": str(ve.detail)},
+                data=encrypt({"status": "fail", "message": str(ve.detail)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.error(
-                f"An unexpected error occurred while processing the mystery box for user {user.username}: {str(e)}"
+                f"An unexpected error occurred while processing the mystery box for user {user.first_name} {user.last_name}: {str(e)}"
             )
             return Response(
-                {"error": "An unexpected error occurred."},
+                data=encrypt({"error": "An unexpected error occurred."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -915,12 +920,13 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
     def get(self, request):
         authenticated_user = request.user
         logger.info(
-            f"User  {authenticated_user.username} initiated a gift claim request."
+            f"User {authenticated_user.first_name} {authenticated_user.last_name} initiated a gift claim request."
         )
 
+        decrypted_payload = decrypt(request.user)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         serializer = self.get_serializer(data=user_data)
@@ -928,14 +934,14 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             user_reward = Rewards.objects.get(user=authenticated_user)
             logger.info(
-                f"User  {authenticated_user.username} has valid data. Reward type: {user_reward.form_of_gift}"
+                f"User {authenticated_user.first_name} {authenticated_user.last_name} has valid data. Reward type: {user_reward.form_of_gift}"
             )
 
             match user_reward.form_of_gift:
                 case "airtime":
                     amount = Rewards.objects.get(user=authenticated_user)
                     logger.info(
-                        f"Processing airtime for user {authenticated_user.username}, amount: {amount.mystery_box}"
+                        f"Processing airtime for user {authenticated_user.first_name} {authenticated_user.last_name}, amount: {amount.mystery_box}"
                     )
 
                     airtime_response = VAS.aritime(
@@ -963,9 +969,9 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                             "data": airtime_response.json(),
                         }
                         logger.info(
-                            f"Airtime claim successful for user {authenticated_user.username}: {response_data}"
+                            f"Airtime claim successful for user {authenticated_user.first_name} {authenticated_user.last_name}: {response_data}"
                         )
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
                 case "data":
                     amount = Rewards.objects.get(user=authenticated_user)
@@ -973,7 +979,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                         service_id=user_data["serviceID"], amount=amount.mystery_box
                     )
                     logger.info(
-                        f"Processing data for user {authenticated_user.username}, amount: {amount.mystery_box}"
+                        f"Processing data for user {authenticated_user.first_name} {authenticated_user.last_name}, amount: {amount.mystery_box}"
                     )
 
                     data_response = VAS.data(
@@ -1003,9 +1009,9 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                             "data": data_response.json(),
                         }
                         logger.info(
-                            f"Data claim successful for user {authenticated_user.username}: {response}"
+                            f"Data claim successful for user {authenticated_user.first_name} {authenticated_user.last_name}: {response}"
                         )
-                        return Response(data=response, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response), status=status.HTTP_200_OK)
                     else:
                         response = {
                             "status": "fail",
@@ -1013,23 +1019,23 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
                             "data": data_response.json(),
                         }
                         logger.error(
-                            f"Data claim failed for user {authenticated_user.username}: {response}"
+                            f"Data claim failed for user {authenticated_user.first_name} {authenticated_user.last_name}: {response}"
                         )
-                        return Response(data=response, status=data_response.status_code)
+                        return Response(data=encrypt(response), status=data_response.status_code)
 
                 case _:
                     logger.warning(
-                        f"Invalid option for user {authenticated_user.username}."
+                        f"Invalid option for user {authenticated_user.first_name} {authenticated_user.last_name}."
                     )
                     return Response(
-                        data={"status": "fail", "message": "Invalid option"},
+                        data=encrypt({"status": "fail", "message": "Invalid option"}),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         else:
             logger.error(
-                f"Validation failed for user {authenticated_user.username}: {serializer.errors}"
+                f"Validation failed for user {authenticated_user.first_name} {authenticated_user.last_name}: {serializer.errors}"
             )
-            return Response(data=serializer.errors, status=status.HTTP_404_NOT_FOUND)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_404_NOT_FOUND)
 
 
 class AddToFavourite(generics.CreateAPIView):
@@ -1049,7 +1055,8 @@ class AddToFavourite(generics.CreateAPIView):
         object_id = request.data.get("object_id")
         model_name = request.data.get("model_name")
 
-        serializer = FavouriteSerializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = FavouriteSerializer(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             if not object_id or not model_name:
                 logger.warning(
@@ -1121,7 +1128,7 @@ class AddToFavourite(generics.CreateAPIView):
                     authenticated_user.email,
                 )
                 return Response(
-                    {"status": "success", "message": "Item favorited successfully!"},
+                    data=encrypt({"status": "success", "message": "Item favorited successfully!"}),
                     status=status.HTTP_201_CREATED,
                 )
             else:
@@ -1130,7 +1137,7 @@ class AddToFavourite(generics.CreateAPIView):
                     authenticated_user.email,
                 )
                 return Response(
-                    {"message": "Item is already in your favorites."},
+                    data=encrypt({"message": "Item is already in your favorites."}),
                     status=status.HTTP_200_OK,
                 )
         else:
@@ -1138,7 +1145,7 @@ class AddToFavourite(generics.CreateAPIView):
                 "User  %s provided invalid data for favoriting an item.",
                 authenticated_user.email,
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class ListFavourites(generics.ListAPIView):
