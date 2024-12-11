@@ -36,6 +36,7 @@ from banking.controllers import Account
 from banking.models import AccountCreation
 from commons import Biometrics
 from roles.models import ActivityModel
+from security import encrypt, decrypt
 
 
 SERVICES = (
@@ -63,19 +64,20 @@ class TableBooking(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
+                decrypted_payload = decrypt(request.user)
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in decrypted_payload.items()
                 }
                 pin = user_data("pin")
 
-                biometrics = request.data.get("use_biometrics")
+                biometrics = user_data.get("use_biometrics")
 
                 try:
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data={"status": "fail", "error": "Account not found for user"},
+                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -90,16 +92,16 @@ class TableBooking(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data={
+                            data=encrypt({
                                 "status": "fail",
                                 "error": "Account or PIN not found for user",
-                            },
+                            }),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data={"status": "fail", "error": "Invalid credentials"},
+                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -164,7 +166,7 @@ class TableBooking(generics.CreateAPIView):
                             }
 
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             tx_status = TransactionStatus.objects.create(
@@ -176,7 +178,7 @@ class TableBooking(generics.CreateAPIView):
                                 "details": debit_response.json(),
                             }
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
 
                     case "CARD":
@@ -226,11 +228,11 @@ class TableBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class TableBookingList(generics.ListAPIView):
@@ -255,7 +257,7 @@ class TableBookingList(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class TableBookingDetail(generics.RetrieveAPIView):
@@ -285,7 +287,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class GymBooking(generics.CreateAPIView):
@@ -298,18 +300,19 @@ class GymBooking(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
+                decrypted_payload = decrypt(request.data)
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in decrypted_payload.items()
                 }
                 pin = request.data.get("pin")
-                biometrics = request.data.get("use_biometrics")
+                biometrics = user_data.get("use_biometrics")
 
                 try:
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data={"status": "fail", "error": "Account not found for user"},
+                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -324,21 +327,21 @@ class GymBooking(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data={
+                            data=encrypt({
                                 "status": "fail",
                                 "error": "Account or PIN not found for user",
-                            },
+                            }),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data={"status": "fail", "error": "Invalid credentials"},
+                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
                 # Inititate a debit on users' account.
-                amount = request.data.get("amount")
+                amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
                 user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
@@ -396,7 +399,7 @@ class GymBooking(generics.CreateAPIView):
                             }
 
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
@@ -404,7 +407,7 @@ class GymBooking(generics.CreateAPIView):
                                 "details": debit_response.json(),
                             }
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
 
                     case "CARD":
@@ -453,11 +456,11 @@ class GymBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class GymBookingList(generics.ListAPIView):
@@ -482,7 +485,7 @@ class GymBookingList(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class GymBookingDetail(generics.RetrieveAPIView):
@@ -503,7 +506,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
             booking = GymSubcription.objects.get(pk=booking_id, user=user)
         except GymSubcription.DoesNotExist:
             return Response(
-                {"error": "Booking not found or does not belong to you."},
+                data=encrypt({"error": "Booking not found or does not belong to you."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -512,7 +515,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class CinemaBookingView(generics.CreateAPIView):
@@ -525,12 +528,13 @@ class CinemaBookingView(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
+                decrypted_payload = decrypt(request.user)
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in decrypted_payload.items()
                 }
                 pin = user_data("pin")
-                biometrics = request.data.get("use_biometrics")
+                biometrics = user_data.get("use_biometrics")
 
                 try:
                     account = AccountCreation.objects.get(user=authenticated_user)
@@ -551,21 +555,21 @@ class CinemaBookingView(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data={
+                            data=encrypt({
                                 "status": "fail",
                                 "error": "Account or PIN not found for user",
-                            },
+                            }),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data={"status": "fail", "error": "Invalid credentials"},
+                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
                 # Inititate a debit on a users' account.
-                amount = request.data.get("amount")
+                amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
                 user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
@@ -624,7 +628,7 @@ class CinemaBookingView(generics.CreateAPIView):
                             }
 
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
@@ -632,7 +636,7 @@ class CinemaBookingView(generics.CreateAPIView):
                                 "details": debit_response.json(),
                             }
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
 
                     case "CARD":
@@ -682,11 +686,11 @@ class CinemaBookingView(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class CinemaBookingList(generics.ListAPIView):
@@ -711,7 +715,7 @@ class CinemaBookingList(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class CinemaBookingDetail(generics.RetrieveAPIView):
@@ -741,7 +745,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class BookCourierSercvice(generics.CreateAPIView):
@@ -754,18 +758,19 @@ class BookCourierSercvice(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
+                dedicated_payload = decrypt(request.data)
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in dedicated_payload.items()
                 }
                 pin = user_data("pin")
-                biometrics = request.data.get("use_biometrics")
+                biometrics = user_data.get("use_biometrics")
 
                 try:
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data={"status": "fail", "error": "Account not found for user"},
+                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -780,16 +785,16 @@ class BookCourierSercvice(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data={
+                            data=encrypt({
                                 "status": "fail",
                                 "error": "Account or PIN not found for user",
-                            },
+                            }),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data={"status": "fail", "error": "Invalid credentials"},
+                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -853,7 +858,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                             }
 
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
@@ -861,7 +866,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 "details": debit_response.json(),
                             }
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
 
                     case "CARD":
@@ -911,11 +916,11 @@ class BookCourierSercvice(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=response_data, status=status.HTTP_200_OK)
+                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class CourierBookingList(generics.ListAPIView):
@@ -939,7 +944,7 @@ class CourierBookingList(generics.ListAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class CourierBookingDetail(generics.RetrieveAPIView):
@@ -961,7 +966,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
             booking = CourierService.objects.get(pk=booking_id, user=user)
         except CourierService.DoesNotExist:
             return Response(
-                {"error": "Booking not found or does not belong to you."},
+                data=encrypt({"error": "Booking not found or does not belong to you."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -970,7 +975,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class BookConsumableSercvice(generics.CreateAPIView):
@@ -980,9 +985,10 @@ class BookConsumableSercvice(generics.CreateAPIView):
     queryset = ConsumableService.objects.all()
 
     def create(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.get_serializer(data=payload)
         authenticated_user = request.user
