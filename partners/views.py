@@ -127,24 +127,30 @@ class CreatePartner(generics.GenericAPIView):
                     logger.info(
                         "Partner registration successful for %s", authenticated_user
                     )
-                    return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
+                    return Response(
+                        data=encrypt(response), status=status.HTTP_201_CREATED
+                    )
 
             except Exception as e:
                 logger.error(
                     "Error during partner registration: %s", str(e), exc_info=True
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "error",
-                        "message": "An error occurred during registration.",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "An error occurred during registration.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         logger.warning(
             "Invalid data received for partner registration: %s", serializer.errors
         )
-        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class ListAllPartners(generics.ListAPIView):
@@ -222,10 +228,12 @@ class CreatePartnerService(generics.CreateAPIView):
                     current_user,
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Sorry, you have to validate your business before you can create a service!",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Sorry, you have to validate your business before you can create a service!",
+                        }
+                    ),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -414,7 +422,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
             try:
                 # Save the updated partner service details
                 serializer.save()
-                logger.info("Partner service with ID %s successfully updated.", service_id)
+                logger.info(
+                    "Partner service with ID %s successfully updated.", service_id
+                )
 
                 # Update service photos
                 for upload in service_uploads:
@@ -436,7 +446,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
                         upload_res = cloud.upload(file=photo)
                         gym_trainer_img_url = upload_res["url"]
                         gym_trainer_img_urls.append(gym_trainer_img_url)
-                        logger.debug("Uploaded trainer photo URL: %s", gym_trainer_img_url)
+                        logger.debug(
+                            "Uploaded trainer photo URL: %s", gym_trainer_img_url
+                        )
 
                         # Update or create AvailablePartnerGymTrainers objects
                         AvailablePartnerGymTrainers.objects.update_or_create(
@@ -447,7 +459,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
                                 "trainer_photo": gym_trainer_img_url,
                             },
                         )
-                    logger.info("Trainer details updated for service ID %s.", service_id)
+                    logger.info(
+                        "Trainer details updated for service ID %s.", service_id
+                    )
 
                 # Log notifications and activity
                 current_user = request.user
@@ -473,7 +487,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
                     "data": serializer.data,
                 }
                 logger.info(
-                    "Update response prepared for service ID %s: %s", service_id, response
+                    "Update response prepared for service ID %s: %s",
+                    service_id,
+                    response,
                 )
 
                 return Response(data=encrypt(response), status=status.HTTP_200_OK)
@@ -496,7 +512,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
                 service_id,
                 serializer.errors,
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PartnerServiceList(generics.ListAPIView):
@@ -511,7 +529,9 @@ class PartnerServiceList(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        logger.info(f"Fetching services for user: {user.id} ({user.first_name} {user.last_name})")
+        logger.info(
+            f"Fetching services for user: {user.id} ({user.first_name} {user.last_name})"
+        )
         # Use prefetch_related to optimize queries
         return PartnerServices.objects.filter(user=user).prefetch_related(
             Prefetch(
@@ -569,10 +589,12 @@ class PartnerServiceList(generics.ListAPIView):
                 exc_info=True,
             )
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "An error occurred while fetching services.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "An error occurred while fetching services.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -604,11 +626,13 @@ class PartnerServiceDetailView(views.APIView):
         service_data["images"] = photos_urls  # Add images to the service data
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Service details fetched.",
-                "data": service_data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Service details fetched.",
+                    "data": service_data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -677,7 +701,9 @@ class DeletePartnerService(generics.DestroyAPIView):
                     f"Unauthorized deletion attempt: User {current_user.id} ({user.first_name} {user.last_name}) tried to delete service {service.id} ({service.business}) owned by another user."
                 )
                 return Response(
-                    data=encrypt({"detail": "You can only delete a service you uploaded."}),
+                    data=encrypt(
+                        {"detail": "You can only delete a service you uploaded."}
+                    ),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -696,7 +722,9 @@ class DeletePartnerService(generics.DestroyAPIView):
                 f"An unexpected error occurred while deleting a service for user {request.user.id} ({request.user.first_name} {request.user.last_name}): {str(e)}"
             )
             return Response(
-                data=encrypt({"detail": "An unexpected error occurred. Please try again later."}),
+                data=encrypt(
+                    {"detail": "An unexpected error occurred. Please try again later."}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -909,7 +937,9 @@ class VerifyCACView(generics.GenericAPIView):
                             "message": "Your business is verified!",
                             "data": resp,
                         }
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     else:
                         logger.warning(
                             f"Business name mismatch for user {current_user.id}. Provided: {submitted_business_name}, Verified: {verified_business_name}."
@@ -919,7 +949,8 @@ class VerifyCACView(generics.GenericAPIView):
                             "message": "The business name provided does not match the RC number!",
                         }
                         return Response(
-                            data=encrypt(error_response), status=status.HTTP_404_NOT_FOUND
+                            data=encrypt(error_response),
+                            status=status.HTTP_404_NOT_FOUND,
                         )
                 else:
                     error_details = verify_cac_response.json().get(
@@ -934,19 +965,24 @@ class VerifyCACView(generics.GenericAPIView):
                         "details": error_details,
                     }
                     return Response(
-                        data=encrypt(error_response), status=verify_cac_response.status_code
+                        data=encrypt(error_response),
+                        status=verify_cac_response.status_code,
                     )
 
             logger.error(
                 f"Serializer validation failed for user {current_user.id}. Errors: {serializer.errors}"
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         except Exception as e:
             logger.exception(
                 f"An unexpected error occurred during business verification for user {request.user.id} ({request.user.first_name} {request.user.last_name}): {str(e)}"
             )
             return Response(
-                data=encrypt({"status": "fail", "message": "An unexpected error occurred."}),
+                data=encrypt(
+                    {"status": "fail", "message": "An unexpected error occurred."}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

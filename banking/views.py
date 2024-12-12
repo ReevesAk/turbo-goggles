@@ -181,9 +181,13 @@ class VerifYBVN(generics.GenericAPIView):
                 encrypt_resp = encrypt(response)
                 return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
             else:
-                return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
+                return Response(
+                    data=encrypt(bvn_response.json()), status=bvn_status_code
+                )
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class CreateBankAccount(generics.GenericAPIView):
@@ -216,7 +220,9 @@ class CreateBankAccount(generics.GenericAPIView):
         serializer = BankAccountCreationSerializers(data=payload)
         if not serializer.is_valid():
             logging.error(f"Validation Errors: {serializer.errors}")
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             acc_response = Account.Open(
@@ -340,7 +346,9 @@ class NotificationView(generics.CreateAPIView):
             user = AccountCreation.objects.get(account_number=account_number)
         except AccountCreation.DoesNotExist:
             return Response(
-                data=encrypt({"error": "User with this account number does not exist."}),
+                data=encrypt(
+                    {"error": "User with this account number does not exist."}
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -415,7 +423,9 @@ class NotificationView(generics.CreateAPIView):
             }
             return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class GetAccountDetails(generics.GenericAPIView):
@@ -559,10 +569,12 @@ class ForgotWalletPin(generics.GenericAPIView):
                 return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             except Exception as err:
                 return Response(
-                    encrypt({
-                        "status": "fail",
-                        "message": err,
-                    }),
+                    encrypt(
+                        {
+                            "status": "fail",
+                            "message": err,
+                        }
+                    ),
                     status=status.HTTP_409_CONFLICT,
                 )
         else:
@@ -647,7 +659,9 @@ class PinVerifyOTP(generics.GenericAPIView):
                 data = {"status": "success", "message": "Account is verified"}
                 return Response(data=encrypt(data), status=status.HTTP_200_OK)
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ResetPin(generics.CreateAPIView):
@@ -710,4 +724,6 @@ class ResetPin(generics.CreateAPIView):
             response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=encrypt(response), status=status.HTTP_200_OK)
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )

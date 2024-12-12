@@ -89,7 +89,9 @@ class AirTimeTopUp(generics.GenericAPIView):
             logger.warning(
                 f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         biometrics = decrypted_payload.get("use_biometrics")
 
@@ -97,7 +99,9 @@ class AirTimeTopUp(generics.GenericAPIView):
             account = AccountCreation.objects.get(user=user)
             logger.info(f"Account found for user {user.first_name} {user.last_name}.")
         except AccountCreation.DoesNotExist:
-            logger.error(f"Account not found for user {user.first_name} {user.last_name}.")
+            logger.error(
+                f"Account not found for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -111,19 +115,27 @@ class AirTimeTopUp(generics.GenericAPIView):
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(f"User {user.first_name} {user.last_name} is using PIN for authentication.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
+                )
             else:
-                logger.error(f"Account or PIN not found for user {user.first_name} {user.last_name}.")
+                logger.error(
+                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
+                )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Account or PIN not found for user",
+                        }
+                    ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
-            logger.warning(f"Invalid credentials provided for user {user.first_name} {user.last_name}.")
+            logger.warning(
+                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -152,22 +164,28 @@ class AirTimeTopUp(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased airtime using bonus."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
             logger.warning(
                 f"Airtime top-up failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Airtime top-up failed due to insufficient bonus.",
-                    "error": airtime_response,
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Airtime top-up failed due to insufficient bonus.",
+                        "error": airtime_response,
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         match payment_option:
             case "WALLET":
-                logger.info(f"User {user.first_name} {user.last_name} selected WALLET as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                )
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
                     logger.info(
@@ -212,16 +230,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
                         )
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     logger.warning(
                         f"Airtime top-up failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Airtime top-up failed due to insufficient balance.",
-                            "error": airtime_response,
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Airtime top-up failed due to insufficient balance.",
+                                "error": airtime_response,
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 logger.error(
@@ -232,7 +254,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                     status=debit_response.status_code,
                 )
             case "CARD":
-                logger.info(f"User  {user.first_name} {user.last_name} selected CARD as payment option.")
+                logger.info(
+                    f"User  {user.first_name} {user.last_name} selected CARD as payment option."
+                )
                 airtime_response = airtime(
                     user=user,
                     serializer=serializer,
@@ -249,16 +273,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 logger.warning(
                     f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Airtime top-up failed.",
-                        "error": airtime_response,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Airtime top-up failed.",
+                            "error": airtime_response,
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
@@ -266,7 +294,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid payment option"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -319,19 +349,26 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
                     response_data = {
                         "data": resp,
                     }
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 else:
                     logger.error(
                         f"Failed response for user {user.first_name} {user.last_name}: {response.status_code} - {response.text}"
                     )
                     return Response(
-                        data=encrypt({"error": "Failed to retrieve service variations"}),
+                        data=encrypt(
+                            {"error": "Failed to retrieve service variations"}
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             except requests.exceptions.RequestException as e:
-                logger.error(f"RequestException for user {user.first_name} {user.last_name}: {str(e)}")
+                logger.error(
+                    f"RequestException for user {user.first_name} {user.last_name}: {str(e)}"
+                )
                 return Response(
-                    data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    data=encrypt({"error": str(e)}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             logger.warning(
@@ -376,7 +413,9 @@ class DataSubscriptionView(generics.GenericAPIView):
             logger.warning(
                 f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         biometrics = user_data.get("use_biometrics")
 
@@ -384,7 +423,9 @@ class DataSubscriptionView(generics.GenericAPIView):
             account = AccountCreation.objects.get(user=user)
             logger.info(f"Account found for user {user.first_name} {user.last_name}.")
         except AccountCreation.DoesNotExist:
-            logger.error(f"Account not found for user {user.first_name} {user.last_name}.")
+            logger.error(
+                f"Account not found for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -398,19 +439,27 @@ class DataSubscriptionView(generics.GenericAPIView):
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(f"User {user.first_name} {user.last_name} is using PIN for authentication.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
+                )
             else:
-                logger.error(f"Account or PIN not found for user {user.first_name} {user.last_name}.")
+                logger.error(
+                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
+                )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Account or PIN not found for user",
+                        }
+                    ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
-            logger.warning(f"Invalid credentials provided for user {user.first_name} {user.last_name}.")
+            logger.warning(
+                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -440,22 +489,28 @@ class DataSubscriptionView(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
             logger.warning(
                 f"Data subscription failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Data subscription failed due to insufficient bonus.",
-                    "error": data_response,
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Data subscription failed due to insufficient bonus.",
+                        "error": data_response,
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         match payment_option:
             case "WALLET":
-                logger.info(f"User {user.first_name} {user.last_name} selected WALLET as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                )
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
                     logger.info(
@@ -503,16 +558,20 @@ class DataSubscriptionView(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased data with WALLET option."
                         )
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     logger.warning(
                         f"Data subscription failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Data subscription failed due to insufficient balance.",
-                            "error": data_response,
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Data subscription failed due to insufficient balance.",
+                                "error": data_response,
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 logger.error(
@@ -523,7 +582,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status=debit_response.status_code,
                 )
             case "CARD":
-                logger.info(f"User {user.first_name} {user.last_name} selected CARD as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                )
                 data_response = data(
                     user=user,
                     serializer=serializer,
@@ -540,16 +601,20 @@ class DataSubscriptionView(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased data with CARD option."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 logger.warning(
                     f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Data subscription failed.",
-                        "error": data_response,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Data subscription failed.",
+                            "error": data_response,
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
@@ -557,7 +622,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid payment option"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -575,11 +642,13 @@ class ElectricityServiceIDListView(APIView):
             service_id[1] for service_id in ELECTRICITY_SERVICE_ID_CHOICES
         ]
         return Response(
-            data=encrypt({
-                "status": "success.",
-                "message": "Electricity service Ids retrieved successfully.",
-                "categories": electricity_service_ids,
-            }),
+            data=encrypt(
+                {
+                    "status": "success.",
+                    "message": "Electricity service Ids retrieved successfully.",
+                    "categories": electricity_service_ids,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -644,14 +713,17 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
                 logger.warning(
                     f"Meter verification failed for user {request.user.first_name} {request.user.last_name}: {response.json()}"
                 )
-                return Response(data=encrypt(response.json()), status=response.status_code)
+                return Response(
+                    data=encrypt(response.json()), status=response.status_code
+                )
 
         except requests.exceptions.RequestException as e:
             logger.error(
                 f"RequestException occurred for user {request.user.first_name} {request.user.last_name}: {str(e)}"
             )
             return Response(
-                data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -688,7 +760,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             logger.warning(
                 f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         biometrics = user_data.get("use_biometrics")
 
@@ -696,7 +770,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             account = AccountCreation.objects.get(user=user)
             logger.info(f"Account found for user {user.first_name} {user.last_name}.")
         except AccountCreation.DoesNotExist:
-            logger.error(f"Account not found for user {user.first_name} {user.last_name}.")
+            logger.error(
+                f"Account not found for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -710,9 +786,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         else:
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(f"User {user.first_name}  {user.last_name} is using PIN for authentication.")
+                logger.info(
+                    f"User {user.first_name}  {user.last_name} is using PIN for authentication."
+                )
             else:
-                logger.error(f"Account or PIN not found for user {user.first_name} {user.last_name}.")
+                logger.error(
+                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
+                )
                 return Response(
                     data={
                         "status": "fail",
@@ -722,7 +802,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 )
 
         if not verification:
-            logger.warning(f"Invalid credentials provided for user {user.first_name} {user.last_name}.")
+            logger.warning(
+                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -752,22 +834,28 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
             logger.warning(
                 f"Electricity purchase failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Electricity purchase failed due to insufficient bonus.",
-                    "error": electricity_response,
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Electricity purchase failed due to insufficient bonus.",
+                        "error": electricity_response,
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         match payment_option:
             case "WALLET":
-                logger.info(f"User {user.first_name} {user.last_name} selected WALLET as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                )
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
                     logger.info(
@@ -816,16 +904,20 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
                         )
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     logger.warning(
                         f"Electricity purchase failed for user {user.first_name} {user.last_name} due to insufficient balance."
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Electricity purchase failed due to insufficient balance.",
-                            "error": electricity_response,
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Electricity purchase failed due to insufficient balance.",
+                                "error": electricity_response,
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
@@ -838,7 +930,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(f"User {user.first_name} {user.last_name} selected CARD as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                )
                 electricity_response = electricity(
                     user=user,
                     serializer=serializer,
@@ -855,14 +949,20 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-                logger.warning(f"Electricity purchase failed for user {user.first_name} {user.last_name}.")
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                logger.warning(
+                    f"Electricity purchase failed for user {user.first_name} {user.last_name}."
+                )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Electricity purchase failed.",
-                        "error": electricity_response,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Electricity purchase failed.",
+                            "error": electricity_response,
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             case _:
@@ -870,7 +970,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}."
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid payment option"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -886,11 +988,13 @@ class CableServiceIDListView(APIView):
     def get(self, request):
         cableTv_service_ids = [service_id[1] for service_id in TV_SERVICE_ID_CHOICES]
         return Response(
-            data=encrypt({
-                "status": "success.",
-                "message": "Electricity service Ids retrieved successfully.",
-                "categories": cableTv_service_ids,
-            }),
+            data=encrypt(
+                {
+                    "status": "success.",
+                    "message": "Electricity service Ids retrieved successfully.",
+                    "categories": cableTv_service_ids,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -952,9 +1056,12 @@ class ProductStatus(generics.RetrieveAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except requests.exceptions.RequestException as e:
-            logger.error(f"RequestException for user {user.first_name} {user.last_name}: {str(e)}")
+            logger.error(
+                f"RequestException for user {user.first_name} {user.last_name}: {str(e)}"
+            )
             return Response(
-                data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -1006,18 +1113,23 @@ class GetTvVaritaionCodes(generics.RetrieveAPIView):
                     logger.info(
                         f"Successfully fetched service variations for user {user.first_name} {user.last_name}: {resp}"
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 else:
                     logger.error(
                         f"Failed to fetch service variations for user {user.first_name} {user.last_name}: {response.json()}"
                     )
-                    return Response(data=encrypt(response.json()), status=response.status_code)
+                    return Response(
+                        data=encrypt(response.json()), status=response.status_code
+                    )
             except requests.exceptions.RequestException as e:
                 logger.error(
                     f"RequestException occurred for user {user.first_name} {user.last_name}: {str(e)}"
                 )
                 return Response(
-                    data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    data=encrypt({"error": str(e)}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             logger.warning("User  is not authenticated.")
@@ -1083,12 +1195,15 @@ class VerifySmartCardNumber(generics.GenericAPIView):
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             else:
                 logger.warning(f"Smart card verification failed: {response.json()}")
-                return Response(data=encrypt(response.json()), status=response.status_code)
+                return Response(
+                    data=encrypt(response.json()), status=response.status_code
+                )
 
         except requests.exceptions.RequestException as e:
             logger.error(f"RequestException occurred: {str(e)}")
             return Response(
-                data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -1121,7 +1236,7 @@ class NewTvSubscription(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
             logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}}: {serializer.errors}"
+                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1131,7 +1246,9 @@ class NewTvSubscription(generics.GenericAPIView):
             account = AccountCreation.objects.get(user=user)
             logger.info(f"Account found for user {user.first_name} {user.last_name}.")
         except AccountCreation.DoesNotExist:
-            logger.error(f"Account not found for user {user.first_name} {user.last_name}.")
+            logger.error(
+                f"Account not found for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -1144,20 +1261,28 @@ class NewTvSubscription(generics.GenericAPIView):
             verification = Biometrics.authenticate(user.phone_number)
         else:
             if account and account.pin is not None:
-                logger.info(f"User {user.first_name} {user.last_name} is using PIN for authentication.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
+                )
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
-                logger.error(f"Account or PIN not found for user {user.first_name} {user.last_name}.")
+                logger.error(
+                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
+                )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Account or PIN not found for user",
+                        }
+                    ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
-            logger.warning(f"Invalid credentials provided for user {user.first_name} {user.last_name}.")
+            logger.warning(
+                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data={"status": "fail", "error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1168,7 +1293,9 @@ class NewTvSubscription(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
-                logger.info(f"User {user.first_name} {user.last_name} selected WALLET as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                )
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
                     logger.info(
@@ -1214,16 +1341,20 @@ class NewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                         )
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     logger.warning(
                         f"TV subscription purchase failed for user {user.first_name} {user.last_name} due to insufficient balance."
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Cable TV subscription purchase failed due to insufficient balance.",
-                            "error": new_tv_response,
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Cable TV subscription purchase failed due to insufficient balance.",
+                                "error": new_tv_response,
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
@@ -1236,7 +1367,9 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(f"User {user.first_name} {user.last_name} selected CARD as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                )
                 new_tv_response = NewTvSub(
                     user=user,
                     serializer=serializer,
@@ -1252,16 +1385,20 @@ class NewTvSubscription(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased TV subscription via CARD."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 logger.warning(
                     f"TV subscription purchase failed for user {user.first_name} {user.last_name} via CARD."
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Cable TV subscription purchase failed.",
-                        "error": new_tv_response,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Cable TV subscription purchase failed.",
+                            "error": new_tv_response,
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1270,7 +1407,9 @@ class NewTvSubscription(generics.GenericAPIView):
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}."
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid payment option"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1307,7 +1446,9 @@ class RenewTvSubscription(generics.GenericAPIView):
             logger.warning(
                 f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         biometrics = user_data.get("use_biometrics")
 
@@ -1315,7 +1456,9 @@ class RenewTvSubscription(generics.GenericAPIView):
             account = AccountCreation.objects.get(user=user)
             logger.info(f"Account found for user {user.first_name} {user.last_name}.")
         except AccountCreation.DoesNotExist:
-            logger.error(f"Account not found for user {user.first_name} {user.last_name}.")
+            logger.error(
+                f"Account not found for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -1328,20 +1471,28 @@ class RenewTvSubscription(generics.GenericAPIView):
             verification = Biometrics.authenticate(user.phone_number)
         else:
             if account and account.pin is not None:
-                logger.info(f"User {user.first_name} {user.last_name} is using PIN for authentication.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
+                )
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
-                logger.error(f"Account or PIN not found for user {user.first_name} {user.last_name}.")
+                logger.error(
+                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
+                )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Account or PIN not found for user",
+                        }
+                    ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
-            logger.warning(f"Invalid credentials provided for user {user.first_name} {user.last_name}.")
+            logger.warning(
+                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
+            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1349,11 +1500,15 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         renew_tv_response = None
         payment_option = request.data.get("payment_option")
-        logger.info(f"User {user.first_name} {user.last_name} selected payment option: {payment_option}")
+        logger.info(
+            f"User {user.first_name} {user.last_name} selected payment option: {payment_option}"
+        )
 
         match payment_option:
             case "WALLET":
-                logger.info(f"User {user.first_name} {user.last_name} selected WALLET as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                )
                 if use_points:
                     _, pts_amt = Pay.with_pts(user=user, amount=amount)
                     logger.info(
@@ -1399,16 +1554,20 @@ class RenewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                         )
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                     logger.warning(
                         f"TV subscription renewal failed for user {user.first_name} {user.last_name} due to insufficient balance."
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Cable TV subscription purchase failed due to insufficient balance.",
-                            "error": renew_tv_response,
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Cable TV subscription purchase failed due to insufficient balance.",
+                                "error": renew_tv_response,
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 else:
@@ -1416,11 +1575,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                         f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
                     )
                     return Response(
-                        data=encrypt(debit_response.json()), status=debit_response.status_code
+                        data=encrypt(debit_response.json()),
+                        status=debit_response.status_code,
                     )
 
             case "CARD":
-                logger.info(f"User {user.first_name} {user.last_name} selected CARD as payment option.")
+                logger.info(
+                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                )
                 renew_tv_response = RenewTvSub(
                     user=user,
                     serializer=serializer,
@@ -1436,16 +1598,20 @@ class RenewTvSubscription(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully renewed TV subscription via CARD."
                     )
-                    return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
                 logger.warning(
                     f"TV subscription renewal failed for user {user.first_name} {user.last_name} via CARD."
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "Cable TV subscription purchase failed.",
-                        "error": renew_tv_response,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Cable TV subscription purchase failed.",
+                            "error": renew_tv_response,
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1454,7 +1620,9 @@ class RenewTvSubscription(generics.GenericAPIView):
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}."
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid payment option"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

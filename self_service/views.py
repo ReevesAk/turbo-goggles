@@ -77,7 +77,9 @@ class TableBooking(generics.CreateAPIView):
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account not found for user"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -92,16 +94,20 @@ class TableBooking(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "error": "Account or PIN not found for user",
-                            }),
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "error": "Account or PIN not found for user",
+                                }
+                            ),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Invalid credentials"}
+                        ),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -228,11 +234,18 @@ class TableBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             except Exception as err:
-                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt({"error": str(err)}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class TableBookingList(generics.ListAPIView):
@@ -312,7 +325,9 @@ class GymBooking(generics.CreateAPIView):
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account not found for user"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -327,16 +342,20 @@ class GymBooking(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "error": "Account or PIN not found for user",
-                            }),
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "error": "Account or PIN not found for user",
+                                }
+                            ),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Invalid credentials"}
+                        ),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -456,11 +475,18 @@ class GymBooking(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             except Exception as err:
-                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt({"error": str(err)}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class GymBookingList(generics.ListAPIView):
@@ -555,16 +581,20 @@ class CinemaBookingView(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "error": "Account or PIN not found for user",
-                            }),
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "error": "Account or PIN not found for user",
+                                }
+                            ),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Invalid credentials"}
+                        ),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -686,11 +716,18 @@ class CinemaBookingView(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             except Exception as err:
-                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt({"error": str(err)}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class CinemaBookingList(generics.ListAPIView):
@@ -770,7 +807,9 @@ class BookCourierSercvice(generics.CreateAPIView):
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account not found for user"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account not found for user"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -785,16 +824,20 @@ class BookCourierSercvice(generics.CreateAPIView):
                         )
                     else:
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "error": "Account or PIN not found for user",
-                            }),
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "error": "Account or PIN not found for user",
+                                }
+                            ),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Invalid credentials"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Invalid credentials"}
+                        ),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
@@ -916,11 +959,18 @@ class BookCourierSercvice(generics.CreateAPIView):
                             },
                         }
 
-                        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             except Exception as err:
-                return Response(data=encrypt({"error": str(err)}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt({"error": str(err)}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class CourierBookingList(generics.ListAPIView):

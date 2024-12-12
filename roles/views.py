@@ -673,7 +673,9 @@ class SetAdminPin(generics.CreateAPIView):
         logger.info(f"Creating admin pin for user: {user.first_name} {user.last_name}")
 
         if not pin:
-            logger.warning(f"No pin provided for user: {user.first_name} {user.last_name}")
+            logger.warning(
+                f"No pin provided for user: {user.first_name} {user.last_name}"
+            )
             return Response(
                 data={"status": "error", "message": "Pin is required."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -681,7 +683,9 @@ class SetAdminPin(generics.CreateAPIView):
 
         # Hash the pin using make_password.
         hashed_pin = make_password(pin)
-        logger.debug("Hashed pin for user %s %s: %s", user.first_name, user.last_name, hashed_pin)
+        logger.debug(
+            "Hashed pin for user %s %s: %s", user.first_name, user.last_name, hashed_pin
+        )
 
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
@@ -697,7 +701,9 @@ class SetAdminPin(generics.CreateAPIView):
             message="Admin pin created successfully.",
         )
         logger.info(
-            "User  notification created for user: %s %s", user.first_name, user.last_name
+            "User  notification created for user: %s %s",
+            user.first_name,
+            user.last_name,
         )
 
     def create(self, request, *args, **kwargs):
@@ -716,7 +722,9 @@ class SetAdminPin(generics.CreateAPIView):
                 "message": "Admin pin created successfully!",
             }
             logger.info(
-                "Admin pin created successfully for user: %s %s", request.user.first_name, request.user.last_name
+                "Admin pin created successfully for user: %s %s",
+                request.user.first_name,
+                request.user.last_name,
             )
             return Response(data=response, status=status.HTTP_201_CREATED)
         else:
@@ -791,7 +799,11 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 status=status.HTTP_200_OK,
             )
         else:
-            logger.warning("Incorrect pin provided for user: %s %s", request.user.first_name, request.user.last_name)
+            logger.warning(
+                "Incorrect pin provided for user: %s %s",
+                request.user.first_name,
+                request.user.last_name,
+            )
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -867,7 +879,11 @@ class RemoveAdminRole(generics.GenericAPIView):
             )
 
         else:
-            logger.warning("Incorrect pin provided for user: %s %s", request.user.first_name, request.user.last_name)
+            logger.warning(
+                "Incorrect pin provided for user: %s %s",
+                request.user.first_name,
+                request.user.last_name,
+            )
             return Response(
                 data={"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -932,7 +948,9 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 logger.warning(
-                    "Incorrect pin provided for user: %s %s", request.user.first_name, request.user.last_name
+                    "Incorrect pin provided for user: %s %s",
+                    request.user.first_name,
+                    request.user.last_name,
                 )
                 return Response(
                     data={"status": "fail", "error": "Incorrect pin"},
@@ -1007,7 +1025,9 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:
                 logger.warning(
-                    "Incorrect pin provided for user: %s %s", request.user.first_name, request.user.last_name
+                    "Incorrect pin provided for user: %s %s",
+                    request.user.first_name,
+                    request.user.last_name,
                 )
                 return Response(
                     data={"status": "fail", "error": "Incorrect pin"},
@@ -1070,7 +1090,9 @@ class DeleteAdmin(generics.GenericAPIView):
                     )
                 else:
                     logger.warning(
-                        "Incorrect pin provided for user: %s %s", request.user.first_name, request.user.last_name
+                        "Incorrect pin provided for user: %s %s",
+                        request.user.first_name,
+                        request.user.last_name,
                     )
                     return Response(
                         data={"status": "fail", "error": "Incorrect pin"},
