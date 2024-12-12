@@ -103,10 +103,12 @@ class GetSingleNotification(generics.RetrieveAPIView):
                     kwargs.get("id"),
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "message": "You are not authorized to view this notification.",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "You are not authorized to view this notification.",
+                        }
+                    ),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -165,7 +167,8 @@ class ClearNotifications(generics.DestroyAPIView):
         logger.info("Deleted %d notifications for user: %s", deleted_count, user.email)
 
         return Response(
-            data=encrypt({"message": "Notifications cleared."}), status=status.HTTP_200_OK
+            data=encrypt({"message": "Notifications cleared."}),
+            status=status.HTTP_200_OK,
         )
 
 
@@ -200,7 +203,8 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
         )
 
         return Response(
-            data=encrypt({"message": "All notifications marked as read."}), status=status.HTTP_200_OK
+            data=encrypt({"message": "All notifications marked as read."}),
+            status=status.HTTP_200_OK,
         )
 
 
@@ -242,7 +246,11 @@ class DeleteNotification(generics.DestroyAPIView):
                     notification.id,
                 )
                 return Response(
-                    data=encrypt({"detail": "You are not authorized to delete this notification."}),
+                    data=encrypt(
+                        {
+                            "detail": "You are not authorized to delete this notification."
+                        }
+                    ),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
