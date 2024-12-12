@@ -461,9 +461,11 @@ class Login(APIView):
                 "User %s has reached device limit. Deleting oldest device.", login
             )
             return Response(
-                data={
-                    "error": "User cannot log in on more than two devices; oldest device deleted."
-                },
+                data=encrypt(
+                    {
+                        "error": "User cannot log in on more than two devices; oldest device deleted."
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

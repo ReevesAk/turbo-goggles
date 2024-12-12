@@ -183,3 +183,12 @@ INFO 2024-12-11 00:08:07,948 views JWT tokens generated for user 07067581951
 INFO 2024-12-11 00:08:07,950 basehttp "POST /api/v1/accounts/login HTTP/1.1" 200 770
 INFO 2024-12-11 01:15:14,327 autoreload Watching for file changes with StatReloader
 INFO 2024-12-12 00:32:05,160 autoreload Watching for file changes with StatReloader
+INFO 2024-12-12 17:42:06,788 autoreload Watching for file changes with StatReloader
+INFO 2024-12-12 17:42:20,165 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4286
+INFO 2024-12-12 17:42:21,572 views Retrieving queryset for BrandAd users.
+INFO 2024-12-12 17:42:21,628 views ListAllProducts: GET request received with category: None
+INFO 2024-12-12 17:42:24,163 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 446992
+INFO 2024-12-12 17:45:58,627 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-12 17:46:00,184 autoreload Watching for file changes with StatReloader
+INFO 2024-12-12 17:46:03,131 autoreload /Users/macbookpro/projects/miniature-waddle/support/views.py changed, reloading.
+INFO 2024-12-12 17:46:04,198 autoreload Watching for file changes with StatReloader

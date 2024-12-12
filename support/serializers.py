@@ -5,6 +5,7 @@ from rest_framework import serializers
 from .models import (
     Ticket, AgentRating
 )
+from accounts.models import User
 
 
 class CreateTicketSerializers(serializers.ModelSerializer):
@@ -27,10 +28,23 @@ class TicketSerializers(serializers.ModelSerializer):
         model = Ticket
         fields = [
             "id",
+            "number",
             "category",
             "channel",
             "description",
+            "escalation_level",
+            "status",
+            "assigned_at",
         ]
+
+
+class UserWithTicketsSerializer(serializers.ModelSerializer):
+    user_tickets = TicketSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'user_tickets']
+
 
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)

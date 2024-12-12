@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import check_password
 
 # In project imports.
 from .serializers import (
-    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers, TicketSerializers
+    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers, TicketSerializers, UserWithTicketsSerializer
 )
 from .models import Ticket, AgentRating
 
@@ -451,3 +451,26 @@ class RateSupportAgent(generics.GenericAPIView):
             "data": serializer.data
         }
         return Response(data=resp, status=status.HTTP_201_CREATED)
+
+
+class UsersWithTickets(generics.ListAPIView):
+    """
+    UsersWithTickets is the GET request handler that returns a list of
+    all users with support tickets.
+    """
+
+    serializer_class = TicketSerializers
+    permission_classes = [IsAuthenticated,IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        users_with_tickets = User.objects.filter(user_tickets__isnull=False).distinct()
+        serializer = TicketSerializers(users_with_tickets, many=True)
+        return Response(
+            data={
+                "status": "success",
+                "message": "Users with tickets retrieved successfully.",
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )

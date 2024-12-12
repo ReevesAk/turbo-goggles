@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pusher
 from decouple import config
 
@@ -39,10 +41,12 @@ class SupportChat(generics.GenericAPIView):
             data={
                 "status": "success",
                 "message": "Chat intitiated",
+                "sender_id": request.user.id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "data": {
                     "api_key": config("PUSHER_APP_KEY"),
                     "cluster": config("PUSHER_APP_CLUSTER"),
-                    "channels": channel_name
+                    "channels": channel_name,
                 }
             },
             status=status.HTTP_200_OK
