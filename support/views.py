@@ -460,7 +460,7 @@ class UsersWithTickets(generics.ListAPIView):
     """
 
     serializer_class = TicketSerializers
-    permission_classes = [IsAuthenticated,IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):

@@ -14,6 +14,7 @@ from .serializers import (
     DeleteNotificationStatusSerializer,
 )
 from accounts.models import UserNotification
+from security import encrypt
 
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class GetAllNotifications(generics.ListAPIView):
             len(data),
             user_data.email,
         )
-        return Response(response, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class GetSingleNotification(generics.RetrieveAPIView):
@@ -102,10 +103,10 @@ class GetSingleNotification(generics.RetrieveAPIView):
                     kwargs.get("id"),
                 )
                 return Response(
-                    {
+                    data=encrypt({
                         "status": "fail",
                         "message": "You are not authorized to view this notification.",
-                    },
+                    }),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -127,12 +128,12 @@ class GetSingleNotification(generics.RetrieveAPIView):
             logger.info(
                 "Response prepared successfully for notification ID: %s", ntfn_id
             )
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         except UserNotification.DoesNotExist:
             logger.error("Notification with ID %s not found.", kwargs.get("id"))
             return Response(
-                {"status": "fail", "message": "Notification not found."},
+                data=encrypt({"status": "fail", "message": "Notification not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -164,7 +165,7 @@ class ClearNotifications(generics.DestroyAPIView):
         logger.info("Deleted %d notifications for user: %s", deleted_count, user.email)
 
         return Response(
-            {"message": "Notifications cleared."}, status=status.HTTP_200_OK
+            data=encrypt({"message": "Notifications cleared."}), status=status.HTTP_200_OK
         )
 
 
@@ -189,7 +190,7 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
         if not notifications.exists():
             logger.info(":User  %s has no notifications to mark as read.", user.email)
             return Response(
-                {"message": "You have no notifications to mark as read."},
+                data=encrypt({"message": "You have no notifications to mark as read."}),
                 status=status.HTTP_200_OK,
             )
 
@@ -199,7 +200,7 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
         )
 
         return Response(
-            {"message": "All notifications marked as read."}, status=status.HTTP_200_OK
+            data=encrypt({"message": "All notifications marked as read."}), status=status.HTTP_200_OK
         )
 
 
@@ -231,7 +232,7 @@ class DeleteNotification(generics.DestroyAPIView):
                     request.user.email,
                 )
                 return Response(
-                    {"status": "Notification deleted."},
+                    data=encrypt({"status": "Notification deleted."}),
                     status=status.HTTP_204_NO_CONTENT,
                 )
             else:
@@ -241,13 +242,13 @@ class DeleteNotification(generics.DestroyAPIView):
                     notification.id,
                 )
                 return Response(
-                    {"detail": "You are not authorized to delete this notification."},
+                    data=encrypt({"detail": "You are not authorized to delete this notification."}),
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
         except UserNotification.DoesNotExist:
             logger.error("Notification with ID %s not found.", kwargs.get("id"))
             return Response(
-                {"detail": "Notification not found."},
+                data=encrypt({"detail": "Notification not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
