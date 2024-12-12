@@ -57,7 +57,7 @@ class GetAllNotifications(generics.ListAPIView):
                     "title": notification.title,
                     "message": notification.message,
                     "is_read": notification.is_read,
-                    "created_at": notification.created_at,
+                    "created_at": str(notification.created_at),
                 }
             )
 
