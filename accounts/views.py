@@ -72,7 +72,7 @@ class Register(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            profile_upload = request.data.get("profile_image")
+            profile_upload = user_data.get("profile_image")
 
             user = serializer.save()
             AccountType.objects.create(
@@ -298,7 +298,6 @@ class ResendOTP(generics.GenericAPIView):
 
     def post(self, request):
         # Log initial data received
-        logger.debug("Resend OTP request data: %s", request.data)
         decrypted_payload = decrypt(request.data)
 
         # Clean up input data
@@ -306,6 +305,7 @@ class ResendOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+        logger.debug("Resend OTP request data: %s", decrypted_payload)
         serializer = self.serializer_class(data=user_data)
 
         # Validate serializer data
@@ -352,8 +352,8 @@ class PasswordResendOTP(generics.GenericAPIView):
     serializer_class = PasswordResendOTPSerializer
 
     def post(self, request):
-        logger.debug("Received OTP resend request data: %s", request.data)
         decrypted_payload = decrypt(request.data)
+        logger.debug("Received OTP resend request data: %s", decrypted_payload)
 
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -415,9 +415,8 @@ class Login(APIView):
     serializer_class = LoginSerializers
 
     def post(self, request):
-        logger.debug("Received login request data: %s", request.data)
-
         decrypted_payload = decrypt(request.data)
+        logger.debug("Received login request data: %s", decrypted_payload)
         data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
@@ -614,7 +613,7 @@ class ResetPassword(generics.CreateAPIView):
         password = user_data["password"]
         user.password = make_password(password)
 
-        user_token = request.data.get("refresh_token")
+        user_token = payload.get("refresh_token")
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()

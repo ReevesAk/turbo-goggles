@@ -153,7 +153,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )
             return Response(
-                {"status": "error", "message": "An unexpected error occurred."},
+                {"status": "error", "message": f"An unexpected error occurred.{e}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

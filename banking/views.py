@@ -106,7 +106,7 @@ class VerifYBVN(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             number = BVNData.objects.filter(bvn=user_data.get("bvn")).exists()
-            num = request.data.get("bvn")
+            num = user_data.get("bvn")
             if number:
                 resp = {
                     "status": "fail",
@@ -226,21 +226,21 @@ class CreateBankAccount(generics.GenericAPIView):
 
         try:
             acc_response = Account.Open(
-                addr=request.data.get("address"),
-                tc=request.data.get("tc"),
+                addr=payload.get("address"),
+                tc=payload.get("tc"),
                 acc_type="65",
-                religion=request.data.get("religion"),
-                ms=request.data.get("ms"),
-                gn=request.data.get("gn"),
+                religion=payload.get("religion"),
+                ms=payload.get("ms"),
+                gn=payload.get("gn"),
                 branch="203",
-                bvn=request.data.get("bvn"),
-                state=request.data.get("state"),
-                lga=request.data.get("lga"),
-                country=request.data.get("country"),
-                altEmail=request.data.get("alt_email"),
-                altPhone=request.data.get("alt_phone"),
-                currentAddress=request.data.get("address"),
-                nin=request.data.get("NIN"),
+                bvn=payload.get("bvn"),
+                state=payload.get("state"),
+                lga=payload.get("lga"),
+                country=payload.get("country"),
+                altEmail=payload.get("alt_email"),
+                altPhone=payload.get("alt_phone"),
+                currentAddress=payload.get("address"),
+                nin=payload.get("NIN"),
                 passport=passport,
                 identity=identity,
                 utility=utility,
@@ -272,14 +272,14 @@ class CreateBankAccount(generics.GenericAPIView):
                     account_number=acc_response.json()["AccountNUBAN"],
                     customer_numnber=acc_response.json()["CustomerNumber"],
                     acct_name=acc_response.json()["AccountName"],
-                    sex=request.data.get("gn"),
-                    title=request.data.get("tc"),
-                    marital_status=request.data.get("ms"),
-                    lga=request.data.get("lga"),
-                    state=request.data.get("state"),
-                    religion=request.data.get("religion"),
-                    nin=request.data.get("NIN"),
-                    address=request.data.get("address"),
+                    sex=payload.get("gn"),
+                    title=payload.get("tc"),
+                    marital_status=payload.get("ms"),
+                    lga=payload.get("lga"),
+                    state=payload.get("state"),
+                    religion=payload.get("religion"),
+                    nin=payload.get("NIN"),
+                    address=payload.get("address"),
                 )
                 UserNotification.objects.create(
                     user=current_user,
@@ -676,7 +676,7 @@ class ResetPin(generics.CreateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_data.items()
         }
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=user_data)
 
         try:
             user = AccountCreation.objects.get(user=authenticated_user)

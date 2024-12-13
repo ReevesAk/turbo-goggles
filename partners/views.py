@@ -212,10 +212,10 @@ class CreatePartnerService(generics.CreateAPIView):
     def create(self, request):
         logger.info("Partner service creation requested by user: %s", request.user)
 
-        serializer = PartnerServiceSerializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = PartnerServiceSerializer(data=decrypted_payload)
 
         if serializer.is_valid(raise_exception=True):
-            decrypted_payload = decrypt(request.data)
             cleaned_data = {
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in decrypted_payload.items()
@@ -237,8 +237,8 @@ class CreatePartnerService(generics.CreateAPIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            service_uploads = request.data.getlist("service_photos")
-            trainer_uploads = request.data.getlist("trainer_photo")
+            service_uploads = cleaned_data.getlist("service_photos")
+            trainer_uploads = cleaned_data.getlist("trainer_photo")
             image_urls = []
             gym_trainer_img_urls = []
 
@@ -414,8 +414,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
 
         if serializer.is_valid(raise_exception=True):
-            service_uploads = request.data.getlist("service_photos")
-            trainer_uploads = request.data.getlist("trainer_photo")
+            service_uploads = payload.getlist("service_photos")
+            trainer_uploads = payload.getlist("trainer_photo")
             image_urls = []
             gym_trainer_img_urls = []
 
@@ -441,7 +441,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
                 logger.info("Service photos updated for service ID %s.", service_id)
 
                 # Update trainer details (if applicable)
-                if request.data.get("service") == "Gym" and trainer_uploads:
+                if payload.get("service") == "Gym" and trainer_uploads:
                     for photo in trainer_uploads:
                         upload_res = cloud.upload(file=photo)
                         gym_trainer_img_url = upload_res["url"]
@@ -454,8 +454,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
                         AvailablePartnerGymTrainers.objects.update_or_create(
                             partner=partner_service.user,
                             defaults={
-                                "trainer_name": request.data.get("trainer_name"),
-                                "trainer_price": request.data.get("trainer_price"),
+                                "trainer_name": payload.get("trainer_name"),
+                                "trainer_price": payload.get("trainer_price"),
                                 "trainer_photo": gym_trainer_img_url,
                             },
                         )
@@ -656,7 +656,7 @@ class DeletePartnerService(generics.DestroyAPIView):
             if service.user == current_user:
                 # Log the service deletion request
                 logger.info(
-                    f"User {current_user.id} ({user.first_name} {user.last_name}) is attempting to delete service {service.id} ({service.business})."
+                    f"User {current_user.id} ({current_user.first_name} {current_user.last_name}) is attempting to delete service {service.id} ({service.business})."
                 )
 
                 # Create a user notification
@@ -698,7 +698,7 @@ class DeletePartnerService(generics.DestroyAPIView):
             else:
                 # Log unauthorized delete attempt
                 logger.warning(
-                    f"Unauthorized deletion attempt: User {current_user.id} ({user.first_name} {user.last_name}) tried to delete service {service.id} ({service.business}) owned by another user."
+                    f"Unauthorized deletion attempt: User {current_user.id} ({current_user.first_name} {current_user.last_name}) tried to delete service {service.id} ({service.business}) owned by another user."
                 )
                 return Response(
                     data=encrypt(
@@ -804,7 +804,10 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(
+            instance, data=decrypted_payload, partial=partial
+        )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)

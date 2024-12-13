@@ -7,8 +7,6 @@ from datetime import date, timedelta
 
 from .controllers import Forex, Account
 from .models import Cards
-from accounts.models import UserNotification
-from roles.models import ActivityModel
 
 scheduled_charges = {}
 

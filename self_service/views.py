@@ -112,7 +112,7 @@ class TableBooking(generics.CreateAPIView):
                     )
 
                 # Inititate a debit on a users' account.
-                amount = request.data.get("amount")
+                amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
                 user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
@@ -318,7 +318,7 @@ class GymBooking(generics.CreateAPIView):
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in decrypted_payload.items()
                 }
-                pin = request.data.get("pin")
+                pin = user_data.get("pin")
                 biometrics = user_data.get("use_biometrics")
 
                 try:
@@ -550,11 +550,11 @@ class CinemaBookingView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
-        serializer = CinemaBookingSerializers(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = CinemaBookingSerializers(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                decrypted_payload = decrypt(request.user)
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
                     for key, value in decrypted_payload.items()
@@ -842,8 +842,8 @@ class BookCourierSercvice(generics.CreateAPIView):
                     )
 
                 # Inititate a debit on a users' account.
-                amount = request.data.get("price_per_kg")
-                payment_option = request.data.get("payment_option")
+                amount = user_data.get("price_per_kg")
+                payment_option = user_data.get("payment_option")
                 user_detail = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
@@ -1048,13 +1048,13 @@ class BookConsumableSercvice(generics.CreateAPIView):
 
         authenticated_user = request.user
         pin = payload.get("pin")
-        biometrics = request.data.get("use_biometrics")
+        biometrics = payload.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=authenticated_user)
         except AccountCreation.DoesNotExist:
             return Response(
-                data={"status": "fail", "error": "Account not found for user"},
+                data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -1067,20 +1067,22 @@ class BookConsumableSercvice(generics.CreateAPIView):
                 )
             else:
                 return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Account or PIN not found for user",
+                        }
+                    ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
             return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
+                data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        price = request.data.get("price")
+        price = payload.get("price")
         payment_option = payload.get("payment_option")
         user_details = AccountCreation.objects.get(user=authenticated_user)
         match payment_option:
@@ -1253,13 +1255,14 @@ class BookLandTrip(generics.GenericAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.serializer_class(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
                 payload = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in decrypted_payload.items()
                 }
 
                 trip_date = payload["trip_date"]
@@ -1454,22 +1457,25 @@ class BookHotel(generics.GenericAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def post(self, request):
-        serializer = HotelSerializers(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = HotelSerializers(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
                 user_data = {
                     key: value.strip() if isinstance(value, str) else value
-                    for key, value in request.data.items()
+                    for key, value in decrypted_payload.items()
                 }
                 pin = user_data("pin")
-                biometrics = request.data.get("use_biometrics")
+                biometrics = user_data.get("use_biometrics")
 
                 try:
                     account = AccountCreation.objects.get(user=authenticated_user)
                 except AccountCreation.DoesNotExist:
                     return Response(
-                        data={"status": "fail", "error": "Account not found for user"},
+                        data=decrypt(
+                            {"status": "fail", "error": "Account not found for user"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
@@ -1484,22 +1490,26 @@ class BookHotel(generics.GenericAPIView):
                         )
                     else:
                         return Response(
-                            data={
-                                "status": "fail",
-                                "error": "Account or PIN not found for user",
-                            },
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "error": "Account or PIN not found for user",
+                                }
+                            ),
                             status=status.HTTP_404_NOT_FOUND,
                         )
 
                 if not verification:
                     return Response(
-                        data={"status": "fail", "error": "Invalid credentials"},
+                        data=encrypt(
+                            {"status": "fail", "error": "Invalid credentials"}
+                        ),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
                 # Inititate a debit on a users' account.
-                amount = request.data.get("amount")
-                payment_option = request.data.get("payment_option")
+                amount = user_data.get("amount")
+                payment_option = user_data.get("payment_option")
                 user_detail = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
@@ -1554,7 +1564,7 @@ class BookHotel(generics.GenericAPIView):
                             }
 
                             return Response(
-                                data=response_data, status=status.HTTP_200_OK
+                                data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
@@ -1562,7 +1572,7 @@ class BookHotel(generics.GenericAPIView):
                                 "details": debit_response.json(),
                             }
                             return Response(
-                                data=response_data,
+                                data=encrypt(response_data),
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
                     case "CARD":
@@ -1716,7 +1726,8 @@ class GetTransaction(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
 
     def get_queryset(self, request):
-        payment_tag = request.data["payment_tag"]
+        decrypted_payload = decrypt(request.data)
+        payment_tag = decrypted_payload["payment_tag"]
         prefix_length = 3
 
         # Extract the prefix from the payment tag

@@ -246,7 +246,7 @@ class AddToCart(generics.CreateAPIView):
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             product_id = kwargs.get("product_id")
-            quantity = request.data.get("quantity", 1)
+            quantity = user_data.get("quantity", 1)
 
             logger.debug("Fetching product with ID: %s", product_id)
             product = get_object_or_404(Product, id=product_id)
@@ -453,7 +453,7 @@ class FmcgCheckout(generics.CreateAPIView):
 
         # Verify PIN or biometrics
         pin = payload["pin"]
-        biometrics = request.data.get("use_biometrics")
+        biometrics = payload.get("use_biometrics")
 
         try:
             account = AccountCreation.objects.get(user=authenticated_user)

@@ -554,7 +554,7 @@ class ChangePassword(generics.UpdateAPIView):
             user.set_password(new_password)
 
             # Retrieve existing tokens and blacklist them
-            user_token = request.data.get("refresh_token")
+            user_token = payload.get("refresh_token")
             if user_token:
                 try:
                     token = RefreshToken(user_token)
@@ -729,6 +729,7 @@ class PostMemberSurvey(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsUserOrMember)
 
     def create(self, request):
+        user = request.user
         logger.info(
             f"User {user.first_name} {user.last_name} initiated a survey completion request."
         )
@@ -791,7 +792,8 @@ class DeleteUser(generics.DestroyAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request, *args, **kwargs):
-        email = self.request.data.get("email")
+        decrypted_payload = decrypt(request.data)
+        email = decrypted_payload.get("email")
         logger.info(
             f"User {self.request.user.first_name} {self.request.user.last_name} initiated account deletion request for email: {email}"
         )
@@ -1092,10 +1094,11 @@ class AddToFavourite(generics.CreateAPIView):
         logger.info("User  %s is attempting to favorite an item.", request.user.email)
 
         authenticated_user = request.user
-        object_id = request.data.get("object_id")
-        model_name = request.data.get("model_name")
-
         decrypted_payload = decrypt(request.data)
+
+        object_id = decrypted_payload.get("object_id")
+        model_name = decrypted_payload.get("model_name")
+
         serializer = FavouriteSerializer(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             if not object_id or not model_name:

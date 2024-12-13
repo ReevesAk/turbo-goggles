@@ -6,9 +6,6 @@ from roles.models import ActivityModel
 
 from django.db import transaction
 
-from rest_framework import status
-from rest_framework.response import Response
-
 from banking.controllers import Account
 from .helpers import VAS
 from .models import (

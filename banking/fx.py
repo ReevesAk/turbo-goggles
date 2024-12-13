@@ -14,7 +14,6 @@ from .controllers import Forex
 from .serializers import (
     QuotationSerializer,
 )
-from security import encrypt, decrypt
 
 
 logger = logging.getLogger(__name__)

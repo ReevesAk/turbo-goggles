@@ -1218,9 +1218,10 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         user = request.user
 
@@ -1499,7 +1500,7 @@ class RenewTvSubscription(generics.GenericAPIView):
             )
 
         renew_tv_response = None
-        payment_option = request.data.get("payment_option")
+        payment_option = user_data.get("payment_option")
         logger.info(
             f"User {user.first_name} {user.last_name} selected payment option: {payment_option}"
         )

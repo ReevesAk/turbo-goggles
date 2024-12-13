@@ -93,11 +93,11 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 "status": "success",
                 "message": "Brand advert account created successfully.",
                 "data": {
-                    "whoareyou": request.data.get("whoareyou"),
-                    "facebook": request.data.get("facebook"),
-                    "twitter": request.data.get("twitter"),
-                    "instagram": request.data.get("instagram"),
-                    "telegram": request.data.get("telegram"),
+                    "whoareyou": user_data.get("whoareyou"),
+                    "facebook": user_data.get("facebook"),
+                    "twitter": user_data.get("twitter"),
+                    "instagram": user_data.get("instagram"),
+                    "telegram": user_data.get("telegram"),
                 },
             }
             encrypt_response = encrypt(response)
@@ -180,21 +180,25 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
         logger.info(
             "User %s is attempting to update their BrandAd profile.", instance.email
         )
-
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(
+            instance, data=decrypted_payload, partial=partial
+        )
 
         # Checking if data is valid and logging any errors
         if serializer.is_valid():
             self.perform_update(serializer)
             logger.info("Profile updated successfully for user: %s", instance.email)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
         else:
             logger.error(
                 "Failed to update profile for user: %s. Errors: %s",
                 instance.email,
                 serializer.errors,
             )
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class BrandSurveyView(generics.CreateAPIView):
@@ -203,40 +207,42 @@ class BrandSurveyView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        decrypted_data = decrypt(request.data)
 
-        decrypted_data = decrypt(serializer)
+        serializer = self.get_serializer(data=decrypted_data)
 
-        if not decrypted_data.is_valid(raise_exception=True):
+        if not serializer.is_valid(raise_exception=True):
             # In case of validation errors
-            return Response(decrypted_data.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
         try:
             # Attach authenticated user to the survey data
-            decrypted_data.validated_data["user"] = request.user
-            brand_survey = decrypted_data.save()
+            serializer.validated_data["user"] = request.user
+            brand_survey = serializer.save()
 
             # Create survey instance in CreateAd model
             brand_survey_instance = CreateAd.objects.create(
                 brand_user=brand_survey.user,
-                brand_type=decrypted_data.validated_data["brand_type"],
-                product_type=decrypted_data.validated_data["product_type"],
-                online_presence=decrypted_data.validated_data["online_presence"],
-                online_preferences=decrypted_data.validated_data["online_preferences"],
-                metric_to_increase=decrypted_data.validated_data["metric_to_increase"],
-                demography=decrypted_data.validated_data["demography"],
-                website=decrypted_data.validated_data["website"],
-                type=decrypted_data.validated_data["type"],
-                category=decrypted_data.validated_data["category"],
-                address=decrypted_data.validated_data["address"],
-                description=decrypted_data.validated_data["description"],
-                duration=decrypted_data.validated_data["duration"],
+                brand_type=serializer.validated_data["brand_type"],
+                product_type=serializer.validated_data["product_type"],
+                online_presence=serializer.validated_data["online_presence"],
+                online_preferences=serializer.validated_data["online_preferences"],
+                metric_to_increase=serializer.validated_data["metric_to_increase"],
+                demography=serializer.validated_data["demography"],
+                website=serializer.validated_data["website"],
+                type=serializer.validated_data["type"],
+                category=serializer.validated_data["category"],
+                address=serializer.validated_data["address"],
+                description=serializer.validated_data["description"],
+                duration=serializer.validated_data["duration"],
             )
 
             # Create AdLocation entry for the survey
             AdLocation.objects.create(
                 brand=brand_survey_instance,
-                state=decrypted_data.validated_data.get("state"),
-                city=decrypted_data.validated_data.get("city"),
+                state=serializer.validated_data.get("state"),
+                city=serializer.validated_data.get("city"),
             )
 
             # Log the brand survey activity
@@ -249,12 +255,14 @@ class BrandSurveyView(generics.CreateAPIView):
             logger.info(
                 "Brand survey created successfully for user: %s", request.user.email
             )
-            return Response(decrypted_data.data, status=status.HTTP_201_CREATED)
+            return Response(encrypt(serializer.data), status=status.HTTP_201_CREATED)
 
         except Exception as err:
             logger.error("Brand advert survey creation failed: %s", err)
             return Response(
-                {"error": "An error occurred while creating the brand survey."},
+                encrypt(
+                    {"error": "An error occurred while creating the brand survey."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -275,7 +283,7 @@ class BrandPromote(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             try:
                 authenticated_user = request.user
-                pin = request.data.get("pin")
+                pin = payload.get("pin")
 
                 # Verify PIN
                 is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
@@ -284,11 +292,12 @@ class BrandPromote(generics.CreateAPIView):
                         "PIN verification failed for user %s", authenticated_user.email
                     )
                     return Response(
-                        {"error": "Invalid PIN."}, status=status.HTTP_403_FORBIDDEN
+                        encrypt({"error": "Invalid PIN."}),
+                        status=status.HTTP_403_FORBIDDEN,
                     )
 
                 # Debit Account
-                price = request.data.get("price")
+                price = payload.get("price")
                 user_details = AccountCreation.objects.get(user=authenticated_user)
                 debit_response = Account.Debit(
                     debitAccount=user_details.account_number,
@@ -363,4 +372,4 @@ class BrandPromote(generics.CreateAPIView):
                 )
 
         # If serializer errors exist
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)

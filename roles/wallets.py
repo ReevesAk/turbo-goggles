@@ -19,7 +19,7 @@ from accounts.models import User, UserNotification
 from banking.models import AccountCreation, BVNData
 from banking.serializers import WalletStatusSerializer
 from banking.controllers import Account, BVN
-from permissions import IsSuperAdmin, IsNotDisabled, IsWalletAdminOrSuperAdmin
+from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 
 
 class GetallWalletUsers(generics.ListAPIView):
