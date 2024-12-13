@@ -1,5 +1,4 @@
 import json
-from decimal import Decimal
 import binascii
 from base64 import b64decode, b64encode
 from Crypto.Cipher import AES
@@ -39,17 +38,9 @@ def decrypt(cipher_text):
 
 
 def encrypt(json_data: dict):
-
-    class DecimalEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, Decimal):
-                return float(obj)
-            return super().default(obj)
     data_str = json.dumps(json_data)
 
     try:
-        data_str = json.dumps(json_data, cls=DecimalEncoder)
-
         # Encrypt the data
         cipher = AES.new(aes_key, AES.MODE_CBC, aes_iv)
         padded_data = pad(data_str.encode('utf-8'), AES.block_size)

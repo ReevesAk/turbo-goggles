@@ -325,9 +325,9 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
                 "product_id": str(item.product.id),
                 "product": item.product.name_and_size,
                 "quantity": item.quantity,
-                "price_per_unit": item.price,
+                "price_per_unit": float(item.price),
                 "image": item.product.image_url,
-                "total_price": item.get_total_price()
+                "total_price": float(item.get_total_price())
             })
             logger.debug(
                 "Cart item for product: %s added to response data for user: %s",
