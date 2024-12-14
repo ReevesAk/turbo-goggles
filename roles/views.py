@@ -522,10 +522,24 @@ class AddAdmin(generics.CreateAPIView):
 
                 # Send link to mailbox
                 try:
+                    with open("templates/empty_email.html", "r", encoding="utf-8") as file:
+                        html_template = file.read()
+
+                        # Create a Jinja2 template
+                        template = Template(html_template)
+
+                        firstname = user.full_name[0]
+                        # Render the template with values
+                        rendered_html = template.render(
+                            custom_text=f"Dear {firstname},<br><br>{body}",
+                            support_email="support@picadailys.com",
+                            picadailys_phone="+123 456 7890",
+                        )
+
                     Message.send_email(
-                        subject="Admin role registration",
-                        content=body,
                         email=user.email,
+                        html_content=rendered_html,
+                        subject="Admin Registration",
                     )
                     logger.info(f"Signup email sent to {user.email}")
                 except Exception as e:

@@ -369,7 +369,7 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 # send transactional email.
-                with open("templates/empty_email.html", "r", encoding="utf-8") as file:
+                with open("templates/table_email.html", "r", encoding="utf-8") as file:
                     html_template = file.read()
 
                     # Create a Jinja2 template
@@ -399,7 +399,7 @@ class NotificationView(generics.CreateAPIView):
                     user=user, title="Debit Transaction", message=narration
                 )
 
-                with open("templates/empty_email.html", "r", encoding="utf-8") as file:
+                with open("templates/table_email.html", "r", encoding="utf-8") as file:
                     html_template = file.read()
 
                     # Create a Jinja2 template

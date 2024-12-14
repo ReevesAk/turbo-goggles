@@ -286,12 +286,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                     description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['transaction_amount']}. Available balance is ₦{account_balance}.",
                 )
 
-                # Send email notification
-                Message.send_email(
-                    subject="Debit Transaction",
-                    content=message,
-                    email=authenticated_user.email,
-                )
                 logger.info(
                     f"Transfer notification sent to user {authenticated_user.id}."
                 )
@@ -462,14 +456,6 @@ class InterBankTransfer(generics.CreateAPIView):
                     title="Bank Transfer",
                     description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}.",
                 )
-
-                # Send email notification
-                Message.send_email(
-                    subject="Debit Transaction",
-                    content=message,
-                    email=authenticated_user.email,
-                )
-                logger.info(f"Email notification sent to {authenticated_user.email}")
 
                 # Successful response
                 resp = {
@@ -798,7 +784,7 @@ class FundWallet(generics.GenericAPIView):
                 )
 
                 account = TransferModel.objects.filter(user=user).first()
-                message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+                # message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
 
                 UserNotification.objects.create(
                     user=user,
@@ -814,14 +800,14 @@ class FundWallet(generics.GenericAPIView):
                 )
                 logger.info("Activity log created for user %s", user.id)
 
-                Message.send_email(
-                    subject="Wallet Funding.",
-                    content=message,
-                    email=user.email,
-                )
-                logger.info(
-                    "Confirmation email sent to user %s at %s", user.id, user.email
-                )
+                # Message.send_email(
+                #     subject="Wallet Funding.",
+                #     content=message,
+                #     email=user.email,
+                # )
+                # logger.info(
+                #     "Confirmation email sent to user %s at %s", user.id, user.email
+                # )
 
                 resp = {
                     "status": "success",

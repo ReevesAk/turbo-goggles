@@ -1,6 +1,6 @@
 import logging
 
-from django.template.loader import render_to_string
+from jinja2 import Template
 
 from sms import Message
 from permissions import IsSuperAdmin, IsUserOrMember
@@ -485,21 +485,28 @@ class UpdateUserProfile(generics.UpdateAPIView):
             )
 
             # Prepare and send the email notification
+            # TODO update correspondence email.
             body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
 
-            email_content = render_to_string(
-                "email_template.html",
-                {
-                    "email": "OGafekemor@picadailys.com",
-                    "picadailys_phone": "08134649680",
-                    "message_body": body,
-                },
-            )
+            with open(
+                "templates/empty_email.html", "r", encoding="utf-8"
+            ) as file:
+                html_template = file.read()
+
+                # Create a Jinja2 template
+                template = Template(html_template)
+
+                # Render the template with values
+                rendered_html = template.render(
+                    custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
+                    support_email="support@picadailys.com",
+                    picadailys_phone="+123 456 7890",
+                )
 
             Message.send_email(
-                content=email_content,
                 email=request.user.email,
-                subject="Profile Update.",
+                html_content=rendered_html,
+                subject="Profile Update",
             )
 
             logger.info(
@@ -583,21 +590,27 @@ class ChangePassword(generics.UpdateAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} changed their password.",
             )
 
-            # Uncomment the following lines to send an email notification
-            # body = "This is to inform you that your Picadailys account password has been changed successfully. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
-            # email_content = render_to_string(
-            #     "email_template.html",
-            #     {
-            #         "email": "OGafekemor@picadailys.com",
-            #         "picadailys_phone": "08134649680",
-            #         "message_body": body,
-            #     },
-            # )
-            # Message.send_email(
-            #     content=email_content,
-            #     email=request.user.email,
-            #     subject="Change of Password.",
-            # )
+            with open(
+                "templates/empty_email.html", "r", encoding="utf-8"
+            ) as file:
+                html_template = file.read()
+
+                # Create a Jinja2 template
+                template = Template(html_template)
+
+                body = "This is to inform you that your password on Picadailys has been updated."
+                # Render the template with values
+                rendered_html = template.render(
+                    custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
+                    support_email="support@picadailys.com",
+                    picadailys_phone="+123 456 7890",
+                )
+
+            Message.send_email(
+                email=request.user.email,
+                html_content=rendered_html,
+                subject="Password Change",
+            )
 
             response = {
                 "status": "success",
