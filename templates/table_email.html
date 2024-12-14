@@ -27,7 +27,7 @@
     <main style="padding-inline: 15%;">
         <div style="text-align: left;">
             <h3 style="font-size: 20px; font-weight: 400;">Dear
-                {{email_body}}
+                {{custom_text}}
                 <span></span>,
             </h3>
 
@@ -82,8 +82,14 @@
 
     <footer style="margin-top: 3rem; padding-inline: 15%;">
         <p>For further enquiries, please contact our customer support through the following channels</p>
-        <p>Email: <span><a href=""></a></span></p>
-        <p>Phone: <span style="font-weight: 700"></span></p>
+        <p>Email: {{support_email}}
+            <!-- Email goes here  -->
+            <span><a href=""></a></span>
+        </p>
+        <p>Phone: {{picadailys_phone}}
+            <!-- Email goes here  -->
+            <span style="font-weight: 700"></span>
+        </p>
         <p style="font-style: italic; font-weight: 600; margin-top: 3rem;">Thank you for choosing Picadailys!</p>
     </footer>
 </body>

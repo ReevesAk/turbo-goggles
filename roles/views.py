@@ -9,6 +9,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from jinja2 import Template
+
 # In project imports.
 from .serializers import (
     RegisterSuperAdminSerializer,
@@ -37,6 +39,7 @@ from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
+from commons import Message
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -1082,7 +1085,26 @@ class DeleteAdmin(generics.GenericAPIView):
                         "Activity logged for deleting admin: %s", user.full_name
                     )
 
-                    # TODO: Send email to the admin user.
+                    with open(
+                        "templates/empty_email.html", "r", encoding="utf-8"
+                    ) as file:
+                        html_template = file.read()
+
+                        # Create a Jinja2 template
+                        template = Template(html_template)
+
+                        # Render the template with values
+                        rendered_html = template.render(
+                            custom_text=f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
+                            support_email="support@picadailys.com",
+                            picadailys_phone="+123 456 7890",
+                        )
+
+                    Message.send_email(
+                        email=request.user.email,
+                        html_content=rendered_html,
+                        subject="Admin Deletion",
+                    )
 
                     return Response(
                         f"Admin with '{email}' deleted successfully.",

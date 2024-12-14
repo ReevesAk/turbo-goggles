@@ -34,7 +34,7 @@ class AllTransactions(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        transactions = TxModel.objects.all()
+        transactions = TxModel.objects.filter(user=self.request.user)
         return transactions
 
     def list(self, request, *args, **kwargs):
