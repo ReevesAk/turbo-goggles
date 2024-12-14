@@ -20,7 +20,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User, AccountType, UserNotification
-from commons import CamelCaseJSONRenderer
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,6 @@ class GetAllPartnersUsers(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerAdminOrSuperAdmin, IsNotDisabled)
     pagination_class = PaginationStyle
-    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         partners = User.objects.filter(accounttype__user_type="Partner").distinct()
@@ -69,7 +67,6 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
     serializer_class = RestrictPartnersSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsPartnerAdminOrSuperAdmin)
-    # renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
         user_id = kwargs.get("partner_id")

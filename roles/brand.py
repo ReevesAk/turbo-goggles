@@ -13,7 +13,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from accounts.models import User, AccountType, UserNotification
-from commons import CamelCaseJSONRenderer
 from permissions import (
     IsNotDisabled,
     IsAdAdminOrSuperAdmin,
@@ -35,7 +34,6 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
     serializer_class = RestrictBrandAdSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
-    renderer_classes = [CamelCaseJSONRenderer]
 
     def post(self, request, *args, **kwargs):
         user_id = kwargs.get("brand_id")
@@ -169,7 +167,6 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
-    renderer_classes = [CamelCaseJSONRenderer]
 
     def get_queryset(self):
         partners = User.objects.filter(accounttype__user_type="BrandAd").distinct()
