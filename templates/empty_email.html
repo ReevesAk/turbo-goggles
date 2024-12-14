@@ -26,14 +26,14 @@
 
     <main style="padding-inline: 15%;">
         <div class="main" style="text-align: left;">
-            <p>{{message_body}}.</p>
+            {{ custom_text | safe }}
         </div>
     </main>
 
     <footer style="margin-top: 3rem; padding-inline: 15%;">
         <p>For further enquiries, please contact our customer support through the following channels</p>
 
-        <p>Email: {{email}}
+        <p>Email: {{support_email}}
             <!-- Email goes here  -->
             <span><a href=""></a></span>
         </p>

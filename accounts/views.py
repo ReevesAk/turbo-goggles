@@ -385,7 +385,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                     "status": "success",
                     "message": "OTP resent successfully. Check your phone for validation.",
                 }
-                return Response(data=response, status=status.HTTP_200_OK)
+                return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
             except User.DoesNotExist:
                 logger.warning(
@@ -403,7 +403,9 @@ class PasswordResendOTP(generics.GenericAPIView):
 
         else:
             logger.error("OTP resend validation failed: %s", serializer.errors)
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class Login(APIView):
@@ -439,7 +441,7 @@ class Login(APIView):
         if not user:
             logger.warning("Invalid credentials for user: %s", login)
             return Response(
-                data={"error": "Invalid credentials"},
+                data=encrypt({"error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -447,10 +449,12 @@ class Login(APIView):
         if not biometrics and not user.is_verified:
             logger.warning("User %s is not verified, cannot login", login)
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "Please verify your account to login",
-                },
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Please verify your account to login",
+                    }
+                ),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 

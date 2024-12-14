@@ -8,6 +8,8 @@ from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+from jinja2 import Template
+
 from .serializers import (
     RestaurantBookingSerializers,
     GymSubcriptionSerializers,
@@ -37,6 +39,7 @@ from banking.models import AccountCreation
 from commons import Biometrics
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+from commons import Message
 
 
 SERVICES = (
@@ -138,9 +141,6 @@ class TableBooking(generics.CreateAPIView):
                                 description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking.",
                             )
 
-                            # send transactional email.
-                            # TODO
-
                             serializer.save()
                             purchase = PurchaseModel.objects.create(
                                 user=authenticated_user,
@@ -200,9 +200,6 @@ class TableBooking(generics.CreateAPIView):
                             title="Table Booking.",
                             description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking.",
                         )
-
-                        # send transactional email.
-                        # TODO
 
                         serializer.save()
                         purchase = PurchaseModel.objects.create(
@@ -384,8 +381,6 @@ class GymBooking(generics.CreateAPIView):
                                 title="Gym Booking.",
                                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription.",
                             )
-                            # send transactional email.
-                            # TODO
 
                             serializer.save()
                             purchase = PurchaseModel.objects.create(
@@ -442,8 +437,6 @@ class GymBooking(generics.CreateAPIView):
                             title="Gym Booking.",
                             description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription.",
                         )
-                        # send transactional email.
-                        # TODO
 
                         serializer.save()
                         purchase = PurchaseModel.objects.create(
@@ -624,9 +617,6 @@ class CinemaBookingView(generics.CreateAPIView):
                                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking.",
                             )
 
-                            # send transactional email.
-                            # TODO
-
                             serializer.save()
                             purchase = PurchaseModel.objects.create(
                                 user=authenticated_user,
@@ -682,9 +672,6 @@ class CinemaBookingView(generics.CreateAPIView):
                             title="Cinema Booking.",
                             description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking.",
                         )
-
-                        # send transactional email.
-                        # TODO
 
                         serializer.save()
                         purchase = PurchaseModel.objects.create(
@@ -867,9 +854,6 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking.",
                             )
 
-                            # send transactional email.
-                            # TODO
-
                             serializer.save()
                             purchase = PurchaseModel.objects.create(
                                 user=authenticated_user,
@@ -925,9 +909,6 @@ class BookCourierSercvice(generics.CreateAPIView):
                             title="Courier Service Booking.",
                             description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking.",
                         )
-
-                        # send transactional email.
-                        # TODO
 
                         serializer.save()
                         purchase = PurchaseModel.objects.create(
@@ -1107,9 +1088,6 @@ class BookConsumableSercvice(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} booked for a consumable service of {price}.",
                     )
 
-                    # send transactional email.
-                    # TODO
-
                     serializer.save()
                     purchase = PurchaseModel.objects.create(
                         user=request.user,
@@ -1156,9 +1134,6 @@ class BookConsumableSercvice(generics.CreateAPIView):
                     title="Consumables booking.",
                     description=f"{authenticated_user.first_name} {authenticated_user.last_name} booked for a consumable service of {price}.",
                 )
-
-                # send transactional email.
-                # TODO
 
                 serializer.save()
                 purchase = PurchaseModel.objects.create(
@@ -1533,9 +1508,6 @@ class BookHotel(generics.GenericAPIView):
                                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for hotel booking.",
                             )
 
-                            # send transactional email.
-                            # TODO
-
                             serializer.save()
                             purchase = PurchaseModel.objects.create(
                                 user=authenticated_user,
@@ -1588,9 +1560,6 @@ class BookHotel(generics.GenericAPIView):
                             title="Hotel Booking.",
                             description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for hotel booking.",
                         )
-
-                        # send transactional email.
-                        # TODO
 
                         serializer.save()
                         purchase = PurchaseModel.objects.create(

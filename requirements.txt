@@ -35,6 +35,7 @@ django_csp==3.8
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.2.2
 drf-spectacular==0.26.2
+ElasticEmail @ git+https://github.com/elasticemail/elasticemail-python.git@ab5e7325d44895e65afefadd822451735fc65c74
 flake8==6.1.0
 fonttools==4.50.0
 fpdf==1.7.2

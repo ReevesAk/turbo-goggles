@@ -3,8 +3,15 @@ import random
 import requests
 import logging
 
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import ElasticEmail
+from ElasticEmail import EmailsApi, ApiClient
+from ElasticEmail.models import (
+    EmailContent,
+    BodyPart,
+    BodyContentType,
+    EmailRecipient,
+    EmailMessageData,
+)
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -18,6 +25,7 @@ from roles.models import Points
 
 termii_base_url = config("TERMII_BASE_URL")
 termii_api_key = config("TERMII_API_KEY")
+elastic_api_key = config("ELASTIC_API_KEY")
 
 
 def generateOTP(OTP):
@@ -126,20 +134,38 @@ class Message:
                 data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def send_email(content, email, subject):
-        message = Mail(
-            from_email="care@picadailys.com",
-            to_emails=email,
-            subject=subject,
-            html_content=content,
-        )
+    def send_email(email, html_content, subject):
+        configuration = ElasticEmail.Configuration()
+        configuration.api_key['apikey'] = elastic_api_key
 
-        try:
-            sg = SendGridAPIClient(config("SENDGRID_API_KEY"))
-            response = sg.send(message)
-            logging.info(response.status_code)
-        except Exception as e:
-            logging.error(e.message)
+        with ApiClient(configuration) as api_client:
+            api_instance = EmailsApi(api_client)
+
+            email_data = EmailMessageData(
+                recipients=[
+                    EmailRecipient(email=email)
+                ],
+                content=EmailContent(
+                    body=[
+                        BodyPart(
+                            content_type=BodyContentType("HTML"),
+                            content=html_content,
+                            charset="utf-8",
+                        ),
+                    ],
+                    From="Alert@picadailys.com",
+                    reply_to="",
+                    subject=subject,
+                ),
+            )
+
+            try:
+                # Send email using Elastic Email API
+                response = api_instance.emails_post(email_data)
+                logging("Email sent successfully!")
+                logging(response)
+            except Exception as e:
+                logging("Error occurred while sending email:", e)
 
 
 class Allocate:
