@@ -28,7 +28,7 @@ if ENVIRONMENT == "development":
 elif ENVIRONMENT == "production":
     ALLOWED_HOSTS = ["yourproductiondomain.com"]
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["127.0.0.1", "https://miniature-waddle.onrender.com/", p"167.71.174.242"]
 
 
 # Application definition
