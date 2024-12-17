@@ -56,6 +56,7 @@ class Register(generics.GenericAPIView):
 
     def post(self, request):
         logger.info("Received registration data: %s", request.data)
+        print(request.data)
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -418,6 +419,7 @@ class Login(APIView):
     serializer_class = LoginSerializers
 
     def post(self, request):
+        print(request.data)
         decrypted_payload = decrypt(request.data)
         logger.debug("Received login request data: %s", decrypted_payload)
         data = {
