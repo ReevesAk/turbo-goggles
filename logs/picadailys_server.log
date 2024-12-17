@@ -216,3 +216,48 @@ INFO 2024-12-17 13:19:57,647 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
 INFO 2024-12-17 13:19:58,869 views Retrieving queryset for BrandAd users.
 INFO 2024-12-17 13:19:58,942 views ListAllProducts: GET request received with category: None
 INFO 2024-12-17 13:20:01,703 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828
+INFO 2024-12-17 14:45:57,959 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 14:46:13,623 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-17 14:46:14,412 views Retrieving queryset for BrandAd users.
+INFO 2024-12-17 14:46:14,459 views ListAllProducts: GET request received with category: None
+INFO 2024-12-17 14:46:16,611 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828
+INFO 2024-12-17 14:46:34,638 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-17 14:46:36,268 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-17 14:46:46,010 exception Invalid HTTP_HOST header: '127.0.0.1:8000'. You may need to add '127.0.0.1' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/utils/deprecation.py", line 133, in __call__
+    response = self.process_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/http/request.py", line 167, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: '127.0.0.1:8000'. You may need to add '127.0.0.1' to ALLOWED_HOSTS.
+WARNING 2024-12-17 14:46:46,077 log Bad Request: /api/v1/docs/
+WARNING 2024-12-17 14:46:46,077 basehttp "GET /api/v1/docs/ HTTP/1.1" 400 81665
+ERROR 2024-12-17 14:46:46,206 exception Invalid HTTP_HOST header: '127.0.0.1:8000'. You may need to add '127.0.0.1' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/utils/deprecation.py", line 133, in __call__
+    response = self.process_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/http/request.py", line 167, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: '127.0.0.1:8000'. You may need to add '127.0.0.1' to ALLOWED_HOSTS.
+WARNING 2024-12-17 14:46:46,249 log Bad Request: /favicon.ico
+WARNING 2024-12-17 14:46:46,249 basehttp "GET /favicon.ico HTTP/1.1" 400 81223
+INFO 2024-12-17 14:46:57,394 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-17 14:46:59,233 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 14:51:57,665 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-17 14:51:57,944 views Retrieving queryset for BrandAd users.
+INFO 2024-12-17 14:51:57,995 views ListAllProducts: GET request received with category: None
+INFO 2024-12-17 14:52:00,326 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828
