@@ -206,3 +206,13 @@ INFO 2024-12-14 17:25:50,219 autoreload Watching for file changes with StatReloa
 INFO 2024-12-14 17:26:31,020 autoreload /Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/typing_extensions.py changed, reloading.
 INFO 2024-12-14 17:26:32,195 autoreload Watching for file changes with StatReloader
 INFO 2024-12-15 00:37:36,902 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 13:16:49,830 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 13:18:00,369 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 13:19:08,720 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-17 13:19:10,051 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 13:19:32,901 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-17 13:19:34,587 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 13:19:57,647 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-17 13:19:58,869 views Retrieving queryset for BrandAd users.
+INFO 2024-12-17 13:19:58,942 views ListAllProducts: GET request received with category: None
+INFO 2024-12-17 13:20:01,703 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828

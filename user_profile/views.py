@@ -67,8 +67,6 @@ from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
-fincra_webhook_key = config("WEBHOOK_SECRET_KEY")
-
 
 class SwitchToUser(generics.RetrieveAPIView):
     """
