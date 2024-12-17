@@ -1,6 +1,5 @@
 import math
 import random
-import requests
 import logging
 
 import ElasticEmail
@@ -13,16 +12,12 @@ from ElasticEmail.models import (
     EmailMessageData,
 )
 
-from rest_framework.response import Response
-from rest_framework import status
 
 from decouple import config
 
 from accounts.models import User
 from roles.models import Points
 
-termii_base_url = config("TERMII_BASE_URL")
-termii_api_key = config("TERMII_API_KEY")
 elastic_api_key = config("ELASTIC_API_KEY")
 
 
@@ -56,81 +51,6 @@ class Biometrics:
 
 
 class Message:
-    @staticmethod
-    def send_otp(msg, to):
-        resource = "/api/sms/send"
-        headers = {
-            "Content-Type": "application/json",
-        }
-
-        phone_number = "234" + to
-
-        payload = {
-            "to": phone_number,
-            "from": "N-Alert",
-            "sms": msg,
-            "type": "plain",
-            "channel": "dnd",
-            "api_key": termii_api_key,
-        }
-        try:
-            response = requests.request(
-                "POST",
-                url=termii_base_url + resource,
-                headers=headers,
-                json=payload,
-            )
-            if response.status_code == 200:
-                return Response(response.json())
-            else:
-                error_resp = "Error from server: " + str(response.json())
-
-                return Response(error_resp)
-        except requests.exceptions.RequestException as e:
-            error_msg = {"error": str(e)}
-
-            return Response(
-                data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def send_msg(msg, to):
-        resource = "/api/sms/send"
-        headers = {
-            "Content-Type": "application/json",
-        }
-
-        phone_number = "234" + to
-
-        payload = {
-            "to": phone_number,
-            "from": "Picadailys",
-            "sms": msg,
-            "type": "plain",
-            "channel": "generic",
-            "api_key": termii_api_key,
-        }
-        try:
-            response = requests.request(
-                "POST",
-                url=termii_base_url + resource,
-                headers=headers,
-                json=payload,
-            )
-
-            if response.status_code == 200:
-
-                return Response(response.json())
-            else:
-                error_resp = "Error from server: " + str(response.json())
-
-                return Response(error_resp)
-        except requests.exceptions.RequestException as e:
-            error_msg = {"error": str(e)}
-
-            return Response(
-                data=error_msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
     def send_email(email, html_content, subject):
         configuration = ElasticEmail.Configuration()

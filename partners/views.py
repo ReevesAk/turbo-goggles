@@ -44,10 +44,6 @@ from permissions import (
 from security import encrypt, decrypt
 
 
-picadailys_email = config("EMAIL_HOST_USER")
-app_password = config("EMAIL_HOST_PASSWORD")
-
-
 class PaginationStyle(PageNumberPagination):
     page_size = 20
 

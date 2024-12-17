@@ -23,12 +23,11 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
+ALLOWED_HOSTS = []
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "https://miniature-waddle.onrender.com/api/v1/"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["yourproductiondomain.com"]
-
-ALLOWED_HOSTS = ["127.0.0.1", "https://miniature-waddle.onrender.com/", p"167.71.174.242"]
+    ALLOWED_HOSTS = ["167.71.174.242"]
 
 
 # Application definition
@@ -78,6 +77,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:8000",
+    "167.71.174.242",
     "https://picadailys.com",
     "http://localhost:5174",
     "https://admin-dashboard-jade-phi.vercel.app",
@@ -109,8 +109,10 @@ if ENVIRONMENT == "development":
     DEBUG = True
     database_url = conf("DATABASE_URL")
     DATABASES["default"] = dj_database_url.parse(database_url)
-else:  # production or other environments
+elif ENVIRONMENT == "production":
     DEBUG = False
+    database_url = conf("DATABASE_URL")
+    DATABASES["default"] = dj_database_url.parse(database_url)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -228,15 +230,6 @@ SPECTACULAR_SETTINGS = {
     "DEFAULT_MODEL_RENDERING": "example",
     "DEFAULT_MODEL_DEPTH": 1,
 }
-
-# SMTP email configuration.
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_USE_TLS = False
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_HOST_USER = conf("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = conf("EMAIL_HOST_PASSWORD")
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_URL = "/static/"

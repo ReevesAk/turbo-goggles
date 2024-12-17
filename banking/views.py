@@ -44,6 +44,7 @@ from .models import (
 )
 from .controllers import BVN, Account
 from security import encrypt, decrypt
+from commons import Message
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -54,8 +55,6 @@ headers = {
     "Authorization": "Bearer " + secret_key,
 }
 
-picadailys_email = config("EMAIL_HOST_USER")
-app_password = config("EMAIL_HOST_PASSWORD")
 
 logger = logging.getLogger(__name__)
 
@@ -528,13 +527,25 @@ class SetWalletPin(generics.CreateAPIView):
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
-            # send_email(
-            #     subject="Wallet Pin.",
-            #     body="This is to inform you that your Wallet pin was created successful.",
-            #     sender=picadailys_email,
-            #     recipients=authenticated_user.email,
-            #     password=app_password,
-            # )
+            with open("templates/empty_email.html", "r", encoding="utf-8") as file:
+                html_template = file.read()
+
+                # Create a Jinja2 template
+                template = Template(html_template)
+
+                # Render the template with values
+                rendered_html = template.render(
+                    custom_text="This is to inform you that your Wallet pin was created successful.",
+                    support_email="support@picadailys.com",
+                    picadailys_phone="+123 456 7890",
+                )
+
+                Message.send_email(
+                    email=request.user.email,
+                    html_content=rendered_html,
+                    subject="Waller Pin",
+                )
+
             response = {
                 "status": "success",
                 "message": "Wallet pin created succesfully!",

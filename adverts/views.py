@@ -28,9 +28,6 @@ from roles.models import ActivityModel
 from security import encrypt, decrypt
 
 
-picadailys_email = config("EMAIL_HOST_USER")
-app_password = config("EMAIL_HOST_PASSWORD")
-
 logger = logging.getLogger(__name__)
 
 
