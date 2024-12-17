@@ -23,7 +23,6 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
-ALLOWED_HOSTS = []
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "https://miniature-waddle.onrender.com/api/v1/"]
 elif ENVIRONMENT == "production":
