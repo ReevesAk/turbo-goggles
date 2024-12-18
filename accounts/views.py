@@ -70,7 +70,7 @@ class Register(generics.GenericAPIView):
             if user_data["password"] != user_data["password2"]:
                 logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
-                    data={"status": "fail", "error": "Passwords do not match!"},
+                    data=encrypt({"status": "fail", "error": "Passwords do not match!"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -116,10 +116,12 @@ class Register(generics.GenericAPIView):
 
             response_data = serializer.data
             response_data["profile_image"] = user.profile_img_url
+            print(user.profile_img_url)
 
             response = {
                 "status": "success",
                 "message": "User Created Successfully. Check your phone for an OTP",
+                "image": user.profile_img_url,
                 "data": response_data,
             }
             logger.info("Registration successful for user: %s", user.email)
