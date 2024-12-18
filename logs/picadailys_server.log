@@ -275,3 +275,240 @@ INFO 2024-12-17 16:54:17,193 views User created: vh@gmail.com
 INFO 2024-12-17 16:54:27,397 views Registration successful for user: vh@gmail.com
 INFO 2024-12-17 16:54:27,401 basehttp "POST /api/v1/accounts/register HTTP/1.1" 201 322
 INFO 2024-12-18 01:17:37,079 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 02:28:52,089 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 02:29:49,737 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:30:19,959 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"][0].strip('"')  # Remove the double quotes
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 02:30:19,960 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 101780
+INFO 2024-12-18 02:30:38,333 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:30:39,892 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:31:04,994 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"][0].strip('"')  # Remove the double quotes
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 02:31:04,995 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 101751
+INFO 2024-12-18 02:34:46,715 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:34:48,249 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 02:34:54,466 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:34:55,516 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 02:35:10,306 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:35:11,067 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:35:22,082 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"][0].strip('"')  # Remove the double quotes
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 02:35:22,083 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 101728
+INFO 2024-12-18 02:36:40,370 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:36:41,945 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:36:55,237 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"].strip('"')  # Remove the double quotes
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 02:36:55,238 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 101722
+INFO 2024-12-18 02:46:03,713 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:46:05,173 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 02:50:32,211 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:50:44,725 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"].strip('"')
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 02:50:44,726 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 92685
+INFO 2024-12-18 02:52:41,849 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 02:52:43,295 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 02:53:22,713 views Invalid payload format: GCk1e5i/u3y6kovczlwmW8IRO+8mXrWAlWiFn6L/ezCP+aHUFLpyR1suqZ7UueZBD4CWiniomACP2JLoav7sTDMQN9qy6g7uyWwKkMP5bvq/l3PNiP/9ZliPxFY+4ja+iRVI7/xJ6BEsJwagQ6X/mfXdBlX0QMuzWS1WKGwPRHonR24kNt4OFBYHukLaXBAncnUh7nb3TdlgF7Np2wJH753Tk0l3EBhudBJAJHK41KE=
+WARNING 2024-12-18 02:53:22,715 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 02:53:22,716 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 34
+WARNING 2024-12-18 02:55:05,891 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 02:55:05,897 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 107
+WARNING 2024-12-18 02:56:51,566 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 02:56:51,567 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 73
+INFO 2024-12-18 03:03:26,098 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:03:27,727 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:03:32,680 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:03:33,975 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 03:04:05,054 views Invalid payload format: GCk1e5i/u3y6kovczlwmW8IRO+8mXrWAlWiFn6L/ezCP+aHUFLpyR1suqZ7UueZBD4CWiniomACP2JLoav7sTDMQN9qy6g7uyWwKkMP5bvq/l3PNiP/9ZliPxFY+4ja+iRVI7/xJ6BEsJwagQ6X/mfXdBlX0QMuzWS1WKGwPRHonR24kNt4OFBYHukLaXBAncnUh7nb3TdlgF7Np2wJH753Tk0l3EBhudBJAJHK41KE=
+WARNING 2024-12-18 03:04:05,056 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 03:04:05,057 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 34
+INFO 2024-12-18 03:06:45,937 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:06:47,391 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 03:06:59,583 views Invalid payload format: GCk1e5i/u3y6kovczlwmW8IRO+8mXrWAlWiFn6L/ezCP+aHUFLpyR1suqZ7UueZBD4CWiniomACP2JLoav7sTDMQN9qy6g7uyWwKkMP5bvq/l3PNiP/9ZliPxFY+4ja+iRVI7/xJ6BEsJwagQ6X/mfXdBlX0QMuzWS1WKGwPRHonR24kNt4OFBYHukLaXBAncnUh7nb3TdlgF7Np2wJH753Tk0l3EBhudBJAJHK41KE=
+WARNING 2024-12-18 03:06:59,584 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 03:06:59,584 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 34
+INFO 2024-12-18 03:08:02,225 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:08:03,612 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:08:05,940 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:08:06,738 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:08:10,119 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:08:11,274 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:08:13,648 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:08:15,008 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:08:19,991 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:08:21,106 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-18 03:08:36,480 log Internal Server Error: /api/v1/accounts/register
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/accounts/views.py", line 59, in post
+    cipher_text = request.data["payload"][0]  # Access the first element of the list
+                  ~~~~~~~~~~~~^^^^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+ERROR 2024-12-18 03:08:36,482 basehttp "POST /api/v1/accounts/register HTTP/1.1" 500 92704
+INFO 2024-12-18 03:15:31,619 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:15:32,999 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:15:37,452 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:15:38,407 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:15:52,001 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:15:53,143 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:15:55,521 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:15:56,462 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:16:18,418 views Received registration data: {'device_id': 'deviceId', 'first_name': 'kkkkk', 'last_name': 'fffff', 'phone_number': '4444440477446', 'email': 'ldjyypq@gmail.com', 'password': '123456', 'password2': '123456'}
+INFO 2024-12-18 03:16:22,407 serializers New user registered with email: ldjyypq@gmail.com
+INFO 2024-12-18 03:16:23,204 views User created: ldjyypq@gmail.com
+INFO 2024-12-18 03:16:25,750 views Registration successful for user: ldjyypq@gmail.com
+INFO 2024-12-18 03:16:25,751 basehttp "POST /api/v1/accounts/register HTTP/1.1" 201 366
+INFO 2024-12-18 03:24:21,569 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:24:23,081 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 03:24:29,786 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 03:24:31,220 autoreload Watching for file changes with StatReloader

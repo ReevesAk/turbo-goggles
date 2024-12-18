@@ -55,14 +55,14 @@ class Register(generics.GenericAPIView):
     parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
-        print(request.data)
-        cipher_text = request.data["payload"][0].strip('"')  # Remove the double quotes
-        formatted_cipher_text = f"'{cipher_text}'"
-        logger.info("Received registration data: %s", formatted_cipher_text)
-        decrypted_payload = decrypt(formatted_cipher_text)
+        # print(request.data)
+        # cipher_text = request.data["payload"][0]  # Access the first element of the list
+        # logger.info("Cipher text: %s", cipher_text)
+        # print(cipher_text)
+        # decrypted_payload = decrypt(cipher_text=request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
 
         logger.info("Received registration data: %s", user_data)
