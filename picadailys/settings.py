@@ -21,7 +21,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", get_random_secret_key())
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = conf("ENVIRONMENT")
 
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
