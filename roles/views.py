@@ -325,8 +325,7 @@ class AddProduct(generics.GenericAPIView):
     )
 
     def post(self, request):
-        decrypted_payload = decrypt(request.data)
-        user_data = decrypted_payload
+        user_data = request.data
         authenticated_user = request.user
         logger.info(f"User {authenticated_user.email} is attempting to add a product.")
         serializer = ProductSerializers(data=user_data)

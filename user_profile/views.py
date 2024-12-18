@@ -352,8 +352,7 @@ class ProfileImage(generics.CreateAPIView):
             "User  %s is attempting to upload a profile image.", request.user.email
         )
 
-        decrypted_data = decrypt(request.data)
-        serializer = ProfileImageSerializer(data=decrypted_data)
+        serializer = ProfileImageSerializer(data=request.data)
 
         if serializer.is_valid():
             profile_image = serializer.validated_data["profile_image"]

@@ -55,11 +55,6 @@ class Register(generics.GenericAPIView):
     parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
-        # print(request.data)
-        # cipher_text = request.data["payload"][0]  # Access the first element of the list
-        # logger.info("Cipher text: %s", cipher_text)
-        # print(cipher_text)
-        # decrypted_payload = decrypt(cipher_text=request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()

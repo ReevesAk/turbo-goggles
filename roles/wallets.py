@@ -87,10 +87,9 @@ class CreateBankAccountForUser(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         admin_user = request.user
-        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
 
         email = kwargs.get("email")

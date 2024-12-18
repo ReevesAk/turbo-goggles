@@ -206,10 +206,9 @@ class CreateBankAccount(generics.GenericAPIView):
 
     def post(self, request):
         current_user = request.user
-        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
 
         passport = request.FILES.get("passport")

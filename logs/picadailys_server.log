@@ -512,3 +512,39 @@ INFO 2024-12-18 03:24:21,569 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-18 03:24:23,081 autoreload Watching for file changes with StatReloader
 INFO 2024-12-18 03:24:29,786 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
 INFO 2024-12-18 03:24:31,220 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:03:29,473 views Received registration data: {'device_id': 'device_id', 'first_name': 'myname', 'last_name': 'surname', 'phone_number': '7474728949204', 'email': 'email@gmail.com', 'password': 'password', 'password2': 'password2', 'profile_image': <TemporaryUploadedFile: Screenshot 2024-10-28 at 13.38.39.png (image/png)>}
+WARNING 2024-12-18 04:03:32,614 views Password mismatch for user: email@gmail.com
+WARNING 2024-12-18 04:03:32,621 log Bad Request: /api/v1/accounts/register
+WARNING 2024-12-18 04:03:32,621 basehttp "POST /api/v1/accounts/register HTTP/1.1" 400 90
+INFO 2024-12-18 04:04:41,119 views Received registration data: {'device_id': 'device_id', 'first_name': 'myname', 'last_name': 'surname', 'phone_number': '7474728949204', 'email': 'email@gmail.com', 'password': '123456', 'password2': '123456', 'profile_image': <TemporaryUploadedFile: Screenshot 2024-10-28 at 13.38.39.png (image/png)>}
+INFO 2024-12-18 04:04:45,877 serializers New user registered with email: email@gmail.com
+INFO 2024-12-18 04:04:46,426 views User created: email@gmail.com
+INFO 2024-12-18 04:04:52,599 views Profile image uploaded for user: email@gmail.com
+INFO 2024-12-18 04:04:55,034 views Registration successful for user: email@gmail.com
+INFO 2024-12-18 04:04:55,035 basehttp "POST /api/v1/accounts/register HTTP/1.1" 201 578
+INFO 2024-12-18 04:26:35,688 autoreload /Users/macbookpro/projects/miniature-waddle/accounts/views.py changed, reloading.
+INFO 2024-12-18 04:26:37,469 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:27:03,128 autoreload /Users/macbookpro/projects/miniature-waddle/banking/views.py changed, reloading.
+INFO 2024-12-18 04:27:04,341 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:27:09,488 autoreload /Users/macbookpro/projects/miniature-waddle/banking/views.py changed, reloading.
+INFO 2024-12-18 04:27:10,890 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:27:21,998 autoreload /Users/macbookpro/projects/miniature-waddle/partners/views.py changed, reloading.
+INFO 2024-12-18 04:27:23,565 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:27:33,129 autoreload /Users/macbookpro/projects/miniature-waddle/partners/views.py changed, reloading.
+INFO 2024-12-18 04:27:34,253 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:27:48,447 autoreload /Users/macbookpro/projects/miniature-waddle/partners/views.py changed, reloading.
+INFO 2024-12-18 04:27:49,730 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:28:08,265 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
+INFO 2024-12-18 04:28:09,403 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:28:16,066 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
+INFO 2024-12-18 04:28:17,259 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:28:49,600 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-18 04:28:51,155 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:28:57,043 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-18 04:28:58,206 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:29:06,626 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-18 04:29:07,812 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:29:19,777 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-18 04:29:21,675 autoreload Watching for file changes with StatReloader
+INFO 2024-12-18 04:29:27,233 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-18 04:29:28,385 autoreload Watching for file changes with StatReloader

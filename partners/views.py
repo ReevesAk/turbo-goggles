@@ -208,13 +208,12 @@ class CreatePartnerService(generics.CreateAPIView):
     def create(self, request):
         logger.info("Partner service creation requested by user: %s", request.user)
 
-        decrypted_payload = decrypt(request.data)
-        serializer = PartnerServiceSerializer(data=decrypted_payload)
+        serializer = PartnerServiceSerializer(data=request.data)
 
         if serializer.is_valid(raise_exception=True):
             cleaned_data = {
                 key: value.strip() if isinstance(value, str) else value
-                for key, value in decrypted_payload.items()
+                for key, value in request.data.items()
             }
 
             current_user = request.user
@@ -400,10 +399,9 @@ class UpdatePartnerService(generics.UpdateAPIView):
         )
 
         partner_service = self.get_object(service_id)
-        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
         logger.debug("Payload after cleaning: %s", payload)
 
