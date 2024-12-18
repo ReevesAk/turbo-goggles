@@ -215,7 +215,7 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     # "Bearer <Token>"
     "AUDIENCE": "picadailys",
-    "ISSUER": "http://167.71.174.242/api",
+    "ISSUER": "http://167.71.174.242/api/v1/",
 }
 
 # Spectacular settings for Title and description of api documentation.
