@@ -20,6 +20,7 @@ from banking.models import AccountCreation, BVNData
 from banking.serializers import WalletStatusSerializer
 from banking.controllers import Account, BVN
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
+from security import encrypt, decrypt
 
 
 class GetallWalletUsers(generics.ListAPIView):
@@ -44,7 +45,7 @@ class GetallWalletUsers(generics.ListAPIView):
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            return self.get_paginated_response(
+            response = self.get_paginated_response(
                 {
                     "status": "success",
                     "message": "All Wallet owners retrieved successfully.",
@@ -52,6 +53,7 @@ class GetallWalletUsers(generics.ListAPIView):
                     "wallet_owners": serialized_users.data,
                 }
             )
+            return encrypt(response)
 
         # In case pagination is not used
         serialized_users = self.get_serializer(queryset, many=True)
@@ -59,12 +61,12 @@ class GetallWalletUsers(generics.ListAPIView):
         data = serialized_users.data
 
         return Response(
-            {
+            data=encrypt({
                 "status": "success",
                 "message": "All Wallet owners retrieved successfully.",
-                "num_of_wallet_owners": queryset.count(),
-                "wallet_owners": serialized_users.data,
-            },
+                "num_of_wallet_owners": count,
+                "wallet_owners": data,
+            }),
             status=status.HTTP_200_OK,
         )
 
@@ -85,9 +87,10 @@ class CreateBankAccountForUser(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         admin_user = request.user
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         email = kwargs.get("email")
@@ -122,10 +125,10 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 # Check if the user's date of birth matches the ones on BVN.
                 if request.data.get("date_of_birth") != bvn_data["DOB"]:
                     return Response(
-                        data={
+                        data=encrypt({
                             "status": "fail",
                             "message": "Date of birth or phone number provided does not match the one on bvn",
-                        },
+                        }),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -145,14 +148,14 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 user.is_bvn_verified = True
                 user.save()
             else:
-                return Response(data=bvn_response.json(), status=bvn_status_code)
+                return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
 
         except Exception as err:
             return Response(
-                {
+                data=encrypt({
                     "status": "fail",
                     "message": err,
-                },
+                }),
                 status=status.HTTP_409_CONFLICT,
             )
         try:
@@ -187,11 +190,11 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 )
                 error_message = "The operation has timed out. Please try again later."
                 return Response(
-                    data={
+                    data=encrypt({
                         "status": "fail",
                         "error": error_message,
                         "details": response_data["ResponseDetInfo"],
-                    },
+                    }),
                     status=status.HTTP_408_REQUEST_TIMEOUT,
                 )
 
@@ -240,15 +243,15 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 logging.info(
                     f"Account creation successful for {user.first_name} {user.last_name}"
                 )
-                return Response(data=resp, status=status.HTTP_201_CREATED)
+                return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             else:
                 return Response(
-                    data=acc_response.json(), status=acc_response.status_code
+                    data=encrypt(acc_response.json()), status=acc_response.status_code
                 )
         except requests.exceptions.RequestException as e:
             logging.error(f"Account creation API request error: {str(e)}")
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -285,6 +288,6 @@ class WalletSearch(generics.ListAPIView):
         }
 
         return Response(
-            data=response_data,
+            data=encrypt(response_data),
             status=status.HTTP_200_OK if accounts else status.HTTP_404_NOT_FOUND,
         )

@@ -17,6 +17,7 @@ from permissions import (
     IsNotDisabled,
     IsAdAdminOrSuperAdmin,
 )
+from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                 )
                 raise exceptions.ValidationError("User is not registered as a BrandAd.")
 
-            serializer = self.get_serializer(data=request.data)
+            decrypted_payload = decrypt(request.data)
+            serializer = self.get_serializer(data=decrypted_payload)
             if serializer.is_valid(raise_exception=True):
                 logger.info(
                     f"Serializer validation successful for user_id: {user_id}. Data: {serializer.validated_data}"
@@ -73,10 +75,10 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
 
                     brand_account = RestrictBrandAdAccount.objects.create(
                         user=brand_ad,
-                        reason=request.data.get("reason"),
-                        minimum_debit=request.data.get("minimum_debit"),
-                        maximum_debit=request.data.get("maximum_debit"),
-                        post_per_day=request.data.get("post_per_day"),
+                        reason=decrypted_payload.get("reason"),
+                        minimum_debit=decrypted_payload.get("minimum_debit"),
+                        maximum_debit=decrypted_payload.get("maximum_debit"),
+                        post_per_day=decrypted_payload.get("post_per_day"),
                     )
                     logger.info(
                         f"Restricted BrandAd account created for user_id: {user_id}. ID: {brand_account.id}."
@@ -99,7 +101,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                         f"Admin activity logged for user_id: {request.user.id}."
                     )
 
-                    reason = request.data.get("reason")
+                    reason = decrypted_payload.get("reason")
                     UserNotification.objects.create(
                         user=brand_account.user,
                         title="Restrict Account.",
@@ -110,14 +112,14 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                     )
 
                     return Response(
-                        {
+                        data=encrypt({
                             "status": "success",
                             "message": "BrandAd account restricted successfully.",
                             "data": {
                                 "restricted_account_id": brand_account.id,
                                 "user_detail": serializer.data,
                             },
-                        },
+                        }),
                         status=status.HTTP_200_OK,
                     )
                 else:
@@ -125,17 +127,17 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                         f"Pin verification failed for admin: {request.user.id}."
                     )
                     return Response(
-                        data={"status": "fail", "error": "Incorrect pin"},
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
         except User.DoesNotExist:
             logger.error(f"User with id {user_id} does not exist.")
             return Response(
-                {
+                data=encrypt({
                     "status": "error",
                     "message": "User does not exist.",
-                },
+                }),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except exceptions.ValidationError as ve:
@@ -143,7 +145,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                 f"Validation error while processing request for user_id: {user_id}. Error: {ve}"
             )
             return Response(
-                {"status": "fail", "message": str(ve)},
+                data=encrypt({"status": "fail", "message": str(ve)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -151,7 +153,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )
             return Response(
-                {"status": "error", "message": f"An unexpected error occurred.{e}"},
+                data=encrypt({"status": "error", "message": f"An unexpected error occurred.{e}"}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -179,11 +181,11 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data={
+                data=({
                     "status": "success",
                     "message": "All brand advert users retrieved successfully.",
                     "No of BrandAd Users": queryset.count(),
                     "BrandAd user object": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )

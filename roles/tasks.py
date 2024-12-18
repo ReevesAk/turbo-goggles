@@ -24,6 +24,7 @@ from .serializers import (
 from accounts.models import User
 from .models import GamificationModel, Points
 from permissions import IsTaskAdmin, IsSuperAdmin
+from security import encrypt, decrypt
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,8 @@ class AssignTask(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         logger.info("Received POST request to assign a task.")
 
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             user_id = kwargs.get("user_id")
             logger.info(f"Attempting to assign task to user_id: {user_id}")
@@ -70,7 +72,7 @@ class AssignTask(generics.CreateAPIView):
             except Exception as e:
                 logger.error(f"Error creating task: {str(e)}")
                 return Response(
-                    {"status": "error", "message": "Error creating task."},
+                    data=encrypt({"status": "error", "message": "Error creating task."}),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
@@ -86,7 +88,7 @@ class AssignTask(generics.CreateAPIView):
             }
             logger.info(f"Task assigned successfully, task_id: {task.task_id}")
 
-            return Response(data=response_data, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
 
 class GetAllTasks(generics.ListAPIView):
@@ -114,7 +116,7 @@ class GetAllTasks(generics.ListAPIView):
             "data": serializer.data,
         }
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class GetSingleTask(generics.RetrieveAPIView):
@@ -141,7 +143,7 @@ class GetSingleTask(generics.RetrieveAPIView):
             "data": serializer.data,
         }
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class UpdateUserTask(generics.UpdateAPIView):
@@ -160,7 +162,8 @@ class UpdateUserTask(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(instance, data=decrypted_payload, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -189,7 +192,7 @@ class GetAllSubmittedTasks(generics.ListAPIView):
             "data": serializer.data,
         }
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class GetSingleSubmittedTask(generics.ListAPIView):
@@ -215,7 +218,7 @@ class GetSingleSubmittedTask(generics.ListAPIView):
             "data": serializer.data,
         }
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class ReviewTask(generics.CreateAPIView):
@@ -232,7 +235,8 @@ class ReviewTask(generics.CreateAPIView):
     def post(self, request):
         logger.info("Received POST request to review task.")
 
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             user_id = serializer.validated_data["user_id"]
             logger.info(f"Processing task for user_id: {user_id}")
@@ -275,4 +279,4 @@ class ReviewTask(generics.CreateAPIView):
         }
         logger.info("Task review successfully completed.")
 
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)

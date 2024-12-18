@@ -22,6 +22,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.models import User, AccountType, UserNotification
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
 
+from security import encrypt, decrypt
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,12 +50,12 @@ class GetAllPartnersUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "All partner users retrieved successfully",
                     "No of Partner Users": queryset.count(),
                     "Partners user object": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -90,7 +92,8 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                 )
                 raise exceptions.ValidationError("User is not registered as a partner.")
 
-            serializer = self.get_serializer(data=request.data)
+            decrypted_payload = decrypt(request.data)
+            serializer = self.get_serializer(data=decrypted_payload)
             if serializer.is_valid(raise_exception=True):
                 logger.info(
                     f"Serializer validation successful for user_id: {user_id}. Data: {serializer.validated_data}"
@@ -162,14 +165,14 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                     )
 
                     return Response(
-                        {
+                        data=encrypt({
                             "status": "success",
                             "message": "Partner account restricted successfully.",
                             "data": {
                                 "restricted_account_id": partner_account.id,
                                 "user_detail": serializer.data,
                             },
-                        },
+                        }),
                         status=status.HTTP_200_OK,
                     )
                 else:
@@ -177,23 +180,23 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                         f"Pin verification failed for admin: {request.user.id}"
                     )
                     return Response(
-                        data={"status": "fail", "error": "Incorrect pin"},
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
         except User.DoesNotExist:
             logger.error(f"User with id {user_id} does not exist.")
             return Response(
-                {
+                data=encrypt({
                     "status": "error",
                     "message": "User does not exist.",
-                },
+                }),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except exceptions.ValidationError as ve:
             logger.warning(f"Validation error for user_id: {user_id}. Error: {ve}")
             return Response(
-                {"status": "fail", "message": str(ve)},
+                data=encrypt({"status": "fail", "message": str(ve)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -201,7 +204,7 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )
             return Response(
-                {"status": "error", "message": str(e)},
+                data=encrypt({"status": "error", "message": str(e)}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -240,7 +243,7 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
                 else "User with the provided email does not exist."
             )
             return Response(
-                data={"status": "fail", "error": error_message},
+                data=encrypt({"status": "fail", "error": error_message}),
                 status=status.HTTP_400_BAD_REQUEST
                 if not email
                 else status.HTTP_404_NOT_FOUND,
@@ -249,11 +252,11 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
         # Serialize and respond with the queryset data
         serializer = self.serializer_class(queryset, many=True)
         return Response(
-            data={
+            data=encrypt({
                 "status": "success",
                 "message": "Services retrieved successfully.",
                 "data": serializer.data,
-            },
+            }),
             status=status.HTTP_200_OK,
         )
 
@@ -296,7 +299,7 @@ class PartnerSearch(generics.ListAPIView):
                 logger.info(
                     f"Found {partners.count()} partners matching the search term: {search_term}"
                 )
-                return Response(data=data, status=status.HTTP_200_OK)
+                return Response(data=encrypt(data), status=status.HTTP_200_OK)
             else:
                 data = {
                     "status": "fail",
@@ -306,14 +309,14 @@ class PartnerSearch(generics.ListAPIView):
                 logger.warning(
                     f"No partners found matching the search term: {search_term}"
                 )
-                return Response(data=data, status=status.HTTP_404_NOT_FOUND)
+                return Response(data=encrypt(data), status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
             logger.exception(f"Error occurred while searching for partners: {e}")
             return Response(
-                {
+                data=encrypt({
                     "status": "error",
                     "message": "An error occurred while processing the request.",
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

@@ -56,7 +56,7 @@ from cloudinary import uploader as cloud
 
 from accounts.models import User, UserNotification
 from accounts.otp import otp_manager
-from commons import Message
+from security import encrypt, decrypt
 from permissions import (
     IsSuperAdmin,
     IsNotDisabled,
@@ -64,6 +64,7 @@ from permissions import (
     IsFmcgAdminOrSuperAdmin,
     IsWalletAdminOrSuperAdmin,
 )
+from sms import Message
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -98,15 +99,16 @@ class RegisterSuperAdmin(generics.GenericAPIView):
 
     def post(self, request):
         # Check if a SuperAdmin already exists
-        # if User.objects.filter(active_role="SuperAdmin").exists():
-        #     return Response(
-        #         data="Registration is not allowed. Super admin already exists.",
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
+        if User.objects.filter(active_role="SuperAdmin").exists():
+            return Response(
+                data="Registration is not allowed. Super admin already exists.",
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
@@ -159,20 +161,20 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                     "message": "SuperUser Created Successfully. Check your phone for an OTP.",
                     "data": serializer.data,
                 }
-                return Response(data=response, status=status.HTTP_201_CREATED)
+                return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
             except Exception as err:
                 logger.error(f"Error occurred while creating SuperUser: {str(err)}")
                 return Response(
-                    {
+                    data=encrypt({
                         "status": "fail",
                         "message": str(err),
-                    },
+                    }),
                     status=status.HTTP_409_CONFLICT,
                 )
 
         logger.warning("Invalid data received for SuperAdmin registration.")
-        return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginAdmin(APIView):
@@ -183,9 +185,10 @@ class LoginAdmin(APIView):
     serializer_class = AdminLoginSerializers
 
     def post(self, request):
+        decrypted_payload = decrypt(request.data)
         data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         email = data.get("email")
         password = data.get("password")
@@ -196,7 +199,7 @@ class LoginAdmin(APIView):
         except User.DoesNotExist:
             logger.warning(f"Login attempt failed: User with email {email} not found.")
             return Response(
-                data={"error": "Invalid credentials"},
+                data=encrypt({"error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -219,9 +222,9 @@ class LoginAdmin(APIView):
                     )
 
                 return Response(
-                    data={
+                    data=encrypt({
                         "error": "User cannot login on more than two devices, oldest device ID deleted."
-                    },
+                    }),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -230,10 +233,10 @@ class LoginAdmin(APIView):
                     f"User {user.email} is not verified. Login attempt blocked."
                 )
                 return Response(
-                    data={
+                    data=encrypt({
                         "status": "fail",
                         "message": "Please verify your account to login",
-                    },
+                    }),
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
@@ -296,13 +299,13 @@ class LoginAdmin(APIView):
                 "tokens": tokens,
                 "user_data": user_details,
             }
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
         else:
             logger.warning(
                 f"Login attempt failed for user with email {email}. Invalid credentials."
             )
             return Response(
-                data={"error": "Invalid credentials"},
+                data=encrypt({"error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -322,7 +325,8 @@ class AddProduct(generics.GenericAPIView):
     )
 
     def post(self, request):
-        user_data = request.data
+        decrypted_payload = decrypt(request.data)
+        user_data = decrypted_payload
         authenticated_user = request.user
         logger.info(f"User {authenticated_user.email} is attempting to add a product.")
         serializer = ProductSerializers(data=user_data)
@@ -344,7 +348,7 @@ class AddProduct(generics.GenericAPIView):
             except Exception as err:
                 logger.error(f"Error uploading product images: {err}")
                 return Response(
-                    {"error": "An error occurred: {}".format(err)},
+                    data=encrypt({"error": "An error occurred: {}".format(err)}),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
@@ -401,13 +405,13 @@ class AddProduct(generics.GenericAPIView):
                     "input_style": user_data.get("input_style"),
                 },
             }
-            return Response(data=resp, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
 
         else:
             logger.warning(
                 f"Invalid product data received for user {authenticated_user.email}."
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
     def upload_files(self, doc_file):
         document = cloud.upload(file=doc_file)
@@ -426,9 +430,11 @@ class AddAddress(generics.GenericAPIView):
 
     def post(self, request):
         authenticated_user = request.user
+
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         logger.info(f"User {authenticated_user.email} is attempting to add an address.")
@@ -473,9 +479,9 @@ class AddAddress(generics.GenericAPIView):
                 "message": "Store address added successfully.",
                 "data": serializer.data,
             }
-            return Response(data=resp, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
         else:
-            error_resp = {"status": "fail.", "data": serializer.errors}
+            error_resp = encrypt({"status": "fail.", "data": serializer.errors})
             logger.warning(
                 f"Invalid address data received from user {authenticated_user.email}."
             )
@@ -500,10 +506,11 @@ class AddAdmin(generics.CreateAPIView):
             # Log request initiation
             logger.info("Received request to add a new admin.")
 
+            decrypted_payload = decrypt(request.data)
             # Process payload
             payload = {
                 key: value.strip() if isinstance(value, str) else value
-                for key, value in request.data.items()
+                for key, value in decrypted_payload.items()
             }
             logger.debug(f"Processed payload: {payload}")
 
@@ -545,10 +552,10 @@ class AddAdmin(generics.CreateAPIView):
                 except Exception as e:
                     logger.error(f"Failed to send email to {user.email}: {e}")
                     return Response(
-                        data={
+                        data=encrypt({
                             "status": "Failure",
                             "message": f"Admin created, but email could not be sent: {str(e)}",
-                        },
+                        }),
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
 
@@ -562,7 +569,7 @@ class AddAdmin(generics.CreateAPIView):
                 logger.info(f"Response prepared for user creation: {resp}")
 
                 return Response(
-                    data=resp,
+                    data=encrypt(resp),
                     status=status.HTTP_201_CREATED,
                 )
         except ValidationError as e:
@@ -571,7 +578,7 @@ class AddAdmin(generics.CreateAPIView):
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             return Response(
-                data={"status": "Error", "message": "An unexpected error occurred."},
+                data=encrypt({"status": "Error", "message": "An unexpected error occurred."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -619,16 +626,17 @@ class AdAdminContd(generics.UpdateAPIView):
         instance = self.get_object()
         if instance is None:
             logger.warning("User  with ID %s not found.", user_id)
-            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
+            return Response(data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND)
         elif isinstance(instance, Response):  # Return Response if not an admin
             logger.warning(
                 "User  with ID %s is not an admin, returning response.", user_id
             )
             return instance
 
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         logger.debug("Payload for update: %s", payload)
 
@@ -651,11 +659,11 @@ class AdAdminContd(generics.UpdateAPIView):
                 "User  registration completed successfully for user ID: %s", user_id
             )
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "User  registration completed successfully.",
                     "data": serializer.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
         else:
@@ -665,7 +673,7 @@ class AdAdminContd(generics.UpdateAPIView):
                 serializer.errors,
             )
             return Response(
-                data={"status": "error", "message": serializer.errors},
+                data=encrypt({"status": "error", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -681,7 +689,8 @@ class SetAdminPin(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def perform_create(self, serializer, request):
-        pin = request.data.get("pin")
+        decrypted_payload = decrypt(request.data)
+        pin = decrypted_payload.get("pin")
         user = request.user
         logger.info(f"Creating admin pin for user: {user.first_name} {user.last_name}")
 
@@ -690,7 +699,7 @@ class SetAdminPin(generics.CreateAPIView):
                 f"No pin provided for user: {user.first_name} {user.last_name}"
             )
             return Response(
-                data={"status": "error", "message": "Pin is required."},
+                data=encrypt({"status": "error", "message": "Pin is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -739,11 +748,11 @@ class SetAdminPin(generics.CreateAPIView):
                 request.user.first_name,
                 request.user.last_name,
             )
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
         else:
             logger.error("Validation errors occurred: %s", serializer.errors)
             return Response(
-                data={"status": "error", "message": serializer.errors},
+                data=encrypt({"status": "error", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -755,14 +764,15 @@ class AddRoleToAdmin(generics.GenericAPIView):
 
     def post(self, request):
         """Add a role to an admin."""
-        email = request.data.get("email")
-        pin = request.data.get("pin")
+        decrypted_payload = decrypt(request.data)
+        email = decrypted_payload.get("email")
+        pin = decrypted_payload.get("pin")
         logger.info("Received request to add role for email: %s", email)
 
         is_user = User.objects.filter(email=email).first()
         if not is_user:
             logger.warning("User  not found for email: %s", email)
-            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
+            return Response(data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND)
 
         new_role = request.data.get("role")
         logger.info("Checking if user already has the role: %s", new_role)
@@ -771,11 +781,11 @@ class AddRoleToAdmin(generics.GenericAPIView):
         if AccountType.objects.filter(user=is_user, user_type=new_role).exists():
             logger.warning("User  already has the role: %s", new_role)
             return Response(
-                data={
+                data=encrypt({
                     "status": "fail",
                     "message": f"User  already has {new_role} as part of their roles.",
                     "role": new_role,
-                },
+                }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -803,11 +813,11 @@ class AddRoleToAdmin(generics.GenericAPIView):
             )
 
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": f"'{new_role}' assigned to the user.",
                     "new_role": new_role,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
         else:
@@ -817,7 +827,7 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 request.user.last_name,
             )
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -829,8 +839,9 @@ class RemoveAdminRole(generics.GenericAPIView):
 
     def delete(self, request):
         """Remove a role from an admin."""
-        email = request.data.get("email")
-        pin = request.data.get("pin")
+        decrypted_payload = decrypt(request.data)
+        email = decrypted_payload.get("email")
+        pin = decrypted_payload.get("pin")
         logger.info("Received request to remove role for email: %s", email)
 
         is_user = User.objects.filter(email=email).first()
@@ -838,7 +849,7 @@ class RemoveAdminRole(generics.GenericAPIView):
             logger.warning("User  not found for email: %s", email)
             return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
 
-        role_to_remove = request.data.get("role_to_remove")
+        role_to_remove = decrypted_payload.get("role_to_remove")
         logger.info("Attempting to remove role: %s for user: %s", role_to_remove, email)
 
         # Check if the role exists for the user
@@ -852,7 +863,7 @@ class RemoveAdminRole(generics.GenericAPIView):
                     "Role '%s' not found for user: %s", role_to_remove, email
                 )
                 return Response(
-                    data="Role not found for the user.",
+                    data=encrypt("Role not found for the user."),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -881,11 +892,11 @@ class RemoveAdminRole(generics.GenericAPIView):
             )
 
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": f"Role '{role_to_remove}' removed successfully.",
                     "removed_role": role_to_remove,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -896,7 +907,7 @@ class RemoveAdminRole(generics.GenericAPIView):
                 request.user.last_name,
             )
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -913,9 +924,10 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         email = payload.get("email")
         pin = payload.get("pin")
@@ -927,7 +939,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
             if user is None:
                 logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
-                    f"Admin with '{email}' does not exist.",
+                    data=encrypt(f"Admin with '{email}' does not exist."),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -955,7 +967,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                     "message": "Admin disabled successfully",
                     "data": user.is_admin_disabled,
                 }
-                return Response(data=resp, status=status.HTTP_200_OK)
+                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
             else:
                 logger.warning(
                     "Incorrect pin provided for user: %s %s",
@@ -963,14 +975,14 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                     request.user.last_name,
                 )
                 return Response(
-                    data={"status": "fail", "error": "Incorrect pin"},
+                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
         except Exception as e:
             logger.error("An error occurred while disabling admin: %s", str(e))
             return Response(
-                data={"status": "fail", "error": "An error occurred."},
+                data=encrypt({"status": "fail", "error": "An error occurred."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -987,9 +999,10 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
     authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         email = payload.get("email")
         pin = payload.get("pin")
@@ -1001,7 +1014,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
             if user is None:
                 logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
-                    f"Admin with '{email}' does not exist.",
+                    data=encrypt(f"Admin with '{email}' does not exist."),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -1031,7 +1044,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                     "message": "Admin re-enabled successfully",
                     "data": user.is_admin_disabled,
                 }
-                return Response(data=resp, status=status.HTTP_200_OK)
+                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
             else:
                 logger.warning(
                     "Incorrect pin provided for user: %s %s",
@@ -1039,14 +1052,14 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                     request.user.last_name,
                 )
                 return Response(
-                    data={"status": "fail", "error": "Incorrect pin"},
+                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
         except Exception as e:
             logger.error("An error occurred while re-enabling admin: %s", str(e))
             return Response(
-                data={"status": "fail", "error": "An error occurred."},
+                data=encrypt({"status": "fail", "error": "An error occurred."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1057,7 +1070,8 @@ class DeleteAdmin(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.serializer_class(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
             email = serializer.validated_data.get("email")
             pin = serializer.validated_data.get("pin")
@@ -1112,7 +1126,7 @@ class DeleteAdmin(generics.GenericAPIView):
                     )
 
                     return Response(
-                        f"Admin with '{email}' deleted successfully.",
+                        data=encrypt(f"Admin with '{email}' deleted successfully."),
                         status=status.HTTP_204_NO_CONTENT,
                     )
                 else:
@@ -1122,18 +1136,18 @@ class DeleteAdmin(generics.GenericAPIView):
                         request.user.last_name,
                     )
                     return Response(
-                        data={"status": "fail", "error": "Incorrect pin"},
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
             except User.DoesNotExist:
                 logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
-                    f"Admin with '{email}' does not exist.",
+                    data=encrypt(f"Admin with '{email}' does not exist."),
                     status=status.HTTP_404_NOT_FOUND,
                 )
         else:
             logger.error("Serializer validation failed: %s", serializer.errors)
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class JobApplications(generics.CreateAPIView):
@@ -1311,12 +1325,12 @@ class VerifiedUsersCount(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "Verified users retrieved successfully",
                     "verified_users_count": queryset.count(),
                     "verified_users": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1342,12 +1356,12 @@ class VerifiedPartnersCount(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "Verified Partners retrieved successfully",
                     "verified_business_count": queryset.count(),
                     "verified_businesses": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1378,23 +1392,23 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
             serialized_users = self.get_serializer(page, many=True)
             logger.info("Successfully serialized promoted ads.")
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "Promoted Ads retrieved successfully",
                     "promotedAds_count": promoted_ads_count,
                     "promotedAds": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
         else:
             logger.warning("No promoted ads found for pagination.")
             return Response(
-                data={
+                data=encrypt({
                     "status": "fail",
                     "message": "No promoted ads found.",
                     "promotedAds_count": promoted_ads_count,
                     "promotedAds": [],
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1435,27 +1449,27 @@ class GetAllAdminUsers(generics.ListAPIView):
             serialized_users = self.get_serializer(page, many=True)
             logger.info("Admin users serialized successfully.")
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "All admin users retrieved successfully",
                     "num_of_admin_users": queryset.count(),
                     "num_of_active_admin_users": active_admin_count,
                     "num_of_disabled_admin_users": disabled_admin_count,
                     "admin_users": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
         else:
             logger.warning("No admin users found for pagination.")
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "No admin users found.",
                     "num_of_admin_users": queryset.count(),
                     "num_of_active_admin_users": active_admin_count,
                     "num_of_disabled_admin_users": disabled_admin_count,
                     "admin_users": [],
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1497,12 +1511,12 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         if page is not None:
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "All admin users retrieved successfully",
                     "num_of_admin_users": queryset.count(),
                     "admin_role_counts": role_counts_dict,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1522,11 +1536,11 @@ class GetAllWalletStatus(generics.ListAPIView):
         serialized_wallets = self.get_serializer(queryset, many=True)
 
         return Response(
-            data={
+            data=encrypt({
                 "status": "success",
                 "message": "Wallet statuses retrieved successfully",
                 "wallet_statuses": serialized_wallets.data,
-            },
+            }),
             status=status.HTTP_200_OK,
         )
 
@@ -1558,12 +1572,12 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "All wallet admin users retrieved successfully",
                     "num_of_wallet_admin_users": queryset.count(),
                     "wallet_admin_users": serialized_users.data,
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
@@ -1585,9 +1599,10 @@ class SwitchRoles(generics.RetrieveAPIView):
         logger.info("Received request to switch roles.")
 
         # Process the incoming request data
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         logger.debug(f"Processed payload: {payload}")
 
@@ -1596,10 +1611,10 @@ class SwitchRoles(generics.RetrieveAPIView):
             f"Processing role switch for user: {current_user.full_name} (ID: {current_user.id})"
         )
 
-        new_role = request.data.get("user_type")
+        new_role = payload.get("user_type")
         logger.debug(f"Requested new role: {new_role}")
 
-        serializer = SwitchRolesSerializers(data=request.data)
+        serializer = SwitchRolesSerializers(data=payload)
         if serializer.is_valid(raise_exception=True):
             try:
                 account_types = AccountType.objects.filter(user=current_user)
@@ -1617,7 +1632,7 @@ class SwitchRoles(generics.RetrieveAPIView):
                         "message": f"Sorry, you have not been assigned the role of {new_role}.",
                         "data": current_user.active_role,
                     }
-                    return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(data=encrypt(data), status=status.HTTP_400_BAD_REQUEST)
 
             except AccountType.DoesNotExist:
                 logger.error(
@@ -1637,7 +1652,7 @@ class SwitchRoles(generics.RetrieveAPIView):
                     "message": f"You are already on the {new_role} screen.",
                     "data": current_user.active_role,
                 }
-                return Response(data=data, status=status.HTTP_200_OK)
+                return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
             # Register Admin activity
             try:
@@ -1666,12 +1681,12 @@ class SwitchRoles(generics.RetrieveAPIView):
                 "message": f"Account type switched to {new_role} successfully.",
                 "data": current_user.active_role,
             }
-            return Response(data=data, status=status.HTTP_200_OK)
+            return Response(data=encrypt(data), status=status.HTTP_200_OK)
         else:
             logger.warning(
                 f"Validation errors for role switch request: {serializer.errors}"
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetProfileImage(generics.RetrieveAPIView):
@@ -1687,7 +1702,7 @@ class GetProfileImage(generics.RetrieveAPIView):
                 "image": request.user.profile_img_url,
             }
             return Response(
-                data=response,
+                data=encrypt(response),
                 status=status.HTTP_200_OK,
             )
         else:
@@ -1697,7 +1712,7 @@ class GetProfileImage(generics.RetrieveAPIView):
                 "image": request.user.profile_img_url,
             }
             return Response(
-                data=response,
+                data=encrypt(response),
                 status=status.HTTP_200_OK,
             )
 
@@ -1728,7 +1743,7 @@ class GetAllAppActivites(generics.ListAPIView):
         except Exception as e:
             logger.error(f"Error fetching activities: {e}")
             return Response(
-                {"status": "fail", "message": "Error fetching activity logs."},
+                data=encrypt({"status": "fail", "message": "Error fetching activity logs."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1742,7 +1757,7 @@ class GetAllAppActivites(generics.ListAPIView):
         except Exception as e:
             logger.error(f"Pagination error: {e}")
             return Response(
-                {"status": "fail", "message": "Error during pagination."},
+                data=encrypt({"status": "fail", "message": "Error during pagination."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1779,7 +1794,7 @@ class GetAllAppActivites(generics.ListAPIView):
         }
         logger.info("Activity logs fetched and prepared for response.")
 
-        return Response(response, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class GetAllAdminActivites(generics.ListAPIView):
@@ -1861,7 +1876,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             len(data),
             paginator.page.number,
         )
-        return Response(response, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class GetSingleAdminActivity(generics.RetrieveAPIView):
@@ -1933,12 +1948,12 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             logger.info(
                 "Response prepared successfully for activity ID: %s", activity_id
             )
-            return Response(data=response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         except ActivityModel.DoesNotExist:
             logger.error("Activity log not found for ID: %s", activity_id)
             return Response(
-                {"status": "fail", "message": "Activity log not found."},
+                data=encrypt({"status": "fail", "message": "Activity log not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
@@ -1946,10 +1961,10 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 "An error occurred while retrieving activity log: %s", str(e)
             )
             return Response(
-                {
+                data=encrypt({
                     "status": "fail",
                     "message": "An error occurred while retrieving the activity log.",
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1988,7 +2003,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         if not queryset.exists():
             logger.info("No activity logs found for admin email: %s", kwargs["email"])
             return Response(
-                data={"status": "fail", "message": "Activity log not found."},
+                data=encrypt({"status": "fail", "message": "Activity log not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -2044,7 +2059,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
             len(response_data),
             kwargs["email"],
         )
-        return Response(data=response, status=status.HTTP_200_OK)
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class AdminTypesListView(APIView):
@@ -2058,11 +2073,11 @@ class AdminTypesListView(APIView):
     def get(self, request):
         admin_types = [admin_type[1] for admin_type in ADMIN_TYPES]
         return Response(
-            data={
+            data=encrypt({
                 "status": "success.",
                 "message": "Admin types retrieved successfully.",
                 "categories": admin_types,
-            },
+            }),
             status=status.HTTP_200_OK,
         )
 
@@ -2123,16 +2138,16 @@ class ActivityTitleListView(APIView):
             logger.info(
                 "Response prepared successfully with admin and non-admin titles."
             )
-            return Response(response, status=status.HTTP_200_OK)
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.exception(
                 "An error occurred while fetching activity titles: %s", str(e)
             )
             return Response(
-                {
+                data=encrypt({
                     "status": "fail",
                     "message": "An error occurred while fetching activity titles.",
-                },
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

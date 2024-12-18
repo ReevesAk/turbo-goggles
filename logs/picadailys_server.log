@@ -261,3 +261,16 @@ INFO 2024-12-17 14:51:57,665 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
 INFO 2024-12-17 14:51:57,944 views Retrieving queryset for BrandAd users.
 INFO 2024-12-17 14:51:57,995 views ListAllProducts: GET request received with category: None
 INFO 2024-12-17 14:52:00,326 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828
+INFO 2024-12-17 16:44:29,634 autoreload Watching for file changes with StatReloader
+INFO 2024-12-17 16:46:55,976 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-17 16:46:57,046 views Retrieving queryset for BrandAd users.
+INFO 2024-12-17 16:46:57,100 views ListAllProducts: GET request received with category: None
+INFO 2024-12-17 16:47:10,282 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448828
+WARNING 2024-12-17 16:53:52,098 log Unauthorized: /api/v1/accounts/register
+WARNING 2024-12-17 16:53:52,099 basehttp "POST /api/v1/accounts/register HTTP/1.1" 401 183
+INFO 2024-12-17 16:54:10,980 views Received registration data: r7uKahF86ZlUcglDwVCgqRBYGYIVWNQ0bXEyAQCTds5IW9GN4P8n13VQJINlOUgM5Fzuiar/1QKaqlgCvyMA1g2zhNh0pcvbg5cZv3qHhajS2zcXpdweJruaB/rfleQAE5fwTJj/I37WfzVHZq8UC/iIDlBibOI54zcI3PRK2g9n1OVS27oEiPZRy3x/iJHIv9HBSqKWPjR2sRpVAuhrHgfQx1w/fJVH/AflxAHr24V6DC2hyWRHKmqzd3e+MDqh
+INFO 2024-12-17 16:54:10,990 views Received registration data: {'device_id': 'Infinix:SP1A.210812.016 Infinix-X669D', 'first_name': 'vbnkk', 'last_name': 'jjkj', 'phone_number': '88886996855', 'email': 'vh@gmail.com', 'password': '123456', 'password2': '123456'}
+INFO 2024-12-17 16:54:16,503 serializers New user registered with email: vh@gmail.com
+INFO 2024-12-17 16:54:17,193 views User created: vh@gmail.com
+INFO 2024-12-17 16:54:27,397 views Registration successful for user: vh@gmail.com
+INFO 2024-12-17 16:54:27,401 basehttp "POST /api/v1/accounts/register HTTP/1.1" 201 322
