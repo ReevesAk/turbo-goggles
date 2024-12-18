@@ -55,6 +55,7 @@ class Register(generics.GenericAPIView):
     parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
+        print(request.data)
         cipher_text = request.data[0].strip('"')  # Remove the double quotes
         formatted_cipher_text = f"'{cipher_text}'"
         logger.info("Received registration data: %s", formatted_cipher_text)
