@@ -209,6 +209,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
 
 SIMPLE_JWT = {
+    "ALGORITHM": "HS256",
     "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=4),
     "SIGNING_KEY": SECRET_KEY,
