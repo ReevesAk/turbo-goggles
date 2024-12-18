@@ -212,8 +212,9 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=4),
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "BLACKLIST_AFTER_ROTATION": False,
     # "Bearer <Token>"
+    "AUDIENCE": "picadailys",
+    "ISSUER": "http://167.71.174.242/api",
 }
 
 # Spectacular settings for Title and description of api documentation.
