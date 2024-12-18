@@ -56,7 +56,7 @@ class Register(generics.GenericAPIView):
 
     def post(self, request):
         print(request.data)
-        cipher_text = request.data[0].strip('"')  # Remove the double quotes
+        cipher_text = request.data["payload"][0].strip('"')  # Remove the double quotes
         formatted_cipher_text = f"'{cipher_text}'"
         logger.info("Received registration data: %s", formatted_cipher_text)
         decrypted_payload = decrypt(formatted_cipher_text)
