@@ -235,6 +235,9 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
+
 cloudinary.config(
     cloud_name=conf("CLOUDINARY_CLOUD_NAME"),
     api_key=conf("CLOUDINARY_API_KEY"),
