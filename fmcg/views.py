@@ -145,11 +145,15 @@ class ListAllProducts(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response({
+            response_data = {
                 "status": "success",
                 "message": "All FMCG products retrieved successfully.",
                 "count": total_count,
                 "data": serializer.data
+            }
+            encrypted_response = encrypt(response_data)
+            return self.get_paginated_response({
+                "encrypted_data": encrypted_response
             })
 
         serializer = self.get_serializer(queryset, many=True)

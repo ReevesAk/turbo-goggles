@@ -548,3 +548,70 @@ INFO 2024-12-18 04:29:19,777 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-18 04:29:21,675 autoreload Watching for file changes with StatReloader
 INFO 2024-12-18 04:29:27,233 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
 INFO 2024-12-18 04:29:28,385 autoreload Watching for file changes with StatReloader
+INFO 2024-12-19 07:19:03,095 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-19 07:20:53,592 log Internal Server Error: /api/v1/roles/admin-login
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/security.py", line 21, in decrypt
+    byte_data = b64decode(cipher_text)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/base64.py", line 83, in b64decode
+    s = _bytes_from_decode_data(s)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/base64.py", line 45, in _bytes_from_decode_data
+    raise TypeError("argument should be a bytes-like object or ASCII "
+TypeError: argument should be a bytes-like object or ASCII string, not 'dict'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/roles/views.py", line 188, in post
+    decrypted_payload = decrypt(request.data)
+                        ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/security.py", line 37, in decrypt
+    raise ValueError(f"Decryption failed: {e}")
+ValueError: Decryption failed: argument should be a bytes-like object or ASCII string, not 'dict'
+ERROR 2024-12-19 07:20:53,594 basehttp "POST /api/v1/roles/admin-login HTTP/1.1" 500 117176
+INFO 2024-12-19 07:22:19,818 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-19 07:22:21,547 autoreload Watching for file changes with StatReloader
+INFO 2024-12-19 07:22:25,928 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-19 07:22:27,151 autoreload Watching for file changes with StatReloader
+INFO 2024-12-19 07:26:44,274 views User testsuperadmin@gmail.com authenticated successfully.
+INFO 2024-12-19 07:26:44,612 views User testsuperadmin@gmail.com successfully logged in.
+INFO 2024-12-19 07:26:46,306 basehttp "POST /api/v1/roles/admin-login HTTP/1.1" 200 1218
+WARNING 2024-12-19 07:28:06,915 log Not Found: /api/v1/roles/wallet/get-all-wallet-users
+WARNING 2024-12-19 07:28:06,915 basehttp "GET /api/v1/roles/wallet/get-all-wallet-users HTTP/1.1" 404 13680
+INFO 2024-12-19 07:35:07,347 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-19 07:35:09,040 autoreload Watching for file changes with StatReloader
+WARNING 2024-12-19 07:35:23,831 log Not Found: /api/v1/roles/wallet/get-all-wallet-users
+WARNING 2024-12-19 07:35:23,831 basehttp "GET /api/v1/roles/wallet/get-all-wallet-users HTTP/1.1" 404 13680
+INFO 2024-12-19 11:22:09,744 autoreload Watching for file changes with StatReloader
+WARNING 2024-12-19 11:22:21,281 log Not Found: /api/v1/roles/wallet/get-all-wallet-users
+WARNING 2024-12-19 11:22:21,281 basehttp "GET /api/v1/roles/wallet/get-all-wallet-users HTTP/1.1" 404 13680
+INFO 2024-12-19 11:25:10,402 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-19 11:25:11,967 autoreload Watching for file changes with StatReloader
+INFO 2024-12-19 11:25:26,013 autoreload /Users/macbookpro/projects/miniature-waddle/roles/wallets.py changed, reloading.
+INFO 2024-12-19 11:25:27,411 autoreload Watching for file changes with StatReloader
+WARNING 2024-12-19 11:25:42,768 log Not Found: /api/v1/roles/wallet/get-all-wallet-users
+WARNING 2024-12-19 11:25:42,769 basehttp "GET /api/v1/roles/wallet/get-all-wallet-users HTTP/1.1" 404 13680

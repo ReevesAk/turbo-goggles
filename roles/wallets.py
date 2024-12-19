@@ -1,7 +1,5 @@
 import logging
 import requests
-from django.template.loader import render_to_string
-from commons import Message
 
 # In project imports.
 from .serializers import ListWalletUsersSerializer, AdminBankAccountCreationSerializers
@@ -20,7 +18,7 @@ from banking.models import AccountCreation, BVNData
 from banking.serializers import WalletStatusSerializer
 from banking.controllers import Account, BVN
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
-from security import encrypt, decrypt
+from security import encrypt
 
 
 class GetallWalletUsers(generics.ListAPIView):
@@ -53,7 +51,7 @@ class GetallWalletUsers(generics.ListAPIView):
                     "wallet_owners": serialized_users.data,
                 }
             )
-            return encrypt(response)
+            return response
 
         # In case pagination is not used
         serialized_users = self.get_serializer(queryset, many=True)
