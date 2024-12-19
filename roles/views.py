@@ -1771,7 +1771,7 @@ class GetAllAppActivites(generics.ListAPIView):
             logger.debug(
                 f"Processed activity ID {activity.id}: authorised_by={authorised_by}"
             )
-            data.append(
+            encrypted_activity = encrypt(
                 {
                     "activity_id": activity.id,
                     "authorised_by": authorised_by,
@@ -1782,18 +1782,19 @@ class GetAllAppActivites(generics.ListAPIView):
                     "last_login": activity.user.last_login,
                 }
             )
+            data.append(encrypted_activity)
 
-        response = {
+        response = encrypt({
             "status": "success",
             "message": "App activity logs fetched successfully!",
             "page": paginator.page.number,
             "page_size": paginator.page.paginator.per_page,
             "total_count": paginator.page.paginator.count,
             "data": data,
-        }
+        })
         logger.info("Activity logs fetched and prepared for response.")
 
-        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class GetAllAdminActivites(generics.ListAPIView):
