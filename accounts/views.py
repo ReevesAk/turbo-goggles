@@ -538,7 +538,7 @@ class ForgotPassword(generics.GenericAPIView):
         }
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
         phone_no = user_data["phone_number"][1:]
         try:
@@ -549,10 +549,10 @@ class ForgotPassword(generics.GenericAPIView):
                 f"No user found with phone number: {user_data['phone_number']}"
             )
             return Response(
-                data={
+                data=encrypt({
                     "status": "fail",
                     "detail": "A user with this phone number does not exist",
-                },
+                }),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -594,7 +594,7 @@ class ResetPassword(generics.CreateAPIView):
         }
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
         user_data = serializer.validated_data
         user_id = payload.get("user_id")
@@ -605,14 +605,14 @@ class ResetPassword(generics.CreateAPIView):
         except User.DoesNotExist:
             logger.error(f"User not found with ID: {user_id}")
             return Response(
-                data={"error": "User not found"},
+                data=encrypt({"error": "User not found"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if user_data["password"] != user_data["password2"]:
             logger.warning("Passwords do not match for user ID: %s", user_id)
             return Response(
-                data={"error": "Passwords do not match!"},
+                data=encrypt({"error": "Passwords do not match!"}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
