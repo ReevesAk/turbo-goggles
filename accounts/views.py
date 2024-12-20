@@ -112,15 +112,11 @@ class Register(generics.GenericAPIView):
 
             Message.send_msg(msg=str(msg), to=recipient)
 
-            response_data = serializer.data
-            user.profile_img_url = image_url
-            user.save()
-
             response = {
                 "status": "success",
                 "message": "User Created Successfully. Check your phone for an OTP",
-                "image": image_url,
-                "data": response_data,
+                "image": user.profile_img_url,
+                "data": serializer.data,
             }
             logger.info("Registration successful for user: %s", user.email)
             encrypted_response = encrypt(response)
