@@ -480,22 +480,24 @@ class UpdateUserProfile(generics.UpdateAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} updated their profile.",
             )
 
-            body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+            # Prepare and send the email notification
+            # TODO update correspondence email.
+            # body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
 
-            template = get_template("empty_email.html")
+            # template = get_template("empty_email.html")
 
-            # Render the template with values
-            rendered_html = template.render(
-                custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
-                support_email="support@picadailys.com",
-                picadailys_phone="+123 456 7890",
-            )
+            # # Render the template with values
+            # rendered_html = template.render(
+            #     custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
+            #     support_email="support@picadailys.com",
+            #     picadailys_phone="+123 456 7890",
+            # )
 
-            Messaging.send_email(
-                email="eze6266@gmail.com",
-                html_content=rendered_html,
-                subject="Profile Update",
-            )
+            # Messaging.send_email(
+            #     email="eze6266@gmail.com",
+            #     html_content=rendered_html,
+            #     subject="Profile Update",
+            # )
 
             logger.info(
                 "User  %s successfully updated their profile.", request.user.email
