@@ -502,8 +502,6 @@ class UpdateUserProfile(generics.UpdateAPIView):
             logger.info(
                 "User  %s successfully updated their profile.", request.user.email
             )
-            logger.debug("Decrypted payload: %s", decrypted_payload)
-            logger.debug("Serialized data: %s", serializer.data)
             return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
 
         except ValidationError as validation_error:
