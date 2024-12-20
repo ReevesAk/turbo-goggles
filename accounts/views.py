@@ -72,6 +72,7 @@ class Register(generics.GenericAPIView):
                 )
 
             profile_upload = user_data.get("profile_image")
+            logger.info("Profile image: %s", profile_upload)
 
             user = serializer.save()
             AccountType.objects.create(
