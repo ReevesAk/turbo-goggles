@@ -45,7 +45,6 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "country",
             "state",
             "city",
             "created_at",

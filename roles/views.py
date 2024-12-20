@@ -39,7 +39,7 @@ from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
-from commons import Message
+from commons import Messaging
 
 # Third party imports.
 from rest_framework import generics, status, exceptions

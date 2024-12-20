@@ -615,3 +615,283 @@ INFO 2024-12-19 11:25:26,013 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-19 11:25:27,411 autoreload Watching for file changes with StatReloader
 WARNING 2024-12-19 11:25:42,768 log Not Found: /api/v1/roles/wallet/get-all-wallet-users
 WARNING 2024-12-19 11:25:42,769 basehttp "GET /api/v1/roles/wallet/get-all-wallet-users HTTP/1.1" 404 13680
+INFO 2024-12-20 03:10:51,821 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:15:08,097 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/serializers.py changed, reloading.
+INFO 2024-12-20 03:15:09,417 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:18:48,255 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 03:18:49,486 views Error updating profile for user hdhdhdhQ@gmail.com: type object 'Message' has no attribute 'send_email'
+ERROR 2024-12-20 03:18:49,487 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 03:18:49,488 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 03:19:51,385 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:19:52,962 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:20:01,924 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 03:20:03,014 views Error updating profile for user hdhdhdhQ@gmail.com: Message.send_msg() got an unexpected keyword argument 'email'
+ERROR 2024-12-20 03:20:03,015 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 03:20:03,016 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 03:20:25,821 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:20:27,273 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:20:56,016 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:20:57,324 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:21:29,122 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:21:30,573 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:21:38,361 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:21:39,431 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:22:02,078 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:22:03,392 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:22:11,506 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:22:12,760 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:22:16,662 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:22:17,649 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:22:22,047 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:22:23,498 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:22:33,536 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 03:22:36,495 views Error updating profile for user hdhdhdhQ@gmail.com: 'module' object is not callable
+ERROR 2024-12-20 03:22:36,504 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 03:22:36,504 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 03:58:25,957 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:58:27,537 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:58:56,734 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 03:58:57,931 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 03:59:12,956 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+INFO 2024-12-20 03:59:13,957 views Activity logged successfully for user hdhdhdhQ@gmail.com
+ERROR 2024-12-20 03:59:14,908 views Error updating profile for user hdhdhdhQ@gmail.com: 'module' object is not callable
+ERROR 2024-12-20 03:59:14,912 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 03:59:14,912 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 04:00:59,290 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:01:00,667 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:01:25,235 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:01:26,483 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:01:33,424 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:01:34,794 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:01:41,161 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:01:42,655 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:01:53,955 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:01:55,023 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:02:00,066 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:02:01,003 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:02:54,146 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:02:55,611 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:11,892 autoreload /Users/macbookpro/projects/miniature-waddle/commons.py changed, reloading.
+INFO 2024-12-20 04:03:12,905 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:21,122 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:03:22,189 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:31,132 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:03:32,123 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:36,539 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:03:38,028 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:52,496 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:03:53,623 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:03:57,902 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:03:59,126 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:04:03,775 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:04:04,926 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:04:13,983 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:04:15,302 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:04:20,467 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:04:21,496 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:05:16,912 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:17:25,829 autoreload /Users/macbookpro/projects/miniature-waddle/fmcg/views.py changed, reloading.
+INFO 2024-12-20 04:17:27,048 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:17:36,754 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
+INFO 2024-12-20 04:17:37,776 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:17:51,064 autoreload /Users/macbookpro/projects/miniature-waddle/self_service/views.py changed, reloading.
+INFO 2024-12-20 04:17:52,326 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:18:30,683 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:18:32,516 views Error updating profile for user hdhdhdhQ@gmail.com: 'module' object is not callable
+ERROR 2024-12-20 04:18:32,519 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 04:18:32,519 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 04:21:00,649 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:02,064 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:21:10,007 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:11,064 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:21:19,034 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:21:19,106 log Internal Server Error: /api/v1/user_profile/update-user
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/generics.py", line 233, in patch
+    return self.partial_update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/user_profile/views.py", line 462, in update
+    logger.debug("Serialized data: %s", serializer.data)
+                                        ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'serializer' where it is not associated with a value
+ERROR 2024-12-20 04:21:19,108 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 103860
+INFO 2024-12-20 04:21:37,244 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:38,370 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:21:45,395 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:46,640 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:21:51,786 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:52,938 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:21:57,252 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:21:58,353 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:22:04,662 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:22:05,904 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:22:12,071 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:22:13,539 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:22:22,706 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:22:22,763 log Internal Server Error: /api/v1/user_profile/update-user
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/generics.py", line 233, in patch
+    return self.partial_update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/user_profile/views.py", line 467, in update
+    logger.debug("Serialized data: %s", serializer.data)
+                                        ^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 571, in data
+    ret = super().data
+          ^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/serializers.py", line 245, in data
+    raise AssertionError(msg)
+AssertionError: When a serializer is passed a `data` keyword argument you must call `.is_valid()` before attempting to access the serialized `.data` representation.
+You should either call `.is_valid()` first, or access `.initial_data` instead.
+ERROR 2024-12-20 04:22:22,764 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 114877
+INFO 2024-12-20 04:22:38,887 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:22:40,146 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:22:47,355 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:22:48,554 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:23:05,612 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:23:05,617 views Error updating profile for user hdhdhdhQ@gmail.com: You cannot call `.save()` after accessing `serializer.data`.If you need to access data before committing to the database then inspect 'serializer.validated_data' instead. 
+ERROR 2024-12-20 04:23:05,618 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 04:23:05,619 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 04:24:18,120 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:24:19,279 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:24:44,524 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:24:45,568 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:24:59,257 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:24:59,262 views Error updating profile for user hdhdhdhQ@gmail.com: 'UpdateUserSerializer' object has no attribute 'validated'
+ERROR 2024-12-20 04:24:59,263 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 04:24:59,263 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 04:25:49,262 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:25:50,631 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:25:55,503 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:25:56,788 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:26:09,010 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 04:26:10,043 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 04:26:30,619 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 04:26:32,511 views Error updating profile for user hdhdhdhQ@gmail.com: 'module' object is not callable
+ERROR 2024-12-20 04:26:32,514 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 04:26:32,514 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 06:16:57,599 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:16:59,864 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:21:27,692 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:21:29,052 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:21:34,206 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:21:35,238 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:21:40,004 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:21:41,152 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:21:48,594 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:21:50,560 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:22:25,073 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+INFO 2024-12-20 06:22:26,104 views User  hdhdhdhQ@gmail.com successfully updated their profile.
+INFO 2024-12-20 06:22:26,106 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 200 194
+INFO 2024-12-20 06:38:11,905 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:38:13,221 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:38:23,048 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:38:24,003 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:38:30,015 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:38:31,509 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:38:37,734 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:38:38,712 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:38:44,994 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:38:46,269 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:39:02,934 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:39:04,155 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:39:22,003 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+INFO 2024-12-20 06:39:24,379 views User  hdhdhdhQ@gmail.com successfully updated their profile.
+INFO 2024-12-20 06:39:24,381 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 200 194
+INFO 2024-12-20 06:40:23,823 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:40:24,835 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:46:47,087 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:46:48,607 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:48:34,008 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:48:35,144 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:48:43,272 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:48:44,668 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:49:03,514 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:49:05,049 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:49:53,147 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:49:54,527 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:50:18,813 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:50:19,824 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:50:26,334 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:50:27,686 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:50:33,356 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:50:34,454 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:51:02,297 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:51:03,657 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:51:08,880 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:51:09,863 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:51:16,769 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:51:18,150 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:51:35,139 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:51:36,275 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:51:46,870 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:51:48,204 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:57:31,778 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:57:33,107 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:57:38,346 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:57:39,397 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:58:23,636 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:59:10,848 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:59:12,083 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 06:59:17,333 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 06:59:18,486 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:06:17,484 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 07:06:18,912 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:06:30,563 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+ERROR 2024-12-20 07:06:31,605 views Error updating profile for user hdhdhdhQ@gmail.com: empty_email.html
+ERROR 2024-12-20 07:06:31,607 log Internal Server Error: /api/v1/user_profile/update-user
+ERROR 2024-12-20 07:06:31,607 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 500 90
+INFO 2024-12-20 07:12:30,762 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 07:12:32,497 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:12:39,457 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 07:12:40,522 autoreload Watching for file changes with StatReloader

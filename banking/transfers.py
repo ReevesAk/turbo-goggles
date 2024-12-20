@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
-from commons import generate_txId, Message, Biometrics
+from commons import generate_txId, Messaging, Biometrics
 
 # Third party imports.
 from rest_framework import generics

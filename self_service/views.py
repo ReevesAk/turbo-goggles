@@ -39,7 +39,7 @@ from banking.models import AccountCreation
 from commons import Biometrics
 from roles.models import ActivityModel
 from security import encrypt, decrypt
-from commons import Message
+from commons import Messaging
 
 
 SERVICES = (

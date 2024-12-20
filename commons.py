@@ -50,8 +50,7 @@ class Biometrics:
             return None
 
 
-class Message:
-
+class Messaging:
     def send_email(email, html_content, subject):
         configuration = ElasticEmail.Configuration()
         configuration.api_key['apikey'] = elastic_api_key

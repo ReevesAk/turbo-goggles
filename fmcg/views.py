@@ -2,7 +2,6 @@ import logging
 import random
 import string
 import uuid
-import logging
 from commons import Allocate, Biometrics
 
 from django.shortcuts import get_object_or_404

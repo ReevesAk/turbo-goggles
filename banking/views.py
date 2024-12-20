@@ -6,7 +6,7 @@ from permissions import (
     IsPartnerUserOrMember,
     IsPartnerUserOrMemberBrandAdOrSuperAdmin,
 )
-from commons import Message
+from commons import Messaging
 
 from django.contrib.auth.hashers import make_password
 
@@ -44,7 +44,7 @@ from .models import (
 )
 from .controllers import BVN, Account
 from security import encrypt, decrypt
-from commons import Message
+from sms import Message
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -386,7 +386,7 @@ class NotificationView(generics.CreateAPIView):
                         picadailys_phone="+123 456 7890",
                     )
 
-                Message.send_email(
+                Messaging.send_email(
                     email=request.user.email,
                     html_content=rendered_html,
                     subject="Credit Transaction",
@@ -416,7 +416,7 @@ class NotificationView(generics.CreateAPIView):
                         picadailys_phone="+123 456 7890",
                     )
 
-                Message.send_email(
+                Messaging.send_email(
                     email=request.user.email,
                     html_content=rendered_html,
                     subject="Debit Transaction",
@@ -539,7 +539,7 @@ class SetWalletPin(generics.CreateAPIView):
                     picadailys_phone="+123 456 7890",
                 )
 
-                Message.send_email(
+                Messaging.send_email(
                     email=request.user.email,
                     html_content=rendered_html,
                     subject="Waller Pin",
