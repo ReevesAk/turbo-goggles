@@ -87,7 +87,6 @@ class Register(generics.GenericAPIView):
                 try:
                     image_url = self.upload_image(profile_upload)
                     user.profile_img_url = image_url
-                    logger.debug("Profile image: %s", image_url)
                     user.save()
                     logger.info("Profile image uploaded for user: %s", user.email)
                 except Exception as e:
