@@ -113,7 +113,8 @@ class Register(generics.GenericAPIView):
             Message.send_msg(msg=str(msg), to=recipient)
 
             response_data = serializer.data
-            response_data["profile_image"] = user.profile_img_url
+            user.profile_img_url = image_url
+            user.save()
 
             response = {
                 "status": "success",
