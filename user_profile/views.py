@@ -502,7 +502,8 @@ class UpdateUserProfile(generics.UpdateAPIView):
             logger.info(
                 "User  %s successfully updated their profile.", request.user.email
             )
-            return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
+            return Response(
+                encrypt(data={"status": "success", "message": "profile updated", "data": serializer.data}), status=status.HTTP_200_OK)
 
         except ValidationError as validation_error:
             logger.warning("Validation failed for user %s: %s", request.user.email, str(validation_error))
