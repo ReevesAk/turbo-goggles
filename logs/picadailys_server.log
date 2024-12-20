@@ -895,3 +895,12 @@ INFO 2024-12-20 07:12:30,762 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-20 07:12:32,497 autoreload Watching for file changes with StatReloader
 INFO 2024-12-20 07:12:39,457 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
 INFO 2024-12-20 07:12:40,522 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:34:39,981 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:35:04,187 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 07:35:20,160 views User  hdhdhdhQ@gmail.com is attempting to update their profile.
+INFO 2024-12-20 07:35:21,293 views User  hdhdhdhQ@gmail.com successfully updated their profile.
+INFO 2024-12-20 07:35:21,295 basehttp "PATCH /api/v1/user_profile/update-user HTTP/1.1" 200 194
+INFO 2024-12-20 08:03:34,838 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 08:03:36,740 autoreload Watching for file changes with StatReloader
+INFO 2024-12-20 08:03:43,635 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
+INFO 2024-12-20 08:03:44,769 autoreload Watching for file changes with StatReloader
