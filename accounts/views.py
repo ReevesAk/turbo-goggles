@@ -104,6 +104,7 @@ class Register(generics.GenericAPIView):
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
+            logger.info("OTP for user: %s", otp)
             msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
                 otp
             )
@@ -113,12 +114,11 @@ class Register(generics.GenericAPIView):
 
             response_data = serializer.data
             response_data["profile_image"] = user.profile_img_url
-            print(user.profile_img_url)
 
             response = {
                 "status": "success",
                 "message": "User Created Successfully. Check your phone for an OTP",
-                "image": user.profile_img_url,
+                "image": image_url,
                 "data": response_data,
             }
             logger.info("Registration successful for user: %s", user.email)
