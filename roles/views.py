@@ -2124,7 +2124,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
             )
             response_data.append(
                 {
-                    "activity_id": activity.id,
+                    "activity_id": str(activity.id),
                     "title": activity.title,
                     "description": activity.description,
                     "authorised_by": authorised_by,
