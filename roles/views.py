@@ -1783,8 +1783,8 @@ class GetAllAppActivites(generics.ListAPIView):
                     "role": activity.user.active_role,
                     "title": activity.title,
                     "description": activity.description,
-                    "created_at": activity.created_at,
-                    "last_login": activity.user.last_login,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                    "last_login": activity.user.last_login.isoformat() if activity.user.last_login else None,
                 }
             )
             data.append(encrypted_activity)
@@ -1861,8 +1861,8 @@ class GetAllAdminActivites(generics.ListAPIView):
                     "role": activity.user.active_role,
                     "title": activity.title,
                     "description": activity.description,
-                    "created_at": activity.created_at,
-                    "last_login": activity.user.last_login,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                    "last_login": activity.user.last_login.isoformat() if activity.user.last_login else None,
                 }
             )
 
@@ -1946,8 +1946,8 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "email": activity.user.email,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
-                    "created_at": activity.created_at,
-                    "last_login": activity.user.last_login,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                    "last_login": activity.user.last_login.isoformat() if activity.user.last_login else None,
                 },
             }
             logger.info(
@@ -2049,8 +2049,8 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
                     "description": activity.description,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
-                    "created_at": activity.created_at,
-                    "last_login": activity.user.last_login,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                    "last_login": activity.user.last_login.isoformat() if activity.user.last_login else None,
                 }
             )
 
