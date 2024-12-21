@@ -513,6 +513,11 @@ class AddAdmin(generics.CreateAPIView):
             }
             logger.debug(f"Processed payload: {payload}")
 
+            # Check if email exists
+            if User.objects.filter(email=payload.get("email")).exists():
+                logger.warning(f"Attempt to create admin with existing email: {payload.get('email')}")
+                raise ValidationError({"email": "A user with this email already exists."})
+
             # Validate and save user
             serializer = AddAdminSerializer(data=payload)
             if serializer.is_valid(raise_exception=True):

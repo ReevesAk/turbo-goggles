@@ -51,7 +51,7 @@ class GetallWalletUsers(generics.ListAPIView):
                     "wallet_owners": serialized_users.data,
                 }
             )
-            return response
+            return self.get_paginated_response(encrypt(response))
 
         # In case pagination is not used
         serialized_users = self.get_serializer(queryset, many=True)
