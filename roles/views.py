@@ -542,7 +542,7 @@ class AddAdmin(generics.CreateAPIView):
                             picadailys_phone="+123 456 7890",
                         )
 
-                    Message.send_email(
+                    Messaging.send_email(
                         email=user.email,
                         html_content=rendered_html,
                         subject="Admin Registration",
@@ -1773,7 +1773,7 @@ class GetAllAppActivites(generics.ListAPIView):
             )
             encrypted_activity = encrypt(
                 {
-                    "activity_id": activity.id,
+                    "activity_id": str(activity.id),
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "title": activity.title,
@@ -1851,7 +1851,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             )
             data.append(
                 {
-                    "activity_id": activity.id,
+                    "activity_id": str(activity.id),
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
                     "title": activity.title,
@@ -1935,7 +1935,7 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 "message": "Activity log retrieved successfully!",
                 "title": activity.title,
                 "data": {
-                    "activity_id": activity_id,
+                    "activity_id": str(activity_id),
                     "description": activity.description,
                     "profile_image_url": activity.user.profile_img_url,
                     "email": activity.user.email,
