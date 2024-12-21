@@ -59,12 +59,14 @@ class GetallWalletUsers(generics.ListAPIView):
         data = serialized_users.data
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "All Wallet owners retrieved successfully.",
-                "num_of_wallet_owners": count,
-                "wallet_owners": data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "All Wallet owners retrieved successfully.",
+                    "num_of_wallet_owners": count,
+                    "wallet_owners": data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -122,10 +124,12 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 # Check if the user's date of birth matches the ones on BVN.
                 if request.data.get("date_of_birth") != bvn_data["DOB"]:
                     return Response(
-                        data=encrypt({
-                            "status": "fail",
-                            "message": "Date of birth or phone number provided does not match the one on bvn",
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Date of birth or phone number provided does not match the one on bvn",
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -145,14 +149,18 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 user.is_bvn_verified = True
                 user.save()
             else:
-                return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
+                return Response(
+                    data=encrypt(bvn_response.json()), status=bvn_status_code
+                )
 
         except Exception as err:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": err,
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": err,
+                    }
+                ),
                 status=status.HTTP_409_CONFLICT,
             )
         try:
@@ -187,11 +195,13 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 )
                 error_message = "The operation has timed out. Please try again later."
                 return Response(
-                    data=encrypt({
-                        "status": "fail",
-                        "error": error_message,
-                        "details": response_data["ResponseDetInfo"],
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": error_message,
+                            "details": response_data["ResponseDetInfo"],
+                        }
+                    ),
                     status=status.HTTP_408_REQUEST_TIMEOUT,
                 )
 
@@ -248,7 +258,8 @@ class CreateBankAccountForUser(generics.GenericAPIView):
         except requests.exceptions.RequestException as e:
             logging.error(f"Account creation API request error: {str(e)}")
             return Response(
-                data=encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

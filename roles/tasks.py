@@ -72,7 +72,9 @@ class AssignTask(generics.CreateAPIView):
             except Exception as e:
                 logger.error(f"Error creating task: {str(e)}")
                 return Response(
-                    data=encrypt({"status": "error", "message": "Error creating task."}),
+                    data=encrypt(
+                        {"status": "error", "message": "Error creating task."}
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
@@ -163,7 +165,9 @@ class UpdateUserTask(generics.UpdateAPIView):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         decrypted_payload = decrypt(request.data)
-        serializer = self.get_serializer(instance, data=decrypted_payload, partial=partial)
+        serializer = self.get_serializer(
+            instance, data=decrypted_payload, partial=partial
+        )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)

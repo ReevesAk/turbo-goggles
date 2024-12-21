@@ -67,7 +67,9 @@ class Register(generics.GenericAPIView):
             if user_data["password"] != user_data["password2"]:
                 logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Passwords do not match!"}),
+                    data=encrypt(
+                        {"status": "fail", "error": "Passwords do not match!"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -536,7 +538,9 @@ class ForgotPassword(generics.GenericAPIView):
         }
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         phone_no = user_data["phone_number"][1:]
         try:
@@ -547,10 +551,12 @@ class ForgotPassword(generics.GenericAPIView):
                 f"No user found with phone number: {user_data['phone_number']}"
             )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "detail": "A user with this phone number does not exist",
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "detail": "A user with this phone number does not exist",
+                    }
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -592,7 +598,9 @@ class ResetPassword(generics.CreateAPIView):
         }
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         user_data = serializer.validated_data
         user_id = payload.get("user_id")

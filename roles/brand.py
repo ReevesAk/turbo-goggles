@@ -112,14 +112,16 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                     )
 
                     return Response(
-                        data=encrypt({
-                            "status": "success",
-                            "message": "BrandAd account restricted successfully.",
-                            "data": {
-                                "restricted_account_id": brand_account.id,
-                                "user_detail": serializer.data,
-                            },
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "success",
+                                "message": "BrandAd account restricted successfully.",
+                                "data": {
+                                    "restricted_account_id": brand_account.id,
+                                    "user_detail": serializer.data,
+                                },
+                            }
+                        ),
                         status=status.HTTP_200_OK,
                     )
                 else:
@@ -134,10 +136,12 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
         except User.DoesNotExist:
             logger.error(f"User with id {user_id} does not exist.")
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "User does not exist.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "User does not exist.",
+                    }
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
         except exceptions.ValidationError as ve:
@@ -153,7 +157,9 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )
             return Response(
-                data=encrypt({"status": "error", "message": f"An unexpected error occurred.{e}"}),
+                data=encrypt(
+                    {"status": "error", "message": f"An unexpected error occurred.{e}"}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -181,11 +187,13 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data=({
-                    "status": "success",
-                    "message": "All brand advert users retrieved successfully.",
-                    "No of BrandAd Users": queryset.count(),
-                    "BrandAd user object": serialized_users.data,
-                }),
+                data=(
+                    {
+                        "status": "success",
+                        "message": "All brand advert users retrieved successfully.",
+                        "No of BrandAd Users": queryset.count(),
+                        "BrandAd user object": serialized_users.data,
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )

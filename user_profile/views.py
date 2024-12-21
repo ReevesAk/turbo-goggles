@@ -503,10 +503,22 @@ class UpdateUserProfile(generics.UpdateAPIView):
                 "User  %s successfully updated their profile.", request.user.email
             )
             return Response(
-                data=encrypt({"status": "success", "message": "profile updated", "data": serializer.data}), status=status.HTTP_200_OK)
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "profile updated",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
 
         except ValidationError as validation_error:
-            logger.warning("Validation failed for user %s: %s", request.user.email, str(validation_error))
+            logger.warning(
+                "Validation failed for user %s: %s",
+                request.user.email,
+                str(validation_error),
+            )
             return Response(
                 data=encrypt({"status": "fail", "errors": validation_error.detail}),
                 status=status.HTTP_400_BAD_REQUEST,
