@@ -9,7 +9,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader, Template
+from django.template.loader import render_to_string
 
 # In project imports.
 from .serializers import (
@@ -546,27 +547,32 @@ class AddAdmin(generics.CreateAPIView):
                 logger.info(f"Admin user created successfully: {user.email}")
 
                 # Generate signup link
-                signup_link = (
-                    f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
-                )
-                body = f"Use this link: {signup_link} to complete your registration."
+                signup_link = f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
 
                 # Send link to mailbox
                 try:
-                    with open(
-                        "templates/empty_email.html", "r", encoding="utf-8"
-                    ) as file:
-                        html_template = file.read()
-
-                        # Create a Jinja2 template
-                        template = Template(html_template)
-
-                        firstname = user.full_name[0]
-                        # Render the template with values
+                    # Load and render the Jinja2 template
+                    try:
+                        template_dir = "templates"
+                        env = Environment(loader=FileSystemLoader(template_dir))
+                        template = env.get_template("empty_email.html")
+                        
                         rendered_html = template.render(
-                            custom_text=f"Dear {firstname},<br><br>{body}",
+                            firstname=user.full_name.split()[0],
+                            signup_link=signup_link,
                             support_email="support@picadailys.com",
                             picadailys_phone="+123 456 7890",
+                        )
+                    except Exception as e:
+                        logger.error(f"Jinja2 failed, falling back to Django template engine: {e}")
+                        rendered_html = render_to_string(
+                            "empty_email.html",
+                            {
+                                "firstname": user.full_name.split()[0],
+                                "signup_link": signup_link,
+                                "support_email": "support@picadailys.com",
+                                "picadailys_phone": "+123 456 7890",
+                            },
                         )
 
                     Messaging.send_email(
@@ -611,7 +617,6 @@ class AddAdmin(generics.CreateAPIView):
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
 
 class AdAdminContd(generics.UpdateAPIView):
     """
