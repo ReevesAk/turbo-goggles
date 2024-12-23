@@ -73,7 +73,7 @@ class Register(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            profile_upload = user_data.get("profile_image")
+            profile_upload = user_data.get("profile_img_url")
             logger.info("Profile image: %s", profile_upload)
 
             user = serializer.save()
@@ -88,8 +88,7 @@ class Register(generics.GenericAPIView):
 
             if profile_upload:
                 try:
-                    image_url = self.upload_image(profile_upload)
-                    user.profile_img_url = image_url
+                    user.profile_img_url = profile_upload
                     user.save()
                     logger.info("Profile image uploaded for user: %s", user.email)
                 except Exception as e:
@@ -131,11 +130,6 @@ class Register(generics.GenericAPIView):
                 serializer.errors,
             )
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def upload_image(self, image_data):
-        profile_img = cloud.upload(file=image_data)
-        self.uploaded_profile_url = profile_img["url"]
-        return self.uploaded_profile_url
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):

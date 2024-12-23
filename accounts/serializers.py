@@ -20,7 +20,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=68, min_length=6, write_only=True, style={"input_type": "password"}
     )
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    profile_image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -33,7 +32,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "phone_number",
             "password",
             "password2",
-            "profile_image",
+            "profile_img_url",
         ]
         extra_kwargs = {
             "password": {"write_only": True},
