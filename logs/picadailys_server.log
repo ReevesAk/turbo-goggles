@@ -942,3 +942,101 @@ INFO 2024-12-20 08:12:30,309 autoreload /Users/macbookpro/projects/miniature-wad
 INFO 2024-12-20 08:12:31,359 autoreload Watching for file changes with StatReloader
 INFO 2024-12-20 08:12:54,156 autoreload /Users/macbookpro/projects/miniature-waddle/user_profile/views.py changed, reloading.
 INFO 2024-12-20 08:12:55,494 autoreload Watching for file changes with StatReloader
+INFO 2024-12-23 12:13:36,166 autoreload Watching for file changes with StatReloader
+ERROR 2024-12-23 12:13:52,979 log Internal Server Error: /api/v1/docs/
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 141, in get
+    'schema_url': self._get_schema_url(request),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 159, in _get_schema_url
+    schema_url = self.url or get_relative_url(reverse(self.url_name, request=request))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/reverse.py", line 47, in reverse
+    url = _reverse(viewname, args, kwargs, request, format, **extra)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/reverse.py", line 60, in _reverse
+    url = django_reverse(viewname, args=args, kwargs=kwargs, **extra)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/urls/base.py", line 88, in reverse
+    return resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/urls/resolvers.py", line 828, in _reverse_with_prefix
+    raise NoReverseMatch(msg)
+django.urls.exceptions.NoReverseMatch: Reverse for 'schema' not found. 'schema' is not a valid view function or pattern name.
+ERROR 2024-12-23 12:13:52,981 basehttp "GET /api/v1/docs/ HTTP/1.1" 500 128835
+ERROR 2024-12-23 12:13:53,937 log Internal Server Error: /api/v1/docs/
+Traceback (most recent call last):
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 141, in get
+    'schema_url': self._get_schema_url(request),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/drf_spectacular/views.py", line 159, in _get_schema_url
+    schema_url = self.url or get_relative_url(reverse(self.url_name, request=request))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/reverse.py", line 47, in reverse
+    url = _reverse(viewname, args, kwargs, request, format, **extra)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/rest_framework/reverse.py", line 60, in _reverse
+    url = django_reverse(viewname, args=args, kwargs=kwargs, **extra)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/urls/base.py", line 88, in reverse
+    return resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbookpro/projects/miniature-waddle/.venv/lib/python3.11/site-packages/django/urls/resolvers.py", line 828, in _reverse_with_prefix
+    raise NoReverseMatch(msg)
+django.urls.exceptions.NoReverseMatch: Reverse for 'schema' not found. 'schema' is not a valid view function or pattern name.
+ERROR 2024-12-23 12:13:53,939 basehttp "GET /api/v1/docs/ HTTP/1.1" 500 128561
+WARNING 2024-12-23 12:13:54,201 log Not Found: /favicon.ico
+WARNING 2024-12-23 12:13:54,202 basehttp "GET /favicon.ico HTTP/1.1" 404 3606
+INFO 2024-12-23 12:14:18,108 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/urls.py changed, reloading.
+INFO 2024-12-23 12:14:19,738 autoreload Watching for file changes with StatReloader
+INFO 2024-12-23 12:14:29,523 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-23 12:14:30,667 basehttp "GET /api/v1/docs/ HTTP/1.1" 200 4664
+INFO 2024-12-23 12:14:38,103 views Retrieving queryset for BrandAd users.
+INFO 2024-12-23 12:14:38,169 views ListAllProducts: GET request received with category: None
+INFO 2024-12-23 12:14:42,052 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448522
+INFO 2024-12-23 12:25:55,473 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
+INFO 2024-12-23 12:25:57,800 autoreload Watching for file changes with StatReloader
