@@ -103,7 +103,7 @@ urlpatterns = [
         name="get_all_admin-activities",
     ),
     path(
-        "activity/<str:activity_id>/single-activity",
+        "activity/<uuid:activity_id>/single-activity",
         GetSingleAdminActivity.as_view(),
         name="single_activity",
     ),

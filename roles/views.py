@@ -2008,6 +2008,8 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                 else "Unknown"
             )
 
+            logger.info(activity.title)
+            logger.info(activity.description)
             # Prepare the response data
             response = {
                 "status": "success",
