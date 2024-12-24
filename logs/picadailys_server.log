@@ -1040,3 +1040,4 @@ INFO 2024-12-23 12:14:38,169 views ListAllProducts: GET request received with ca
 INFO 2024-12-23 12:14:42,052 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448522
 INFO 2024-12-23 12:25:55,473 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
 INFO 2024-12-23 12:25:57,800 autoreload Watching for file changes with StatReloader
+INFO 2024-12-24 21:48:05,209 autoreload Watching for file changes with StatReloader

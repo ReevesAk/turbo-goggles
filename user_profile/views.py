@@ -347,7 +347,7 @@ class ProfileImage(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
     parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
-    def create(self, request):
+    def update(self, request):
         logger.info(
             "User  %s is attempting to upload a profile image.", request.user.email
         )
@@ -358,18 +358,15 @@ class ProfileImage(generics.CreateAPIView):
             profile_image = serializer.validated_data["profile_image"]
 
             try:
-                # Upload the image to Cloudinary
-                result = cloud.upload(profile_image)
-                logger.debug("Image uploaded to Cloudinary: %s", result["url"])
 
                 # Update user's profile image URL
-                request.user.profile_img_url = result["url"]
+                request.user.profile_img_url = profile_image
                 request.user.save()
 
                 UserNotification.objects.create(
                     user=request.user,
                     title="Profile Image.",
-                    message="You have successfully uploaded your profile image.",
+                    message="You have successfully updated your profile image.",
                 )
 
                 # Check if user is an admin and adjust the description
@@ -385,9 +382,9 @@ class ProfileImage(generics.CreateAPIView):
                     "WalletAdmin",
                     "FmcgAdmin",
                 }:
-                    description = f"Admin with email: {request.user.email} and role: {request.user.active_role} uploaded their profile image."
+                    description = f"Admin with email: {request.user.email} and role: {request.user.active_role} updated their profile image."
                 else:
-                    description = f"{request.user.first_name} {request.user.last_name} uploaded their profile image."
+                    description = f"{request.user.first_name} {request.user.last_name} updated their profile image."
 
                 ActivityModel.objects.create(
                     user=request.user,
@@ -397,25 +394,25 @@ class ProfileImage(generics.CreateAPIView):
 
                 response = {
                     "status": "success",
-                    "message": "Profile picture uploaded successfully",
+                    "message": "Profile picture updated successfully",
                 }
                 logger.info(
-                    "User  %s uploaded their profile image successfully.",
+                    "User %s updated their profile image successfully.",
                     request.user.email,
                 )
                 return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
             except Exception as e:
                 logger.error(
-                    "Error uploading image for user %s: %s", request.user.email, str(e)
+                    "Error updating image for user %s: %s", request.user.email, str(e)
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Image upload failed."}),
+                    data=encrypt({"status": "fail", "message": "Profile image update failed."}),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         logger.warning(
-            "Profile image upload failed for user %s: %s",
+            "Profile image update failed for user %s: %s",
             request.user.email,
             serializer.errors,
         )
