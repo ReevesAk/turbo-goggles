@@ -547,7 +547,9 @@ class AddAdmin(generics.CreateAPIView):
                 logger.info(f"Admin user created successfully: {user.email}")
 
                 # Generate signup link
-                signup_link = f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
+                signup_link = (
+                    f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
+                )
 
                 # Send link to mailbox
                 try:
@@ -556,7 +558,7 @@ class AddAdmin(generics.CreateAPIView):
                         template_dir = "templates"
                         env = Environment(loader=FileSystemLoader(template_dir))
                         template = env.get_template("empty_email.html")
-                        
+
                         rendered_html = template.render(
                             firstname=user.full_name.split()[0],
                             signup_link=signup_link,
@@ -564,7 +566,9 @@ class AddAdmin(generics.CreateAPIView):
                             picadailys_phone="+123 456 7890",
                         )
                     except Exception as e:
-                        logger.error(f"Jinja2 failed, falling back to Django template engine: {e}")
+                        logger.error(
+                            f"Jinja2 failed, falling back to Django template engine: {e}"
+                        )
                         rendered_html = render_to_string(
                             "empty_email.html",
                             {
@@ -617,6 +621,7 @@ class AddAdmin(generics.CreateAPIView):
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class AdAdminContd(generics.UpdateAPIView):
     """
