@@ -24,7 +24,7 @@ ENVIRONMENT = conf("ENVIRONMENT")
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["167.71.174.242"]
+    ALLOWED_HOSTS = ["167.71.174.242", "api.picadailys.com"]
 
 
 # Application definition
@@ -74,6 +74,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://167.71.174.242",
+    "api.picadailys.com",
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "http://localhost:5174",
