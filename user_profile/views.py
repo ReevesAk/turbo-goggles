@@ -355,10 +355,9 @@ class ProfileImage(generics.CreateAPIView):
         serializer = ProfileImageSerializer(data=request.data)
 
         if serializer.is_valid():
-            profile_image = serializer.validated_data["profile_image"]
+            profile_image = serializer.validated_data["profile_img_url"]
 
             try:
-
                 # Update user's profile image URL
                 request.user.profile_img_url = profile_image
                 request.user.save()

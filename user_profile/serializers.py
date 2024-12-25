@@ -8,7 +8,12 @@ from fmcg.models import Favourite
 
 
 class ProfileImageSerializer(serializers.Serializer):
-    profile_image = serializers.ImageField(required=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "profile_img_url",
+        ]
 
 
 class GetUserSerializer(serializers.ModelSerializer):
