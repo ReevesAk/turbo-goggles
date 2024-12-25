@@ -201,6 +201,8 @@ SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+CSRF_TRUSTED_ORIGINS = ['https://api.picadailys.com']
+
 X_FRAME_OPTIONS = 'DENY'
 
 # Prevent browsers from interpreting files as a different MIME type
