@@ -24,7 +24,7 @@ ENVIRONMENT = conf("ENVIRONMENT")
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["167.71.174.242", "api.picadailys.com"]
+    ALLOWED_HOSTS = ["167.71.174.242", "api.picadailys.com", "www.api.picadailys.com"]
 
 
 # Application definition
@@ -74,7 +74,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://167.71.174.242",
-    "api.picadailys.com",
+    "https://api.picadailys.com",
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "http://localhost:5174",
@@ -186,6 +186,7 @@ CSP_SCRIPT_SRC = (
     "'unsafe-inline'",
     "blob:",
     "http://localhost:5174",
+    "https://api.picadailys.com/"
     "https://cdn.jsdelivr.net",
     "https://admin-dashboard-jade-phi.vercel.app",
     "https://admin.picadailys.com",
@@ -201,7 +202,7 @@ SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CSRF_TRUSTED_ORIGINS = ['https://api.picadailys.com']
+CSRF_TRUSTED_ORIGINS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com", "https://api.picadailys.com"]
 
 X_FRAME_OPTIONS = 'DENY'
 
@@ -219,7 +220,7 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     # "Bearer <Token>"
     "AUDIENCE": "picadailys",
-    "ISSUER": "http://167.71.174.242/api/v1/",
+    "ISSUER": "https://api.picadailys.com/",
 }
 
 # Spectacular settings for Title and description of api documentation.
