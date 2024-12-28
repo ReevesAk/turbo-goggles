@@ -229,7 +229,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing "
     "online intermediary services, e.g" "```Value Added Servies(VAS)```",
     "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_INCLUDE_SCHEMA": True,
     "USE_SESSION_AUTH": False,
     "SECURITY_DEFINITIONS": None,
     "DOC_EXPANSION": "none",

@@ -29,34 +29,34 @@ from drf_spectacular.views import (
 urlpatterns = [
     path("admin/", admin.site.urls),
     # Swagger UI endpoints documentations.
-    path("api/v1/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("v1/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
-        "api/v1/docs/",
+        "v1/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
     # Redoc UI endpoints documentations.
     path(
-        "api/v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
+        "v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
     ),
     # Account creation endpoint.
-    path("api/v1/accounts/", include("accounts.urls")),
+    path("v1/accounts/", include("accounts.urls")),
     # Partners endpoints.
-    path("api/v1/partners/", include("partners.urls")),
+    path("v1/partners/", include("partners.urls")),
     # Brand Adverts endpoints.
-    path("api/v1/adverts/", include("adverts.urls")),
+    path("v1/adverts/", include("adverts.urls")),
     # VAS endpoints.
-    path("api/v1/vas/", include("vas.urls")),
+    path("v1/vas/", include("vas.urls")),
     # FMCG endpoints.
-    path("api/v1/fmcg/", include("fmcg.urls")),
+    path("v1/fmcg/", include("fmcg.urls")),
     # User Profile and settings endpoints.
-    path("api/v1/user_profile/", include("user_profile.urls")),
+    path("v1/user_profile/", include("user_profile.urls")),
     # User Profile and settings endpoints.
-    path("api/v1/roles/", include("roles.urls")),
+    path("v1/roles/", include("roles.urls")),
     # Self service endpoints.
-    path("api/v1/self_service/", include("self_service.urls")),
+    path("v1/self_service/", include("self_service.urls")),
     # Providus banking endpoints.
-    path("api/v1/banking/", include("banking.urls")),
+    path("v1/banking/", include("banking.urls")),
     # Support endpoints.
-    path("api/v1/support/", include("support.urls")),
+    path("v1/support/", include("support.urls")),
 ]
