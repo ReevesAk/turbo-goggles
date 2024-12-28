@@ -1041,3 +1041,76 @@ INFO 2024-12-23 12:14:42,052 basehttp "GET /api/v1/schema/ HTTP/1.1" 200 448522
 INFO 2024-12-23 12:25:55,473 autoreload /Users/macbookpro/projects/miniature-waddle/roles/views.py changed, reloading.
 INFO 2024-12-23 12:25:57,800 autoreload Watching for file changes with StatReloader
 INFO 2024-12-24 21:48:05,209 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:10:46,516 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:12:05,950 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:13:14,753 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:13:15,816 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:13:34,790 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:13:35,858 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:13:39,811 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:13:40,703 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:13:56,852 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:13:57,948 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:14:24,586 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:14:47,544 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:14:48,808 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:15:01,867 basehttp "GET /api/v1/docs/ HTTP/1.1" 301 0
+INFO 2024-12-28 04:15:01,869 basehttp code 400, message Bad request version ('ZZ\x13\x01\x13\x02\x13\x03À+À/À,À0Ì©Ì¨À\x13À\x14\x00\x9c\x00\x9d\x00/\x005\x01\x00\x06s')
+ERROR 2024-12-28 04:15:01,870 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:01,871 basehttp code 400, message Bad request version ('"7º\x00z\x89²´#\x82Z|ô]Z·É=µ¯\x8d')
+ERROR 2024-12-28 04:15:01,871 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:06,248 basehttp code 400, message Bad request version ('\x8a\x8a\x13\x01\x13\x02\x13\x03À+À/À,À0Ì©Ì¨À\x13À\x14\x00\x9c\x00\x9d\x00/\x005\x01\x00\x06S')
+ERROR 2024-12-28 04:15:06,249 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:06,250 basehttp code 400, message Bad request version ('\x9e?\x87¹!àòíÌ\x98-ÒV\x04ú\x9e¼¥®5ÊE¡îP=\x90\x14ñÆ¿B\x00\x90%\x82\xad')
+ERROR 2024-12-28 04:15:06,250 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:06,251 basehttp code 400, message Bad request syntax ('\x16\x03\x01\x07\x00\x01\x00\x06ü\x03\x03\x02lGNé\\(\x95x\x89º2')
+ERROR 2024-12-28 04:15:06,251 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:06,252 basehttp code 400, message Bad request version ('u£\x14ÖÂiÖ\x8a\x9c\x16i³')
+ERROR 2024-12-28 04:15:06,252 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:09,718 basehttp code 400, message Bad request version ('FJ¬p¤\x8b%J\x89\x19V\x8a')
+ERROR 2024-12-28 04:15:09,718 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:09,719 basehttp code 400, message Bad request version ('ñÎNU²ôË<\x98\x82o\x03\x93(\x0eG3%¦')
+ERROR 2024-12-28 04:15:09,720 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:09,720 basehttp code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x06')
+ERROR 2024-12-28 04:15:09,720 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:15:09,721 basehttp code 400, message Bad request version ('~l\x9fuhìÁ¹ú`q\x00°\x7fÆj¡ð\x10')
+ERROR 2024-12-28 04:15:09,721 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:17:59,503 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:18:00,590 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:18:16,545 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:18:34,798 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:19:13,133 autoreload /Users/macbookpro/projects/miniature-waddle/picadailys/settings.py changed, reloading.
+INFO 2024-12-28 04:19:14,325 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:28:01,943 basehttp code 400, message Bad request version ('\x00\x02\x01\x00\x00')
+ERROR 2024-12-28 04:28:01,943 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:01,945 basehttp code 400, message Bad request version ('°5ÂÍ\x19KÏ\x03\x12\x12\x92áPTÚ\x18')
+ERROR 2024-12-28 04:28:01,945 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:01,946 basehttp code 400, message Bad request version ('\x1a\x1a\x13\x01\x13\x02\x13\x03À+À/À,À0Ì©Ì¨À\x13À\x14\x00\x9c\x00\x9d\x00/\x005\x01\x00\x06S**\x00\x00\x00\x05\x00\x05\x01\x00\x00\x00\x00Di\x00\x05\x00\x03\x02h2ÿ\x01\x00\x01\x00\x00')
+ERROR 2024-12-28 04:28:01,947 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:01,949 basehttp code 400, message Bad request version ('\x02h2\x08http/1.1\x00\x1b\x00\x03\x02\x00\x02\x00\x12\x00\x00\x00')
+ERROR 2024-12-28 04:28:01,949 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,445 basehttp code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x06À\x01\x00\x06¼\x03\x03Õ\x05½½')
+ERROR 2024-12-28 04:28:03,445 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,447 basehttp code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x07\x00\x01\x00\x06ü\x03\x03\x1b\x07úÊ\x9a·Æ¶¢ÉziÕ\x1b\xad\x11Ë"MnõãZ¼3\x14\x18Vz¿Ó9')
+ERROR 2024-12-28 04:28:03,447 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,455 basehttp code 400, message Bad request syntax ('\x16\x03\x01\x07\x00\x01\x00\x06ü\x03\x03©-JE')
+ERROR 2024-12-28 04:28:03,455 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,458 basehttp code 400, message Bad request version ('z))\x97\x1bò!\x0e\x9d\x9bte\x0e\x82\x08¶')
+ERROR 2024-12-28 04:28:03,458 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,460 basehttp code 400, message Bad request version ('\x13P:µ\x89µUù\x11\x9f')
+ERROR 2024-12-28 04:28:03,461 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:28:03,462 basehttp code 400, message Bad request version ('Q\x08V×')
+ERROR 2024-12-28 04:28:03,462 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:29:30,341 basehttp code 400, message Bad request version ('¢*²\x8fØ\x8fz\x97\x88®æ»±Ü\x02øbïG×H×õì¢Oä4IEö\x86ã¤TÉ\x88\x17éÇ\x9b\x15yq+0EQ\x15¯\x7f\x16¸¨|CÕ´J\x8cÉ°î¹')
+ERROR 2024-12-28 04:29:30,341 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:29:30,343 basehttp code 400, message Bad request version ('Æ:Qv1¨Q¡éã\x0ej\x8c\x9býù\x91¾k8Mè.\x17ø1\x94ã\x96\x00\x98\x17\x9e\x80bé\x8c\x9b')
+ERROR 2024-12-28 04:29:30,343 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:34:47,918 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 04:34:57,516 basehttp code 400, message Bad request version ('Y<Æi|\x03Úôr(V¢B¼cw¢\x8cÁ;\x15U"\x07nY\x90\x19Æ»\x97H(')
+ERROR 2024-12-28 04:34:57,516 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:34:57,518 basehttp code 400, message Bad request version ('Áù£Xz¬bÔ³u\\¡§Æ\x98¨¯Pb\x970KÎù-DÿxJPbºK*k|(\x86KØ<6')
+ERROR 2024-12-28 04:34:57,518 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:34:57,519 basehttp code 400, message Bad request version ('zz\x13\x01\x13\x02\x13\x03À+À/À,À0Ì©Ì¨À\x13À\x14\x00\x9c\x00\x9d\x00/\x005\x01\x00\x06\x93')
+ERROR 2024-12-28 04:34:57,520 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 04:34:57,521 basehttp code 400, message Bad request version ('ç\x13¾áåò\x8f²ÐÜ')
+ERROR 2024-12-28 04:34:57,521 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.

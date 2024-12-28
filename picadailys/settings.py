@@ -19,12 +19,12 @@ SECRET_KEY = conf("SECRET_KEY")
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
-ENVIRONMENT = conf("ENVIRONMENT")
+# ENVIRONMENT = conf("ENVIRONMENT")
 
-if ENVIRONMENT == "development":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
-elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["*"]
+# if ENVIRONMENT == "development":
+#     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
+# elif ENVIRONMENT == "production":
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
