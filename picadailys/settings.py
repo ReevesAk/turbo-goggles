@@ -24,7 +24,7 @@ ENVIRONMENT = conf("ENVIRONMENT")
 if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "miniature-waddle.onrender.com"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["167.71.174.242", "api.picadailys.com,api.picadailys.com", "www.api.picadailys.com"]
+    ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
