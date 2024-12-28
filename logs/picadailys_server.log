@@ -1114,3 +1114,11 @@ INFO 2024-12-28 04:34:57,519 basehttp code 400, message Bad request version ('zz
 ERROR 2024-12-28 04:34:57,520 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
 INFO 2024-12-28 04:34:57,521 basehttp code 400, message Bad request version ('ç\x13¾áåò\x8f²ÐÜ')
 ERROR 2024-12-28 04:34:57,521 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 23:15:51,136 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 23:16:46,227 autoreload Watching for file changes with StatReloader
+INFO 2024-12-28 23:17:08,318 basehttp "GET /api/v1/docs/ HTTP/1.1" 301 0
+INFO 2024-12-28 23:17:15,289 basehttp "GET /v1/docs/ HTTP/1.1" 301 0
+INFO 2024-12-28 23:17:15,292 basehttp code 400, message Bad request version ('t\x14°\x87\x18\x92uÁ»y')
+ERROR 2024-12-28 23:17:15,292 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2024-12-28 23:17:15,294 basehttp code 400, message Bad request version ('\x00\x12\x00\x10\x04\x03\x08\x04\x04\x01\x05\x03\x08\x05\x05\x01\x08\x06\x06\x01\x00\x1b\x00\x03\x02\x00\x02ÿ\x01\x00\x01\x00\x00#\x00\x00\x00+\x00\x07\x06zz\x03\x04\x03\x03\x00-\x00\x02\x01\x01Di\x00\x05\x00\x03\x02h2\x003\x04ï\x04í\x1a\x1a\x00\x01\x00\x11ì\x04À\x7fT@ë\x027Ø3P/³\x9b\x0f\x02N5\x8c')
+ERROR 2024-12-28 23:17:15,294 basehttp You're accessing the development server over HTTPS, but it only supports HTTP.
