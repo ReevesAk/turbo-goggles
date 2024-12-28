@@ -1850,21 +1850,19 @@ class GetAllAppActivites(generics.ListAPIView):
             logger.debug(
                 f"Processed activity ID {activity.id}: authorised_by={authorised_by}"
             )
-            encrypted_activity = encrypt(
-                {
-                    "activity_id": str(activity.id),
-                    "authorised_by": authorised_by,
-                    "role": activity.user.active_role,
-                    "title": activity.title,
-                    "description": activity.description,
-                    "created_at": activity.created_at.isoformat()
-                    if activity.created_at
-                    else None,
-                    "last_login": activity.user.last_login.isoformat()
-                    if activity.user.last_login
-                    else None,
-                }
-            )
+            encrypted_activity = {
+                "activity_id": str(activity.id),
+                "authorised_by": authorised_by,
+                "role": activity.user.active_role,
+                "title": activity.title,
+                "description": activity.description,
+                "created_at": activity.created_at.isoformat()
+                if activity.created_at
+                else None,
+                "last_login": activity.user.last_login.isoformat()
+                if activity.user.last_login
+                else None,
+            }
             data.append(encrypted_activity)
 
         response = encrypt(
