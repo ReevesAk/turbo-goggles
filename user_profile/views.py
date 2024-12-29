@@ -347,12 +347,12 @@ class ProfileImage(generics.UpdateAPIView):
     permission_classes = (IsAuthenticated,)
     parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
-    def update(self, request):
+    def update(self, request, *args, **kwargs):
         logger.info(
             "User  %s is attempting to upload a profile image.", request.user.email
         )
 
-        serializer = ProfileImageSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, partial=kwargs.get('partial', False))
 
         if serializer.is_valid():
             profile_image = serializer.validated_data["profile_img_url"]

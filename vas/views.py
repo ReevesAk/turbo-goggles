@@ -281,19 +281,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                logger.warning(
-                    f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Airtime top-up failed.",
-                            "error": airtime_response,
-                        }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                else:
+                    logger.warning(
+                        f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Airtime top-up failed.",
+                                "error": airtime_response,
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             case _:
                 logger.error(
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
