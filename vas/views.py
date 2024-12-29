@@ -225,7 +225,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Debit for airtime recharge .",
                         user_data=user_data,
                     )
-                    if airtime_response["code"] == 200:
+                    if airtime_response["code"] == 000:
                         response_data = {
                             "status": "success",
                             "message": f"Airtime purchase of {new_amount} was successful.",
@@ -559,7 +559,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Debit for data subscription.",
                         user_data=user_data,
                     )
-                    if data_response["code"] == 200:
+                    if data_response["code"] == 000:
                         response_data = {
                             "status": "success",
                             "message": f"Data purchase of {new_amount} was successful.",
@@ -602,7 +602,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                if data_response["code"] == 200:
+                if data_response["code"] == 000:
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {amount} was successful.",
@@ -910,7 +910,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         reason="Debit for electricity bill payment.",
                         user_data=user_data,
                     )
-                    if electricity_response["code"] == 200:
+                    if electricity_response["code"] == 000:
                         response_data = {
                             "status": "success",
                             "message": f"Electricity purchase of {new_amount} was successful.",
@@ -955,7 +955,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                if electricity_response["code"] == 200:
+                if electricity_response["code"] == 000:
                     response_data = {
                         "status": "success",
                         "message": f"Electricity purchase of {amount} was successful.",
@@ -1352,7 +1352,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription.",
                         user_data=user_data,
                     )
-                    if new_tv_response["code"] == 200:
+                    if new_tv_response["code"] == 000:
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1396,7 +1396,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription.",
                     user_data=user_data,
                 )
-                if new_tv_response["code"] == 200:
+                if new_tv_response["code"] == 000:
                     response_data = {
                         "status": "success",
                         "message": f"TV subscription purchase of {amount} was successful.",
@@ -1570,7 +1570,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription renewal.",
                         user_data=user_data,
                     )
-                    if renew_tv_response["code"] == 200:
+                    if renew_tv_response["code"] == 000:
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1614,7 +1614,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription renewal.",
                     user_data=user_data,
                 )
-                if renew_tv_response["code"] == 200:
+                if renew_tv_response["code"] == 000:
                     response_data = {
                         "status": "success",
                         "message": f"TV subscription purchase of {amount} was successful.",

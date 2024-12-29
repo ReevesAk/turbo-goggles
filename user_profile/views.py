@@ -342,26 +342,21 @@ class ProfileImage(generics.UpdateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def get_queryset(self):
-        # Restrict queryset to the authenticated user
-        return User.objects.filter(id=self.request.user.id)
-
     def update(self, request, *args, **kwargs):
         logger.info(
             "User %s is attempting to upload a profile image.", request.user.email
         )
 
         # Get the user instance
-        user = self.get_object()
+        user = request.user
 
         # Use the serializer with the instance
-        serializer = self.get_serializer(
-            user, data=request.data, partial=kwargs.get("partial", False)
-        )
+        serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
-            # Save validated data through the serializer
-            serializer.save()
+            # Update the user's profile image.
+            user.profile_img_url = request.data.get("profile_img_url")
+            user.save()
 
             UserNotification.objects.create(
                 user=user,
