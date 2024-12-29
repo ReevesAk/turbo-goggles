@@ -96,8 +96,11 @@ class AirTimeTopUp(generics.GenericAPIView):
         biometrics = decrypted_payload.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=user)
-            logger.info(f"Account found for user {user.first_name} {user.last_name}.")
+            if payment_option != "CARD":
+                account = AccountCreation.objects.get(user=user)
+                logger.info(
+                    f"Account found for user {user.first_name} {user.last_name}."
+                )
         except AccountCreation.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
@@ -112,7 +115,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             logger.info(
                 f"User {user.first_name} {user.last_name} is using biometrics for authentication."
             )
-        else:
+        elif payment_option == "WALLET":
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
@@ -131,6 +134,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
+        else:
+            verification = True
 
         if not verification:
             logger.warning(
@@ -403,6 +408,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
+        payment_option = user_data.get("payment_option")
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to make a data purchase of amount: {amount}."
@@ -420,8 +426,11 @@ class DataSubscriptionView(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=user)
-            logger.info(f"Account found for user {user.first_name} {user.last_name}.")
+            if payment_option != "CARD":
+                account = AccountCreation.objects.get(user=user)
+                logger.info(
+                    f"Account found for user {user.first_name} {user.last_name}."
+                )
         except AccountCreation.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
@@ -436,7 +445,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             logger.info(
                 f"User {user.first_name} {user.last_name} is using biometrics for authentication."
             )
-        else:
+        elif payment_option == "WALLET":
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
@@ -455,6 +464,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
+        else:
+            verification = True
 
         if not verification:
             logger.warning(
@@ -466,7 +477,6 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
 
         data_response = None
-        payment_option = user_data.get("payment_option")
 
         if use_bonus:
             logger.info(
@@ -750,6 +760,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
+        payment_option = user_data.get("payment_option")
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to make an electricity payment of {amount}."
@@ -767,8 +778,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=user)
-            logger.info(f"Account found for user {user.first_name} {user.last_name}.")
+            if payment_option != "CARD":
+                account = AccountCreation.objects.get(user=user)
+                logger.info(
+                    f"Account found for user {user.first_name} {user.last_name}."
+                )
         except AccountCreation.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
@@ -783,7 +797,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             logger.info(
                 f"User {user.first_name} {user.last_name} is using biometrics for authentication."
             )
-        else:
+        elif payment_option == "WALLET":
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
@@ -800,6 +814,8 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
+        else:
+            verification = True
 
         if not verification:
             logger.warning(
@@ -811,7 +827,6 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             )
 
         electricity_response = None
-        payment_option = user_data.get("payment_option")
 
         if use_bonus:
             logger.info(
@@ -1233,6 +1248,7 @@ class NewTvSubscription(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
+        payment_option = user_data.get("payment_option")
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
@@ -1244,8 +1260,11 @@ class NewTvSubscription(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=user)
-            logger.info(f"Account found for user {user.first_name} {user.last_name}.")
+            if payment_option != "CARD":
+                account = AccountCreation.objects.get(user=user)
+                logger.info(
+                    f"Account found for user {user.first_name} {user.last_name}."
+                )
         except AccountCreation.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
@@ -1290,7 +1309,6 @@ class NewTvSubscription(generics.GenericAPIView):
             )
 
         new_tv_response = None
-        payment_option = user_data.get("payment_option")
 
         match payment_option:
             case "WALLET":
@@ -1441,6 +1459,7 @@ class RenewTvSubscription(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
+        payment_option = user_data.get("payment_option")
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
@@ -1454,8 +1473,11 @@ class RenewTvSubscription(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=user)
-            logger.info(f"Account found for user {user.first_name} {user.last_name}.")
+            if payment_option != "CARD":
+                account = AccountCreation.objects.get(user=user)
+                logger.info(
+                    f"Account found for user {user.first_name} {user.last_name}."
+                )
         except AccountCreation.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
@@ -1470,7 +1492,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                 f"User {user.first_name} {user.last_name} is using biometrics for authentication."
             )
             verification = Biometrics.authenticate(user.phone_number)
-        else:
+        elif payment_option == "WALLET":
             if account and account.pin is not None:
                 logger.info(
                     f"User {user.first_name} {user.last_name} is using PIN for authentication."
@@ -1489,6 +1511,8 @@ class RenewTvSubscription(generics.GenericAPIView):
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
+        else:
+            verification = True
 
         if not verification:
             logger.warning(
@@ -1500,7 +1524,6 @@ class RenewTvSubscription(generics.GenericAPIView):
             )
 
         renew_tv_response = None
-        payment_option = user_data.get("payment_option")
         logger.info(
             f"User {user.first_name} {user.last_name} selected payment option: {payment_option}"
         )

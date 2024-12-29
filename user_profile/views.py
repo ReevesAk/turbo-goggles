@@ -336,7 +336,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
-class ProfileImage(generics.CreateAPIView):
+class ProfileImage(generics.UpdateAPIView):
     """
     Upload profile image. This endpoint only
     accepts multipart/form-data data format.
@@ -406,7 +406,9 @@ class ProfileImage(generics.CreateAPIView):
                     "Error updating image for user %s: %s", request.user.email, str(e)
                 )
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Profile image update failed."}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Profile image update failed."}
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 

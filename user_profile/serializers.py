@@ -8,7 +8,6 @@ from fmcg.models import Favourite
 
 
 class ProfileImageSerializer(serializers.Serializer):
-
     class Meta:
         model = User
         fields = [

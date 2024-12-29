@@ -71,7 +71,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
 
 class VerifyCardPaymentTransaction(generics.CreateAPIView):
     """
-    VerifyCardPaymentTransaction is the GET request handler that validating
+    VerifyCardPaymentTransaction is the GET request handler that validates
     the supplied single transaction reference and returns the current
     status of the transaction.
     """
