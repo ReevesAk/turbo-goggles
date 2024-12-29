@@ -268,7 +268,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                if airtime_response["code"] == 200:
+                if airtime_response["code"] == 000:
                     response_data = {
                         "status": "success",
                         "message": f"Airtime purchase of {amount} was successful.",

@@ -342,6 +342,10 @@ class ProfileImage(generics.UpdateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
+    def get_queryset(self):
+        # Restrict queryset to the authenticated user
+        return User.objects.filter(id=self.request.user.id)
+
     def update(self, request, *args, **kwargs):
         logger.info(
             "User %s is attempting to upload a profile image.", request.user.email
