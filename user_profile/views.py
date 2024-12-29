@@ -1,9 +1,6 @@
 import logging
 
-from django.template.loader import get_template
-
 from sms import Message
-from commons import Messaging
 from permissions import IsSuperAdmin, IsUserOrMember
 
 from django.contrib.auth.hashers import check_password
@@ -12,7 +9,7 @@ from django.db.models import Q
 
 from rest_framework import generics, exceptions
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status, parsers
+from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -61,7 +58,6 @@ from vas.models import (
     ElectricityBill,
 )
 from fmcg.models import Product, Favourite
-from cloudinary import uploader as cloud
 from security import encrypt, decrypt
 
 
@@ -345,77 +341,64 @@ class ProfileImage(generics.UpdateAPIView):
     serializer_class = ProfileImageSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
-    parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
     def update(self, request, *args, **kwargs):
         logger.info(
-            "User  %s is attempting to upload a profile image.", request.user.email
+            "User %s is attempting to upload a profile image.", request.user.email
         )
 
-        serializer = self.get_serializer(data=request.data, partial=kwargs.get('partial', False))
+        # Get the user instance
+        user = self.get_object()
+
+        # Use the serializer with the instance
+        serializer = self.get_serializer(
+            user, data=request.data, partial=kwargs.get("partial", False)
+        )
 
         if serializer.is_valid():
-            profile_image = serializer.validated_data["profile_img_url"]
+            # Save validated data through the serializer
+            serializer.save()
 
-            try:
-                # Update user's profile image URL
-                request.user.profile_img_url = profile_image
-                request.user.save()
+            UserNotification.objects.create(
+                user=user,
+                title="Profile Image.",
+                message="You have successfully updated your profile image.",
+            )
 
-                UserNotification.objects.create(
-                    user=request.user,
-                    title="Profile Image.",
-                    message="You have successfully updated your profile image.",
-                )
+            # Check if user is an admin and adjust the description
+            if user.active_role in {
+                "SuperAdmin",
+                "TaskAdmin",
+                "AdAdmin",
+                "MembersAdmin",
+                "User Admin",
+                "PartnersAdmin",
+                "ContentAdmin",
+                "IntegrationAdmin",
+                "WalletAdmin",
+                "FmcgAdmin",
+            }:
+                description = f"Admin with email: {user.email} and role: {user.active_role} updated their profile image."
+            else:
+                description = f"{user.first_name} {user.last_name} updated their profile image."
 
-                # Check if user is an admin and adjust the description
-                if request.user.active_role in {
-                    "SuperAdmin",
-                    "TaskAdmin",
-                    "AdAdmin",
-                    "MembersAdmin",
-                    "User Admin",
-                    "PartnersAdmin",
-                    "ContentAdmin",
-                    "IntegrationAdmin",
-                    "WalletAdmin",
-                    "FmcgAdmin",
-                }:
-                    description = f"Admin with email: {request.user.email} and role: {request.user.active_role} updated their profile image."
-                else:
-                    description = f"{request.user.first_name} {request.user.last_name} updated their profile image."
+            ActivityModel.objects.create(
+                user=user,
+                title="Profile Image.",
+                description=description,
+            )
 
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Profile Image.",
-                    description=description,
-                )
-
-                response = {
-                    "status": "success",
-                    "message": "Profile picture updated successfully",
-                }
-                logger.info(
-                    "User %s updated their profile image successfully.",
-                    request.user.email,
-                )
-                return Response(data=encrypt(response), status=status.HTTP_200_OK)
-
-            except Exception as e:
-                logger.error(
-                    "Error updating image for user %s: %s", request.user.email, str(e)
-                )
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "message": "Profile image update failed."}
-                    ),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+            response = {
+                "status": "success",
+                "message": "Profile picture updated successfully",
+            }
+            logger.info(
+                "User %s updated their profile image successfully.", user.email
+            )
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         logger.warning(
-            "Profile image update failed for user %s: %s",
-            request.user.email,
-            serializer.errors,
+            "Profile image update failed for user %s: %s", user.email, serializer.errors
         )
         return Response(
             data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
