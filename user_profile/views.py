@@ -1,10 +1,12 @@
 import logging
 
 from sms import Message
+from commons import Messaging
 from permissions import IsSuperAdmin, IsUserOrMember
 
 from django.contrib.auth.hashers import check_password
 from django.contrib.contenttypes.models import ContentType
+from django.template.loader import render_to_string
 from django.db.models import Q
 
 from rest_framework import generics, exceptions
@@ -580,19 +582,22 @@ class ChangePassword(generics.UpdateAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} changed their password.",
             )
 
-            # body = "This is to inform you that your password on Picadailys has been updated."
-            # # Render the template with values
-            # rendered_html = get_template(
-            #     custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
-            #     support_email="support@picadailys.com",
-            #     picadailys_phone="+123 456 7890",
-            # )
+            body = "This is to inform you that your password on Picadailys has been updated."
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="templates/table_email.html",
+                context={
+                    "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
 
-            # Message.send_email(
-            #     email=request.user.email,
-            #     html_content=rendered_html,
-            #     subject="Password Change",
-            # )
+            Messaging.send_email(
+                email=request.user.email,
+                html_content=text_content,
+                subject="Password Change",
+            )
 
             response = {
                 "status": "success",
