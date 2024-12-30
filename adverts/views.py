@@ -97,12 +97,11 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                     "telegram": user_data.get("telegram"),
                 },
             }
-            encrypt_response = encrypt(response)
-            return Response(data=encrypt_response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
         # Log errors if serializer is invalid
         logger.error("Failed to create brand advert account: %s", serializer.errors)
-        return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class ListAllBrandAds(generics.ListAPIView):
