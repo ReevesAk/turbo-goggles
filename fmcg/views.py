@@ -142,24 +142,29 @@ class ListAllProducts(generics.ListAPIView):
         logger.info("Total products to be returned: %d", total_count)
 
         page = self.paginate_queryset(queryset)
-        if page is None:
-            page = queryset  # Fall back to the entire queryset if pagination is not applied
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response_data = {
+                "status": "success",
+                "message": "All FMCG products retrieved successfully.",
+                "count": total_count,
+                "data": serializer.data,
+            }
+            # Encrypt the entire response data
+            encrypted_response = encrypt(response_data)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
-        serializer = self.get_serializer(page, many=True)
-        response_data = {
+        # If pagination is not used
+        serializer = self.get_serializer(queryset, many=True)
+        resp = {
             "status": "success",
             "message": "All FMCG products retrieved successfully.",
             "count": total_count,
-            "data": serializer.data,
+            "data": serializer.data
         }
-
-        encrypted_response = encrypt(response_data)
-
-        # If paginated, use the paginated response method; otherwise, return as usual
-        if page != queryset:
-            return self.get_paginated_response({"encrypted_data": encrypted_response})
-        else:
-            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+        # Encrypt the entire response data
+        encrypted_response = encrypt(resp)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class ProductDetails(generics.RetrieveAPIView):
