@@ -526,7 +526,7 @@ class ChangePassword(generics.UpdateAPIView):
             "User  %s is attempting to change their password.", request.user.email
         )
 
-        decrypted_payload = decrypt(request.user)
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
