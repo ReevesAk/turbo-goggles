@@ -79,10 +79,10 @@ class Messaging:
             try:
                 # Send email using Elastic Email API
                 response = api_instance.emails_post(email_data)
-                logging("Email sent successfully!")
-                logging(response)
+                logging.info("Email sent successfully!")
+                logging.info(response)
             except Exception as e:
-                logging("Error occurred while sending email:", e)
+                logging.error("Error occurred while sending email: %s", e)
 
 
 class Allocate:
