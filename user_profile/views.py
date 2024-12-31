@@ -585,7 +585,7 @@ class ChangePassword(generics.UpdateAPIView):
             body = "This is to inform you that your password on Picadailys has been updated."
             # Render the template with values
             text_content = render_to_string(
-                template_name="table_email.html",
+                template_name="empty_email.html",
                 context={
                     "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
                     "support_email": "support@picadailys.com",
