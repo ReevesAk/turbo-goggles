@@ -11,6 +11,9 @@ from rest_framework import serializers
 from accounts.models import User
 from .models import CreateAd, AdBudget
 
+from security import encrypt
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,6 +79,12 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
             )
 
         return user
+
+    def to_representation(self, instance):
+        """Override to_representation to encrypt the response"""
+        logger.info("Encrypting the serialized response.")
+        data = super().to_representation(instance)
+        return encrypt(data)  # Encrypt the serialized data
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
