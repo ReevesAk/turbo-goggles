@@ -588,7 +588,7 @@ class AddAdmin(generics.CreateAPIView):
                 )
         except ValidationError as e:
             logger.warning(f"Validation error: {e}")
-            raise ValidationError(message=e, code=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError(encrypt(message=e), code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             return Response(
@@ -630,7 +630,7 @@ class AdAdminContd(generics.UpdateAPIView):
             if is_admin:
                 return user
             else:
-                raise PermissionError("User exists, but is not an admin.")
+                raise PermissionError(encrypt("User exists, but is not an admin."))
 
         except User.DoesNotExist:
             return None
@@ -1309,11 +1309,13 @@ class JobApplicationDetail(generics.ListAPIView):
         email = self.kwargs.get("email")
         email.lower()
         if email is None:
-            raise exceptions.NotFound("Email parameter is required.")
+            raise exceptions.NotFound(encrypt("Email parameter is required."))
 
         applications = Applications.objects.filter(email=email)
         if not applications.exists():
-            raise exceptions.NotFound("No job applications with this email exist.")
+            raise exceptions.NotFound(
+                encrypt("No job applications with this email exist.")
+            )
 
         return applications
 

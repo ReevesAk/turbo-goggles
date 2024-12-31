@@ -4,6 +4,8 @@ from rest_framework import serializers
 # In project imports.
 from .models import Product, FmcgRating, PickupAdress, FmcgOrder
 
+from security import encrypt
+
 
 class ProductSerializers(serializers.ModelSerializer):
     """Serializers for creating an FMCG product."""
@@ -94,9 +96,9 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
 
         # Validate required addresses based on billing address type
         if billing_address == "Store Pick-Up" and not data.get("available_addresses"):
-            raise serializers.ValidationError({"available_addresses": "Available addresses are required for store pick-up."})
+            raise serializers.ValidationError(encrypt({"available_addresses": "Available addresses are required for store pick-up."}))
         elif billing_address == "Delivery" and not data.get("delivery_address"):
-            raise serializers.ValidationError({"delivery_address": "Delivery address is required for delivery orders."})
+            raise serializers.ValidationError(encrypt({"delivery_address": "Delivery address is required for delivery orders."}))
 
         return data
 

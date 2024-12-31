@@ -389,7 +389,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
             return service
         except PartnerServices.DoesNotExist:
             logger.warning("Partner service with ID %s not found.", service_id)
-            raise Http404("Partner service not found.")
+            raise Http404(encrypt("Partner service not found."))
 
     def update(self, request, service_id, *args, **kwargs):
         logger.info(
@@ -606,7 +606,7 @@ class PartnerServiceDetailView(views.APIView):
         try:
             return PartnerServices.objects.get(id=service_id)
         except PartnerServices.DoesNotExist:
-            raise Http404("Partner service not found.")
+            raise Http404(encrypt("Partner service not found."))
 
     def get(self, request, service_id, *args, **kwargs):
         partner_service = self.get_object(service_id)

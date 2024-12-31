@@ -7,6 +7,8 @@ from rest_framework import serializers
 from .models import User
 from roles.models import GamificationModel
 
+from security import encrypt
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,10 +48,14 @@ class RegisterSerializer(serializers.ModelSerializer):
                 logger.warning(
                     "Registration attempt with already used email: %s", email
                 )
-                raise serializers.ValidationError("Email has already been used")
+                raise serializers.ValidationError(
+                    encrypt("Email has already been used")
+                )
         else:
             logger.error("Registration attempt with empty email field.")
-            raise serializers.ValidationError("email: email field cannot be empty")
+            raise serializers.ValidationError(
+                encrypt("email: email field cannot be empty")
+            )
 
         return super().validate(attrs)
 

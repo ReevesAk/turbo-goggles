@@ -110,7 +110,9 @@ class SwitchToUser(generics.RetrieveAPIView):
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
-            raise exceptions.ValidationError("AccountType for the user does not exist.")
+            raise exceptions.ValidationError(
+                encrypt("AccountType for the user does not exist.")
+            )
 
         # Handle already switched to User
         if user.active_role == "User":
@@ -198,7 +200,9 @@ class SwitchToPartner(generics.RetrieveAPIView):
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
-            raise exceptions.ValidationError("AccountType for the user does not exist.")
+            raise exceptions.ValidationError(
+                encrypt("AccountType for the user does not exist.")
+            )
 
         # Handle already switched to Partner
         if user.active_role == "Partner":
@@ -288,7 +292,9 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
 
         except AccountType.DoesNotExist:
             logger.error("AccountType for user %s does not exist.", user.email)
-            raise exceptions.ValidationError("AccountType for the user does not exist.")
+            raise exceptions.ValidationError(
+                encrypt("AccountType for the user does not exist.")
+            )
 
         # Handle already switched to BrandAd
         if user.active_role == "BrandAd":
@@ -907,7 +913,7 @@ class OpenRewardBox(generics.GenericAPIView):
                     f"User {user.first_name} {user.last_name} attempted to open the mystery box but does not have enough rewards."
                 )
                 raise exceptions.ValidationError(
-                    detail="Not enough rewards to access the mystery box.",
+                    encrypt(detail="Not enough rewards to access the mystery box."),
                     code=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1104,7 +1110,9 @@ class AddToFavourite(generics.CreateAPIView):
                     "User  %s did not provide both object_id and model_name.",
                     authenticated_user.email,
                 )
-                raise ValidationError("Both object_id and model_name are required.")
+                raise ValidationError(
+                    encrypt("Both object_id and model_name are required.")
+                )
 
             # Map model_name to actual model classes
             model_mapping = {
@@ -1134,7 +1142,7 @@ class AddToFavourite(generics.CreateAPIView):
                 logger.warning(
                     "User  %s provided an invalid model_name.", authenticated_user.email
                 )
-                raise ValidationError(f"Model '{model_name}' is not valid.")
+                raise ValidationError(encrypt(f"Model '{model_name}' is not valid."))
 
             content_type = ContentType.objects.get_for_model(model_class)
 
@@ -1146,7 +1154,9 @@ class AddToFavourite(generics.CreateAPIView):
                     authenticated_user.email,
                     object_id,
                 )
-                raise ValidationError(f"Object with id '{object_id}' not found.")
+                raise ValidationError(
+                    encrypt(f"Object with id '{object_id}' not found.")
+                )
 
             # Check if the user has purchased the item before allowing it to be favorited
             if not service_object.purchased:
@@ -1154,7 +1164,9 @@ class AddToFavourite(generics.CreateAPIView):
                     "User  %s tried to favorite an unpurchased item.",
                     authenticated_user.email,
                 )
-                raise ValidationError("You can only favorite items you have purchased.")
+                raise ValidationError(
+                    encrypt("You can only favorite items you have purchased.")
+                )
 
             # Create the favorite entry
             favourite, created = Favourite.objects.get_or_create(

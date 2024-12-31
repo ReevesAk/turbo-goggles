@@ -10,6 +10,8 @@ from .models import (
     VerifyCAC,
 )
 
+from security import encrypt
+
 
 class BecomePartnerSerializer(serializers.ModelSerializer):
     """Serializers for our Partners' first time joining"""
@@ -38,16 +40,16 @@ class BecomePartnerSerializer(serializers.ModelSerializer):
             email_exists = User.objects.filter(email=business_name).exists()
             if email_exists:
                 raise serializers.ValidationError(
-                    "business_name: Business name has already been used"
+                    encrypt("business_name: Business name has already been used")
                 )
         else:
             raise serializers.ValidationError(
-                "business_name: business_name field can not be empty"
+                encrypt("business_name: business_name field can not be empty")
             )
 
         if not business_category:
             raise serializers.ValidationError(
-                "business_category: business_category field can not be empty"
+                encrypt("business_category: business_category field can not be empty")
             )
 
         return super().validate(attrs)

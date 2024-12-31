@@ -639,7 +639,7 @@ class ResetPassword(generics.CreateAPIView):
             description=f"{user.first_name} {user.last_name} reset their password.",
         )
 
-        response = {"status": "success!", "message": "Password reset successfully"}
+        response = {"status": "success", "message": "Password reset successfully"}
         encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 

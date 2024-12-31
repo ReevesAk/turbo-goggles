@@ -13,6 +13,7 @@ from .models import (
     ActivityModel,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
+from security import encrypt
 
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
@@ -40,13 +41,19 @@ class RegisterSuperAdminSerializer(serializers.ModelSerializer):
 
         # Validate that email is provided and not already in use
         if not email:
-            raise serializers.ValidationError({"email": "Email field cannot be empty."})
+            raise serializers.ValidationError(
+                encrypt({"email": "Email field cannot be empty."})
+            )
         if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError({"email": "Email has already been used."})
+            raise serializers.ValidationError(
+                encrypt({"email": "Email has already been used."})
+            )
 
         # Validate that passwords match
         if password != password2:
-            raise serializers.ValidationError({"password": "Passwords do not match."})
+            raise serializers.ValidationError(
+                encrypt({"password": "Passwords do not match."})
+            )
 
         return attrs
 
@@ -84,14 +91,18 @@ class AddAdminSerializer(serializers.ModelSerializer):
         roles = attrs.get("roles")
 
         if not email:
-            raise serializers.ValidationError({"email": "Email field cannot be empty."})
+            raise serializers.ValidationError(
+                encrypt({"email": "Email field cannot be empty."})
+            )
 
         if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError({"email": "Email has already been used."})
+            raise serializers.ValidationError(
+                encrypt({"email": "Email has already been used."})
+            )
 
         if not roles:
             raise serializers.ValidationError(
-                {"roles": "At least one role must be selected."}
+                encrypt({"roles": "At least one role must be selected."})
             )
 
         return super().validate(attrs)
@@ -123,7 +134,9 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
         password2 = attrs.get("password2")
 
         if password != password2:
-            raise serializers.ValidationError({"password": "Passwords do not match."})
+            raise serializers.ValidationError(
+                encrypt({"password": "Passwords do not match."})
+            )
 
         return attrs
 
@@ -153,7 +166,7 @@ class CreateAdminPinSerializer(serializers.ModelSerializer):
 
     def validate_pin(self, value):
         if not value.isdigit() or len(value) != 5:
-            raise serializers.ValidationError("Pin must be a 5-digit number.")
+            raise serializers.ValidationError(encrypt("Pin must be a 5-digit number."))
         return value
 
 

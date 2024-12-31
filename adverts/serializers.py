@@ -51,7 +51,7 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
                 except DjangoValidationError:
                     logger.error(f"Invalid URL format for {field_name}: {url}")
                     raise serializers.ValidationError(
-                        {field_name: "Invalid URL format"}
+                        encrypt({field_name: "Invalid URL format"})
                     )
 
                 # Update the field with the corrected URL
@@ -75,16 +75,10 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Error creating user: {e}")
             raise serializers.ValidationError(
-                "An error occurred while creating the user."
+                encrypt("An error occurred while creating the user.")
             )
 
         return user
-
-    def to_representation(self, instance):
-        """Override to_representation to encrypt the response"""
-        logger.info("Encrypting the serialized response.")
-        data = super().to_representation(instance)
-        return encrypt(data)  # Encrypt the serialized data
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
@@ -176,9 +170,11 @@ class BrandSurveySerializers(serializers.ModelSerializer):
             if website and not website.startswith(("http://", "https://")):
                 logger.error("Invalid website URL format: %s", website)
                 raise serializers.ValidationError(
-                    {
-                        "website": "Invalid website format. Please include 'http://' or 'https://'."
-                    }
+                    encrypt(
+                        {
+                            "website": "Invalid website format. Please include 'http://' or 'https://'."
+                        }
+                    )
                 )
 
             logger.info("Validation successful for BrandSurveySerializers.")

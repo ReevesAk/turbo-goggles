@@ -1356,7 +1356,7 @@ class BookLandTrip(generics.GenericAPIView):
                     return Response(data=response, status=status.HTTP_201_CREATED)
 
                 else:
-                    raise NotFound("Invalid selection")
+                    raise NotFound(encrypt("Invalid selection"))
 
             except Exception as err:
                 return Response(

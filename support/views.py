@@ -184,7 +184,7 @@ class AssignTicket(generics.GenericAPIView):
 
         if not is_admin:
             logger.warning("User  %s exists, but is not an admin.", user.email)
-            raise PermissionDenied("User  exists, but is not an admin.")
+            raise PermissionDenied(encrypt("User  exists, but is not an admin."))
 
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
             logger.info("Pin verification successful for user: %s", authenticated_user)

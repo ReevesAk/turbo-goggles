@@ -2,6 +2,8 @@ from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
 
+from security import encrypt
+
 
 class IsVerifiedUser(permissions.BasePermission):
     """
@@ -15,7 +17,7 @@ class IsVerifiedUser(permissions.BasePermission):
         if request.user.is_verified:
             return True
         else:
-            raise PermissionDenied("Only verified users can login.")
+            raise PermissionDenied(encrypt("Only verified users can login."))
 
 
 class IsUser(permissions.BasePermission):
@@ -28,9 +30,9 @@ class IsUser(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Users can perform this action.")
+                raise ValidationError(encrypt("Only Users can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class VasPermission(permissions.BasePermission):
@@ -44,9 +46,9 @@ class VasPermission(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Users, Members and Partners can use this service.")
+                raise ValidationError(encrypt("Only Users, Members and Partners can use this service."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsSuperAdmin(permissions.BasePermission):
@@ -59,9 +61,9 @@ class IsSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only SuperAdmin Users can perform this action.")
+                raise ValidationError(encrypt("Only SuperAdmin Users can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsPartner(permissions.BasePermission):
@@ -74,9 +76,9 @@ class IsPartner(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Partners can perform this action.")
+                raise ValidationError(encrypt("Only Partners can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsPartnerUserOrMember(permissions.BasePermission):
@@ -89,9 +91,9 @@ class IsPartnerUserOrMember(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Partners, Users and Members can perform this action.")
+                raise ValidationError(encrypt("Only Partners, Users and Members can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsUserOrMember(permissions.BasePermission):
@@ -104,9 +106,9 @@ class IsUserOrMember(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only Users and Members can perform this action.")
+                raise ValidationError(encrypt("Only Users and Members can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsBrandAd(permissions.BasePermission):
@@ -119,9 +121,9 @@ class IsBrandAd(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only BrandAd can perform this action.")
+                raise ValidationError(encrypt("Only BrandAd can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsBrandAdAdmin(permissions.BasePermission):
@@ -134,9 +136,9 @@ class IsBrandAdAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only BrandAdAdmin can perform this action.")
+                raise ValidationError(encrypt("Only BrandAdAdmin can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsPartnerAdmin(permissions.BasePermission):
@@ -149,9 +151,9 @@ class IsPartnerAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only PartnersAdmin can perform this action.")
+                raise ValidationError(encrypt("Only PartnersAdmin can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsWalletAdmin(permissions.BasePermission):
@@ -164,9 +166,9 @@ class IsWalletAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only WalletAdmin can perform this action.")
+                raise ValidationError(encrypt("Only WalletAdmin can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsFmcgAdmin(permissions.BasePermission):
@@ -179,9 +181,9 @@ class IsFmcgAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise PermissionDenied(detail="Only FmcgAdmin can perform this action.")
+                raise PermissionDenied(encrypt(detail="Only FmcgAdmin can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt(detail="Authentication is required to access this resource."))
 
 
 class IsTaskAdmin(permissions.BasePermission):
@@ -194,9 +196,9 @@ class IsTaskAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only TaskAdmin Users can perform this action.")
+                raise ValidationError(encrypt(detail="Only TaskAdmin Users can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt(detail="Authentication is required to access this resource."))
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -216,18 +218,20 @@ class hasWallet(permissions.BasePermission):
     Custom permission to only allow owners of wallet to convert naira to ddollar.
     """
 
-    def has_permission(self, request, view):
+    # def has_permission(self, request, view):
 
-        if request.user.is_authenticated:
-            customer = CustomerData.objects.filter(user=request.user).exists()
+    #     if request.user.is_authenticated:
+    #         customer = CustomerData.objects.filter(user=request.user).exists()
 
-            # Check if the user_type matches the required user_type
-            if customer:
-                return True
-            else:
-                raise ValidationError("You need to have a wallet to conduct this transaction.")
+    #         # Check if the user_type matches the required user_type
+    #         if customer:
+    #             return True
+    #         else:
+    #             raise ValidationError(encrypt("You need to have a wallet to conduct this transaction."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+    #     raise ValidationError(encrypt("Authentication is required to access this resource."))
+
+    pass
 
 
 class IsNotDisabled(permissions.BasePermission):
@@ -247,9 +251,9 @@ class IsAdmin(permissions.BasePermission):
             if request.user.active_role in admin_roles:
                 return True
             else:
-                raise ValidationError("Only admin users can perform this action.")
+                raise ValidationError(encrypt("Only admin users can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
@@ -334,6 +338,6 @@ class IsPartnerUserOrMemberBrandAdOrSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action.")
+                raise ValidationError(encrypt("Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action."))
 
-        raise ValidationError("Authentication is required to access this resource.")
+        raise ValidationError(encrypt("Authentication is required to access this resource."))

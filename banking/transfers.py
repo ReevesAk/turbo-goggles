@@ -523,7 +523,7 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
             logger.warning(
                 f"Transaction reference not found in request by user {user_id}"
             )
-            raise Http404("Transaction reference not found")
+            raise Http404(encrypt("Transaction reference not found"))
 
         # Attempt to retrieve transaction status
         try:
@@ -588,7 +588,7 @@ class InterBankTransactionStatus(generics.GenericAPIView):
             logger.warning(
                 f"Transaction reference not found in request by user {user_id}"
             )
-            raise Http404("Transaction reference not found")
+            raise Http404(encrypt("Transaction reference not found"))
 
         # Attempt to retrieve transaction status
         try:

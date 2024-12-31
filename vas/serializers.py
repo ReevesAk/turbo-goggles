@@ -1,6 +1,8 @@
 import uuid
 from rest_framework import serializers
 
+from security import encrypt
+
 from .models import (
     AirtimeTopup,
     DataSubscription,
@@ -81,10 +83,14 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             provider = check_provider(phone)
             if serviceID != provider:
                 raise serializers.ValidationError(
-                    f"This phone number, {phone}, does not belong to the service provider, {serviceID}"
+                    encrypt(
+                        f"This phone number, {phone}, does not belong to the service provider, {serviceID}"
+                    )
                 )
         else:
-            raise serializers.ValidationError("serviceID and phone number are required")
+            raise serializers.ValidationError(
+                encrypt("serviceID and phone number are required")
+            )
 
         return attrs
 
@@ -135,7 +141,9 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             provider_data = check_provider(billersCode)
             if serviceID != provider_data:
                 raise serializers.ValidationError(
-                    f"This number, {billersCode} does not belong to the service provider, {serviceID}"
+                    encrypt(
+                        f"This number, {billersCode} does not belong to the service provider, {serviceID}"
+                    )
                 )
         else:
             serializers.ValidationError(

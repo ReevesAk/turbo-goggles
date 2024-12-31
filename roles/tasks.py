@@ -54,7 +54,7 @@ class AssignTask(generics.CreateAPIView):
                 logger.info(f"User found: {user.first_name} {user.last_name}")
             except User.DoesNotExist:
                 logger.error(f"User with id {user_id} does not exist.")
-                raise UserDoesNotExist
+                raise encrypt(UserDoesNotExist)
 
             # Prepare task data
             task_data = {
