@@ -42,32 +42,21 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email", "")
+        phone_number = attrs.get("phone_number", "")
+
         if email:
             email_exists = User.objects.filter(email=email).exists()
             if email_exists:
-                logger.warning(
-                    "Registration attempt with already used email: %s", email
-                )
-                raise serializers.ValidationError(
-                    encrypt("Email has already been used")
-                )
-        else:
-            logger.error("Registration attempt with empty email field.")
-            raise serializers.ValidationError(
-                encrypt("email: email field cannot be empty")
-            )
+                logger.warning("Registration attempt with already used email: %s", email)
+                raise serializers.ValidationError(encrypt("Email has already been used"))
+
+        if phone_number:
+            phone_exists = User.objects.filter(phone_number=phone_number).exists()
+            if phone_exists:
+                logger.warning("Registration attempt with already used phone number: %s", phone_number)
+                raise serializers.ValidationError(encrypt("Phone number has already been used"))
 
         return super().validate(attrs)
-
-    def validate_phone_number(self, value):
-        if User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError(encrypt("Phone number already exists."))
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(encrypt("Email already exists."))
-        return value
 
     def create(self, validated_data):
         validated_data.pop("profile_img_url", None)
