@@ -59,6 +59,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return super().validate(attrs)
 
+    def validate_phone_number(self, value):
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError(encrypt("Phone number already exists."))
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError(encrypt("Phone number already exists."))
+        return value
+
     def create(self, validated_data):
         validated_data.pop("profile_img_url", None)
 
