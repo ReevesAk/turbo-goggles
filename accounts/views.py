@@ -62,73 +62,76 @@ class Register(generics.GenericAPIView):
         logger.info("Received registration data: %s", user_data)
 
         serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            if user_data["password"] != user_data["password2"]:
-                logger.warning("Password mismatch for user: %s", user_data.get("email"))
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Passwords do not match!"}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializer.ValidationError as e:
+            # Encrypt all validation errors
+            encrypted_errors = {
+                key: [encrypt(str(err)) for err in value]
+                for key, value in e.detail.items()
+            }
+            logger.error("Validation failed: %s", encrypted_errors)
+            return Response(data=encrypted_errors, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_data["password"] != user_data["password2"]:
+            logger.warning("Password mismatch for user: %s", user_data.get("email"))
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "error": "Passwords do not match!"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile_upload = user_data.get("profile_img_url")
+        logger.info("Profile image: %s", profile_upload)
+
+        user = serializer.save()
+        AccountType.objects.create(
+            user=user,
+            user_type="User",
+        )
+        user.active_role = "User"
+        user.save()
+
+        logger.info("User created: %s", user.email)
+
+        if profile_upload:
+            try:
+                user.profile_img_url = profile_upload
+                user.save()
+                logger.info("Profile image uploaded for user: %s", user.email)
+            except Exception as e:
+                logger.error(
+                    "Error uploading profile image for user %s: %s",
+                    user.email,
+                    str(e),
                 )
 
-            profile_upload = user_data.get("profile_img_url")
-            logger.info("Profile image: %s", profile_upload)
+        ActivityModel.objects.create(
+            user=user,
+            title="User Registration.",
+            description=f"{user.first_name} {user.last_name} just registered as a User.",
+        )
 
-            user = serializer.save()
-            AccountType.objects.create(
-                user=user,
-                user_type="User",
-            )
-            user.active_role = "User"
-            user.save()
+        # Create and send OTP.
+        otp = otp_manager.create_otp(user_id=str(user.id))
+        logger.info("OTP for user: %s", otp)
+        msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
+            otp
+        )
+        recipient = serializer.data["phone_number"][1:]
 
-            logger.info("User created: %s", user.email)
+        Message.send_msg(msg=str(msg), to=recipient)
 
-            if profile_upload:
-                try:
-                    user.profile_img_url = profile_upload
-                    user.save()
-                    logger.info("Profile image uploaded for user: %s", user.email)
-                except Exception as e:
-                    logger.error(
-                        "Error uploading profile image for user %s: %s",
-                        user.email,
-                        str(e),
-                    )
-
-            ActivityModel.objects.create(
-                user=user,
-                title="User Registration.",
-                description=f"{user.first_name} {user.last_name} just registered as a User.",
-            )
-
-            # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(user.id))
-            logger.info("OTP for user: %s", otp)
-            msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
-                otp
-            )
-            recipient = serializer.data["phone_number"][1:]
-
-            Message.send_msg(msg=str(msg), to=recipient)
-
-            response = {
-                "status": "success",
-                "message": "User Created Successfully. Check your phone for an OTP",
-                "image": user.profile_img_url,
-                "data": serializer.data,
-            }
-            logger.info("Registration successful for user: %s", user.email)
-            encrypted_response = encrypt(response)
-            return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
-        else:
-            logger.error(
-                "Registration failed for user: %s, errors: %s",
-                user_data.get("email"),
-                serializer.errors,
-            )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        response = {
+            "status": "success",
+            "message": "User Created Successfully. Check your phone for an OTP",
+            "image": user.profile_img_url,
+            "data": serializer.data,
+        }
+        logger.info("Registration successful for user: %s", user.email)
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):
