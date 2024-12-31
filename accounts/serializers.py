@@ -60,7 +60,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        validated_data.pop("profile_image", None)
+        validated_data.pop("profile_img_url", None)
 
         user = User.objects.create(
             email=validated_data["email"],

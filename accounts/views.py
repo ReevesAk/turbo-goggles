@@ -129,7 +129,8 @@ class Register(generics.GenericAPIView):
                 user_data.get("email"),
                 serializer.errors,
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            encrypted_errors = {key: [encrypt(str(err)) for err in value] for key, value in serializer.errors.items()}
+            return Response(data=encrypted_errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):
