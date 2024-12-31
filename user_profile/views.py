@@ -381,7 +381,9 @@ class ProfileImage(generics.UpdateAPIView):
             }:
                 description = f"Admin with email: {user.email} and role: {user.active_role} updated their profile image."
             else:
-                description = f"{user.first_name} {user.last_name} updated their profile image."
+                description = (
+                    f"{user.first_name} {user.last_name} updated their profile image."
+                )
 
             ActivityModel.objects.create(
                 user=user,
@@ -393,9 +395,7 @@ class ProfileImage(generics.UpdateAPIView):
                 "status": "success",
                 "message": "Profile picture updated successfully",
             }
-            logger.info(
-                "User %s updated their profile image successfully.", user.email
-            )
+            logger.info("User %s updated their profile image successfully.", user.email)
             return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
         logger.warning(
@@ -462,24 +462,22 @@ class UpdateUserProfile(generics.UpdateAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} updated their profile.",
             )
 
-            # Prepare and send the email notification
-            # TODO update correspondence email.
-            # body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to email@gmail.com."
+            body = "This is to inform you that your profile on Picadailys has been updated. If you didn't perform this action, kindly reply to this email or send an email to support@picadailys.com."
 
-            # template = get_template("empty_email.html")
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
 
-            # # Render the template with values
-            # rendered_html = template.render(
-            #     custom_text=f"Dear {request.user.first_name},<br><br>{body}.",
-            #     support_email="support@picadailys.com",
-            #     picadailys_phone="+123 456 7890",
-            # )
-
-            # Messaging.send_email(
-            #     email="eze6266@gmail.com",
-            #     html_content=rendered_html,
-            #     subject="Profile Update",
-            # )
+            Messaging.send_email(
+                email=request.user.email,
+                html_content=text_content,
+                subject="Profile Update",
+            )
 
             logger.info(
                 "User  %s successfully updated their profile.", request.user.email

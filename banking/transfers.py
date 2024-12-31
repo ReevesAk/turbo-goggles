@@ -2,6 +2,8 @@ import logging
 
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
+
 from drf_spectacular.utils import extend_schema
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
@@ -784,7 +786,7 @@ class FundWallet(generics.GenericAPIView):
                 )
 
                 account = TransferModel.objects.filter(user=user).first()
-                # message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+                message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
 
                 UserNotification.objects.create(
                     user=user,
@@ -800,14 +802,23 @@ class FundWallet(generics.GenericAPIView):
                 )
                 logger.info("Activity log created for user %s", user.id)
 
-                # Message.send_email(
-                #     subject="Wallet Funding.",
-                #     content=message,
-                #     email=user.email,
-                # )
-                # logger.info(
-                #     "Confirmation email sent to user %s at %s", user.id, user.email
-                # )
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": message,
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "+123 456 7890",
+                    },
+                )
+
+                Messaging.send_email(
+                    subject="Wallet Funding",
+                    html_content=text_content,
+                    email=user.email,
+                )
+                logger.info(
+                    "Confirmation email sent to user %s at %s", user.id, user.email
+                )
 
                 resp = {
                     "status": "success",

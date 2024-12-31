@@ -547,55 +547,31 @@ class AddAdmin(generics.CreateAPIView):
                 logger.info(f"Admin user created successfully: {user.email}")
 
                 # Generate signup link
-                signup_link = (
-                    f"https://picadailys-admin.netlify.app/sign-up?user_id={user.id}"
+                signup_link = f"https://admin.picadailys.com/sign-up?user_id={user.id}"
+
+                name = user.full_name.split()[0]
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"""
+                            Dear {name},<br><br>
+                            Your admin account has been created. Follow this 
+                            <a href="{signup_link}" style="color: #3498db; text-decoration: none;">
+                                link
+                            </a> 
+                            to complete your signup.<br><br>
+                            If you have any questions, feel free to contact us at our support email or phone below.
+                        """,
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "+123 456 7890",
+                    },
                 )
 
-                # Send link to mailbox
-                try:
-                    # Load and render the Jinja2 template
-                    try:
-                        template_dir = "templates"
-                        env = Environment(loader=FileSystemLoader(template_dir))
-                        template = env.get_template("empty_email.html")
-
-                        rendered_html = template.render(
-                            firstname=user.full_name.split()[0],
-                            signup_link=signup_link,
-                            support_email="support@picadailys.com",
-                            picadailys_phone="+123 456 7890",
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Jinja2 failed, falling back to Django template engine: {e}"
-                        )
-                        rendered_html = render_to_string(
-                            "empty_email.html",
-                            {
-                                "firstname": user.full_name.split()[0],
-                                "signup_link": signup_link,
-                                "support_email": "support@picadailys.com",
-                                "picadailys_phone": "+123 456 7890",
-                            },
-                        )
-
-                    Messaging.send_email(
-                        email=user.email,
-                        html_content=rendered_html,
-                        subject="Admin Registration",
-                    )
-                    logger.info(f"Signup email sent to {user.email}")
-                except Exception as e:
-                    logger.error(f"Failed to send email to {user.email}: {e}")
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "Failure",
-                                "message": f"Admin created, but email could not be sent: {str(e)}",
-                            }
-                        ),
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Admin Registration",
+                )
 
                 # Prepare response
                 resp = {
@@ -1156,24 +1132,18 @@ class DeleteAdmin(generics.GenericAPIView):
                         "Activity logged for deleting admin: %s", user.full_name
                     )
 
-                    with open(
-                        "templates/empty_email.html", "r", encoding="utf-8"
-                    ) as file:
-                        html_template = file.read()
-
-                        # Create a Jinja2 template
-                        template = Template(html_template)
-
-                        # Render the template with values
-                        rendered_html = template.render(
-                            custom_text=f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
-                            support_email="support@picadailys.com",
-                            picadailys_phone="+123 456 7890",
-                        )
+                    text_content = render_to_string(
+                        template_name="empty_email.html",
+                        context={
+                            "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
+                            "support_email": "support@picadailys.com",
+                            "picadailys_phone": "+123 456 7890",
+                        },
+                    )
 
                     Message.send_email(
                         email=request.user.email,
-                        html_content=rendered_html,
+                        html_content=text_content,
                         subject="Admin Deletion",
                     )
 

@@ -9,8 +9,7 @@ from permissions import (
 from commons import Messaging
 
 from django.contrib.auth.hashers import make_password
-
-from jinja2 import Template
+from django.template.loader import render_to_string
 
 # Third party imports.
 from rest_framework import generics
@@ -366,29 +365,24 @@ class NotificationView(generics.CreateAPIView):
                     description=f"{user.first_name} {user.last_name} received a credit transaction with narraiton: {narration}.",
                 )
 
-                # send transactional email.
-                with open("templates/table_email.html", "r", encoding="utf-8") as file:
-                    html_template = file.read()
-
-                    # Create a Jinja2 template
-                    template = Template(html_template)
-
-                    # Render the template with values
-                    rendered_html = template.render(
-                        custom_text=f"Dear {user.first_name},<br><br>You received a creidt transaction of {amount} and below are the detials.",
-                        narration=narration,
-                        account_number=account_number,
-                        amount=amount,
-                        datetime=date_time,
-                        tx_type="Credit Transaction",
-                        balance=user_data["accountBalance"],
-                        support_email="support@picadailys.com",
-                        picadailys_phone="+123 456 7890",
-                    )
+                text_content = render_to_string(
+                    template_name="table_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>You received a creidt transaction of {amount} and below are the detials.",
+                        "narration": narration,
+                        "account_number": account_number,
+                        "amount": amount,
+                        "datetime": date_time,
+                        "tx_type": "Credit Transaction",
+                        "balance": user_data["accountBalance"],
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "+123 456 7890",
+                    },
+                )
 
                 Messaging.send_email(
                     email=request.user.email,
-                    html_content=rendered_html,
+                    html_content=text_content,
                     subject="Credit Transaction",
                 )
 
@@ -397,30 +391,27 @@ class NotificationView(generics.CreateAPIView):
                     user=user, title="Debit Transaction", message=narration
                 )
 
-                with open("templates/table_email.html", "r", encoding="utf-8") as file:
-                    html_template = file.read()
-
-                    # Create a Jinja2 template
-                    template = Template(html_template)
-
-                    # Render the template with values
-                    rendered_html = template.render(
-                        custom_text=f"Dear {user.first_name},<br><br>You made a transaction of {amount} and below are the detials.",
-                        narration=narration,
-                        account_number=account_number,
-                        amount=amount,
-                        datetime=date_time,
-                        tx_type="Debit Transaction",
-                        balance=user_data["accountBalance"],
-                        support_email="support@picadailys.com",
-                        picadailys_phone="+123 456 7890",
-                    )
+                text_content = render_to_string(
+                    template_name="table_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>You made a transaction of {amount} and below are the detials.",
+                        "narration": narration,
+                        "account_number": account_number,
+                        "amount": amount,
+                        "datetime": date_time,
+                        "tx_type": "Debit Transaction",
+                        "balance": user_data["accountBalance"],
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "+123 456 7890",
+                    },
+                )
 
                 Messaging.send_email(
                     email=request.user.email,
-                    html_content=rendered_html,
+                    html_content=text_content,
                     subject="Debit Transaction",
                 )
+
             case _:
                 pass
 
@@ -526,24 +517,20 @@ class SetWalletPin(generics.CreateAPIView):
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
-            with open("templates/empty_email.html", "r", encoding="utf-8") as file:
-                html_template = file.read()
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": "This is to inform you that your Wallet pin was created successful.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
 
-                # Create a Jinja2 template
-                template = Template(html_template)
-
-                # Render the template with values
-                rendered_html = template.render(
-                    custom_text="This is to inform you that your Wallet pin was created successful.",
-                    support_email="support@picadailys.com",
-                    picadailys_phone="+123 456 7890",
-                )
-
-                Messaging.send_email(
-                    email=request.user.email,
-                    html_content=rendered_html,
-                    subject="Waller Pin",
-                )
+            Messaging.send_email(
+                email=request.user.email,
+                html_content=text_content,
+                subject="Waller Pin",
+            )
 
             response = {
                 "status": "success",
