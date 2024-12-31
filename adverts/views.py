@@ -98,10 +98,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 },
             }
             return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
-
-        # Log errors if serializer is invalid
-        logger.error("Failed to create brand advert account: %s", serializer.errors)
-        return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Log errors if serializer is invalid
+            logger.error("Failed to create brand advert account: %s", serializer.errors)
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
 class ListAllBrandAds(generics.ListAPIView):
