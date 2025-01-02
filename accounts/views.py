@@ -67,9 +67,7 @@ class Register(generics.GenericAPIView):
             if user_data["password"] != user_data["password2"]:
                 logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Passwords do not match!"}
-                    ),
+                    data={"status": "fail", "error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -121,15 +119,14 @@ class Register(generics.GenericAPIView):
                 "data": serializer.data,
             }
             logger.info("Registration successful for user: %s", user.email)
-            encrypted_response = encrypt(response)
-            return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
+            return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             logger.error(
                 "Registration failed for user: %s, errors: %s",
                 user_data.get("email"),
                 serializer.errors,
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):

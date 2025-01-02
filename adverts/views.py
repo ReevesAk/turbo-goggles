@@ -39,10 +39,9 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
     serializer_class = CreateBrandAdvertSeriailizers
 
     def post(self, request):
-        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
         authenticated_user = request.user
         serializer = self.serializer_class(data=user_data)
@@ -97,12 +96,12 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                     "telegram": user_data.get("telegram"),
                 },
             }
-            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
+            return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             # Log errors if serializer is invalid
             logger.error("Failed to create brand advert account: %s", serializer.errors)
             return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
 
