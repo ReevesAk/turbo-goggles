@@ -46,13 +46,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         if email:
             email_exists = User.objects.filter(email=email).exists()
             if email_exists:
-                logger.warning("Registration attempt with already used email: %s", email)
+                logger.warning(
+                    "Registration attempt with already used email: %s", email
+                )
                 raise serializers.ValidationError("Email has already been used")
 
         if phone_number:
             phone_exists = User.objects.filter(phone_number=phone_number).exists()
             if phone_exists:
-                logger.warning("Registration attempt with already used phone number: %s", phone_number)
+                logger.warning(
+                    "Registration attempt with already used phone number: %s",
+                    phone_number,
+                )
                 raise serializers.ValidationError("Phone number has already been used")
 
         return super().validate(attrs)
