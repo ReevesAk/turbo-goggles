@@ -52,7 +52,6 @@ class Register(generics.GenericAPIView):
     """
 
     serializer_class = RegisterSerializer
-    parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
         decrypted_payload = request.data
