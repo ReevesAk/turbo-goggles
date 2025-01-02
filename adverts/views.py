@@ -73,8 +73,12 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                         logger.debug(f"{field_name} URL validated: {url}")
                     except DjangoValidationError:
                         logger.error(f"Invalid URL format for {field_name}: {url}")
+                        response_data = {
+                            "status": "fail",
+                            "message": {field_name: "Invalid URL format"}
+                        }
                         return Response(
-                            data=encrypt({field_name: "Invalid URL format"}),
+                            data=encrypt(response_data),
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                     user_data[field_name] = url
