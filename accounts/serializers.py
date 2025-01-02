@@ -40,17 +40,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        email = attrs.get("email", "")
-        phone_number = attrs.get("phone_number", "")
-
-        if email and User.objects.filter(email=email).exists():
-            logger.warning("Registration attempt with already used email: %s", email)
-            attrs["email_error"] = "This email is already registered."
-
-        if phone_number and User.objects.filter(phone_number=phone_number).exists():
-            logger.warning("Registration attempt with already used phone number: %s", phone_number)
-            attrs["phone_number_error"] = "This phone number is already registered."
-
         return super().validate(attrs)
 
     def create(self, validated_data):

@@ -62,6 +62,22 @@ class Register(generics.GenericAPIView):
 
         logger.info("Received registration data: %s", user_data)
 
+        email = user_data.get("email")
+        if email and User.objects.filter(email=email).exists():
+            logger.warning("Registration attempt with already used email: %s", email)
+            return Response(
+                data={"status": "fail", "error": "This email is already registered!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone_number = user_data.get("phone_number")
+        if phone_number and User.objects.filter(phone_number=phone_number).exists():
+            logger.warning("Registration attempt with already used phone numner: %s", email)
+            return Response(
+                data={"status": "fail", "error": "This phone number is already registered!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
@@ -70,6 +86,7 @@ class Register(generics.GenericAPIView):
                     data={"status": "fail", "error": "Passwords do not match!"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
 
             profile_upload = user_data.get("profile_img_url")
             logger.info("Profile image: %s", profile_upload)
