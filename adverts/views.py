@@ -93,7 +93,7 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 logger.error(f"Error creating user: {e}")
                 return Response(
                     data=encrypt(
-                        {"error": "An error occurred while creating the user."}
+                        {"status": "fail", "message": "An error occurred while creating the user."}
                     ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )

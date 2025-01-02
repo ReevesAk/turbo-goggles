@@ -67,7 +67,7 @@ class Register(generics.GenericAPIView):
             logger.warning("Registration attempt with already used email: %s", email)
             return Response(
                 data=encrypt(
-                    {"status": "fail", "error": "This email is already registered!"}
+                    {"status": "fail", "message": "This email is already registered!"}
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -81,7 +81,7 @@ class Register(generics.GenericAPIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "error": "This phone number is already registered!",
+                        "message": "This phone number is already registered!",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
