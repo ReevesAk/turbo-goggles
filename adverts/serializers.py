@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 # Third party imports.
 from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework import status
 
 # In projects imports.
 from accounts.models import User
@@ -50,8 +52,9 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
                     logger.debug(f"{field_name} URL validated: {url}")
                 except DjangoValidationError:
                     logger.error(f"Invalid URL format for {field_name}: {url}")
-                    raise serializers.ValidationError(
-                        encrypt({field_name: "Invalid URL format"})
+                    return Response(
+                        data=encrypt({field_name: "Invalid URL format"}),
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 # Update the field with the corrected URL
@@ -74,8 +77,9 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
             logger.info(f"User created successfully: {user.id}")
         except Exception as e:
             logger.error(f"Error creating user: {e}")
-            raise serializers.ValidationError(
-                encrypt("An error occurred while creating the user.")
+            return Response(
+                data=encrypt("An error occurred while creating the user."),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         return user
@@ -169,12 +173,12 @@ class BrandSurveySerializers(serializers.ModelSerializer):
             # Ensure the website URL starts with http:// or https://
             if website and not website.startswith(("http://", "https://")):
                 logger.error("Invalid website URL format: %s", website)
-                raise serializers.ValidationError(
-                    encrypt(
-                        {
-                            "website": "Invalid website format. Please include 'http://' or 'https://'."
-                        }
-                    )
+                return Response(
+                    data=encrypt(
+                        "website:"
+                        "Invalid website format. Please include 'http://' or 'https://'."
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             logger.info("Validation successful for BrandSurveySerializers.")

@@ -129,7 +129,9 @@ class Register(generics.GenericAPIView):
                 user_data.get("email"),
                 serializer.errors,
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):
@@ -200,7 +202,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
@@ -279,7 +283,9 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
             )
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ResendOTP(generics.GenericAPIView):
@@ -334,7 +340,9 @@ class ResendOTP(generics.GenericAPIView):
         else:
             # Log validation errors
             logger.error("Resend OTP validation failed: %s", serializer.errors)
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PasswordResendOTP(generics.GenericAPIView):
