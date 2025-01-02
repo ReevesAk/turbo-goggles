@@ -54,7 +54,7 @@ class Register(generics.GenericAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-        decrypted_payload = request.data
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
