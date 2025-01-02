@@ -2,14 +2,11 @@ import logging
 
 # Third party imports.
 from rest_framework import serializers
-from rest_framework.response import Response
-from rest_framework import status
 
 # In project imports.
 from .models import User
 from roles.models import GamificationModel
 
-from security import encrypt
 
 logger = logging.getLogger(__name__)
 
@@ -49,25 +46,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         if email:
             email_exists = User.objects.filter(email=email).exists()
             if email_exists:
-                logger.warning(
-                    "Registration attempt with already used email: %s", email
-                )
-                raise Response(
-                    data=encrypt("Email has already been used"),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                logger.warning("Registration attempt with already used email: %s", email)
+                raise serializers.ValidationError("Email has already been used")
 
         if phone_number:
             phone_exists = User.objects.filter(phone_number=phone_number).exists()
             if phone_exists:
-                logger.warning(
-                    "Registration attempt with already used phone number: %s",
-                    phone_number,
-                )
-                return Response(
-                    data=encrypt("Phone number has already been used"),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                logger.warning("Registration attempt with already used phone number: %s", phone_number)
+                raise serializers.ValidationError("Phone number has already been used")
 
         return super().validate(attrs)
 
