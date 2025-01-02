@@ -93,7 +93,7 @@ class Register(generics.GenericAPIView):
                 logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
                     data=encrypt(
-                        {"status": "fail", "error": "Passwords do not match!"}
+                        {"status": "fail", "message": "Passwords do not match!"}
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -192,7 +192,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             if not user_id:
                 logger.warning("Invalid or expired OTP: %s", received_otp)
                 return Response(
-                    data={"error": "Invalid or expired OTP"},
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid or expired OTP"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -201,7 +203,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             except User.DoesNotExist:
                 logger.error("User with id %s does not exist.", user_id)
                 return Response(
-                    data={"error": "User not found"},
+                    data=encrypt({"status": "fail", "message": "User not found"}),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -267,7 +269,9 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                     "Invalid or expired OTP during password reset: %s", received_otp
                 )
                 return Response(
-                    data={"error": "Invalid or expired OTP"},
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid or expired OTP"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -279,7 +283,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                     user_id,
                 )
                 return Response(
-                    data={"error": "User not found"},
+                    data=encrypt({"status": "fail", "message": "User not found"}),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 

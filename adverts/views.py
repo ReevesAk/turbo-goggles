@@ -75,7 +75,7 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                         logger.error(f"Invalid URL format for {field_name}: {url}")
                         response_data = {
                             "status": "fail",
-                            "message": f"{field_name}: Invalid URL format"
+                            "message": f"{field_name}: Invalid URL format",
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -97,7 +97,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 logger.error(f"Error creating user: {e}")
                 return Response(
                     data=encrypt(
-                        {"status": "fail", "message": "An error occurred while creating the user."}
+                        {
+                            "status": "fail",
+                            "message": "An error occurred while creating the user.",
+                        }
                     ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
