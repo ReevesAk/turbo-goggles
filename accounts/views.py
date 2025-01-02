@@ -126,7 +126,14 @@ class Register(generics.GenericAPIView):
                 user_data.get("email"),
                 serializer.errors,
             )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Validation error occurred.",
+                    "errors": serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class PhoneVerifyOTP(generics.GenericAPIView):

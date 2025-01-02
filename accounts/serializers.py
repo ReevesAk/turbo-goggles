@@ -43,22 +43,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         email = attrs.get("email", "")
         phone_number = attrs.get("phone_number", "")
 
-        if email:
-            email_exists = User.objects.filter(email=email).exists()
-            if email_exists:
-                logger.warning(
-                    "Registration attempt with already used email: %s", email
-                )
-                raise serializers.ValidationError("Email has already been used")
+        if email and User.objects.filter(email=email).exists():
+            logger.warning("Registration attempt with already used email: %s", email)
+            attrs["email_error"] = "This email is already registered."
 
-        if phone_number:
-            phone_exists = User.objects.filter(phone_number=phone_number).exists()
-            if phone_exists:
-                logger.warning(
-                    "Registration attempt with already used phone number: %s",
-                    phone_number,
-                )
-                raise serializers.ValidationError("Phone number has already been used")
+        if phone_number and User.objects.filter(phone_number=phone_number).exists():
+            logger.warning("Registration attempt with already used phone number: %s", phone_number)
+            attrs["phone_number_error"] = "This phone number is already registered."
 
         return super().validate(attrs)
 
