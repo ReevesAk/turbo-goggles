@@ -75,7 +75,7 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                         logger.error(f"Invalid URL format for {field_name}: {url}")
                         response_data = {
                             "status": "fail",
-                            "message": {field_name: "Invalid URL format"}
+                            "message": f"{field_name}: Invalid URL format"
                         }
                         return Response(
                             data=encrypt(response_data),
