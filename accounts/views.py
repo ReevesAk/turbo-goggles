@@ -66,15 +66,24 @@ class Register(generics.GenericAPIView):
         if email and User.objects.filter(email=email).exists():
             logger.warning("Registration attempt with already used email: %s", email)
             return Response(
-                data={"status": "fail", "error": "This email is already registered!"},
+                data=encrypt(
+                    {"status": "fail", "error": "This email is already registered!"}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         phone_number = user_data.get("phone_number")
         if phone_number and User.objects.filter(phone_number=phone_number).exists():
-            logger.warning("Registration attempt with already used phone numner: %s", email)
+            logger.warning(
+                "Registration attempt with already used phone numner: %s", email
+            )
             return Response(
-                data={"status": "fail", "error": "This phone number is already registered!"},
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "error": "This phone number is already registered!",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -83,10 +92,11 @@ class Register(generics.GenericAPIView):
             if user_data["password"] != user_data["password2"]:
                 logger.warning("Password mismatch for user: %s", user_data.get("email"))
                 return Response(
-                    data={"status": "fail", "error": "Passwords do not match!"},
+                    data=encrypt(
+                        {"status": "fail", "error": "Passwords do not match!"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
 
             profile_upload = user_data.get("profile_img_url")
             logger.info("Profile image: %s", profile_upload)
@@ -136,7 +146,7 @@ class Register(generics.GenericAPIView):
                 "data": serializer.data,
             }
             logger.info("Registration successful for user: %s", user.email)
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
         else:
             logger.error(
                 "Registration failed for user: %s, errors: %s",
@@ -144,11 +154,13 @@ class Register(generics.GenericAPIView):
                 serializer.errors,
             )
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "Validation error occurred.",
-                    "errors": serializer.errors,
-                },
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Validation error occurred.",
+                        "errors": serializer.errors,
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

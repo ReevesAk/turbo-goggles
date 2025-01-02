@@ -1,5 +1,8 @@
 import logging
-from decouple import config
+from urllib.parse import urlparse
+
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 # Third party imports
 from rest_framework import generics, status
@@ -53,8 +56,48 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
         )
 
         if serializer.is_valid(raise_exception=True):
+            urls = ["facebook", "twitter", "instagram", "telegram"]
+            url_validator = URLValidator()
+
+            for field_name in urls:
+                url = user_data.get(field_name, "")
+
+                if url:
+                    # Check if the URL has a scheme; if not, prepend 'https://'
+                    parsed_url = urlparse(url)
+                    if not parsed_url.scheme:
+                        url = f"https://{url}"
+
+                    try:
+                        url_validator(url)
+                        logger.debug(f"{field_name} URL validated: {url}")
+                    except DjangoValidationError:
+                        logger.error(f"Invalid URL format for {field_name}: {url}")
+                        return Response(
+                            data=encrypt({field_name: "Invalid URL format"}),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    user_data[field_name] = url
+
             # Save the new brand advert data
-            serializer.save()
+            try:
+                user = User.objects.create(
+                    whoareyou=user_data["whoareyou"],
+                    facebook=user_data["facebook"],
+                    twitter=user_data["twitter"],
+                    instagram=user_data["instagram"],
+                    telegram=user_data["telegram"],
+                )
+                logger.info(f"User created successfully: {user.id}")
+            except Exception as e:
+                logger.error(f"Error creating user: {e}")
+                return Response(
+                    data=encrypt(
+                        {"error": "An error occurred while creating the user."}
+                    ),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
             logger.info(
                 "Brand advert data saved successfully for user: %s",
                 authenticated_user.email,
@@ -97,11 +140,13 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                     "telegram": user_data.get("telegram"),
                 },
             }
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
         else:
             # Log errors if serializer is invalid
             logger.error("Failed to create brand advert account: %s", serializer.errors)
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ListAllBrandAds(generics.ListAPIView):
