@@ -39,9 +39,10 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
     serializer_class = CreateBrandAdvertSeriailizers
 
     def post(self, request):
+        decrypted_payload = request.data
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         authenticated_user = request.user
         serializer = self.serializer_class(data=user_data)
