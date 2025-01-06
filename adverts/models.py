@@ -46,7 +46,7 @@ class CreateAd(models.Model):
         choices=ONLINE_PRESENCE, max_length=20, blank=True, null=True
     )
     online_preferences = models.CharField(max_length=150, blank=True, null=True)
-    metric_to_increase = models.CharField(blank=True, null=True)
+    metric_to_increase = models.CharField(max_length=250, blank=True, null=True)
     demography = models.CharField(
         choices=TARGET_MARKET, max_length=150, blank=True, null=True
     )

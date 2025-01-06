@@ -22,9 +22,9 @@ DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 ENVIRONMENT = conf("ENVIRONMENT")
 
 if ENVIRONMENT == "development":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "https://api.picadailys.com", "miniature-waddle.onrender.com"]
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "miniature-waddle.onrender.com"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", " https://api.picadailys.com"]
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com"]
 
 
 # Application definition
@@ -256,6 +256,13 @@ if TESTING:
     print('=========================')
     print('In TEST Mode - Disabling Migrations')
     print('=========================')
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',  # Use an in-memory database for tests
+        }
+    }
 
     class DisableMigrations(object):
 

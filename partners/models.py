@@ -45,7 +45,7 @@ class CustomerRating(models.Model):
     service = models.ForeignKey(
         PartnerServices, on_delete=models.CASCADE, related_name="customer_rating"
     )
-    rating = models.CharField(null=True, blank=True)
+    rating = models.CharField(max_length=50, null=True, blank=True)
     review = models.TextField(null=True, blank=True)
     slug = models.SlugField(default="", max_length=155, null=False)
 
