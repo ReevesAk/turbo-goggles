@@ -43,14 +43,12 @@ class GetallWalletUsers(generics.ListAPIView):
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(
-                {
-                    "status": "success",
-                    "message": "All Wallet owners retrieved successfully.",
-                    "num_of_wallet_owners": queryset.count(),
-                    "wallet_owners": serialized_users.data,
-                }
-            )
+            response = {
+                "status": "success",
+                "message": "All Wallet owners retrieved successfully.",
+                "num_of_wallet_owners": queryset.count(),
+                "wallet_owners": serialized_users.data,
+            }
             return self.get_paginated_response(encrypt(response))
 
         # In case pagination is not used

@@ -341,3 +341,33 @@ class IsPartnerUserOrMemberBrandAdOrSuperAdmin(permissions.BasePermission):
                 raise ValidationError(encrypt("Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action."))
 
         raise ValidationError(encrypt("Authentication is required to access this resource."))
+
+
+class IsManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["Manager"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise ValidationError(encrypt("Only the Manager can perform this action."))
+
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
+
+
+class IsAgent(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Define the agent roles you want to allow
+        support_agents = ["Manager", "Agent", "Moderator"]
+
+        if request.user.is_authenticated:
+            # Check if the user's active role is in the list of allowed admin roles
+            if request.user.active_role in support_agents:
+                return True
+            else:
+                raise ValidationError("Only agents users can perform this action.")
+
+        raise ValidationError("Authentication is required to access this resource.")

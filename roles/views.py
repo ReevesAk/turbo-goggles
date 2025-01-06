@@ -9,7 +9,6 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from jinja2 import Environment, FileSystemLoader, Template
 from django.template.loader import render_to_string
 
 # In project imports.
@@ -749,7 +748,7 @@ class SetAdminPin(generics.CreateAPIView):
         )
 
     def create(self, request, *args, **kwargs):
-        decrypted_payload = request.data
+        decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()

@@ -1,28 +1,39 @@
 import logging
 
 from django.db import transaction
-from django.core.exceptions import PermissionDenied
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
+from django.contrib.auth.hashers import check_password
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 # In project imports.
 from .serializers import (
-    CreateTicketSerializers, AssignTicketSerializers, AgentRatingSerializers, TicketSerializers, UserWithTicketsSerializer
+    CreateTicketSerializers, AssignTicketSerializers,
+    AgentRatingSerializers, TicketSerializers,
+    AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
+    CreateAgentPinSerializer,
 )
 from .models import Ticket, AgentRating
 
 # Third party imports.
 from rest_framework import generics, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from accounts.models import User, UserNotification, AccountType
+from accounts.models import User, UserNotification, AccountType, DeviceId
+from accounts.tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
 from permissions import (
-    IsSuperAdmin,
+    IsSuperAdmin, IsManager, IsAgent
 )
-
+from commons import Messaging
 
 logger = logging.getLogger(__name__)
 
@@ -183,8 +194,8 @@ class AssignTicket(generics.GenericAPIView):
         ).exists()
 
         if not is_admin:
-            logger.warning("User  %s exists, but is not an admin.", user.email)
-            raise PermissionDenied(encrypt("User  exists, but is not an admin."))
+            logger.warning("User  %s exists, but is not an agent.", user.email)
+            raise PermissionDenied("User exists, but is not an agent.")
 
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
             logger.info("Pin verification successful for user: %s", authenticated_user)
@@ -474,3 +485,399 @@ class UsersWithTickets(generics.ListAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AddAgent(generics.CreateAPIView):
+    """
+    Add a new support agent(Agent or Moderator).
+    Only Managers can create new support agents.
+    If the user is successfully created, a JSON object containing the user's data is returned.
+    If the user cannot be created, a 400 Bad Request or 403 Forbidden error is returned.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = AddAgentSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsManager)
+
+    def post(self, request):
+        try:
+            # Log request initiation
+            logger.info("Received request to add a new admin.")
+
+            # Process payload
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in request.data.items()
+            }
+            logger.debug(f"Processed payload: {payload}")
+
+            if not payload.get("email"):
+                return Response(data={"status": "fail", "message": "Email field cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not payload.get("role"):
+                return Response(data={"status": "fail", "message": "At least one role must be selected."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if email exists
+            if User.objects.filter(email=payload.get("email")).exists():
+                logger.warning(
+                    f"Attempt to create agent with existing email: {payload.get('email')}"
+                )
+                return Response(
+                    data=(
+                        {
+                            "status": "fail",
+                            "message": "A user with this email already exists.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate and save user
+            serializer = AddAgentSerializer(data=payload)
+            if serializer.is_valid(raise_exception=True):
+                user = serializer.save()
+                user_data = AddAgentSerializer(user).data
+                logger.info(f"Support Agent created successfully: {user.email}")
+
+                # Generate signup link
+                signup_link = f"https://support.picadailys.com/sign-up?user_id={user.id}"
+
+                name = user.full_name.split()[0]
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"""
+                            Dear {name},<br><br>
+                            Your agent account has been created. Follow this
+                            <a href="{signup_link}" style="color: #3498db; text-decoration: none;">
+                                link
+                            </a>
+                            to complete your signup.<br><br>
+                            If you have any questions, feel free to contact us at our support email or phone below.
+                        """,
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "+123 456 7890",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Agent Registration",
+                )
+
+                # Prepare response
+                resp = {
+                    "status": "Success",
+                    "message": "Created successfully, a link has been sent to your mail",
+                    "user_id": user.id,
+                    "data": user_data,
+                }
+                logger.info(f"Response prepared for user creation: {resp}")
+
+                return Response(
+                    data=resp,
+                    status=status.HTTP_201_CREATED,
+                )
+        except ValidationError as e:
+            logger.warning(f"Validation error: {e}")
+            raise ValidationError(message=e, code=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return Response(
+                data={"status": "Error", "message": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AgentSignUpComplete(generics.UpdateAPIView):
+    """
+    AgentSignUpComplete is a POST request that handles the support agent signup completion.
+    """
+
+    serializer_class = AddAgentContdSerializer
+    permission_classes = [AllowAny]
+
+    def get_object(self):
+        user_id = self.kwargs.get("user_id")
+
+        try:
+            user = User.objects.get(id=user_id)
+            admin_types = [
+                "SuperAdmin",
+                "TaskAdmin",
+                "AdAdmin",
+                "MembersAdmin",
+                "UserAdmin",
+                "PartnersAdmin",
+                "ContentAdmin",
+                "IntegrationAdmin",
+                "WalletAdmin",
+            ]
+            is_admin = AccountType.objects.filter(
+                user=user, user_type__in=admin_types
+            ).exists()
+
+            if is_admin:
+                return user
+            else:
+                raise PermissionError("User exists, but is not an admin.")
+
+        except User.DoesNotExist:
+            return None
+
+    def update(self, request, *args, **kwargs):
+        user_id = kwargs.get("id")  # Assuming the user ID is passed in the URL
+        logger.info("Update request received for user ID: %s", user_id)
+
+        instance = self.get_object()
+        if instance is None:
+            logger.warning("User  with ID %s not found.", user_id)
+            return Response(
+                data={"status": "fail", "message": "User  not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        elif isinstance(instance, Response):  # Return Response if not an admin
+            logger.warning(
+                "User  with ID %s is not an admin, returning response.", user_id
+            )
+            return instance
+
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        logger.debug("Payload for update: %s", payload)
+
+        serializer = self.get_serializer(instance=instance, data=payload)
+
+        if serializer.is_valid(raise_exception=True):
+            user = serializer.save()
+            user.set_password(
+                serializer.validated_data.get("password", user.password)
+            )  # Ensure password is set correctly
+            user.is_verified = True
+            user.save()
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Admin Complete Signup.",
+                description=f"Support agent {instance.full_name} completed signup.",
+            )
+            logger.info(
+                "Support ageent registration completed successfully for user ID: %s", user_id
+            )
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "Suppot Agent signup completed successfully.",
+                    "data": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            logger.error(
+                "Error during user update for user ID %s: %s",
+                user_id,
+                serializer.errors,
+            )
+            return Response(
+                data={"status": "fail", "message": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class LoginAgent(APIView):
+    """LoginAPIView handles the POST request of logging in
+    a verified user with valid login credentials.
+    """
+
+    serializer_class = SupportAgentLoginSerializers
+
+    def post(self, request):
+        data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        email = data.get("email")
+        password = data.get("password")
+
+        try:
+            # Retrieve the user by email to get the phone number
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            logger.warning(f"Login attempt failed: User with email {email} not found.")
+            return Response(
+                data={"status": "fail", "message": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Authenticate using the phone number and password
+        user = authenticate(phone_number=user.phone_number, password=password)
+
+        if user:
+            logger.info(f"User {user.email} authenticated successfully.")
+
+            # Check if the user has more than two devices registered
+            existing_device_count = DeviceId.objects.filter(user=user).count()
+            if existing_device_count >= 2:
+                if existing_device_count == 3:
+                    oldest_device = DeviceId.objects.filter(user=user).earliest(
+                        "created_at"
+                    )
+                    oldest_device.delete()
+                    logger.info(
+                        f"Device limit exceeded for user {user.email}. Oldest device deleted."
+                    )
+
+                return Response(
+                    data={"status": "fail", "message": "Agent cannot login on more than two devices, oldest device ID deleted."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not user.is_verified:
+                logger.warning(
+                    f"User {user.email} is not verified. Login attempt blocked."
+                )
+                return Response(
+                    data={"status": "fail", "message": "Please verify your account to login"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            logger.info(f"User {user.email} successfully logged in.")
+
+            user_name = (
+                "Manager"
+                if user.active_role == "Manager"
+                else "SuperAdmin"
+                if user.active_role == "SuperAdmin"
+                else user.full_name
+                if user.active_role
+                in {
+                    "Moderator",
+                    "Agent",
+                }
+                else "Unknown"
+            )
+
+            UserNotification.objects.create(
+                user=user, title="Login.", message="Login successful."
+            )
+            ActivityModel.objects.create(
+                user=user,
+                title="Agent Login.",
+                description=f"Support Agent, {user_name} logged in.",
+            )
+
+            # Get user roles
+            user_roles = AccountType.objects.filter(user=user).values_list(
+                "user_type", flat=True
+            )
+            tokens = create_jwt_pair_for_user(user)
+
+            # Assign a role if active_role is None
+            if user.active_role is None and user_roles:
+                user.active_role = user_roles[0]
+
+            user_details = {
+                "id": user.id,
+                "email": user.email,
+                "image": user.profile_img_url,
+                "phone_number": user.phone_number,
+                "full_name": user.full_name,
+                "is_verified": user.is_verified,
+                "is_admin_pin_set": user.is_admin_pin_set,
+                "roles": list(user_roles),
+            }
+            user.last_login = timezone.now()
+            user.save()
+
+            response = {
+                "status": "success",
+                "message": "Login successful",
+                "tokens": tokens,
+                "user_data": user_details,
+            }
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            logger.warning(
+                f"Login attempt failed for user with email {email}. Invalid credentials."
+            )
+            return Response(
+                data={"status": "fail", "message": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+
+class SetAgentPin(generics.CreateAPIView):
+    """
+    SetAgentPin handles the POST request of creating a pin for a support agent.
+    """
+
+    serializer_class = CreateAgentPinSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsAgent)
+
+    def perform_create(self, serializer, request):
+        pin = request.dataget("pin")
+        user = request.user
+        logger.info(f"Creating admin pin for user: {user.full_name}.")
+
+        if not pin:
+            logger.warning(
+                f"No pin provided for user: {user.full_name}."
+            )
+            return Response(
+                data={"status": "fail", "message": "Pin is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Hash the pin using make_password.
+        hashed_pin = make_password(pin)
+        logger.debug(
+            "Hashed pin for user %s: %s", user.full_name, hashed_pin
+        )
+
+        # Save the hashed pin in the authenticated user's admin_pin field.
+        authenticated_user = self.request.user
+        authenticated_user.admin_pin = hashed_pin
+        authenticated_user.is_admin_pin_set = True
+        authenticated_user.save()
+        logger.info("Agent pin set for user: %s %s", user.full_name)
+
+        # Create a user notification
+        UserNotification.objects.create(
+            user=authenticated_user,
+            title="Agent Pin",
+            message="Agent pin created successfully.",
+        )
+        logger.info(
+            "User  notification created for user: %s %s",
+            user.full_name,
+        )
+
+    def create(self, request, *args, **kwargs):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        logger.info("Create request received with data: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            self.perform_create(serializer, request)
+            response = {
+                "status": "success",
+                "message": "Agent pin created successfully!",
+            }
+            logger.info(
+                "Admin pin created successfully for user: %s",
+                request.user.full_name,
+            )
+            return Response(data=response, status=status.HTTP_201_CREATED)
+        else:
+            logger.error("Validation errors occurred: %s", serializer.errors)
+            return Response(
+                data={"status": "fail", "message": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
