@@ -88,6 +88,8 @@ class UserModelTest(TestCase):
         """Test that the email field must be unique."""
         User.objects.create(**self.user_data)
         duplicate_data = self.user_data.copy()
-        duplicate_data["phone_number"] = "+9876543210"  # Change phone_number to avoid collision
+        duplicate_data[
+            "phone_number"
+        ] = "+9876543210"  # Change phone_number to avoid collision
         with self.assertRaises(Exception):
             User.objects.create(**duplicate_data)
