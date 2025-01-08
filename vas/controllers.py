@@ -155,7 +155,7 @@ def data(user, serializer, reason, user_data):
             phone=phone,
         )
 
-        return (data_response.json(),)
+        return data_response.json()
     else:
         # initiate a credit refund to the customer after failed transaction.
         _ = Account.Credit(

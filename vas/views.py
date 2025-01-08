@@ -544,7 +544,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                logger.debug(f"data_response: {data_response}")
                 if data_response["code"] == 0:
                     response_data = {
                         "status": "success",
