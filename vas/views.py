@@ -42,7 +42,7 @@ from .controllers import (
     VehicleInsurance,
     HealthInsurance,
 )
-from helpers import VAS
+from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
