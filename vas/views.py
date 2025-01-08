@@ -160,7 +160,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                if airtime_response.status_code == 0:
+                if airtime_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Airtime purchase of {float(amount)} was successful.",
@@ -173,7 +173,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif airtime_response["code"] == 14:
+                elif airtime_response["code"] == "014":
                     request_id = airtime_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
@@ -242,7 +242,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Debit for airtime recharge .",
                         user_data=user_data,
                     )
-                    if airtime_response["code"] == 0:
+                    if airtime_response["code"] == "000":
                         response_data = {
                             "status": "success",
                             "message": f"Airtime purchase of {new_amount} was successful.",
@@ -255,7 +255,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    elif airtime_response["code"] == 14:
+                    elif airtime_response["code"] == "014":
                         request_id = airtime_response["requestId"]
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -961,7 +961,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                if electricity_response["code"] == 0:
+                if electricity_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Electricity purchase of {float(amount)} was successful.",
@@ -974,7 +974,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif electricity_response["code"] == 14:
+                elif electricity_response["code"] == "014":
                     request_id = electricity_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
@@ -1047,7 +1047,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         reason="Debit for electricity bill payment.",
                         user_data=user_data,
                     )
-                    if electricity_response["code"] == 0:
+                    if electricity_response["code"] == "000":
                         response_data = {
                             "status": "success",
                             "message": f"Electricity purchase of {new_amount} was successful.",
@@ -1060,7 +1060,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    elif electricity_response["code"] == 14:
+                    elif electricity_response["code"] == "014":
                         request_id = electricity_response["requestId"]
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1112,7 +1112,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                if electricity_response["code"] == 0:
+                if electricity_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Electricity purchase of {amount} was successful.",
@@ -1125,7 +1125,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif electricity_response["code"] == 14:
+                elif electricity_response["code"] == "014":
                     request_id = electricity_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
@@ -1526,7 +1526,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription.",
                         user_data=user_data,
                     )
-                    if new_tv_response["code"] == 0:
+                    if new_tv_response["code"] == "000":
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1538,7 +1538,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    elif new_tv_response["code"] == 14:
+                    elif new_tv_response["code"] == "014":
                         request_id = new_tv_response["requestId"]
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1589,7 +1589,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription.",
                     user_data=user_data,
                 )
-                if new_tv_response["code"] == 0:
+                if new_tv_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1601,7 +1601,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif new_tv_response["code"] == 14:
+                elif new_tv_response["code"] == "014":
                     request_id = new_tv_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
@@ -1779,7 +1779,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription renewal.",
                         user_data=user_data,
                     )
-                    if renew_tv_response["code"] == 0:
+                    if renew_tv_response["code"] == "000":
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1791,7 +1791,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    elif renew_tv_response["code"] == 14:
+                    elif renew_tv_response["code"] == "014":
                         request_id = renew_tv_response["requestId"]
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1842,7 +1842,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription renewal.",
                     user_data=user_data,
                 )
-                if renew_tv_response["code"] == 0:
+                if renew_tv_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1854,7 +1854,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif renew_tv_response["code"] == 14:
+                elif renew_tv_response["code"] == "014":
                     request_id = renew_tv_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
