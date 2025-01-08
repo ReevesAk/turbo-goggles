@@ -384,3 +384,26 @@ class VAS:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def check_status(req_id):
+        resource = "requery"
+        payload = {
+            "request_id": req_id,
+        }
+
+        status_headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+        try:
+            response = requests.get(
+                url=vtpass_url + resource, headers=status_headers, json=payload
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f" API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

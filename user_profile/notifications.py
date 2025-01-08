@@ -124,7 +124,7 @@ class GetSingleNotification(generics.RetrieveAPIView):
                     "notification_id": ntfn_id,
                     "message": notification.message,
                     "is_read": notification.is_read,
-                    "created_at": notification.created_at,
+                    "created_at": str(notification.created_at),
                 },
             }
             logger.info(

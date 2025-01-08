@@ -42,6 +42,7 @@ from .controllers import (
     VehicleInsurance,
     HealthInsurance,
 )
+from helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
@@ -159,7 +160,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                if airtime_response.status_code == 200:
+                if airtime_response.status_code == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Airtime purchase of {float(amount)} was successful.",
@@ -172,6 +173,22 @@ class AirTimeTopUp(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
+                elif airtime_response["code"] == 14:
+                    request_id = airtime_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"Airtime purchase of {amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "airtime_response": airtime_response,
+                        }
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             logger.warning(
                 f"Airtime top-up failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
@@ -225,7 +242,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Debit for airtime recharge .",
                         user_data=user_data,
                     )
-                    if airtime_response["code"] in [0, 200]:
+                    if airtime_response["code"] == 0:
                         response_data = {
                             "status": "success",
                             "message": f"Airtime purchase of {new_amount} was successful.",
@@ -238,26 +255,47 @@ class AirTimeTopUp(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    logger.warning(
-                        f"Airtime top-up failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
+                    elif airtime_response["code"] == 14:
+                        request_id = airtime_response["requestId"]
+                        status_query = VAS.check_status(req_id=request_id)
+                        if (
+                            status_query["content"]["transactions"]["status"]
+                            == "delivered"
+                        ):
+                            response_data = {
+                                "status": "success",
+                                "message": f"Airtime purchase of {new_amount} was successful.",
+                                "bonus balance": user.welcome_bonus,
+                                "airtime_response": airtime_response,
+                            }
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
+                            )
+                            return Response(
+                                data=encrypt(response_data), status=status.HTTP_200_OK
+                            )
+                    else:
+                        logger.warning(
+                            f"Airtime top-up failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Airtime top-up failed due to insufficient balance.",
+                                    "error": airtime_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
+                    logger.error(
+                        f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
                     )
                     return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": "Airtime top-up failed due to insufficient balance.",
-                                "error": airtime_response,
-                            }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
+                        data=encrypt(debit_response.json()),
+                        status=debit_response.status_code,
                     )
-                logger.error(
-                    f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
-                )
-                return Response(
-                    data=encrypt(debit_response.json()),
-                    status=debit_response.status_code,
-                )
             case "CARD":
                 logger.info(
                     f"User  {user.first_name} {user.last_name} selected CARD as payment option."
@@ -268,7 +306,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                if airtime_response["code"] in [0, 200]:
+                if airtime_response["code"] == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Airtime purchase of {amount} was successful.",
@@ -281,6 +319,22 @@ class AirTimeTopUp(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
+                elif airtime_response["code"] == 14:
+                    request_id = airtime_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"Airtime purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "airtime_response": airtime_response,
+                        }
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
                 else:
                     logger.warning(
                         f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
@@ -490,7 +544,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                if data_response.status_code == 200:
+                if data_response["code"] == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {float(amount)} was successful.",
@@ -502,6 +556,35 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                elif data_response["code"] == 14:
+                    request_id = data_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "pending",
+                            "message": f"Data purchase of {float(amount)} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "data_response": data_response,
+                        }
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
+                else:
+                    response_data = {
+                        "status": "fail",
+                        "message": f"Data purchase of {float(amount)} failed.",
+                        "bonus balance": user.welcome_bonus,
+                        "data_response": data_response,
+                    }
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} purchase of data using bonus failed."
+                    )
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST
                     )
             logger.warning(
                 f"Data subscription failed for user {user.first_name} {user.last_name} due to insufficient bonus."
@@ -559,7 +642,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Debit for data subscription.",
                         user_data=user_data,
                     )
-                    if data_response["code"] in [0, 200]:
+                    if data_response["code"] == 0:
                         response_data = {
                             "status": "success",
                             "message": f"Data purchase of {new_amount} was successful.",
@@ -567,31 +650,52 @@ class DataSubscriptionView(generics.GenericAPIView):
                             "data_response": data_response,
                         }
                         logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET option."
+                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
                         )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    logger.warning(
-                        f"Data subscription failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
+                    if data_response["code"] == 14:
+                        request_id = data_response["requestId"]
+                        status_query = VAS.check_status(req_id=request_id)
+                        if (
+                            status_query["content"]["transactions"]["status"]
+                            == "delivered"
+                        ):
+                            response_data = {
+                                "status": "pending",
+                                "message": f"Data purchase of {new_amount} was successful.",
+                                "bonus balance": user.welcome_bonus,
+                                "data_response": data_response,
+                            }
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
+                    else:
+                        logger.warning(
+                            f"Data subscription failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Data subscription failed due to insufficient balance.",
+                                    "error": data_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
+                    logger.error(
+                        f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
                     )
                     return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": "Data subscription failed due to insufficient balance.",
-                                "error": data_response,
-                            }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
+                        data=encrypt(debit_response.json()),
+                        status=debit_response.status_code,
                     )
-                logger.error(
-                    f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
-                )
-                return Response(
-                    data=encrypt(debit_response.json()),
-                    status=debit_response.status_code,
-                )
             case "CARD":
                 logger.info(
                     f"User {user.first_name} {user.last_name} selected CARD as payment option."
@@ -602,7 +706,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                if data_response["code"] in [0, 200]:
+                if data_response["code"] == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {amount} was successful.",
@@ -615,19 +719,36 @@ class DataSubscriptionView(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                logger.warning(
-                    f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Data subscription failed.",
-                            "error": data_response,
+                if data_response["code"] == 14:
+                    request_id = data_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "pending",
+                            "message": f"Data purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "data_response": data_response,
                         }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
+                    )
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                else:
+                    logger.warning(
+                        f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Data subscription failed.",
+                                "error": data_response,
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             case _:
                 logger.error(
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
@@ -840,7 +961,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                if electricity_response.status_code == 200:
+                if electricity_response["code"] == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Electricity purchase of {float(amount)} was successful.",
@@ -853,6 +974,22 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
+                elif electricity_response["code"] == 14:
+                    request_id = electricity_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"Request for Electricity purchase of {float(amount)} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "electricity_response": electricity_response,
+                        }
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
             logger.warning(
                 f"Electricity purchase failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
@@ -910,7 +1047,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         reason="Debit for electricity bill payment.",
                         user_data=user_data,
                     )
-                    if electricity_response["code"] in [0, 200]:
+                    if electricity_response["code"] == 0:
                         response_data = {
                             "status": "success",
                             "message": f"Electricity purchase of {new_amount} was successful.",
@@ -923,19 +1060,39 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    logger.warning(
-                        f"Electricity purchase failed for user {user.first_name} {user.last_name} due to insufficient balance."
-                    )
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": "Electricity purchase failed due to insufficient balance.",
-                                "error": electricity_response,
+                    elif electricity_response["code"] == 14:
+                        request_id = electricity_response["requestId"]
+                        status_query = VAS.check_status(req_id=request_id)
+                        if (
+                            status_query["content"]["transactions"]["status"]
+                            == "delivered"
+                        ):
+                            response_data = {
+                                "status": "success",
+                                "message": f"Electricity purchase of {new_amount} was successful.",
+                                "bonus balance": user.welcome_bonus,
+                                "electricity_response": electricity_response,
                             }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
+                    else:
+                        logger.warning(
+                            f"Electricity purchase failed for user {user.first_name} {user.last_name}."
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Electricity purchase failed due to insufficient balance.",
+                                    "error": electricity_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 else:
                     logger.error(
                         f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
@@ -955,7 +1112,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
-                if electricity_response["code"] in [0, 200]:
+                if electricity_response["code"] == 0:
                     response_data = {
                         "status": "success",
                         "message": f"Electricity purchase of {amount} was successful.",
@@ -968,19 +1125,36 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                logger.warning(
-                    f"Electricity purchase failed for user {user.first_name} {user.last_name}."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Electricity purchase failed.",
-                            "error": electricity_response,
+                elif electricity_response["code"] == 14:
+                    request_id = electricity_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"Electricity purchase of {new_amount} was successful.",
+                            "bonus balance": user.welcome_bonus,
+                            "electricity_response": electricity_response,
                         }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
+                    )
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                else:
+                    logger.warning(
+                        f"Electricity purchase failed for user {user.first_name} {user.last_name}."
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Electricity purchase failed.",
+                                "error": electricity_response,
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             case _:
                 logger.warning(
                     f"Invalid payment option selected by user {user.first_name} {user.last_name}."
@@ -1352,7 +1526,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription.",
                         user_data=user_data,
                     )
-                    if new_tv_response["code"] in [0, 200]:
+                    if new_tv_response["code"] == 0:
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1364,19 +1538,38 @@ class NewTvSubscription(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    logger.warning(
-                        f"TV subscription purchase failed for user {user.first_name} {user.last_name} due to insufficient balance."
-                    )
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": "Cable TV subscription purchase failed due to insufficient balance.",
-                                "error": new_tv_response,
+                    elif new_tv_response["code"] == 14:
+                        request_id = new_tv_response["requestId"]
+                        status_query = VAS.check_status(req_id=request_id)
+                        if (
+                            status_query["content"]["transactions"]["status"]
+                            == "delivered"
+                        ):
+                            response_data = {
+                                "status": "success",
+                                "message": f"TV subscription purchase of {new_amount} was successful.",
+                                "cable_tv_response": new_tv_response,
                             }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
+                    else:
+                        logger.warning(
+                            f"TV subscription purchase failed for user {user.first_name} {user.last_name}."
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Cable TV subscription purchase failed.",
+                                    "error": new_tv_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 else:
                     logger.error(
                         f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
@@ -1396,31 +1589,47 @@ class NewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription.",
                     user_data=user_data,
                 )
-                if new_tv_response["code"] in [0, 200]:
+                if new_tv_response["code"] == 0:
                     response_data = {
                         "status": "success",
-                        "message": f"TV subscription purchase of {amount} was successful.",
+                        "message": f"TV subscription purchase of {new_amount} was successful.",
                         "cable_tv_response": new_tv_response,
                     }
                     logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased TV subscription via CARD."
+                        f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                     )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                logger.warning(
-                    f"TV subscription purchase failed for user {user.first_name} {user.last_name} via CARD."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Cable TV subscription purchase failed.",
-                            "error": new_tv_response,
+                elif new_tv_response["code"] == 14:
+                    request_id = new_tv_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"TV subscription purchase of {new_amount} was successful.",
+                            "cable_tv_response": new_tv_response,
                         }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                    )
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                else:
+                    logger.warning(
+                        f"TV subscription purchase failed for user {user.first_name} {user.last_name} via CARD."
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Cable TV subscription purchase failed.",
+                                "error": new_tv_response,
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             case _:
                 logger.error(
@@ -1570,7 +1779,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         reason="Debit for TV subscription renewal.",
                         user_data=user_data,
                     )
-                    if renew_tv_response["code"] in [0, 200]:
+                    if renew_tv_response["code"] == 0:
                         response_data = {
                             "status": "success",
                             "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1582,19 +1791,38 @@ class RenewTvSubscription(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    logger.warning(
-                        f"TV subscription renewal failed for user {user.first_name} {user.last_name} due to insufficient balance."
-                    )
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": "Cable TV subscription purchase failed due to insufficient balance.",
-                                "error": renew_tv_response,
+                    elif renew_tv_response["code"] == 14:
+                        request_id = renew_tv_response["requestId"]
+                        status_query = VAS.check_status(req_id=request_id)
+                        if (
+                            status_query["content"]["transactions"]["status"]
+                            == "delivered"
+                        ):
+                            response_data = {
+                                "status": "success",
+                                "message": f"TV subscription purchase of {new_amount} was successful.",
+                                "cable_tv_response": renew_tv_response,
                             }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                        )
+                        return Response(
+                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        )
+                    else:
+                        logger.warning(
+                            f"TV subscription renewal failed for user {user.first_name} {user.last_name}."
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Cable TV subscription purchase failed.",
+                                    "error": renew_tv_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 else:
                     logger.error(
                         f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
@@ -1614,31 +1842,47 @@ class RenewTvSubscription(generics.GenericAPIView):
                     reason="Debit for TV subscription renewal.",
                     user_data=user_data,
                 )
-                if renew_tv_response["code"] in [0, 200]:
+                if renew_tv_response["code"] == 0:
                     response_data = {
                         "status": "success",
-                        "message": f"TV subscription purchase of {amount} was successful.",
+                        "message": f"TV subscription purchase of {new_amount} was successful.",
                         "cable_tv_response": renew_tv_response,
                     }
                     logger.info(
-                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription via CARD."
+                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                     )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                logger.warning(
-                    f"TV subscription renewal failed for user {user.first_name} {user.last_name} via CARD."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Cable TV subscription purchase failed.",
-                            "error": renew_tv_response,
+                elif renew_tv_response["code"] == 14:
+                    request_id = renew_tv_response["requestId"]
+                    status_query = VAS.check_status(req_id=request_id)
+                    if status_query["content"]["transactions"]["status"] == "delivered":
+                        response_data = {
+                            "status": "success",
+                            "message": f"TV subscription purchase of {new_amount} was successful.",
+                            "cable_tv_response": renew_tv_response,
                         }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                    )
+                    return Response(
+                        data=encrypt(response_data), status=status.HTTP_200_OK
+                    )
+                else:
+                    logger.warning(
+                        f"TV subscription renewal failed for user {user.first_name} {user.last_name} via CARD."
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Cable TV subscription purchase failed.",
+                                "error": renew_tv_response,
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             case _:
                 logger.error(

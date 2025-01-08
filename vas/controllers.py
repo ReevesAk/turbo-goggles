@@ -1,4 +1,6 @@
 import logging
+import random
+import string
 from datetime import datetime
 from commons import Allocate
 from accounts.models import TxModel, Rewards, UserNotification
@@ -20,7 +22,8 @@ from .models import (
 )
 
 current_datetime = datetime.now()
-req_id = current_datetime.strftime("%Y%m%d%H%M" + "picadailys")
+random_string = "".join(random.choices(string.ascii_letters + string.digits, k=5))
+req_id = current_datetime.strftime("%Y%m%d%H%M") + "picadailys" + random_string
 
 
 def airtime(user, serializer, reason, user_data):
@@ -697,3 +700,14 @@ def Health_Insurance(uploaded_passport_url, user, serializer, reason, user_data)
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return health_insurance_response.json()
+
+
+def status_check():
+    airtime_response = VAS.check_status(
+        req_id=req_id,
+    )
+
+    if airtime_response.status_code == 200:
+        airtime_instance = serializer.save()
+        amount = user_data["amount"]
+        phone = user_data["phone"]
