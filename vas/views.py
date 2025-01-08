@@ -544,7 +544,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                if data_response["code"] == 0:
+                if data_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {float(amount)} was successful.",
@@ -557,7 +557,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif data_response["code"] == 14:
+                elif data_response["code"] == "014":
                     request_id = data_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
@@ -642,7 +642,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Debit for data subscription.",
                         user_data=user_data,
                     )
-                    if data_response["code"] == 0:
+                    if data_response["code"] == "000":
                         response_data = {
                             "status": "success",
                             "message": f"Data purchase of {new_amount} was successful.",
@@ -655,7 +655,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
-                    if data_response["code"] == 14:
+                    if data_response["code"] == "014":
                         request_id = data_response["requestId"]
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -706,7 +706,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Debit for data subscription.",
                     user_data=user_data,
                 )
-                if data_response["code"] == 0:
+                if data_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {amount} was successful.",
@@ -719,7 +719,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                if data_response["code"] == 14:
+                if data_response["code"] == "014":
                     request_id = data_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
