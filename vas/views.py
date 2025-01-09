@@ -306,7 +306,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
                 )
-                if airtime_response["code"] == 0:
+                if airtime_response["code"] == "000":
                     response_data = {
                         "status": "success",
                         "message": f"Airtime purchase of {amount} was successful.",
@@ -319,7 +319,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
-                elif airtime_response["code"] == 14:
+                elif airtime_response["code"] == "014":
                     request_id = airtime_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
