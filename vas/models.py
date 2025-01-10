@@ -21,8 +21,8 @@ DATA_SERVICE_ID_CHOICES = (
 )
 
 METER_TYPE_CHOICES = (
-    ("Prepaid", "Prepaid"),
-    ("Postpaid", "Postpaid"),
+    ("Prepaid", "prepaid"),
+    ("Postpaid", "postpaid"),
 )
 
 TV_SERVICE_ID_CHOICES = (
