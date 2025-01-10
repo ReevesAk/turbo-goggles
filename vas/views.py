@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
+from django.utils.timezone import now
 
 from drf_spectacular.utils import extend_schema
 
@@ -1602,6 +1603,8 @@ class NewTvSubscription(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif new_tv_response["code"] == "014":
+                    logger.info(f"Tv response: {new_tv_response}")
+                    logger.info(f"Local server time: {now()}")
                     request_id = new_tv_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
