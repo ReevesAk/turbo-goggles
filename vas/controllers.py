@@ -151,6 +151,7 @@ def data(user, serializer, reason, user_data):
         DataSubscription.objects.create(
             user=user,
             request_id=req_id,
+            serviceID=user_data["serviceID"],
             amount=amount,
             phone=phone,
         )
@@ -293,7 +294,7 @@ def NewTvSub(user, serializer, reason, user_data):
 
         TvSubscription.objects.create(
             user=user,
-            sericeID=user_data["serviceID"],
+            serviceID=user_data["serviceID"],
             subscription_type="change",
             request_id=req_id,
             quantity=user_data["serviceID"],
@@ -365,7 +366,7 @@ def RenewTvSub(user, serializer, reason, user_data):
 
         TvSubscription.objects.create(
             user=user,
-            sericeID=user_data["serviceID"],
+            serviceID=user_data["serviceID"],
             subscription_type="renew",
             request_id=req_id,
             quantity=user_data["serviceID"],
@@ -435,7 +436,7 @@ def waec_reg(user, serializer, reason, user_data):
 
         WaecRegistration.objects.create(
             user=user,
-            sericeID=user_data["serviceID"],
+            serviceID=user_data["serviceID"],
             request_id=req_id,
             quantity=user_data["serviceID"],
             amount=amount,
@@ -513,7 +514,7 @@ def MotorInsurance(user, serializer, reason, user_data):
 
         VehicleInsurance.objects.create(
             user=user,
-            sericeID=user_data["serviceID"],
+            serviceID=user_data["serviceID"],
             request_id=req_id,
             quantity=user_data["serviceID"],
             amount=amount,
@@ -700,14 +701,3 @@ def Health_Insurance(uploaded_passport_url, user, serializer, reason, user_data)
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return health_insurance_response.json()
-
-
-def status_check():
-    airtime_response = VAS.check_status(
-        req_id=req_id,
-    )
-
-    if airtime_response.status_code == 200:
-        airtime_instance = serializer.save()
-        amount = user_data["amount"]
-        phone = user_data["phone"]
