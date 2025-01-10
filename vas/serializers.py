@@ -76,22 +76,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        # serviceID = attrs.get("serviceID", "")
-        # phone = attrs.get("phone", "")
-
-        # if serviceID and phone:
-        #     provider = check_provider(phone)
-        #     if serviceID != provider:
-        #         raise serializers.ValidationError(
-        #             encrypt(
-        #                 f"This phone number, {phone}, does not belong to the service provider, {serviceID}"
-        #             )
-        #         )
-        # else:
-        #     raise serializers.ValidationError(
-        #         encrypt("serviceID and phone number are required")
-        #     )
-
         return attrs
 
     def create(self, validated_data):
@@ -134,22 +118,6 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        # serviceID = attrs.get("serviceID", "")
-        # billersCode = attrs.get("billersCode", "")
-
-        # if serviceID and billersCode:
-        #     provider_data = check_provider(billersCode)
-        #     if serviceID != provider_data:
-        #         raise serializers.ValidationError(
-        #             encrypt(
-        #                 f"This number, {billersCode} does not belong to the service provider, {serviceID}"
-        #             )
-        #         )
-        # else:
-        #     serializers.ValidationError(
-        #         "serviceID and billerscode(phone number) are required"
-        #     )
-
         return attrs
 
     def create(self, validated_data):

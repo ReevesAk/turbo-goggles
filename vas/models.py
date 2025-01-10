@@ -80,10 +80,8 @@ class ElectricityBill(ItemPurchaseBaseModel):
     serviceID = models.CharField(
         choices=ELECTRICITY_SERVICE_ID_CHOICES, max_length=150, null=True
     )
-    billersCode = models.CharField(
-        choices=METER_TYPE_CHOICES, max_length=150, null=True
-    )
-    type = models.CharField(max_length=150, null=True)
+    billersCode = models.CharField(max_length=150, null=True)
+    type = models.CharField(choices=METER_TYPE_CHOICES, max_length=150, null=True)
     variation_code = models.CharField(max_length=150, null=True)
     amount = models.CharField(max_length=150, null=True)
     phone = models.CharField(max_length=150, null=True)
