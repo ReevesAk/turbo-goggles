@@ -24,6 +24,9 @@ from .views import (
 )
 
 
+app_name = 'self-service'
+
+
 urlpatterns = [
     path("table-booking", TableBooking.as_view(), name="table_booking"),
     path("table-booking-list", TableBookingList.as_view(), name="table_booking_list"),

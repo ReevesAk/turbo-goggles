@@ -53,6 +53,9 @@ from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
 from user_profile.views import ProfileImage
 
 
+app_name = 'roles'
+
+
 urlpatterns = [
     path("register-super-admin", RegisterSuperAdmin.as_view(), name="resgiter_admin"),
     path("add-admin", AddAdmin.as_view(), name="create_new_admin"),

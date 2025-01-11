@@ -3,6 +3,10 @@ from django.urls import path
 from .views import CreateTicket, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent
 from .pusher import SupportChat
 
+
+app_name = 'support'
+
+
 urlpatterns = [
     path("add-agent", AddAgent.as_view(), name="add_support_agent"),
     path("signup-complete/<str:user_id>/", AgentSignUpComplete.as_view(), name="signup-complete"),

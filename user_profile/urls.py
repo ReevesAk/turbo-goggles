@@ -25,6 +25,9 @@ from .notifications import (
     DeleteNotification,
 )
 
+app_name = 'user_profile'
+
+
 urlpatterns = [
     path("switch-to-user", SwitchToUser.as_view(), name="switch_to_user"),
     path("switch-to-partner", SwitchToPartner.as_view(), name="switch_to_partner"),

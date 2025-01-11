@@ -29,6 +29,10 @@ from .views import (
     HealthInsuranceView,
 )
 
+
+app_name = 'vas'
+
+
 urlpatterns = [
     path("product-status", ProductStatus.as_view(), name="check_product_status"),
     path(

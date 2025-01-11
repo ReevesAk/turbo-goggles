@@ -15,6 +15,10 @@ from .views import (
     PartnerServiceDetailView,
 )
 
+
+app_name = 'partners'
+
+
 urlpatterns = [
     path("create-partners", CreatePartner.as_view(), name="create_partners"),
     path("partner-profile", GetPartnerDetails.as_view(), name="get_partner_profile"),

@@ -15,6 +15,10 @@ from .views import (
 
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
+
+app_name = 'accounts'
+
+
 urlpatterns = [
     # Token endpoints.
     path("token-refresh", TokenRefreshView.as_view(), name="token_refresh"),

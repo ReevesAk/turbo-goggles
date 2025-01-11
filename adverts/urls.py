@@ -8,6 +8,9 @@ from .views import (
     BrandPromote,
 )
 
+app_name = 'adverts'
+
+
 urlpatterns = [
     path("create-ad", CreateBrandAdvertsAccount.as_view(), name="create_ad"),
     path(

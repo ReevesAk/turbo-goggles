@@ -30,6 +30,10 @@ from .webhooks import (
     RedirectingPageView,
 )
 
+
+app_name = 'banking'
+
+
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
     path("account-details", GetAccountDetails.as_view(), name="account_details"),
