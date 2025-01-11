@@ -795,7 +795,7 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND
             )
 
-        new_role = request.data.get("role")
+        new_role = decrypted_payload.get("role")
         logger.info("Checking if user already has the role: %s", new_role)
 
         # Check if the role already exists
