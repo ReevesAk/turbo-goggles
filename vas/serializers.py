@@ -152,7 +152,6 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
             "amount",
             "phone",
             "billersCode",
-            "type",
             "variation_code",
             "use_bonus",
             "use_points",

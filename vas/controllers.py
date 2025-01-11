@@ -222,6 +222,7 @@ def electricity(user, serializer, reason, user_data):
             serviceID=user_data["serviceID"],
             request_id=req_id,
             amount=amount,
+            variation_code=user_data["variation_code"],
             phone=user_data["phone"],
         )
 
