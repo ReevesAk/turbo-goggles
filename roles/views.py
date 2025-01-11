@@ -635,7 +635,7 @@ class AdAdminContd(generics.UpdateAPIView):
             return None
 
     def update(self, request, *args, **kwargs):
-        user_id = kwargs.get("id")  # Assuming the user ID is passed in the URL
+        user_id = kwargs.get("user_id")  # Assuming the user ID is passed in the URL
         logger.info("Update request received for user ID: %s", user_id)
 
         instance = self.get_object()
@@ -871,8 +871,8 @@ class RemoveAdminRole(generics.GenericAPIView):
 
         is_user = User.objects.filter(email=email).first()
         if not is_user:
-            logger.warning("User  not found for email: %s", email)
-            return Response(data="User  not found.", status=status.HTTP_404_NOT_FOUND)
+            logger.warning("User not found for email: %s", email)
+            return Response(data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND)
 
         role_to_remove = decrypted_payload.get("role_to_remove")
         logger.info("Attempting to remove role: %s for user: %s", role_to_remove, email)

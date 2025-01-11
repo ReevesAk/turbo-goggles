@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .serializers import PusherSerializers
-
+from security import encrypt, decrypt
 
 # Initialize Pusher client
 pusher_client = pusher.Pusher(
@@ -27,7 +27,8 @@ class SupportChat(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
-        message = request.data.get("message")
+        decrypted_msg = decrypt(request.data)
+        message = decrypted_msg.get("message")
         user_id_1 = kwargs.get('user_id_1')
         user_id_2 = kwargs.get('user_id_2')
 
@@ -38,7 +39,7 @@ class SupportChat(generics.GenericAPIView):
         pusher_client.trigger(channel_name, 'new-message', {'message': message})
 
         return Response(
-            data={
+            data=encrypt({
                 "status": "success",
                 "message": "Chat intitiated",
                 "sender_id": request.user.id,
@@ -48,7 +49,7 @@ class SupportChat(generics.GenericAPIView):
                     "cluster": config("PUSHER_APP_CLUSTER"),
                     "channels": channel_name,
                 }
-            },
+            }),
             status=status.HTTP_200_OK
         )
 
@@ -77,4 +78,4 @@ class GetSingleTicket(generics.RetrieveAPIView):
             channel=request.POST['channel_name'],
             socket_id=request.POST['socket_id']
         )
-        return Response(data={"status": "success", "message": "Authentication", "data": auth}, status=status.HTTP_200_OK)
+        return Response(data=encrypt({"status": "success", "message": "Authentication", "data": auth}), status=status.HTTP_200_OK)
