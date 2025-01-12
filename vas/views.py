@@ -546,6 +546,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     user_data=user_data,
                 )
                 if data_response["code"] == "000":
+                    logger.debug(f"response data: {data_response}")
                     response_data = {
                         "status": "success",
                         "message": f"Data purchase of {float(amount)} was successful.",
@@ -559,6 +560,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif data_response["code"] == "014":
+                    logger.debug(f"response data: {data_response}")
                     request_id = data_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
