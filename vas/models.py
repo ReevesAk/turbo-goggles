@@ -14,10 +14,10 @@ AIRTIME_SERVICE_ID_CHOICES = (
 )
 
 DATA_SERVICE_ID_CHOICES = (
-    ("MTN", "mtn-data"),
-    ("Glo", "glo-data"),
-    ("Airtel", "airtel-data"),
-    ("Etisalat", "etisalat-data"),
+    ("mtn-data", "mtn-data"),
+    ("glo-data", "glo-data"),
+    ("airtel-data", "airtel-data"),
+    ("etisalat-data", "etisalat-data"),
 )
 
 METER_TYPE_CHOICES = (
