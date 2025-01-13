@@ -129,21 +129,23 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                     user_name = (
                         "Superuser"
                         if authenticated_user.active_role == "Superuser"
-                        else authenticated_user.full_name
-                        if authenticated_user.active_role
-                        in {
-                            "SuperAdmin",
-                            "TaskAdmin",
-                            "AdAdmin",
-                            "MembersAdmin",
-                            "UserAdmin",
-                            "PartnersAdmin",
-                            "ContentAdmin",
-                            "IntegrationAdmin",
-                            "WalletAdmin",
-                            "FmcgAdmin",
-                        }
-                        else "Unknown"
+                        else (
+                            authenticated_user.full_name
+                            if authenticated_user.active_role
+                            in {
+                                "SuperAdmin",
+                                "TaskAdmin",
+                                "AdAdmin",
+                                "MembersAdmin",
+                                "UserAdmin",
+                                "PartnersAdmin",
+                                "ContentAdmin",
+                                "IntegrationAdmin",
+                                "WalletAdmin",
+                                "FmcgAdmin",
+                            }
+                            else "Unknown"
+                        )
                     )
 
                     # Register Admin activity
@@ -250,9 +252,11 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
             )
             return Response(
                 data=encrypt({"status": "fail", "error": error_message}),
-                status=status.HTTP_400_BAD_REQUEST
-                if not email
-                else status.HTTP_404_NOT_FOUND,
+                status=(
+                    status.HTTP_400_BAD_REQUEST
+                    if not email
+                    else status.HTTP_404_NOT_FOUND
+                ),
             )
 
         # Serialize and respond with the queryset data

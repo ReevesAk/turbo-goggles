@@ -16,7 +16,7 @@ from .views import (
 )
 
 
-app_name = 'partners'
+app_name = "partners"
 
 
 urlpatterns = [

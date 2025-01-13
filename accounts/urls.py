@@ -16,7 +16,7 @@ from .views import (
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 
-app_name = 'accounts'
+app_name = "accounts"
 
 
 urlpatterns = [

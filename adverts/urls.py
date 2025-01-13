@@ -8,7 +8,7 @@ from .views import (
     BrandPromote,
 )
 
-app_name = 'adverts'
+app_name = "adverts"
 
 
 urlpatterns = [

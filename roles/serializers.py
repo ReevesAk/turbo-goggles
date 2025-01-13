@@ -87,24 +87,6 @@ class AddAdminSerializer(serializers.ModelSerializer):
         extra_kwargs = {"email": {"required": True}}
 
     def validate(self, attrs):
-        email = attrs.get("email")
-        roles = attrs.get("roles")
-
-        if not email:
-            raise serializers.ValidationError(
-                encrypt({"email": "Email field cannot be empty."})
-            )
-
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError(
-                encrypt({"email": "Email has already been used."})
-            )
-
-        if not roles:
-            raise serializers.ValidationError(
-                encrypt({"roles": "At least one role must be selected."})
-            )
-
         return super().validate(attrs)
 
     def create(self, validated_data):

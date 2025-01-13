@@ -25,7 +25,7 @@ from .notifications import (
     DeleteNotification,
 )
 
-app_name = 'user_profile'
+app_name = "user_profile"
 
 
 urlpatterns = [

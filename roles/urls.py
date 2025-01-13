@@ -53,7 +53,7 @@ from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
 from user_profile.views import ProfileImage
 
 
-app_name = 'roles'
+app_name = "roles"
 
 
 urlpatterns = [

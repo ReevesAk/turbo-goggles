@@ -30,7 +30,7 @@ from .views import (
 )
 
 
-app_name = 'vas'
+app_name = "vas"
 
 
 urlpatterns = [

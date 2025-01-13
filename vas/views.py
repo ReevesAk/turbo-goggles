@@ -1594,6 +1594,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     user_data=user_data,
                 )
                 if new_tv_response["code"] == "000":
+                    logger.info(f"Tv response: {new_tv_response}")
                     response_data = {
                         "status": "success",
                         "message": f"TV subscription purchase of {new_amount} was successful.",
@@ -1607,7 +1608,6 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
                 elif new_tv_response["code"] == "014":
                     logger.info(f"Tv response: {new_tv_response}")
-                    logger.info(f"Local server time: {now()}")
                     request_id = new_tv_response["requestId"]
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":

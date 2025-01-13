@@ -287,9 +287,11 @@ class WalletSearch(generics.ListAPIView):
         serializer = self.get_serializer(accounts, many=True)
         response_data = {
             "status": "success" if accounts else "fail",
-            "message": "Wallet user fetched successfully."
-            if accounts
-            else "No user matching that query found.",
+            "message": (
+                "Wallet user fetched successfully."
+                if accounts
+                else "No user matching that query found."
+            ),
             "data": serializer.data,
         }
 

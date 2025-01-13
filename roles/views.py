@@ -253,20 +253,22 @@ class LoginAdmin(APIView):
             user_name = (
                 "SuperAdmin"
                 if user.active_role == "SuperAdmin"
-                else user.full_name
-                if user.active_role
-                in {
-                    "TaskAdmin",
-                    "AdAdmin",
-                    "MembersAdmin",
-                    "UserAdmin",
-                    "PartnersAdmin",
-                    "ContentAdmin",
-                    "IntegrationAdmin",
-                    "WalletAdmin",
-                    "FmcgAdmin",
-                }
-                else "Unknown"
+                else (
+                    user.full_name
+                    if user.active_role
+                    in {
+                        "TaskAdmin",
+                        "AdAdmin",
+                        "MembersAdmin",
+                        "UserAdmin",
+                        "PartnersAdmin",
+                        "ContentAdmin",
+                        "IntegrationAdmin",
+                        "WalletAdmin",
+                        "FmcgAdmin",
+                    }
+                    else "Unknown"
+                )
             )
 
             UserNotification.objects.create(
@@ -457,21 +459,23 @@ class AddAddress(generics.GenericAPIView):
             user_name = (
                 "Superuser"
                 if authenticated_user.active_role == "Superuser"
-                else authenticated_user.full_name
-                if authenticated_user.active_role
-                in {
-                    "SuperAdmin",
-                    "TaskAdmin",
-                    "AdAdmin",
-                    "MembersAdmin",
-                    "UserAdmin",
-                    "PartnersAdmin",
-                    "ContentAdmin",
-                    "IntegrationAdmin",
-                    "WalletAdmin",
-                    "FmcgAdmin",
-                }
-                else "Unknown"
+                else (
+                    authenticated_user.full_name
+                    if authenticated_user.active_role
+                    in {
+                        "SuperAdmin",
+                        "TaskAdmin",
+                        "AdAdmin",
+                        "MembersAdmin",
+                        "UserAdmin",
+                        "PartnersAdmin",
+                        "ContentAdmin",
+                        "IntegrationAdmin",
+                        "WalletAdmin",
+                        "FmcgAdmin",
+                    }
+                    else "Unknown"
+                )
             )
             name = user_data["name"]
             state = user_data["state"]
@@ -533,6 +537,17 @@ class AddAdmin(generics.CreateAPIView):
                         {
                             "status": "fail",
                             "message": "A user with this email already exists.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not payload["roles"]:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "At least one role must be selected.",
                         }
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
@@ -629,7 +644,10 @@ class AdAdminContd(generics.UpdateAPIView):
             if is_admin:
                 return user
             else:
-                raise PermissionError(encrypt("User exists, but is not an admin."))
+                return Response(
+                    data=encrypt("User exists, but is not an admin."),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         except User.DoesNotExist:
             return None
@@ -660,6 +678,15 @@ class AdAdminContd(generics.UpdateAPIView):
         serializer = self.get_serializer(instance=instance, data=payload)
 
         if serializer.is_valid(raise_exception=True):
+            password = serializer.validated_data.get("password")
+            password2 = serializer.validated_data.get("password2")
+
+            if password != password2:
+                return Response(
+                    encrypt(data={"password": "Passwords do not match."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             user = serializer.save()
             user.set_password(
                 serializer.validated_data.get("password", user.password)
@@ -872,7 +899,9 @@ class RemoveAdminRole(generics.GenericAPIView):
         is_user = User.objects.filter(email=email).first()
         if not is_user:
             logger.warning("User not found for email: %s", email)
-            return Response(data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                data=encrypt("User  not found."), status=status.HTTP_404_NOT_FOUND
+            )
 
         role_to_remove = decrypted_payload.get("role_to_remove")
         logger.info("Attempting to remove role: %s for user: %s", role_to_remove, email)
@@ -1827,12 +1856,14 @@ class GetAllAppActivites(generics.ListAPIView):
                 "role": activity.user.active_role,
                 "title": activity.title,
                 "description": activity.description,
-                "created_at": activity.created_at.isoformat()
-                if activity.created_at
-                else None,
-                "last_login": activity.user.last_login.isoformat()
-                if activity.user.last_login
-                else None,
+                "created_at": (
+                    activity.created_at.isoformat() if activity.created_at else None
+                ),
+                "last_login": (
+                    activity.user.last_login.isoformat()
+                    if activity.user.last_login
+                    else None
+                ),
             }
             data.append(encrypted_activity)
 
@@ -1899,9 +1930,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             authorised_by = (
                 activity.user.full_name
                 if activity.user and activity.user.full_name
-                else activity.user.email
-                if activity.user
-                else "Unknown"
+                else activity.user.email if activity.user else "Unknown"
             )
             data.append(
                 {
@@ -1910,12 +1939,14 @@ class GetAllAdminActivites(generics.ListAPIView):
                     "role": activity.user.active_role,
                     "title": activity.title,
                     "description": activity.description,
-                    "created_at": activity.created_at.isoformat()
-                    if activity.created_at
-                    else None,
-                    "last_login": activity.user.last_login.isoformat()
-                    if activity.user.last_login
-                    else None,
+                    "created_at": (
+                        activity.created_at.isoformat() if activity.created_at else None
+                    ),
+                    "last_login": (
+                        activity.user.last_login.isoformat()
+                        if activity.user.last_login
+                        else None
+                    ),
                 }
             )
 
@@ -1962,29 +1993,33 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             authorised_by = (
                 "Superuser"
                 if activity.user.active_role == "Superuser"
-                else activity.user.full_name
-                if activity.user.active_role
-                in {
-                    "SuperAdmin",
-                    "TaskAdmin",
-                    "AdAdmin",
-                    "MembersAdmin",
-                    "User Admin",
-                    "PartnersAdmin",
-                    "ContentAdmin",
-                    "IntegrationAdmin",
-                    "WalletAdmin",
-                    "FmcgAdmin",
-                }
-                else activity.user.first_name + " " + activity.user.last_name
-                if activity.user.active_role
-                in {
-                    "User ",
-                    "Member",
-                    "Partner",
-                    "BrandAd",
-                }
-                else "Unknown"
+                else (
+                    activity.user.full_name
+                    if activity.user.active_role
+                    in {
+                        "SuperAdmin",
+                        "TaskAdmin",
+                        "AdAdmin",
+                        "MembersAdmin",
+                        "User Admin",
+                        "PartnersAdmin",
+                        "ContentAdmin",
+                        "IntegrationAdmin",
+                        "WalletAdmin",
+                        "FmcgAdmin",
+                    }
+                    else (
+                        activity.user.first_name + " " + activity.user.last_name
+                        if activity.user.active_role
+                        in {
+                            "User ",
+                            "Member",
+                            "Partner",
+                            "BrandAd",
+                        }
+                        else "Unknown"
+                    )
+                )
             )
 
             # Prepare the response data
@@ -1999,12 +2034,14 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
                     "email": activity.user.email,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
-                    "created_at": activity.created_at.isoformat()
-                    if activity.created_at
-                    else None,
-                    "last_login": activity.user.last_login.isoformat()
-                    if activity.user.last_login
-                    else None,
+                    "created_at": (
+                        activity.created_at.isoformat() if activity.created_at else None
+                    ),
+                    "last_login": (
+                        activity.user.last_login.isoformat()
+                        if activity.user.last_login
+                        else None
+                    ),
                 },
             }
             logger.info(
@@ -2077,29 +2114,33 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
             authorised_by = (
                 "Superuser"
                 if activity.user.active_role == "Superuser"
-                else activity.user.full_name
-                if activity.user.active_role
-                in {
-                    "SuperAdmin",
-                    "TaskAdmin",
-                    "AdAdmin",
-                    "MembersAdmin",
-                    "User Admin",
-                    "PartnersAdmin",
-                    "ContentAdmin",
-                    "IntegrationAdmin",
-                    "WalletAdmin",
-                    "FmcgAdmin",
-                }
-                else activity.user.first_name + " " + activity.user.last_name
-                if activity.user.active_role
-                in {
-                    "User ",
-                    "Member",
-                    "Partner",
-                    "BrandAd",
-                }
-                else "Unknown"
+                else (
+                    activity.user.full_name
+                    if activity.user.active_role
+                    in {
+                        "SuperAdmin",
+                        "TaskAdmin",
+                        "AdAdmin",
+                        "MembersAdmin",
+                        "User Admin",
+                        "PartnersAdmin",
+                        "ContentAdmin",
+                        "IntegrationAdmin",
+                        "WalletAdmin",
+                        "FmcgAdmin",
+                    }
+                    else (
+                        activity.user.first_name + " " + activity.user.last_name
+                        if activity.user.active_role
+                        in {
+                            "User ",
+                            "Member",
+                            "Partner",
+                            "BrandAd",
+                        }
+                        else "Unknown"
+                    )
+                )
             )
             response_data.append(
                 {
@@ -2108,12 +2149,14 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
                     "description": activity.description,
                     "authorised_by": authorised_by,
                     "role": activity.user.active_role,
-                    "created_at": activity.created_at.isoformat()
-                    if activity.created_at
-                    else None,
-                    "last_login": activity.user.last_login.isoformat()
-                    if activity.user.last_login
-                    else None,
+                    "created_at": (
+                        activity.created_at.isoformat() if activity.created_at else None
+                    ),
+                    "last_login": (
+                        activity.user.last_login.isoformat()
+                        if activity.user.last_login
+                        else None
+                    ),
                 }
             )
 

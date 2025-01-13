@@ -24,7 +24,7 @@ from .views import (
 )
 
 
-app_name = 'self-service'
+app_name = "self-service"
 
 
 urlpatterns = [

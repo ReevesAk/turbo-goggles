@@ -31,7 +31,7 @@ from .webhooks import (
 )
 
 
-app_name = 'banking'
+app_name = "banking"
 
 
 urlpatterns = [
