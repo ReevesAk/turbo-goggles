@@ -1115,6 +1115,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     reason="Debit for electricity bill payment.",
                     user_data=user_data,
                 )
+                logger.debug(f"response data: {electricity_response}")
                 if electricity_response["code"] == "000":
                     response_data = {
                         "status": "success",
