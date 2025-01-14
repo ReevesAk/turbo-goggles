@@ -1288,7 +1288,7 @@ class CableServiceIDListView(APIView):
         )
 
 
-class ProductStatus(generics.RetrieveAPIView):
+class ProductStatus(APIView):
     """
     ProductStatus is the POST request handler for checking the status
     of any Value Added Services product purchased. It takes in the
@@ -1305,6 +1305,7 @@ class ProductStatus(generics.RetrieveAPIView):
     )
     def post(self, request):
         user = self.request.user
+        user_data = request.data
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to requery with request_id: {user['request_id']}"
@@ -1312,7 +1313,7 @@ class ProductStatus(generics.RetrieveAPIView):
 
         resource = "requery"
         payload = {
-            "request_id": user["request_id"],
+            "request_id": user_data.get("request_id"),
         }
 
         status_headers = {
