@@ -1,4 +1,5 @@
 import logging
+import pytz
 import random
 import string
 from datetime import datetime
@@ -26,7 +27,19 @@ random_string = "".join(random.choices(string.ascii_letters + string.digits, k=5
 req_id = current_datetime.strftime("%Y%m%d%H%M") + "picadailys" + random_string
 
 
+def generate_request_id():
+    """Generate a valid request ID for VTPass."""
+    # Get the current time in Africa/Lagos timezone
+    lagos_tz = pytz.timezone("Africa/Lagos")
+    current_time = datetime.now(lagos_tz)
+    timestamp = current_time.strftime("%Y%m%d%H%M")
+    random_string = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    request_id = f"{timestamp}{random_string}"
+    return request_id
+
+
 def airtime(user, serializer, reason, user_data):
+    req_id = generate_request_id()
     airtime_response = VAS.aritime(
         service_id=user_data["serviceID"],
         req_id=req_id,
@@ -96,6 +109,7 @@ def airtime(user, serializer, reason, user_data):
 
 
 def data(user, serializer, reason, user_data):
+    req_id = generate_request_id()
     data_response = VAS.data(
         req_id=req_id,
         service_id=user_data["serviceID"],
@@ -166,6 +180,7 @@ def data(user, serializer, reason, user_data):
 
 
 def electricity(user, serializer, reason, user_data):
+    req_id = generate_request_id()
     electricity_response = VAS.electricity(
         req_id=req_id,
         service_id=user_data["serviceID"],
@@ -236,6 +251,7 @@ def electricity(user, serializer, reason, user_data):
 
 
 def NewTvSub(user, serializer, reason, user_data):
+    req_id = generate_request_id()
     new_tv_response = VAS.newTvSub(
         req_id=req_id,
         service_id=user_data["serviceID"],
@@ -312,6 +328,7 @@ def NewTvSub(user, serializer, reason, user_data):
 
 
 def RenewTvSub(user, serializer, reason, user_data):
+    req_id = generate_request_id()
     renew_tv_response = VAS.renewTvSub(
         req_id=req_id,
         service_id=user_data["serviceID"],
