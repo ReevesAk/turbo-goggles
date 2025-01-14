@@ -1308,7 +1308,7 @@ class ProductStatus(APIView):
         user_data = request.data
 
         logger.info(
-            f"User {user.first_name} {user.last_name} is attempting to requery with request_id: {user['request_id']}"
+            f"User {user.first_name} {user.last_name} is attempting to requery with request_id: {user_data['request_id']}"
         )
 
         resource = "requery"
