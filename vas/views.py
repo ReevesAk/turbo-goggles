@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
-from django.utils.timezone import now
 
 from drf_spectacular.utils import extend_schema
 
@@ -175,7 +174,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif airtime_response["code"] == "014":
-                    request_id = airtime_response["requestId"]
+                    request_id = airtime_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -270,7 +269,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     elif airtime_response["code"] == "014":
-                        request_id = airtime_response["requestId"]
+                        request_id = airtime_response.get("requestId")
                         if request_id:
                             status_query = VAS.check_status(req_id=request_id)
                             if (
@@ -345,7 +344,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif airtime_response["code"] == "014":
-                    request_id = airtime_response["requestId"]
+                    request_id = airtime_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -598,7 +597,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 elif data_response["code"] == "014":
                     logger.debug(f"response data: {data_response}")
-                    request_id = data_response["requestId"]
+                    request_id = data_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -709,7 +708,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     if data_response["code"] == "014":
-                        request_id = data_response["requestId"]
+                        request_id = data_response.get("requestId")
                         if request_id:
                             status_query = VAS.check_status(req_id=request_id)
                             if (
@@ -783,7 +782,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 if data_response["code"] == "014":
-                    request_id = data_response["requestId"]
+                    request_id = data_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1051,7 +1050,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif electricity_response["code"] == "014":
-                    request_id = electricity_response["requestId"]
+                    request_id = electricity_response.get("requestId")
                     status_query = VAS.check_status(req_id=request_id)
                     if status_query["content"]["transactions"]["status"] == "delivered":
                         response_data = {
@@ -1137,7 +1136,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     elif electricity_response["code"] == "014":
-                        request_id = electricity_response["requestId"]
+                        request_id = electricity_response.get("requestId")
                         if request_id:
                             status_query = VAS.check_status(req_id=request_id)
                             if (
@@ -1213,7 +1212,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif electricity_response["code"] == "014":
-                    request_id = electricity_response["requestId"]
+                    request_id = electricity_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1639,7 +1638,7 @@ class NewTvSubscription(generics.GenericAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     elif new_tv_response["code"] == "014":
-                        request_id = new_tv_response["requestId"]
+                        request_id = new_tv_response.get("requestId")
                         if request_id:
                             status_query = VAS.check_status(req_id=request_id)
                             if (
@@ -1714,7 +1713,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
                 elif new_tv_response["code"] == "014":
                     logger.info(f"Tv response: {new_tv_response}")
-                    request_id = new_tv_response["requestId"]
+                    request_id = new_tv_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
@@ -1917,7 +1916,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     elif renew_tv_response["code"] == "014":
-                        request_id = renew_tv_response["requestId"]
+                        request_id = renew_tv_response.get("requestId")
                         if request_id:
                             status_query = VAS.check_status(req_id=request_id)
                             if (
@@ -1990,7 +1989,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
                 elif renew_tv_response["code"] == "014":
-                    request_id = renew_tv_response["requestId"]
+                    request_id = renew_tv_response.get("requestId")
                     if request_id:
                         status_query = VAS.check_status(req_id=request_id)
                         if (
