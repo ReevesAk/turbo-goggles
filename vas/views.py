@@ -353,7 +353,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "success",
-                                "message": f"Airtime purchase of {new_amount} was successful.",
+                                "message": f"Airtime purchase of {amount} was successful.",
                                 "bonus balance": user.welcome_bonus,
                                 "airtime_response": airtime_response,
                             }
@@ -791,7 +791,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "pending",
-                                "message": f"Data purchase of {new_amount} was successful.",
+                                "message": f"Data purchase of {amount} was successful.",
                                 "bonus balance": user.welcome_bonus,
                                 "data_response": data_response,
                             }
@@ -1221,7 +1221,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "success",
-                                "message": f"Electricity purchase of {new_amount} was successful.",
+                                "message": f"Electricity purchase of {amount} was successful.",
                                 "bonus balance": user.welcome_bonus,
                                 "electricity_response": electricity_response,
                             }
@@ -1702,7 +1702,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     logger.info(f"Tv response: {new_tv_response}")
                     response_data = {
                         "status": "success",
-                        "message": f"TV subscription purchase of {new_amount} was successful.",
+                        "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": new_tv_response,
                     }
                     logger.info(
@@ -1998,7 +1998,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "success",
-                                "message": f"TV subscription purchase of {new_amount} was successful.",
+                                "message": f"TV subscription purchase of {amount} was successful.",
                                 "cable_tv_response": renew_tv_response,
                             }
                         logger.info(
