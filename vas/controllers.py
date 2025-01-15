@@ -292,20 +292,6 @@ def RenewTvSub(user, serializer, reason, user_data):
         tx_reference = renew_tv_sub_instance.tx_reference
         amount = user_data["amount"]
 
-        UserNotification.objects.create(
-            user=user,
-            title="Renew Tv subscription.",
-            message=f"This is to inform you that your payment of {amount} \
-                to renew tv subscription is successful.",
-        )
-
-        billersCode = user_data["billersCode"]
-        ActivityModel.objects.create(
-            user=user,
-            title="Renew Tv subscription",
-            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-        )
-
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
