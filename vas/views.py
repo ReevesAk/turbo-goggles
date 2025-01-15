@@ -42,6 +42,7 @@ from .controllers import (
     VehicleInsurance,
     HealthInsurance,
 )
+from utility import create_activity, create_notification
 from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
@@ -78,6 +79,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         payment_option = decrypted_payload.get("payment_option")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
+        phone = user_data.get("phone")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
 
@@ -170,6 +172,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased airtime using bonus."
                     )
+                    title = "Airtime purchase",
+                    message = f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                    description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -187,6 +194,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "airtime_response": airtime_response,
                             }
+                            title = "Airtime purchase.",
+                            message = f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                            description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
                             )
@@ -196,7 +208,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     else:
                         response_data = {
                             "status": "fail",
-                            "airtime_response": airtime_response,
+                            "message": airtime_response["response_description"],
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -205,6 +217,11 @@ class AirTimeTopUp(generics.GenericAPIView):
             logger.warning(
                 f"Airtime top-up failed for user {user.first_name} {user.last_name} due to insufficient bonus."
             )
+            title = "Airtime purchase",
+            message = f"This is to inform you the purchase of {amount} naira airtime on {phone} failed due to insufficient bonus.",
+            description = f"{user.first_name} {user.last_name}'s purchase of {amount} naira airtime on {phone} failed due to insufficient bonus.",
+            create_notification(user=request.user, title=title, message=message)
+            create_activity(user=request.user, title=title, description=description)
             return Response(
                 data=encrypt(
                     {
@@ -265,6 +282,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
                         )
+                        title = "Airtime purchase",
+                        message = f"This is to inform you that you have made a purchase of {new_amount} naira airtime on {phone}.",
+                        description = f"{user.first_name} {user.last_name} has made a purchase of {new_amount} naira airtime on {phone}.",
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -292,7 +314,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         else:
                             response_data = {
                                 "status": "fail",
-                                "airtime_response": airtime_response,
+                                "message": airtime_response["response_description"],
                             }
                             return Response(
                                 data=encrypt(response_data),
@@ -340,6 +362,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
                     )
+                    title = "Airtime purchase",
+                    message = f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                    description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -360,13 +387,18 @@ class AirTimeTopUp(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
                             )
+                            title = "Airtime purchase",
+                            message = f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                            description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                     else:
                         response_data = {
                             "status": "fail",
-                            "airtime_response": airtime_response,
+                            "message": airtime_response["response_description"],
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -498,6 +530,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         pin = user_data.get("pin")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
+        phone = user_data.get("phone")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         payment_option = user_data.get("payment_option")
@@ -592,6 +625,11 @@ class DataSubscriptionView(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
                     )
+                    title = "Data subscription",
+                    message = f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                    description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -613,6 +651,11 @@ class DataSubscriptionView(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
                             )
+                            title = "Data subscription",
+                            message = f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                            description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
@@ -704,6 +747,11 @@ class DataSubscriptionView(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
                         )
+                        title = "Data subscription",
+                        message = f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                        description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -724,13 +772,18 @@ class DataSubscriptionView(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
                             )
+                            title = "Data subscription",
+                            message = f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                            description = f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
                                 "status": "fail",
-                                "data_response": data_response,
+                                "message": data_response["response_description"],
                             }
                             return Response(
                                 data=encrypt(response_data),
@@ -798,13 +851,18 @@ class DataSubscriptionView(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
                         )
+                        title = "Data subscription",
+                        message = f"This is to inform you that you have made a purchase of {new_amount} naira data subscription on {phone}.",
+                        description = f"{user.first_name} {user.last_name} has made a purchase of {new_amount} naira data subscription on {phone}",
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     else:
                         response_data = {
                             "status": "fail",
-                            "data_response": data_response,
+                            "message": data_response["response_description"],
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -1046,6 +1104,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
                     )
+                    title = "Electricity payment",
+                    message = f"This is to inform you that your payment of {amount} for electricity is successful.",
+                    description = f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill."
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1062,6 +1125,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
                         )
+                        title = "Electricity payment",
+                        message = f"This is to inform you that your payment of {amount} for electricity is successful.",
+                        description = f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill."
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1132,6 +1200,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
                         )
+                        title = "Electricity payment",
+                        message = f"This is to inform you that your payment of {new_amount} for electricity is successful.",
+                        description = f"{user.first_name} {user.last_name} has made a payment of {new_amount} for electricity bill."
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1152,13 +1225,18 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
                             )
+                            title = "Electricity payment",
+                            message = f"This is to inform you that your payment of {new_amount} for electricity is successful.",
+                            description = f"{user.first_name} {user.last_name} has made a payment of {new_amount} for electricity bill."
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
                                 "status": "fail",
-                                "electricity_response": electricity_response,
+                                "message": electricity_response["response_description"],
                             }
                             return Response(
                                 data=encrypt(response_data),
@@ -1172,8 +1250,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             data=encrypt(
                                 {
                                     "status": "fail",
-                                    "message": "Electricity purchase failed due to insufficient balance.",
-                                    "error": electricity_response,
+                                    "message": electricity_response["response_description"],
                                 }
                             ),
                             status=status.HTTP_400_BAD_REQUEST,
@@ -1208,6 +1285,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
                     )
+                    title = "Electricity payment",
+                    message = f"This is to inform you that your payment of {amount} for electricity is successful.",
+                    description = f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill."
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1228,13 +1310,18 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
                         )
+                        title = "Electricity payment",
+                        message = f"This is to inform you that your payment of {amount} for electricity is successful.",
+                        description = f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill."
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     else:
                         response_data = {
                             "status": "fail",
-                            "electricity_response": electricity_response,
+                            "message": electricity_response["response_description"],
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -1248,8 +1335,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         data=encrypt(
                             {
                                 "status": "fail",
-                                "message": "Electricity purchase failed.",
-                                "error": electricity_response,
+                                "message": electricity_response["response_description"],
                             }
                         ),
                         status=status.HTTP_400_BAD_REQUEST,
@@ -1635,6 +1721,11 @@ class NewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                         )
+                        title = "New TV subscription",
+                        message = f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                        description = f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1654,13 +1745,18 @@ class NewTvSubscription(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                             )
+                            title = "New TV subscription",
+                            message = f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                            description = f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
                             response_data = {
                                 "status": "fail",
-                                "cable_tv_response": new_tv_response,
+                                "message": new_tv_response["response_description"],
                             }
                             return Response(
                                 data=encrypt(response_data),
@@ -1674,8 +1770,7 @@ class NewTvSubscription(generics.GenericAPIView):
                             data=encrypt(
                                 {
                                     "status": "fail",
-                                    "message": "Cable TV subscription purchase failed.",
-                                    "error": new_tv_response,
+                                    "message": new_tv_response["response_description"],
                                 }
                             ),
                             status=status.HTTP_400_BAD_REQUEST,
@@ -1709,6 +1804,11 @@ class NewTvSubscription(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                     )
+                    title = "New TV subscription",
+                    message = f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                    description = f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1729,6 +1829,11 @@ class NewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
                         )
+                        title = "New TV subscription",
+                        message = f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                        description = f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1749,8 +1854,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         data=encrypt(
                             {
                                 "status": "fail",
-                                "message": "Cable TV subscription purchase failed.",
-                                "error": new_tv_response,
+                                "message": new_tv_response["response_description"],
                             }
                         ),
                         status=status.HTTP_400_BAD_REQUEST,
@@ -1794,6 +1898,7 @@ class RenewTvSubscription(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
+        billersCode = user_data.get("billersCode")
         payment_option = user_data.get("payment_option")
 
         serializer = self.serializer_class(data=user_data)
@@ -1913,6 +2018,11 @@ class RenewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                         )
+                        title = "Renew Tv subscription",
+                        message = f"This is to inform you that your payment of {new_amount} to renew tv subscription is successful."
+                        description = f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}."
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1932,6 +2042,11 @@ class RenewTvSubscription(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                             )
+                            title = "Renew Tv subscription",
+                            message = f"This is to inform you that your payment of {new_amount} to renew tv subscription is successful."
+                            description = f"{user.first_name} {user.last_name} just made a payment of {new_amount} for Cable TV renewal on {billersCode}."
+                            create_notification(user=request.user, title=title, message=message)
+                            create_activity(user=request.user, title=title, description=description)
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
@@ -1952,8 +2067,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                             data=encrypt(
                                 {
                                     "status": "fail",
-                                    "message": "Cable TV subscription purchase failed.",
-                                    "error": renew_tv_response,
+                                    "message": renew_tv_response["response_description"],
                                 }
                             ),
                             status=status.HTTP_400_BAD_REQUEST,
@@ -1980,12 +2094,17 @@ class RenewTvSubscription(generics.GenericAPIView):
                 if renew_tv_response["code"] == "000":
                     response_data = {
                         "status": "success",
-                        "message": f"TV subscription purchase of {new_amount} was successful.",
+                        "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": renew_tv_response,
                     }
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                     )
+                    title = "Renew Tv subscription",
+                    message = f"This is to inform you that your payment of {amount} to renew tv subscription is successful."
+                    description = f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}."
+                    create_notification(user=request.user, title=title, message=message)
+                    create_activity(user=request.user, title=title, description=description)
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -2005,13 +2124,18 @@ class RenewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                         )
+                        title = "Renew Tv subscription",
+                        message = f"This is to inform you that your payment of {amount} to renew tv subscription is successful."
+                        description = f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}."
+                        create_notification(user=request.user, title=title, message=message)
+                        create_activity(user=request.user, title=title, description=description)
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     else:
                         response_data = {
                             "status": "fail",
-                            "cable_tv_response": renew_tv_response,
+                            "message": renew_tv_response["response_description"],
                         }
                         return Response(
                             data=encrypt(response_data),
@@ -2025,8 +2149,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         data=encrypt(
                             {
                                 "status": "fail",
-                                "message": "Cable TV subscription purchase failed.",
-                                "error": renew_tv_response,
+                                "message": renew_tv_response["response_description"],
                             }
                         ),
                         status=status.HTTP_400_BAD_REQUEST,

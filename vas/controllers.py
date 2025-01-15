@@ -52,18 +52,6 @@ def airtime(user, serializer, reason, user_data):
         amount = user_data["amount"]
         phone = user_data["phone"]
 
-        UserNotification.objects.create(
-            user=user,
-            title="Airtime purchase.",
-            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-        )
-
-        ActivityModel.objects.create(
-            user=user,
-            title="Airtime purchase.",
-            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}..",
-        )
-
         # Check is user is a member then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
@@ -123,19 +111,6 @@ def data(user, serializer, reason, user_data):
         amount = user_data["amount"]
         phone = user_data["phone"]
 
-        UserNotification.objects.create(
-            user=user,
-            title="Data subscription.",
-            message=f"This is to inform you that you have made a \
-                purchase of {amount} naira data subscription on {phone}.",
-        )
-
-        ActivityModel.objects.create(
-            user=user,
-            title="Data subscription.",
-            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}..",
-        )
-
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
             new_rewards = Allocate.reward(amount=amount)
@@ -192,19 +167,6 @@ def electricity(user, serializer, reason, user_data):
     if electricity_response.status_code == 200:
         electricity_instance = serializer.save()
         amount = user_data["amount"]
-
-        UserNotification.objects.create(
-            user=user,
-            title="Electricity payment.",
-            message=f"This is to inform you that your payment of {amount} \
-                for electricity is successful.",
-        )
-
-        ActivityModel.objects.create(
-            user=user,
-            title="Electricity payment.",
-            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-        )
 
         # Check is user is a memeber then assign rewards.
         if user.active_role == "Member" and amount >= 100:
@@ -267,18 +229,6 @@ def NewTvSub(user, serializer, reason, user_data):
         new_tv_sub_instance = serializer.save()
         tx_reference = new_tv_sub_instance.tx_reference
         amount = user_data["amount"]
-
-        # Create a UserNotification and ActivityModel entry
-        UserNotification.objects.create(
-            user=user,
-            title="New TV subscription.",
-            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-        )
-        ActivityModel.objects.create(
-            user=user,
-            title="New TV subscription.",
-            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-        )
 
         # Assign rewards if user is a member
         new_rewards = (
@@ -719,3 +669,28 @@ def Health_Insurance(uploaded_passport_url, user, serializer, reason, user_data)
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return health_insurance_response.json()
+
+
+def create_user_activity(user, message, activity_title="Airtime purchase"):
+    """
+    Creates a UserNotification and ActivityModel entry for a given user and activity details.
+
+    Args:
+        user (User): The user for whom the notification and activity are being created.
+        amount (float): The amount involved in the activity.
+        phone (str): The phone number involved in the activity.
+        activity_title (str): The title of the activity (default is "Airtime purchase").
+    """
+    # Create a notification for the user
+    UserNotification.objects.create(
+        user=user,
+        title=activity_title,
+        message=message f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+    )
+
+    # Create an activity log for the user
+    ActivityModel.objects.create(
+        user=user,
+        title=activity_title,
+        description=message f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+    )
