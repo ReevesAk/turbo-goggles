@@ -110,7 +110,7 @@ class VerifYBVN(generics.GenericAPIView):
                 )
             # Verify the user's BVN.
             bvn_response = BVN.verify(bvn=user_data.get("bvn"))
-            bvn_status_code = bvn_response.get("ResponseCode")
+            bvn_status_code = bvn_response["ResponseCode"]
 
             if bvn_status_code == "00":
                 bvn_data = bvn_response.json()
