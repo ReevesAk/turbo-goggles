@@ -81,14 +81,14 @@ class VerifYBVN(generics.GenericAPIView):
         }
         authenticated_user = request.user
 
-        if authenticated_user.is_bvn_verified:
-            return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "User has already verified BVN",
-                }),
-                status=status.HTTP_202_ACCEPTED,
-            )
+        # if authenticated_user.is_bvn_verified:
+        #     return Response(
+        #         data=encrypt({
+        #             "status": "success",
+        #             "message": "User has already verified BVN",
+        #         }),
+        #         status=status.HTTP_202_ACCEPTED,
+        #     )
         try:
             bvn = BVNData.objects.get(user=authenticated_user)
         except BVNData.DoesNotExist:
@@ -112,6 +112,14 @@ class VerifYBVN(generics.GenericAPIView):
             bvn_response = BVN.verify(bvn=user_data.get("bvn"))
             bvn_status_code = bvn_response.status_code
 
+            if bvn_status_code != 200:
+                response = {
+                    "status": "fail",
+                    "message": "Bvn verification was failed, bvn is either wrong or incomplete.",
+                }
+                encrypt_resp = encrypt(response)
+                return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
+
             if bvn_status_code == 200:
                 bvn_data = bvn_response.json()
                 logging.debug(f"Bvn response: {bvn_data}")
@@ -120,8 +128,8 @@ class VerifYBVN(generics.GenericAPIView):
                 bvn.number = user_data.get("bvn")
                 bvn.save()
 
-                authenticated_user.is_bvn_verified = True
-                authenticated_user.save()
+                # authenticated_user.is_bvn_verified = True
+                # authenticated_user.save()
 
                 serializer = BVNSerializer(data=user_data)
 
@@ -169,16 +177,13 @@ class CreateBankAccount(generics.GenericAPIView):
     serializer_class = BankAccountCreationSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMemberBrandAdOrSuperAdmin]
-    parser_classes = (
-        MultiPartParser,
-        JSONParser,
-    )
 
     def post(self, request):
         current_user = request.user
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
 
         passport = request.FILES.get("passport")
