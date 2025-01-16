@@ -119,7 +119,7 @@ class VerifYBVN(generics.GenericAPIView):
                 parsed_date = datetime.strptime(user_data.get("date_of_birth"), "%d-%b-%Y")
 
                 # Format date to obfuscate the year.
-                formatted_date = parsed_date.strftime("%d-%b-**")
+                formatted_date = parsed_date.strftime("%d-%b-****")
 
                 # Check if the user's date of birth or phone number matches the BVN data
                 dob_match = formatted_date == bvn_data.get("DOB")
