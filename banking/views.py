@@ -122,7 +122,7 @@ class VerifYBVN(generics.GenericAPIView):
 
             if bvn_status_code == 200:
                 bvn_data = bvn_response.json()
-                logging.info(f"Bvn response: {bvn_data}")
+                logging.debug(f"Bvn response: {bvn_data}")
 
                 # Check if the user's date of birth or phone number matches the BVN data
                 dob_match = user_data.get("date_of_birth") == bvn_data.get("DOB")
