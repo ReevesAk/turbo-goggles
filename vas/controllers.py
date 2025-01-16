@@ -655,28 +655,3 @@ def Health_Insurance(uploaded_passport_url, user, serializer, reason, user_data)
             accNo=user.accountNumber, amount=user["amount"], reason=reason
         )
         return health_insurance_response.json()
-
-
-def create_user_activity(user, message, activity_title="Airtime purchase"):
-    """
-    Creates a UserNotification and ActivityModel entry for a given user and activity details.
-
-    Args:
-        user (User): The user for whom the notification and activity are being created.
-        amount (float): The amount involved in the activity.
-        phone (str): The phone number involved in the activity.
-        activity_title (str): The title of the activity (default is "Airtime purchase").
-    """
-    # Create a notification for the user
-    UserNotification.objects.create(
-        user=user,
-        title=activity_title,
-        message=message f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-    )
-
-    # Create an activity log for the user
-    ActivityModel.objects.create(
-        user=user,
-        title=activity_title,
-        description=message f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-    )
