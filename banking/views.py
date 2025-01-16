@@ -80,23 +80,23 @@ class VerifYBVN(generics.GenericAPIView):
         }
         authenticated_user = request.user
 
-        # if authenticated_user.is_bvn_verified:
-        # bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
-        # data = {
-        #     "First Name": bvn_deets.first_name,
-        #     "Last Name": bvn_deets.last_name,
-        #     "Phone_no": bvn_deets.phone_number,
-        #     "Date of Birth": bvn_deets.date_of_birth,
-        #     "Bvn": user_data.get("bvn"),
-        # }
-        # return Response(
-        #     data={
-        #         "status": "success",
-        #         "message": "User has already verified BVN",
-        #         "Bvn data": data,
-        #     },
-        #     status=status.HTTP_202_ACCEPTED,
-        # )
+        if authenticated_user.is_bvn_verified:
+            bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
+            data = {
+                "First Name": bvn_deets.first_name,
+                "Last Name": bvn_deets.last_name,
+                "Phone_no": bvn_deets.phone_number,
+                "Date of Birth": bvn_deets.date_of_birth,
+                "Bvn": user_data.get("bvn"),
+            }
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "User has already verified BVN",
+                    "Bvn data": data,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
         try:
             bvn = BVNData.objects.get(user=authenticated_user)
         except BVNData.DoesNotExist:
