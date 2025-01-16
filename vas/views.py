@@ -844,7 +844,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "pending",
-                                "message": f"Data purchase of {new_amount} was successful.",
+                                "message": f"Data purchase of {amount} was successful.",
                                 "bonus balance": user.welcome_bonus,
                                 "data_response": data_response,
                             }
@@ -1303,7 +1303,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         ):
                             response_data = {
                                 "status": "success",
-                                "message": f"Electricity purchase of {new_amount} was successful.",
+                                "message": f"Electricity purchase of {amount} was successful.",
                                 "bonus balance": user.welcome_bonus,
                                 "electricity_response": electricity_response,
                             }
