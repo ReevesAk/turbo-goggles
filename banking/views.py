@@ -1,5 +1,6 @@
 import logging
 import requests
+from datetime import datetime
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import (
@@ -115,8 +116,13 @@ class VerifYBVN(generics.GenericAPIView):
                 bvn_data = bvn_response.json()
                 logging.debug(f"Bvn response: {bvn_data}")
 
+                parsed_date = datetime.strptime(user_data.get("date_of_birth"), "%d-%b-%Y")
+
+                # Format date to obfuscate the year.
+                formatted_date = parsed_date.strftime("%d-%b-**")
+
                 # Check if the user's date of birth or phone number matches the BVN data
-                dob_match = user_data.get("date_of_birth") == bvn_data.get("DOB")
+                dob_match = formatted_date == bvn_data.get("DOB")
 
                 if not dob_match:
                     resp = {
