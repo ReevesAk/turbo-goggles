@@ -123,14 +123,11 @@ class VerifYBVN(generics.GenericAPIView):
             if bvn_status_code == 200:
                 bvn_data = bvn_response.json()
 
-                # Check if the user's date of birth matches the ones on BVN.
-                if all(
-                    data != bvn_data[field]
-                    for data, field in [
-                        (user_data.get("date_of_birth"), "DOB"),
-                        (user_data.get("phone_number"), "Phone"),
-                    ]
-                ):
+                # Check if the user's date of birth and phone number match the BVN data
+                dob_match = user_data.get("date_of_birth") == bvn_data.get("DOB")
+                phone_match = user_data.get("phone_number") == bvn_data.get("Phone")
+
+                if not (dob_match and phone_match):
                     resp = {
                         "status": "fail",
                         "message": "Date of birth or phone number provided does not match the one on bvn",
