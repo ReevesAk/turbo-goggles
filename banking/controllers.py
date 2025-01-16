@@ -114,24 +114,31 @@ class Account:
         }
 
         # Convert the TemporaryUploadedFile to a BufferedReader
-        def convert_to_buffered_reader(temp_file):
-            # Write the temporary file to disk
-            with open(temp_file.name, "wb") as f:
-                for chunk in temp_file.chunks():
-                    f.write(chunk)
-            # Open it as a BufferedReader
-            return open(temp_file.name, "rb")
+        # def convert_to_buffered_reader(temp_file):
+        #     # Write the temporary file to disk
+        #     with open(temp_file.name, "wb") as f:
+        #         for chunk in temp_file.chunks():
+        #             f.write(chunk)
+        #     # Open it as a BufferedReader
+        #     return open(temp_file.name, "rb")
 
-        passport_buffer = convert_to_buffered_reader(passport)
-        identity_buffer = convert_to_buffered_reader(identity)
-        utility_buffer = convert_to_buffered_reader(utility)
-        signature_buffer = convert_to_buffered_reader(signature)
+        # passport_buffer = convert_to_buffered_reader(passport)
+        # identity_buffer = convert_to_buffered_reader(identity)
+        # utility_buffer = convert_to_buffered_reader(utility)
+        # signature_buffer = convert_to_buffered_reader(signature)
+
+        # files = {
+        #     "passport": ("passport.png", passport_buffer, "image/png"),
+        #     "identity": ("identity.png", identity_buffer, "image/png"),
+        #     "utility": ("utility.png", utility_buffer, "image/png"),
+        #     "signature": ("signature.png", signature_buffer, "image/png"),
+        # }
 
         files = {
-            "passport": ("passport.png", passport_buffer, "image/png"),
-            "identity": ("identity.png", identity_buffer, "image/png"),
-            "utility": ("utility.png", utility_buffer, "image/png"),
-            "signature": ("signature.png", signature_buffer, "image/png"),
+            "passport": (None, passport),
+            "identity": (None, identity),
+            "utility": (None, utility),
+            "signature": (None, signature),
         }
 
         bearer_token = login()
