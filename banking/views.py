@@ -81,20 +81,11 @@ class VerifYBVN(generics.GenericAPIView):
         authenticated_user = request.user
 
         if authenticated_user.is_bvn_verified:
-            bvn_deets = BVNData.objects.filter(user=authenticated_user).first()
-            data = {
-                "First Name": bvn_deets.first_name,
-                "Last Name": bvn_deets.last_name,
-                "Phone_no": bvn_deets.phone_number,
-                "Date of Birth": bvn_deets.date_of_birth,
-                "Bvn": user_data.get("bvn"),
-            }
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "User has already verified BVN",
-                    "Bvn data": data,
-                },
+                }),
                 status=status.HTTP_202_ACCEPTED,
             )
         try:
@@ -118,22 +109,19 @@ class VerifYBVN(generics.GenericAPIView):
                 )
             # Verify the user's BVN.
             bvn_response = BVN.verify(bvn=user_data.get("bvn"))
-            bvn_status_code = bvn_response.status_code
+            bvn_status_code = bvn_response.get("ResponseCode")
 
-            if bvn_status_code == 200:
+            if bvn_status_code == "00":
                 bvn_data = bvn_response.json()
-                print(bvn_response.json())
                 logging.debug(f"Bvn response: {bvn_data}")
 
                 # Check if the user's date of birth or phone number matches the BVN data
                 dob_match = user_data.get("date_of_birth") == bvn_data.get("DOB")
-                phone_match = user_data.get("phone_number") == bvn_data.get("Phone")
 
-                # Fail if neither matches
-                if not (dob_match or phone_match):
+                if not dob_match:
                     resp = {
                         "status": "fail",
-                        "message": "Either date of birth or phone number provided must match the one on BVN",
+                        "message": "The date of birth provided must match the one on BVN.",
                     }
                     encrypt_resp = encrypt(resp)
                     return Response(
@@ -142,10 +130,6 @@ class VerifYBVN(generics.GenericAPIView):
                     )
 
                 # Update the user's BVN instance with the new data.
-                bvn.first_name = bvn_data["FirstName"]
-                bvn.last_name = bvn_data["LastName"]
-                bvn.date_of_birth = bvn_data["DOB"]
-                bvn.phone_number = bvn_data["Phone"]
                 bvn.number = user_data.get("bvn")
                 bvn.save()
 
