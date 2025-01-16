@@ -42,7 +42,7 @@ from .controllers import (
     VehicleInsurance,
     HealthInsurance,
 )
-from utility import create_activity, create_notification
+from .utility import create_activity, create_notification
 from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
