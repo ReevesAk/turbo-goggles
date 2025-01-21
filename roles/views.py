@@ -645,7 +645,7 @@ class AdAdminContd(generics.UpdateAPIView):
                 return user
             else:
                 return Response(
-                    data=encrypt("User exists, but is not an admin."),
+                    data=encrypt({"status": "fail", "message": "User exists, but is not an admin."}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
