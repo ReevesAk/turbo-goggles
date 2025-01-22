@@ -42,7 +42,7 @@ from .controllers import (
     VehicleInsurance,
     HealthInsurance,
 )
-from .utility import create_activity, create_notification
+from .utility import create_activity, create_notification, send_token
 from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
@@ -1170,6 +1170,12 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
                     )
+
+                    token = electricity_response.get("purchased_code")
+                    send_token(
+                        user=user,
+                        msg=f"Token purchase was successful. {token}"
+                    )
                     create_notification(
                         user=request.user,
                         title="Electricity payment",
@@ -1276,6 +1282,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
                         )
+
+                        token = electricity_response.get("purchased_code")
+                        send_token(
+                            user=user,
+                            msg=f"Token purchase was successful. {token}"
+                        )
+
                         create_notification(
                             user=request.user,
                             title="Electricity payment",
@@ -1306,6 +1319,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             logger.info(
                                 f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
                             )
+
+                            token = electricity_response.get("purchased_code")
+                            send_token(
+                                user=user,
+                                msg=f"Token purchase was successful. {token}"
+                            )
+
                             create_notification(
                                 user=request.user,
                                 title="Electricity payment",
@@ -1373,6 +1393,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     logger.info(
                         f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
                     )
+
+                    token = electricity_response.get("purchased_code")
+                    send_token(
+                        user=user,
+                        msg=f"Token purchase was successful. {token}"
+                    )
+
                     create_notification(
                         user=request.user,
                         title="Electricity payment",
@@ -1403,6 +1430,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
                         )
+
+                        token = electricity_response.get("purchased_code")
+                        send_token(
+                            user=user,
+                            msg=f"Token purchase was successful. {token}"
+                        )
+
                         create_notification(
                             user=request.user,
                             title="Electricity payment",
@@ -2136,9 +2170,6 @@ class RenewTvSubscription(generics.GenericAPIView):
                         logger.info(
                             f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
                         )
-                        title = ("Renew Tv subscription",)
-                        message = f"This is to inform you that your payment of {new_amount} to renew tv subscription is successful."
-                        description = f"{user.first_name} {user.last_name} just made a payment of {new_amount} for Cable TV renewal on {billersCode}."
                         create_notification(
                             user=request.user,
                             title="Renew Tv subscription",

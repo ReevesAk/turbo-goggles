@@ -4,6 +4,8 @@ from exceptions import Customexceptions
 
 import logging
 
+from django.template.loader import render_to_string
+
 # Third party imports.
 from rest_framework import generics
 from django.contrib.auth import authenticate
@@ -36,7 +38,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import GamificationModel, ActivityModel
 from sms import Message
-from commons import Biometrics
+from commons import Biometrics, Messaging
 from permissions import IsUserOrMember
 from security import encrypt, decrypt
 
@@ -139,6 +141,25 @@ class Register(generics.GenericAPIView):
 
             Message.send_msg(msg=str(msg), to=recipient)
 
+            body = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
+                otp
+            )
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{body}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Picadailys Registration",
+            )
+
             response = {
                 "status": "success",
                 "message": "User Created Successfully. Check your phone for an OTP",
@@ -213,6 +234,22 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             Message.send_otp(msg=str(msg), to=recipient)
             logger.info("Welcome message sent to user %s at %s", user.id, recipient)
+
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Welcome To Picadailys",
+            )
 
             # Update user verification status
             user.is_verified = True
