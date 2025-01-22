@@ -10,6 +10,57 @@ from accounts.models import User
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 
 
+class RegisterAgentManagerSerializer(serializers.ModelSerializer):
+    """Serializer for agent manager first-time registration"""
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "device_id",
+            "phone_number",
+            "email",
+            "password",
+            "password2",
+        ]
+        extra_kwargs = {"password": {"write_only": True}}
+
+    def validate(self, attrs):
+        email = attrs.get("email", "")
+        password = attrs.get("password", "")
+        password2 = attrs.get("password2", "")
+        # Validate that email is provided and not already in use
+        if not email:
+            raise serializers.ValidationError(
+                {"email": "Email field cannot be empty."}
+            )
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {"email": "Email has already been used."}
+            )
+        # Validate that passwords match
+        if password != password2:
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        # Remove password2 from validated_data as it's not a field in the User model
+        validated_data.pop("password2")
+        # Create the user with the provided email and phone number
+        user = User.objects.create(
+            email=validated_data["email"],
+            phone_number=validated_data["phone_number"],
+        )
+        # Set and save the password securely
+        user.set_password(validated_data["password"])
+        user.save()
+        return user
+
+
 class CreateTicketSerializers(serializers.ModelSerializer):
     email = serializers.CharField(max_length=68, min_length=6, write_only=True)
 

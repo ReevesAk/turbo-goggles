@@ -12,7 +12,7 @@ from django.utils import timezone
 
 # In project imports.
 from .serializers import (
-    CreateTicketSerializers, AssignTicketSerializers,
+    RegisterAgentManagerSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer,
@@ -29,11 +29,13 @@ from rest_framework.pagination import PageNumberPagination
 
 from accounts.models import User, UserNotification, AccountType, DeviceId
 from accounts.tokens import create_jwt_pair_for_user
+from accounts.otp import otp_manager
 from roles.models import ActivityModel
 from permissions import (
     IsSuperAdmin, IsManager, IsAgent
 )
 from commons import Messaging
+from sms import Message
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,98 @@ class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
+
+
+class RegisterManager(generics.GenericAPIView):
+    """
+    RegisterManager handles the POST request of registering an admin Manager,
+    It takes in email, phone, active_role, password, and password2.
+    Sends an OTP to the phone for validation.
+    """
+    serializer_class = RegisterAgentManagerSerializer
+
+    def post(self, request):
+        # Check if a Manager already exists
+        if User.objects.filter(active_role="Manager").exists():
+            return Response(
+                data="Registration is not allowed. Support Agent Manager already exists.",
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=payload)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                current_user = serializer.save()
+                logger.info(
+                    f"Support Manager registration initiated for user: {current_user.email}"
+                )
+
+                # Set the user's role and create AccountType
+                current_user.active_role = "Manager"
+                current_user.save()
+                logger.info(f"Manager role assigned to user: {current_user.email}")
+                AccountType.objects.create(
+                    user=current_user,
+                    user_type="Manager",
+                )
+                logger.info(
+                    f"AccountType 'Manager' created for user: {current_user.email}"
+                )
+                # Create and send OTP
+                otp = otp_manager.create_otp(user_id=str(current_user.id))
+                logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
+                msg = f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}."
+                recipient = current_user.phone_number
+
+                # Send OTP message
+                Message.send_otp(msg=msg, to=recipient)
+                logger.info(f"OTP sent to phone number: {recipient}")
+
+                # Log the creation of the SuperUser
+                UserNotification.objects.create(
+                    user=current_user,
+                    title="Create Manager",
+                    message="Manager account created Successfully.",
+                )
+                logger.info(f"UserNotification created for user: {current_user.id}")
+
+                ActivityModel.objects.create(
+                    user=current_user,
+                    title="Create Manager",
+                    description="Manager account created Successfully.",
+                )
+                logger.info(f"ActivityModel created for user: {current_user.id}")
+
+                response = {
+                    "status": "success",
+                    "message": "SuperUser Created Successfully. Check your phone for an OTP.",
+                    "data": serializer.data,
+                }
+                return Response(data=response, status=status.HTTP_201_CREATED)
+
+            except Exception as err:
+                logger.error(f"Error occurred while creating Manager: {str(err)}")
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "An error occurred while creating a Manager",
+                        "data": str(err),
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+        logger.warning("Invalid data received for Manager registration.")
+
+        return Response(
+            data={
+                "status": "fail",
+                "message": "Invalid data received for Manager registration.",
+                "data": serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class CreateTicket(generics.CreateAPIView):
