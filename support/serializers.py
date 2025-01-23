@@ -144,10 +144,11 @@ class AddAgentSerializer(serializers.ModelSerializer):
     role = serializers.ListField(
         child=serializers.ChoiceField(choices=USER_CATEGORY_CHOICES), write_only=True
     )
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "role", "full_name", "email"]
+        fields = ["id", "role", "full_name", "email", "pin"]
         extra_kwargs = {"email": {"required": True}}
 
     def validate(self, attrs):
