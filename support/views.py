@@ -55,11 +55,11 @@ class RegisterManager(generics.GenericAPIView):
 
     def post(self, request):
         # Check if a Manager already exists
-        if User.objects.filter(active_role="Manager").exists():
-            return Response(
-                data="Registration is not allowed. Support Agent Manager already exists.",
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # if User.objects.filter(active_role="Manager").exists():
+        #     return Response(
+        #         data="Registration is not allowed. Support Agent Manager already exists.",
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
