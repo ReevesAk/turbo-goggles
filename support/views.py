@@ -6,7 +6,6 @@ from django.contrib.auth.hashers import make_password
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
-from django.contrib.auth.hashers import check_password
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -162,8 +161,17 @@ class CreateTicket(generics.CreateAPIView):
 
         user_data = serializer.validated_data
         user_email = payload.get("email")
+        pin = payload.get("pin")
         logger.debug("User email extracted from payload: %s", user_email)
 
+        if not check_password(password=pin, encoded=request.user.admin_pin):
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Incorrect pin"
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         try:
             user = User.objects.get(email=user_email)
             logger.info("User  found: %s", user)
@@ -256,64 +264,57 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Attempt to retrieve the user by email
-        try:
-            user = User.objects.get(email=admin_email)
-            logger.info("User  found: %s", user)
-        except User.DoesNotExist:
-            logger.error("User  with email %s does not exist.", admin_email)
-            return Response(
-                data={
-                    "status": "fail",
-                    "message": "User  does not exist",
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Check if the user is an admin
-        admin_types = [
-            "SuperAdmin",
-            "TaskAdmin",
-            "AdAdmin",
-            "MembersAdmin",
-            "UserAdmin",
-            "PartnersAdmin",
-            "ContentAdmin",
-            "IntegrationAdmin",
-            "WalletAdmin",
-        ]
-
-        is_admin = AccountType.objects.filter(
-            user=user, user_type__in=admin_types
-        ).exists()
-
-        if not is_admin:
-            logger.warning("User  %s exists, but is not an agent.", user.email)
-            raise PermissionDenied("User exists, but is not an agent.")
-
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
-            logger.info("Pin verification successful for user: %s", authenticated_user)
+            # Attempt to retrieve the user by email
+            try:
+                user = User.objects.get(email=admin_email)
+                logger.info("User  found: %s", user)
+            except User.DoesNotExist:
+                logger.error("User  with email %s does not exist.", admin_email)
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "User  does not exist",
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            # Assign the ticket to the user
-            ticket.assigned_to = user
-            ticket.save()
-            logger.info("Ticket %s assigned to user: %s", ticket_id, user.full_name)
+            # Check if the user is an admin
+            agent_types = [
+                "Agent",
+                "Moderator",
+            ]
 
-            # Log the activity
-            ActivityModel.objects.create(
-                user=authenticated_user,
-                title="Assign Ticket",
-                message=f"Support ticket {ticket_id} has been assigned to {user.full_name}."
-            )
-            logger.info("Activity logged for assigning ticket %s to user: %s", ticket_id, user.full_name)
+            is_agent = AccountType.objects.filter(
+                user=user, user_type__in=agent_types
+            ).exists()
 
-            response = {
-                "status": "success",
-                "message": f"Support ticket {ticket_id} has been successfully assigned to {user.full_name}",
-                "data": serializer.data,
-            }
-            logger.info("Response prepared successfully: %s", response)
-            return Response(data=response, status=status.HTTP_201_CREATED)
+            if not is_agent:
+                logger.warning("User  %s exists, but is not an agent.", user.email)
+                raise PermissionDenied("User exists, but is not an agent.")
+
+                logger.info("Pin verification successful for user: %s", authenticated_user)
+
+                # Assign the ticket to the user
+                ticket.assigned_to = user
+                ticket.save()
+                logger.info("Ticket %s assigned to user: %s", ticket_id, user.full_name)
+
+                # Log the activity
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="Assign Ticket",
+                    message=f"Support ticket {ticket_id} has been assigned to {user.full_name}."
+                )
+                logger.info("Activity logged for assigning ticket %s to user: %s", ticket_id, user.full_name)
+
+                response = {
+                    "status": "success",
+                    "message": f"Support ticket {ticket_id} has been successfully assigned to {user.full_name}",
+                    "data": serializer.data,
+                }
+                logger.info("Response prepared successfully: %s", response)
+                return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             logger.warning("Incorrect pin provided for user: %s", authenticated_user)
             return Response(
@@ -605,6 +606,16 @@ class AddAgent(generics.CreateAPIView):
                 for key, value in request.data.items()
             }
             logger.debug(f"Processed payload: {payload}")
+
+            pin = payload.get("pin")
+            if not check_password(password=pin, encoded=request.user.admin_pin):
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Incorrect pin"
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
             if not payload.get("email"):
                 return Response(data={"status": "fail", "message": "Email field cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
@@ -913,7 +924,7 @@ class SetAgentPin(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsAgent)
 
     def perform_create(self, serializer, request):
-        pin = request.dataget("pin")
+        pin = request.data.get("pin")
         user = request.user
         logger.info(f"Creating admin pin for user: {user.full_name}.")
 
