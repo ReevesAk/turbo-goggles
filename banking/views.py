@@ -1,4 +1,5 @@
 import logging
+import json
 import requests
 from datetime import datetime
 from decouple import config
@@ -185,7 +186,7 @@ class CreateBankAccount(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.info("Account Creation Payload from Mobile %s", payload)
+        logger.info(f"Account Creation Payload:\n{json.dumps(payload, indent=4)}")
 
         passport = request.FILES.get("passport")
         identity = request.FILES.get("identity")
