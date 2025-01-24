@@ -389,7 +389,7 @@ class AddProduct(generics.GenericAPIView):
             ActivityModel.objects.create(
                 user=authenticated_user,
                 title="Add product",
-                description=f"Admin User {authenticated_user.fullname}, added fmcg product {product_entry} to the store.",
+                description=f"Admin User {authenticated_user.active_role}, added fmcg product {product_entry} to the store.",
             )
 
             resp = {
@@ -645,7 +645,12 @@ class AdAdminContd(generics.UpdateAPIView):
                 return user
             else:
                 return Response(
-                    data=encrypt({"status": "fail", "message": "User exists, but is not an admin."}),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "User exists, but is not an admin.",
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1930,9 +1935,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             authorised_by = (
                 activity.user.full_name
                 if activity.user and activity.user.full_name
-                else activity.user.email
-                if activity.user
-                else "Unknown"
+                else activity.user.email if activity.user else "Unknown"
             )
             data.append(
                 {

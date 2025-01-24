@@ -27,7 +27,9 @@ def send_token(user, msg):
     recipient = user.phone_number
 
     Message.send_otp(msg=str(msg), to=recipient)
-    logger.info("Electricity token sent to user %s at %s and %s", user.id, recipient, user.email)
+    logger.info(
+        "Electricity token sent to user %s at %s and %s", user.id, recipient, user.email
+    )
 
     # Render the template with values
     text_content = render_to_string(
