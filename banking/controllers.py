@@ -156,6 +156,7 @@ class Account:
         }
 
         data = {"data": json.dumps(payload)}
+        logger.info("Account Creation Payload from the backend %s", payload)
         try:
             response = requests.post(
                 url=base_url + resource,

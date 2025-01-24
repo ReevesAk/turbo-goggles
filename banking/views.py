@@ -185,6 +185,7 @@ class CreateBankAccount(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+        logger.info("Account Creation Payload from Mobile %s", payload)
 
         passport = request.FILES.get("passport")
         identity = request.FILES.get("identity")
