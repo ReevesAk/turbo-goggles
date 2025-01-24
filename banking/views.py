@@ -448,6 +448,7 @@ class SetWalletPin(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         decrypted_resp = decrypt(request.data)
+        logger.info(f"Account Creation Payload: {request.data}")
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_resp.items()
