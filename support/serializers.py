@@ -1,3 +1,5 @@
+import logging
+
 # Third party imports.
 from rest_framework import serializers
 
@@ -6,8 +8,10 @@ from accounts.models import User
 from .models import (
     Ticket, AgentRating
 )
-from accounts.models import User
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
+
+
+logger = logging.getLogger("support")
 
 
 class RegisterAgentManagerSerializer(serializers.ModelSerializer):
@@ -59,6 +63,15 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.save()
         return user
+
+
+class SupportVerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField()
+
+    def validate(self, attrs):
+        otp = attrs.get("otp")
+        logger.info("OTP verification attempt for OTP: %s", otp)
+        return attrs
 
 
 class CreateTicketSerializers(serializers.ModelSerializer):

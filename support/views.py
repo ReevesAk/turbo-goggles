@@ -11,7 +11,7 @@ from django.utils import timezone
 
 # In project imports.
 from .serializers import (
-    RegisterAgentManagerSerializer, CreateTicketSerializers, AssignTicketSerializers,
+    RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer,
@@ -789,6 +789,95 @@ class AgentSignUpComplete(generics.UpdateAPIView):
             return Response(
                 data={"status": "fail", "message": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class SupportPhoneVerifyOTP(generics.GenericAPIView):
+    """
+    SupportPhoneVerifyOTP handles the POST request of verifying a
+    registered Manager with valid phone number.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = SupportVerifyOTPSerializer
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        logger.debug("Received user data for OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+            logger.info("OTP received: %s", received_otp)
+
+            # Validate OTP
+            user_id = otp_manager.validate_user_otp(received_otp)
+            if not user_id:
+                logger.warning("Invalid or expired OTP: %s", received_otp)
+                return Response(
+                    data={
+                        "status": "fail", "message": "Invalid or expired OTP"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error("Manager with id %s does not exist.", user_id)
+                return Response(
+                    data={"status": "fail", "message": "Manager not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Send welcome message to user
+            msg = "Welcome to Picadailys Support... You are registration as the support manager was successful!."
+            recipient = user.phone_number
+
+            Message.send_otp(msg=str(msg), to=recipient)
+            logger.info("Welcome message sent to user %s at %s", user.id, recipient)
+
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "+123 456 7890",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Welcome To Picadailys Support",
+            )
+
+            # Update user verification status
+            user.is_verified = True
+            user.is_active = True
+            user.save()
+            logger.info("Support Manager with Id: %s has been verified and activated.", user.id)
+
+            # Log activity
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account",
+                description=f"{user.first_name} {user.last_name} verified OTP after registration.",
+            )
+            logger.info("Activity logged for user %s verification.", user.id)
+
+            response = {"status": "success", "message": "Account is verified"}
+            return Response(data=response, status=status.HTTP_200_OK)
+        else:
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
 

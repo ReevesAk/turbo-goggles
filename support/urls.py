@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import CreateTicket, RegisterManager, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin
+from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin
 from .pusher import SupportChat
 
 
@@ -9,6 +9,7 @@ app_name = 'support'
 
 urlpatterns = [
     path("register-manager", RegisterManager.as_view(), name="register_manager"),
+    path("verifyotp", SupportPhoneVerifyOTP.as_view(), name="verifyotp"),
     path("add-agent", AddAgent.as_view(), name="add_support_agent"),
     path("set-agent-pin", SetAgentPin.as_view(), name="set_agent_pin"),
     path("signup-complete/<str:user_id>/", AgentSignUpComplete.as_view(), name="signup-complete"),
