@@ -35,23 +35,10 @@ class GetallWalletUsers(generics.ListAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
-    pagination_class = PaginationStyle
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
 
-        if page is not None:
-            serialized_users = self.get_serializer(page, many=True)
-            response = {
-                "status": "success",
-                "message": "All Wallet owners retrieved successfully.",
-                "num_of_wallet_owners": queryset.count(),
-                "wallet_owners": serialized_users.data,
-            }
-            return self.get_paginated_response(encrypt(response))
-
-        # In case pagination is not used
         serialized_users = self.get_serializer(queryset, many=True)
         count = queryset.count()
         data = serialized_users.data
