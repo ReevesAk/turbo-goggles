@@ -303,14 +303,11 @@ class NotificationView(generics.CreateAPIView):
     """
 
     serializer_class = BankNtfnSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        decrypted_resp = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_resp.items()
+            for key, value in request.data.items()
         }
         account_number = user_data.get("accountNumber")
         transactiontype = user_data.get("transactiontype")
@@ -399,10 +396,10 @@ class NotificationView(generics.CreateAPIView):
                 "status": "Successful",
                 "message": "Transaction created successfully.",
             }
-            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
+            return Response(data=response_data, status=status.HTTP_201_CREATED)
         else:
             return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
 
