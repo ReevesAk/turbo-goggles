@@ -37,48 +37,6 @@ class ProductSerializers(serializers.ModelSerializer):
         ]
 
 
-class RetrieveProductSerializers(serializers.ModelSerializer):
-    """Serializer for FMCG products with full image URLs."""
-    image_url = serializers.SerializerMethodField()
-    additional_images = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Product
-        fields = [
-            "id",
-            "image_url",
-            "name_and_size",
-            "category",
-            "price",
-            "expiry_date",
-            "description",
-            "macro_nutrients",
-            "micro_nutrients",
-            "density",
-            "calories",
-            "moisture",
-            "texture",
-            "storage",
-            "additional_images",
-            "subtitle",
-            "input_style",
-        ]
-
-    def get_image_url(self, obj):
-        """Return absolute URL for the product's main image."""
-        if obj.image_url:
-            request = self.context.get("request")
-            return request.build_absolute_uri(obj.image_url) if request else obj.image_url
-        return None
-
-    def get_additional_images(self, obj):
-        """Return absolute URL for additional images."""
-        if obj.additional_images:
-            request = self.context.get("request")
-            return request.build_absolute_uri(obj.additional_images.url) if request else obj.additional_images.url
-        return None
-
-
 class AddToCartSerializers(serializers.ModelSerializer):
     """Serializers for adding a product an FMCG product to cart."""
 

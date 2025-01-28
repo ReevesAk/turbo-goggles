@@ -25,8 +25,7 @@ from .serializers import (
     FmcgRatingSerializer,
     FmcgRatingListSerializer,
     FmcgOrderSerializer,
-    PickupAddressSerializer,
-    RetrieveProductSerializers
+    PickupAddressSerializer
 )
 from accounts.models import UserNotification, TxModel, Rewards
 from banking.controllers import Account
@@ -118,7 +117,7 @@ class ListAllProducts(generics.ListAPIView):
     ListAllProducts is the GET request that handles the retrieval
     of all fmcg products.
     """
-    serializer_class = RetrieveProductSerializers
+    serializer_class = ProductSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
@@ -143,30 +142,34 @@ class ListAllProducts(generics.ListAPIView):
         logger.info("Total products to be returned: %d", total_count)
 
         page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True, context={"request": request})
-            response_data = {
+        for query in queryset:
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                serializer.data["image_url"] = query.image_url
+                response_data = {
+                    "status": "success",
+                    "message": "All FMCG products retrieved successfully.",
+                    "count": total_count,
+                    "data": serializer.data,
+                }
+                # Encrypt the entire response data
+                encrypted_response = encrypt(response_data)
+                return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+        # If pagination is not used
+        serializer = self.get_serializer(queryset, many=True)
+        for query in queryset:
+            serializer.data["image_url"] = query.image_url
+            resp = {
                 "status": "success",
                 "message": "All FMCG products retrieved successfully.",
                 "count": total_count,
-                "data": serializer.data,
+                "product_images": query.image_url,
+                "data": serializer.data
             }
-            # Encrypt the response
-            encrypted_response = encrypt(response_data)
+            # Encrypt the entire response data
+            encrypted_response = encrypt(resp)
             return Response(data=encrypted_response, status=status.HTTP_200_OK)
-
-        # If pagination is not used
-        serializer = self.get_serializer(queryset, many=True, context={"request": request})
-        response_data = {
-            "status": "success",
-            "message": "All FMCG products retrieved successfully.",
-            "count": total_count,
-            "data": serializer.data,
-        }
-        # Encrypt the response
-        encrypted_response = encrypt(response_data)
-        return Response(data=encrypted_response, status=status.HTTP_200_OK)
-
 
 
 class ProductDetails(generics.RetrieveAPIView):
