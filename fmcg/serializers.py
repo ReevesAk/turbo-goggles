@@ -68,7 +68,7 @@ class RetrieveProductSerializers(serializers.ModelSerializer):
         """Return absolute URL for the product's main image."""
         if obj.image_url:
             request = self.context.get("request")
-            return request.build_absolute_uri(obj.image_url.url) if request else obj.image_url.url
+            return request.build_absolute_uri(obj.image_url) if request else obj.image_url
         return None
 
     def get_additional_images(self, obj):
