@@ -120,7 +120,7 @@ class BankNtfnSerializer(serializers.ModelSerializer):
             "narration",
             "dateTime",
             "amount",
-            "transactiontype",
+            "transactionType",
             "accountBalance",
         ]
 

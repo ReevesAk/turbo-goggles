@@ -310,7 +310,7 @@ class NotificationView(generics.CreateAPIView):
             for key, value in request.data.items()
         }
         account_number = user_data.get("accountNumber")
-        transactiontype = user_data.get("transactiontype")
+        transactiontype = user_data.get("transactionType")
         narration = user_data.get("narration")
         amount = user_data.get("amount")
         date_time = user_data.get("dateTime")
@@ -356,7 +356,7 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
-                    email=request.user.email,
+                    email=user.email,
                     html_content=text_content,
                     subject="Credit Transaction",
                 )
@@ -382,7 +382,7 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
-                    email=request.user.email,
+                    email=user.email,
                     html_content=text_content,
                     subject="Debit Transaction",
                 )
