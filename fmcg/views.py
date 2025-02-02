@@ -274,6 +274,9 @@ class AddToCart(generics.CreateAPIView):
 
             if not created:
                 logger.info("Product %s already in cart. Updating quantity for user: %s", product.name_and_size, user.id)
+                if isinstance(quantity, str):
+                    quantity = int(quantity)
+
                 cart_item.quantity += quantity
                 cart_item.save()
             else:
