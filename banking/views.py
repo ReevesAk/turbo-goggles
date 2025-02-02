@@ -398,9 +398,7 @@ class NotificationView(generics.CreateAPIView):
             }
             return Response(data=response_data, status=status.HTTP_201_CREATED)
         else:
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetAccountDetails(generics.GenericAPIView):

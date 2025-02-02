@@ -162,7 +162,7 @@ class BankingNotificationModel(models.Model):
     narration = models.TextField(null=True)
     dateTime = models.CharField(max_length=150, null=True)
     amount = models.FloatField(null=True)
-    transactiontype = models.CharField(max_length=50, null=True)
+    transactionType = models.CharField(max_length=50, null=True)
     accountBalance = models.FloatField(null=True)
 
 
