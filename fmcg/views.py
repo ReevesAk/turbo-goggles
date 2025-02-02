@@ -297,7 +297,7 @@ class AddToCart(generics.CreateAPIView):
                     "product": product.name_and_size,
                     "quantity": cart_item.quantity,
                     "price": str(cart_item.price),
-                    "total_price": cart_item.get_total_price()
+                    "total_price": str(cart_item.get_total_price())
                 }
             }
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
