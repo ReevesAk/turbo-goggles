@@ -76,7 +76,7 @@ class CartItem(BaseModel):
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def get_total_price(self):
-        return self.quantity * self.price
+        return int(self.quantity or 1) * self.price
 
 
 class FmcgOrder(BaseModel):
