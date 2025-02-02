@@ -296,7 +296,7 @@ class AddToCart(generics.CreateAPIView):
                     "cart_id": cart.cart_id,
                     "product": product.name_and_size,
                     "quantity": cart_item.quantity,
-                    "price": cart_item.price,
+                    "price": str(cart_item.price),
                     "total_price": cart_item.get_total_price()
                 }
             }
