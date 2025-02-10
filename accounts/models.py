@@ -58,7 +58,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=255, null=True, blank=True)
     password = models.CharField(max_length=255, null=True)
     phone_number = models.CharField(max_length=20, unique=True, null=True)
-    email = models.CharField(max_length=80, unique=True)
+    email = models.CharField(max_length=80, unique=True, null=True, blank=True)
     country = models.CharField(max_length=155, blank=False)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
