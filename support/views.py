@@ -648,7 +648,7 @@ class AddAgent(generics.CreateAPIView):
                 # Generate signup link
                 signup_link = f"https://support.picadailys.com/sign-up?user_id={user.id}"
 
-                name = user.full_name.split()[0]
+                name = user.full_name
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
