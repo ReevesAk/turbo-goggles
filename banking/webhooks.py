@@ -43,7 +43,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         reference = webhook_data["data"]["reference"]
         email = webhook_data["data"]["customer"]["email"]
         tx_status = webhook_data["data"]["status"]
-        amount = webhook_data["data"]["amount"] / 100  # Convert cents to dollars
+        amount = webhook_data["data"]["amount"]  # Convert kobo to naira
 
         user_obj = FundWithCard.objects.filter(txn_reference=reference).first()
         if user_obj:
