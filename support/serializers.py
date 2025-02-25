@@ -168,7 +168,8 @@ class AddAgentSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        user_types = validated_data.pop("roles", [])
+        user_types = validated_data.pop("role", [])
+        validated_data.pop("pin", None)
         user = super().create(validated_data)
 
         # Assign multiple AccountType entries based on roles
