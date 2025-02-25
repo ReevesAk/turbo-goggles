@@ -650,9 +650,12 @@ class PayWithCard(generics.CreateAPIView):
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             try:
+                # Convert amount to kobo by multiplying by 100
+                amount_in_naira = int(user_data["amount"]) * 100
+
                 # Generate checkout URL using Paystack
                 checkout_url_response = Paystack.generate_url(
-                    email=user.email, amount=user_data["amount"]
+                    email=user.email, amount=amount_in_naira
                 )
                 if checkout_url_response.status_code == 200:
                     # Log successful URL generation
