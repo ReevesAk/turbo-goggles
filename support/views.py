@@ -690,8 +690,9 @@ class AddAgent(generics.CreateAPIView):
             raise ValidationError(message=e, code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
+            error_message = str(e)
             return Response(
-                data={"status": "Error", "message": "An unexpected error occurred."},
+                data={"status": "Error", "message": f"An unexpected erroroccurred: {error_message}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
