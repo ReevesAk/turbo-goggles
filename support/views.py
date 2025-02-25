@@ -620,7 +620,7 @@ class AddAgent(generics.CreateAPIView):
             if not payload.get("email"):
                 return Response(data={"status": "fail", "message": "Email field cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not payload.get("role"):
+            if not payload["role"]:
                 return Response(data={"status": "fail", "message": "At least one role must be selected."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Check if email exists
