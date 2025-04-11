@@ -22,7 +22,7 @@ DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 ENVIRONMENT = conf("ENVIRONMENT")
 
 if ENVIRONMENT == "development":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "miniature-waddle.onrender.com"]
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "https://miniature-waddle-k5bz.onrender.com"]
 elif ENVIRONMENT == "production":
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com"]
 

@@ -1,8 +1,6 @@
 import uuid
 from rest_framework import serializers
 
-from security import encrypt
-
 from .models import (
     AirtimeTopup,
     DataSubscription,
