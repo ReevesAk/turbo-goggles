@@ -22,9 +22,9 @@ DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 ENVIRONMENT = conf("ENVIRONMENT")
 
 if ENVIRONMENT == "development":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "https://miniature-waddle-k5bz.onrender.com"]
+    ALLOWED_HOSTS = ["*"]
 elif ENVIRONMENT == "production":
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "https://miniature-waddle-k5bz.onrender.com"]
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.picadailys.com", "167.71.174.242", "https://api.picadailys.com", "https://miniature-waddle-k5bz.onrender.com/"]
 
 
 # Application definition
@@ -192,7 +192,7 @@ CSP_SCRIPT_SRC = (
     "https://cdn.jsdelivr.net",
     "https://admin-dashboard-jade-phi.vercel.app",
     "https://admin.picadailys.com",
-    "https://miniature-waddle.onrender.com/api/v1",
+    "https://miniature-waddle-k5bz.onrender.com/api/v1",
     "127.0.0.1:8000/api/v1",
 )  # Allow external scripts
 CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
@@ -204,7 +204,7 @@ SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CSRF_TRUSTED_ORIGINS = ["https://api.picadailys.com", "http://localhost:5173", "https://miniature-waddle.onrender.com"]
+CSRF_TRUSTED_ORIGINS = ["https://api.picadailys.com", "http://localhost:5173", "https://miniature-waddle-k5bz.onrender.com"]
 
 X_FRAME_OPTIONS = 'DENY'
 
