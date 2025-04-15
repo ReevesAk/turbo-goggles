@@ -45,7 +45,7 @@ class Ticket(BaseModel):
     assigned_to = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="assigned_tickets")
     description = models.TextField(null=True)
     escalation_level = models.CharField(choices=ESCALATION_LEVEL, max_length=150, null=True)
-    status = models.CharField(choices=STATUS, max_length=150, null=True)
+    status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
