@@ -110,7 +110,7 @@ class RegisterManager(generics.GenericAPIView):
 
                 response = {
                     "status": "success",
-                    "message": "SuperUser Created Successfully. Check your phone for an OTP.",
+                    "message": "Support Manager account Created Successfully. Check your phone for an OTP.",
                     "data": serializer.data,
                 }
                 return Response(data=response, status=status.HTTP_201_CREATED)
