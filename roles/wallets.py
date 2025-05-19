@@ -3,7 +3,6 @@ import requests
 
 # In project imports.
 from .serializers import ListWalletUsersSerializer, AdminBankAccountCreationSerializers
-from .views import PaginationStyle
 from .models import ActivityModel
 
 # Third party imports.

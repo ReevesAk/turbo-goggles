@@ -54,9 +54,6 @@ from vas.models import (
     DataSubscription,
     TvSubscription,
     WaecRegistration,
-    HealthInsurance,
-    AccidentInsurance,
-    VehicleInsurance,
     ElectricityBill,
 )
 from fmcg.models import Product, Favourite
@@ -1117,16 +1114,11 @@ class AddToFavourite(generics.CreateAPIView):
             # Map model_name to actual model classes
             model_mapping = {
                 "Product": Product,
-                "VehicleInsurance": VehicleInsurance,
-                "HealthInsurance": HealthInsurance,
                 "AirtimeTopup": AirtimeTopup,
                 "DataSubscription": DataSubscription,
                 "ElectricityBill": ElectricityBill,
                 "TvSubscription": TvSubscription,
                 "WaecRegistration": WaecRegistration,
-                "AccidentInsurance": AccidentInsurance,
-                "VehicleInsurance": VehicleInsurance,
-                "HealthInsurance": HealthInsurance,
                 "RestaurantBooking": RestaurantBooking,
                 "GymSubcription": GymSubcription,
                 "CinemaBooking": CinemaBooking,

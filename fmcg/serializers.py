@@ -40,11 +40,14 @@ class ProductSerializers(serializers.ModelSerializer):
 class AddToCartSerializers(serializers.ModelSerializer):
     """Serializers for adding a product an FMCG product to cart."""
 
+    guest_id = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Product
         fields = [
             "id",
-            "quantity"
+            "quantity",
+            "guest_id"
         ]
 
 

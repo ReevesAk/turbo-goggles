@@ -1,7 +1,6 @@
 import logging
 from django.db import transaction
 from django.db.models import Prefetch
-from decouple import config
 from django.http import Http404
 
 # Third party imports.

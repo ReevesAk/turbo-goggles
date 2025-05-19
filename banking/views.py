@@ -1,7 +1,6 @@
 import logging
 import json
 import requests
-from datetime import datetime
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import (
@@ -20,7 +19,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 # from rest_framework.exceptions import NotFound
-from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 

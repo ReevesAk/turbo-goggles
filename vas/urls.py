@@ -14,19 +14,6 @@ from .views import (
     RenewTvSubscription,
     GetWaecVaritaionCodes,
     WaecRegistration,
-    GetVehicleInsuranceVaritaionCodes,
-    GetVehicleInsuranceModelCodes,
-    GetVehicleInsuranceMakeCodes,
-    GetVehicleInsuranceAreaCodes,
-    GetVehicleInsuranceStateCodes,
-    GetVehicleEngineCapacityCodes,
-    GetVehicleInsuranceColorCodes,
-    VehicleInsuranceView,
-    GetAccidentVaritaionCodes,
-    AccidentInsuranceView,
-    GetHealthInsuranceVaritaionCodes,
-    GetHealthInsuranceOptions,
-    HealthInsuranceView,
 )
 
 
@@ -76,61 +63,4 @@ urlpatterns = [
     path("renew-exisitng-tv-plan", RenewTvSubscription.as_view(), name="renew-tv-sub"),
     path("waec-variation-codes/", GetWaecVaritaionCodes.as_view(), name="waec_codes"),
     path("waec-registration/", WaecRegistration.as_view(), name="waec_registration"),
-    path(
-        "vehicle-insurance-codes/",
-        GetVehicleInsuranceVaritaionCodes.as_view(),
-        name="vehicle_insurance_codes",
-    ),
-    path(
-        "vehicle-model-codes/<str:vehicle_make_code>/",
-        GetVehicleInsuranceModelCodes.as_view(),
-        name="vehicle_model_codes",
-    ),
-    path(
-        "vehicle-make-codes",
-        GetVehicleInsuranceMakeCodes.as_view(),
-        name="vehicle_make_codes",
-    ),
-    path(
-        "vehicle-state-codes",
-        GetVehicleInsuranceStateCodes.as_view(),
-        name="vehicle_state_codes",
-    ),
-    path(
-        "vehicle-area-codes/<str:state_code>/",
-        GetVehicleInsuranceAreaCodes.as_view(),
-        name="vehicle_insurance_codes",
-    ),
-    path(
-        "vehicle-capacity-codes",
-        GetVehicleEngineCapacityCodes.as_view(),
-        name="vehicle_capacity_codes",
-    ),
-    path(
-        "vehicle-color-codes",
-        GetVehicleInsuranceColorCodes.as_view(),
-        name="vehicle_color_codes",
-    ),
-    path("insure-vehicle/", VehicleInsuranceView.as_view(), name="insure_vehicle"),
-    path(
-        "accident-insurance-codes/",
-        GetAccidentVaritaionCodes.as_view(),
-        name="accident_insurance_codes",
-    ),
-    path(
-        "accident-insuracnce/",
-        AccidentInsuranceView.as_view(),
-        name="accident_insurance",
-    ),
-    path(
-        "health-insurance-codes",
-        GetHealthInsuranceVaritaionCodes.as_view(),
-        name="health_insurance_codes",
-    ),
-    path(
-        "health-insurance-options",
-        GetHealthInsuranceOptions.as_view(),
-        name="health_insurance_options",
-    ),
-    path("health-insurance", HealthInsuranceView.as_view(), name="health_insurance"),
 ]

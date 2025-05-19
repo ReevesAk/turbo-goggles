@@ -50,6 +50,7 @@ ELECTRICITY_SERVICE_ID_CHOICES = (
 
 class AirtimeTopup(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    guest_id = models.UUIDField(null=True, blank=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -62,6 +63,7 @@ class AirtimeTopup(ItemPurchaseBaseModel):
 
 class DataSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    guest_id = models.UUIDField(null=True, blank=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -75,6 +77,7 @@ class DataSubscription(ItemPurchaseBaseModel):
 
 class ElectricityBill(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    guest_id = models.UUIDField(null=True, blank=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -91,6 +94,7 @@ class ElectricityBill(ItemPurchaseBaseModel):
 
 class TvSubscription(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    guest_id = models.UUIDField(null=True, blank=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(
@@ -106,6 +110,7 @@ class TvSubscription(ItemPurchaseBaseModel):
 
 class WaecRegistration(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
+    guest_id = models.UUIDField(null=True, blank=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
     request_id = models.CharField(max_length=150, null=True)
     serviceID = models.CharField(max_length=150, null=True)
@@ -113,54 +118,3 @@ class WaecRegistration(ItemPurchaseBaseModel):
     variation_code = models.CharField(max_length=150, null=True)
     quantity = models.CharField(max_length=150, null=True)
     phone = models.CharField(max_length=150, null=True)
-
-
-class AccidentInsurance(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(max_length=150, null=True)
-    billersCode = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-    full_name = models.CharField(max_length=250, null=True)
-    address = models.CharField(max_length=250, null=True)
-    dob = models.DateField(max_length=250, null=True)
-    next_kin_name = models.CharField(max_length=250, null=True)
-    next_kin_phone = models.CharField(max_length=250, null=True)
-    business_occupation = models.CharField(max_length=250, null=True)
-
-
-class VehicleInsurance(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(max_length=150, null=True)
-    billersCode = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-    insured_name = models.CharField(max_length=200, null=True)
-    engine_number = models.CharField(max_length=200, null=True)
-    chasis_number = models.CharField(max_length=200, null=True)
-    plate_number = models.CharField(max_length=200, null=True)
-    vehicle_make = models.CharField(max_length=200, null=True)
-    vehicle_color = models.CharField(max_length=200, null=True)
-    vehicle_model = models.CharField(max_length=200, null=True)
-    year_of_make = models.CharField(max_length=200, null=True)
-    contact_address = models.CharField(max_length=200, null=True)
-
-
-class HealthInsurance(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(max_length=150, null=True)
-    billersCode = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-    full_name = models.CharField(max_length=250, null=True)
-    address = models.CharField(max_length=250, null=True)
-    selected_hospital = models.CharField(max_length=250, null=True)
-    Passport_Photo = models.CharField(max_length=250, null=True)
-    date_of_birth = models.CharField(max_length=250, null=True)
-    extra_info = models.CharField(max_length=255, null=True)
