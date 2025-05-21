@@ -47,6 +47,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -57,7 +58,8 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     class Meta:
         model = AirtimeTopup
         fields = [
-            "id",  # Assuming the model has a default 'id' field.
+            "id",
+            "guest_id",
             "serviceID",
             "amount",
             "phone",
@@ -87,6 +89,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -98,6 +101,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         model = DataSubscription
         fields = [
             "id",
+            "guest_id",
             "payment_option",
             "serviceID",
             "amount",
@@ -129,6 +133,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -140,6 +145,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
         model = ElectricityBill
         fields = [
             "id",
+            "guest_id",
             "pin",
             "use_biometrics",
             "payment_option",
@@ -168,6 +174,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=50, write_only=True)
     tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)
@@ -178,6 +185,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
         model = TvSubscription
         fields = [
             "id",
+            "guest_id",
             "payment_option",
             "serviceID",
             "amount",
@@ -204,6 +212,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_rewards = serializers.BooleanField(write_only=True, required=False)
@@ -212,6 +221,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
         model = WaecRegistration
         fields = [
             "id",
+            "guest_id",
             "serviceID",
             "payment_option",
             "variation_code",

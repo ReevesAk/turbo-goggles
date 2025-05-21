@@ -23,7 +23,7 @@ from .serializers import (
 )
 from banking.models import AccountCreation
 from banking.controllers import Account
-from permissions import VasPermission
+from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
 from .controllers import (
     airtime,
@@ -33,7 +33,12 @@ from .controllers import (
     RenewTvSub,
     waec_reg,
 )
-from .utility import create_activity, create_notification, send_token
+from .utility import (
+    create_activity,
+    create_notification,
+    send_token,
+    send_token_to_guest_users,
+)
 from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
@@ -56,7 +61,7 @@ class AirTimeTopUp(generics.GenericAPIView):
 
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -64,9 +69,10 @@ class AirTimeTopUp(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = decrypted_payload.get("pin")
+        guest_id = decrypted_payload.get("guest_id")
         payment_option = decrypted_payload.get("payment_option")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
@@ -276,7 +282,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     airtime_response = airtime(
                         user=user,
                         serializer=serializer,
-                        reason="Debit for airtime recharge .",
+                        reason="Debit for airtime recharge",
                         user_data=user_data,
                     )
                     if airtime_response["code"] == "000":
@@ -365,11 +371,17 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                logger.info(
-                    f"User  {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 airtime_response = airtime(
                     user=user,
+                    guest_id=guest_id,
                     serializer=serializer,
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
@@ -381,19 +393,30 @@ class AirTimeTopUp(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "airtime_response": airtime_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="Airtime purchase",
-                        message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Airtime purchase",
-                        description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Airtime purchase",
+                            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Airtime purchase",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user with ID {guest_id} successfully purchased airtime with CARD option."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="Airtime purchase",
+                            description=f"Guest user with ID {guest_id} has made a purchase of {amount} naira airtime on {phone}.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -411,19 +434,29 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "airtime_response": airtime_response,
                             }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Airtime purchase",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Airtime purchase",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                            )
+                            if user:
+                                logger.info(
+                                    f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
+                                )
+                                create_notification(
+                                    user=request.user,
+                                    title="Airtime purchase",
+                                    message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                                )
+                                create_activity(
+                                    user=request.user,
+                                    title="Airtime purchase",
+                                    description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                                )
+                            elif guest_id:
+                                logger.info(
+                                    f"Guest user with ID: {guest_id} successfully purchased airtime with CARD option."
+                                )
+                                create_activity(
+                                    user=guest_id,
+                                    title="Airtime purchase",
+                                    description=f"Guest user with ID {guest_id} has made a purchase of {amount} naira airtime on {phone}.",
+                                )
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
@@ -437,9 +470,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
-                    logger.warning(
-                        f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
-                    )
+                    if user:
+                        logger.warning(
+                            f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
+                        )
+                    elif guest_id:
+                        logger.warning(
+                            f"Airtime top-up failed for guest user with ID {guest_id} with CARD option."
+                        )
                     return Response(
                         data=encrypt(
                             {
@@ -478,7 +516,9 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
         responses={200: {"description": "Network Providers Varitaion Codes"}},
     )
     def get(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user.
+        user = (
+            request.user if request.user.is_authenticated else None
+        )  # Get the authenticated user.
 
         param_value = kwargs.get("service_ID")
         logger.info(
@@ -549,7 +589,7 @@ class DataSubscriptionView(generics.GenericAPIView):
 
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -557,9 +597,10 @@ class DataSubscriptionView(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         phone = user_data.get("phone")
@@ -864,11 +905,17 @@ class DataSubscriptionView(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 data_response = data(
                     user=user,
+                    guest_id=guest_id,
                     serializer=serializer,
                     reason="Debit for data subscription.",
                     user_data=user_data,
@@ -880,9 +927,27 @@ class DataSubscriptionView(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "data_response": data_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased data with CARD option."
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased data with CARD option."
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Data subscription",
+                            message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Data subscription",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                        )
+                    elif guest_id:
+                        create_activity(
+                            user=request.user,
+                            title="Data subscription",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -900,19 +965,26 @@ class DataSubscriptionView(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "data_response": data_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Data subscription",
-                            message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Data subscription",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="Data subscription",
+                                message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Data subscription",
+                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            )
+                        elif guest_id:
+                            create_activity(
+                                user=request.user,
+                                title="Data subscription",
+                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -926,9 +998,14 @@ class DataSubscriptionView(generics.GenericAPIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
-                    logger.warning(
-                        f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
-                    )
+                    if user:
+                        logger.warning(
+                            f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
+                        )
+                    elif guest_id:
+                        logger.warning(
+                            f"Data subscription failed for guest user with ID: {guest_id} with CARD option."
+                        )
                     return Response(
                         data=encrypt(
                             {
@@ -957,7 +1034,7 @@ class ElectricityServiceIDListView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
         electricity_service_ids = [
@@ -1057,7 +1134,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
     serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1065,9 +1142,10 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
@@ -1359,9 +1437,14 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 electricity_response = electricity(
                     user=user,
                     serializer=serializer,
@@ -1376,23 +1459,39 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "electricity_response": electricity_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                    )
-
                     token = electricity_response.get("purchased_code")
-                    send_token(user=user, msg=f"Token purchase was successful. {token}")
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
+                        )
 
-                    create_notification(
-                        user=request.user,
-                        title="Electricity payment",
-                        message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Electricity payment",
-                        description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                    )
+                        # Send token to user's email and phone number
+                        send_token(
+                            user=user,
+                            msg=f"Electricity token purchase was successful. {token}",
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Electricity payment",
+                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Electricity payment",
+                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
+                        )
+                    if guest_id:
+                        logger.info(
+                            f"Guest user with ID: {guest_id} successfully purchased electricity with CARD option."
+                        )
+
+                        # Send token to user's email and phone number
+                        send_token_to_guest_users(
+                            guest_phone=user_data.get("phone"),
+                            msg=f"Electricity token purchase was successful. {token}",
+                        )
+
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1410,25 +1509,41 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "electricity_response": electricity_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
+                            )
 
-                        token = electricity_response.get("purchased_code")
-                        send_token(
-                            user=user, msg=f"Token purchase was successful. {token}"
-                        )
+                            token = electricity_response.get("purchased_code")
+                            send_token(
+                                user=user, msg=f"Token purchase was successful. {token}"
+                            )
 
-                        create_notification(
-                            user=request.user,
-                            title="Electricity payment",
-                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Electricity payment",
-                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                        )
+                            create_notification(
+                                user=request.user,
+                                title="Electricity payment",
+                                message=f"This is to inform you that your payment of {amount} for electricity is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Electricity payment",
+                                description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID{guest_id} successfully purchased electricity tokens with CARD option."
+                            )
+
+                            token = electricity_response.get("purchased_code")
+                            send_token_to_guest_users(
+                                guest_phone=user_data.get("phone"),
+                                msg=f"Token purchase was successful. {token}",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Electricity payment",
+                                description=f"Guest user with ID: {guest_id} has made a payment of {amount} for electricity bill.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1713,13 +1828,14 @@ class NewTvSubscription(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to make a TV subscription purchase with data: {user_data}"
         )
 
         pin = user_data.get("pin")
+        guest_id = decrypted_payload.get("guest_id")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
@@ -1909,9 +2025,15 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
+
                 new_tv_response = NewTvSub(
                     user=user,
                     serializer=serializer,
@@ -1925,19 +2047,29 @@ class NewTvSubscription(generics.GenericAPIView):
                         "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": new_tv_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="New TV subscription",
-                        message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="New TV subscription",
-                        description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                        )
+                        create_notification(
+                            user=request.user,
+                            title="New TV subscription",
+                            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="New TV subscription",
+                            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user {guest_id} successfully purchased TV subscription."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="New TV subscription",
+                            description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1955,19 +2087,29 @@ class NewTvSubscription(generics.GenericAPIView):
                                 "message": f"TV subscription purchase of {new_amount} was successful.",
                                 "cable_tv_response": new_tv_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="New TV subscription",
-                            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="New TV subscription",
-                            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="New TV subscription",
+                                message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="New TV subscription",
+                                description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID: {guest_id} successfully purchased TV package with CARD option."
+                            )
+                            create_activity(
+                                user=guest_id,
+                                title="New TV subscription",
+                                description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2022,7 +2164,7 @@ class RenewTvSubscription(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_data.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to renew TV subscription with data: {user_data}"
@@ -2030,6 +2172,7 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         pin = user_data.get("pin")
         use_points = user_data.get("use_points")
+        guest_id = user_data.get("guest_id")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
         billersCode = user_data.get("billersCode")
@@ -2228,9 +2371,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 renew_tv_response = RenewTvSub(
                     user=user,
                     serializer=serializer,
@@ -2243,19 +2391,29 @@ class RenewTvSubscription(generics.GenericAPIView):
                         "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": renew_tv_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                        )
+                        create_notification(
+                            user=request.user,
+                            title="Renew Tv subscription",
+                            message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Renew Tv subscription",
+                            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user {guest_id} successfully purchased TV subscription."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="Renew TV subscription",
+                            description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -2272,19 +2430,29 @@ class RenewTvSubscription(generics.GenericAPIView):
                                 "message": f"TV subscription purchase of {amount} was successful.",
                                 "cable_tv_response": renew_tv_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="Renew Tv subscription",
+                                message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Renew Tv subscription",
+                                description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID: {guest_id} successfully purchased TV package with CARD option."
+                            )
+                            create_activity(
+                                user=guest_id,
+                                title="Renew TV subscription",
+                                description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2382,9 +2550,10 @@ class WaecRegistration(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         payment_option = request.data.get("payment_option")
         amount = user_data.get("amount")
 
@@ -2463,6 +2632,14 @@ class WaecRegistration(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 waec_response = waec_reg(
                     user=user,
                     serializer=serializer,

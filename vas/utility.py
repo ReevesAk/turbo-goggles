@@ -46,3 +46,14 @@ def send_token(user, msg):
         html_content=text_content,
         subject="Electricity Token",
     )
+
+
+def send_token_to_guest_users(guest_phone, msg):
+    recipient = guest_phone
+
+    Message.send_otp(msg=str(msg), to=recipient)
+    logger.info(
+        "Electricity token sent to guest user with phone number %s",
+        guest_phone,
+        recipient,
+    )

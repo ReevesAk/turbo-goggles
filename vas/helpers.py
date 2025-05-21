@@ -34,9 +34,7 @@ class VAS:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Airtime topup API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return response
 
     @staticmethod
     def data(service_id, req_id, amount, phone, billersCode, variation_code):

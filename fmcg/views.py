@@ -27,7 +27,7 @@ from .serializers import (
     FmcgOrderSerializer,
     PickupAddressSerializer
 )
-from accounts.models import UserNotification, TxModel, Rewards
+from accounts.models import User, UserNotification, TxModel, Rewards
 from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
@@ -645,7 +645,7 @@ class FmcgRatingView(generics.GenericAPIView):
 
     serializer_class = FmcgRatingSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
         product_id = kwargs.get("id")
@@ -721,7 +721,7 @@ class GetFmcgReview(generics.ListAPIView):
 
     serializer_class = FmcgRatingListSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -744,7 +744,7 @@ class GetFmcgReview(generics.ListAPIView):
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     queryset = PickupAdress.objects.all()
 
     def get(self, request, *args, **kwargs):
