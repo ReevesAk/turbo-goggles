@@ -6,6 +6,7 @@ from accounts.otp import otp_manager
 from permissions import (
     IsPartnerUserOrMember,
     IsPartnerUserOrMemberBrandAdOrSuperAdmin,
+    IsGuestWithValidId
 )
 from commons import Messaging
 
@@ -41,7 +42,6 @@ from roles.models import ActivityModel
 from .models import (
     AccountCreation,
     BVNData,
-    FundWithCard,
 )
 from .controllers import BVN, Account, Paystack
 from security import encrypt, decrypt
@@ -718,8 +718,7 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
     """
 
     serializer_class = RefundSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
         user_data = decrypt(request.data)
