@@ -480,3 +480,19 @@ class Paystack:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def create_refund(txn_reference):
+        refund_url_resource = "https://api.paystack.co/refund"
+        payload = {"transaction": txn_reference}
+
+        try:
+            response = requests.post(
+                url=refund_url_resource, json=payload, headers=headers
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Generate paystack payment url API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -270,6 +270,14 @@ class VerifyCardDepositSerializers(serializers.ModelSerializer):
         fields = ["id", "txn_reference"]
 
 
+class RefundSerializers(serializers.ModelSerializer):
+    guest_id = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = FundWithCard
+        fields = ["guest_id", "txn_reference"]
+
+
 class CustomerSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

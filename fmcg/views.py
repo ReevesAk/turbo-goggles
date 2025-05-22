@@ -27,12 +27,13 @@ from .serializers import (
     FmcgOrderSerializer,
     PickupAddressSerializer
 )
-from accounts.models import UserNotification, TxModel, Rewards
+from accounts.models import User, UserNotification, TxModel, Rewards
 from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+from permissions import IsAuthenticatedOrGuestWithValidId
 
 logger = logging.getLogger(__name__)
 
@@ -233,16 +234,21 @@ class AddToCart(generics.CreateAPIView):
     """
     serializer_class = AddToCartSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
-    def get_cart(self, user):
+    def get_cart(self, user=None, guest_id=None):
         """
-        Get or create a cart for the user.
+        Get or create a cart for a user or guest.
         """
-        logger.info("Fetching or creating a cart for user: %s", user.id)
-        cart, _ = Cart.objects.get_or_create(
-            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
-        )
+        if user and user.is_authenticated:
+            cart_id = f"cart_{user.id}"
+        elif guest_id:
+            cart_id = f"guest_cart_{guest_id}"
+        else:
+            raise ValueError("No user or guest_id provided for cart retrieval.")
+
+        logger.info("Fetching or creating cart with ID: %s", cart_id)
+        cart, _ = Cart.objects.get_or_create(cart_id=cart_id)
         return cart
 
     def post(self, request, *args, **kwargs):
@@ -253,12 +259,22 @@ class AddToCart(generics.CreateAPIView):
             for key, value in decrypted_payload.items()
         }
 
+        guest_id = user_data.get("guest_id")
         logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             product_id = kwargs.get("product_id")
-            quantity = user_data.get("quantity", 1)
+
+            try:
+                quantity = int(user_data.get("quantity", 1))
+                if quantity < 1:
+                    raise ValueError("Quantity must be at least 1.")
+            except (ValueError, TypeError):
+                return Response(data=encrypt({
+                    "status": "error",
+                    "message": "Invalid quantity. Must be a positive integer."
+                }), status=status.HTTP_400_BAD_REQUEST)
 
             logger.debug("Fetching product with ID: %s", product_id)
             product = get_object_or_404(Product, id=product_id)
@@ -292,6 +308,7 @@ class AddToCart(generics.CreateAPIView):
             resp = {
                 "status": "success",
                 "message": "Product added to cart.",
+                "guest_id": guest_id if not user.is_authenticated else None,
                 "cart_item": {
                     "cart_id": cart.cart_id,
                     "product": product.name_and_size,
@@ -309,31 +326,43 @@ class AddToCart(generics.CreateAPIView):
 class RetrieveCartProducts(generics.RetrieveAPIView):
     """
     RetrieveCartProducts is the GET request handler for retrieving all
-    items in the user's cart.
+    items in the user's or guest's cart.
     """
-
     serializer_class = RetrieveCartProductsSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
+
+    def get_cart_id(self, user=None, guest_id=None):
+        if user and user.is_authenticated:
+            return f"cart_{user.id}"
+        elif guest_id:
+            return f"guest_cart_{guest_id}"
+        else:
+            return Response(data=encrypt({
+                "status": "success",
+                "message": "User or guest_id required to retrieve cart."}),
+                status=status.HTTP_200_OK)
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        logger.info("Fetching cart items for user: %s", user.id)
+        guest_id = request.query_params.get("guest_id")
 
-        cart_items = CartItem.objects.filter(user=user)
+        cart_id = self.get_cart_id(user=user, guest_id=guest_id)
+        logger.info("Fetching cart items for cart_id: %s", cart_id)
+
+        cart = get_object_or_404(Cart, cart_id=cart_id)
+        cart_items = CartItem.objects.filter(cart=cart)
 
         if not cart_items.exists():
-            logger.info("Cart is empty for user: %s", user.id)
-            resp = {
+            logger.info("Cart is empty for cart_id: %s", cart_id)
+            return Response(data=encrypt({
                 "status": "success",
                 "message": "Your cart is empty.",
                 "cart_items": []
-            }
-            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+            }), status=status.HTTP_200_OK)
 
-        logger.info("Cart items found for user: %s. Preparing data.", user.id)
+        logger.info("Cart items found. Preparing data.")
 
-        # Prepare cart item data
         cart_data = []
         for item in cart_items:
             cart_data.append({
@@ -344,86 +373,86 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
                 "image": item.product.image_url,
                 "total_price": float(item.get_total_price())
             })
-            logger.debug(
-                "Cart item for product: %s added to response data for user: %s",
-                item.product.name_and_size,
-                user.id
-            )
 
-        logger.info("Successfully retrieved and prepared cart data for user: %s", user.id)
-        response = {
+        logger.info("Cart retrieved successfully.")
+        return Response(data=encrypt({
             "status": "success",
             "message": "Cart items retrieved successfully.",
             "cart_items": cart_data
-        }
-        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+        }), status=status.HTTP_200_OK)
 
 
 class RemoveFromCart(generics.DestroyAPIView):
     """
-    RemoveFromCart is the DELETE request handler that removes a product from the cart.
+    RemoveFromCart handles deleting a product from the cart for a user or guest.
     """
-
     serializer_class = RemoveFromCartSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Allow unauthenticated access for guests
 
-    def get_cart(self, user):
-        """
-        Get or create a cart for the user.
-        """
-        cart, created = Cart.objects.get_or_create(
-            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
-        )
-        return cart
+    def get_cart_id(self, user, guest_id):
+        if user and user.is_authenticated:
+            return f"cart_{user.id}"
+        elif guest_id:
+            return f"guest_cart_{guest_id}"
+        else:
+            return Response(data=encrypt({
+                "status": "success",
+                "message": "guest_id is required for unauthenticated users."}),
+                status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         user = request.user
+        decrypted_data = decrypt(request.data)
         product_id = kwargs.get("product_id")
+        guest_id = decrypted_data.get("guest_id")
 
-        logger.info("Attempting to remove product with ID %s from the cart for user: %s", product_id, user.id)
+        cart_id = self.get_cart_id(user, guest_id)
+
+        logger.info("Attempting to remove product ID %s from cart: %s", product_id, cart_id)
 
         try:
-            # Fetch the product and cart item
             product = get_object_or_404(Product, id=product_id)
-            cart_item = get_object_or_404(CartItem, user=user, product=product)
-            logger.info("Product %s found in cart for user: %s", product.name_and_size, user.id)
+
+            if user.is_authenticated:
+                cart_item = get_object_or_404(CartItem, user=user, product=product)
+            else:
+                cart = get_object_or_404(Cart, cart_id=cart_id)
+                cart_item = get_object_or_404(CartItem, cart=cart, product=product)
 
         except Http404:
-            logger.error("Product or cart item not found for user: %s", user.id)
-            response = {
-                "status": "fail",
-                "error": "Product or cart item not found."
-            }
+            logger.error("Cart item not found for cart: %s", cart_id)
             return Response(
-                data=encrypt(response),
+                encrypt({
+                    "status": "fail",
+                    "error": "Product or cart item not found."
+                }),
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Delete the cart item
         cart_item.delete()
-        logger.info("Product %s removed from cart for user: %s", product.name_and_size, user.id)
+        logger.info("Removed product %s from cart: %s", product.name_and_size, cart_id)
 
-        # Log activity
-        ActivityModel.objects.create(
-            user=user,
-            title="Cart Item.",
-            description=f"{user.first_name} {user.last_name} removed {product.name_and_size} from cart."
-        )
-
-        logger.info("Activity logged for user: %s regarding removal of product: %s", user.id, product.name_and_size)
+        if user.is_authenticated:
+            ActivityModel.objects.create(
+                user=user,
+                title="Cart Item Removed",
+                description=f"{user.full_name or user.phone_number} removed {product.name_and_size} from cart."
+            )
 
         return Response(
-            encrypt(data={
+            encrypt({
                 "status": "success",
                 "message": "Product removed from cart."
-            }), status=status.HTTP_204_NO_CONTENT)
+            }),
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class FmcgCheckout(generics.CreateAPIView):
     serializer_class = FmcgOrderSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
         payload = {key: value.strip() if isinstance(value, str) else value for key, value in request.data.items()}
@@ -432,13 +461,31 @@ class FmcgCheckout(generics.CreateAPIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        authenticated_user = request.user
+        # Identify user (authenticated or guest)
+        if request.user and request.user.is_authenticated:
+            user = request.user
+        else:
+            guest_id = payload.get("guest_id")
+            if not guest_id:
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Guest ID is required for unauthenticated users."}),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                user = User.objects.get(guest_id=guest_id)
+            except User.DoesNotExist:
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Invalid guest ID."}),
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
         tracking_id = generate_tracking_id(10)
         tx_reference = uuid.uuid4()
         amount = 0
         products_data = payload["products"]
 
-        logger.info("Processing order creation for user: %s", authenticated_user.id)
+        logger.info("Processing order creation for user: %s", user.id)
 
         order_items = []
         for item in products_data:
@@ -452,11 +499,10 @@ class FmcgCheckout(generics.CreateAPIView):
                 "quantity": quantity,
                 "total_price": total_price_for_product
             })
-            logger.info("Added product %s with quantity %s to the order for user: %s", product.name_and_size, quantity, authenticated_user.id)
+            logger.info("Added product %s with quantity %s to the order for user: %s", product.name_and_size, quantity, user.id)
 
-        # Create the order
         order = FmcgOrder.objects.create(
-            user=authenticated_user,
+            user=user,
             total_price=amount,
             billing_address=payload["billing_address"],
             delivery_address=payload.get("delivery_address", ""),
@@ -464,44 +510,42 @@ class FmcgCheckout(generics.CreateAPIView):
             tracking_id=tracking_id,
             tx_reference=tx_reference
         )
-        logger.info("Order created with tracking_id: %s for user: %s", tracking_id, authenticated_user.id)
+        logger.info("Order created with tracking_id: %s for user: %s", tracking_id, user.id)
 
-        # Verify PIN or biometrics
-        pin = payload["pin"]
+        pin = payload.get("pin")
         biometrics = payload.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=authenticated_user)
+            account = AccountCreation.objects.get(user=user)
         except AccountCreation.DoesNotExist:
-            logger.error("Account not found for user: %s", authenticated_user.id)
+            logger.error("Account not found for user: %s", user.id)
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if biometrics:
-            verification = Biometrics.authenticate(authenticated_user.phone_number)
-            logger.info("Biometrics authentication attempted for user: %s", authenticated_user.id)
+            verification = Biometrics.authenticate(user.phone_number)
+            logger.info("Biometrics authentication attempted for user: %s", user.id)
         else:
             if account and account.pin is not None:
-                verification = Pin.verify(user=authenticated_user, pin=pin, hashed_pin=account.pin)
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
-                logger.error("PIN not found for user: %s", authenticated_user.id)
+                logger.error("PIN not found for user: %s", user.id)
                 return Response(
                     data=encrypt({"status": "fail", "error": "Account or PIN not found for user"}),
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
         if not verification:
-            logger.error("Invalid credentials for user: %s", authenticated_user.id)
+            logger.error("Invalid credentials for user: %s", user.id)
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Handle payment
         payment_option = payload["payment_method"]
-        logger.info("Processing payment using method: %s for user: %s", payment_option, authenticated_user.id)
+        logger.info("Processing payment using method: %s for user: %s", payment_option, user.id)
 
         match payment_option:
             case "WALLET":
@@ -512,25 +556,23 @@ class FmcgCheckout(generics.CreateAPIView):
                     transactionReference=str(tx_reference)
                 )
                 if debit_response.status_code == 200:
-                    logger.info("Wallet payment successful for user: %s", authenticated_user.id)
+                    logger.info("Wallet payment successful for user: %s", user.id)
                     order.status = "Completed"
                     order.save()
 
                     UserNotification.objects.create(
-                        user=authenticated_user,
+                        user=user,
                         title="Payment Successful",
                         message=f"You have successfully paid {amount} for your order."
                     )
-                    logger.info("Notification sent for successful payment for user: %s", authenticated_user.id)
 
                     ActivityModel.objects.create(
-                        user=authenticated_user,
+                        user=user,
                         title="Payment Successful",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} paid {amount} for their order."
+                        description=f"{user.first_name} {user.last_name} paid {amount} for their order."
                     )
 
-                    # Rewards allocation
-                    if authenticated_user.active_role == "Member" and amount >= 100:
+                    if user.active_role == "Member" and amount >= 100:
                         new_rewards = Allocate.reward(amount=amount)
                     else:
                         new_rewards = 0
@@ -538,7 +580,7 @@ class FmcgCheckout(generics.CreateAPIView):
                     try:
                         with transaction.atomic():
                             TxModel.objects.create(
-                                user=authenticated_user,
+                                user=user,
                                 tx_id="",
                                 tx_reference="",
                                 tx_type="FMCG",
@@ -547,13 +589,12 @@ class FmcgCheckout(generics.CreateAPIView):
                                 rwd=new_rewards,
                             )
 
-                            rwd, _ = Rewards.objects.get_or_create(user=authenticated_user)
+                            rwd, _ = Rewards.objects.get_or_create(user=user)
                             rwd.balance += new_rewards
                             rwd.save()
-                            logger.info("Rewards allocated: %s for user: %s", new_rewards, authenticated_user.id)
 
                     except Exception as e:
-                        logger.error("Error during rewards allocation for user: %s - %s", authenticated_user.id, str(e))
+                        logger.error("Error during rewards allocation for user: %s - %s", user.id, str(e))
 
                     response_data = serializer.data
                     response_data["total_price"] = str(amount)
@@ -568,7 +609,7 @@ class FmcgCheckout(generics.CreateAPIView):
                         status=status.HTTP_200_OK)
 
                 else:
-                    logger.error("Wallet payment failed for user: %s", authenticated_user.id)
+                    logger.error("Wallet payment failed for user: %s", user.id)
                     order.status = "Failed"
                     order.save()
                     return Response(
@@ -580,15 +621,17 @@ class FmcgCheckout(generics.CreateAPIView):
                         status=status.HTTP_400_BAD_REQUEST)
 
             case "CARD":
-                # Similar handling for CARD payment
-                logger.info("Card payment processing for user: %s", authenticated_user.id)
+                # Card payment logic here
                 order.status = "Completed"
                 order.save()
-                # Notifications, rewards, and response as above
+                # Notifications, rewards, and response...
 
             case _:
-                logger.warning("Invalid payment method provided by user: %s", authenticated_user.id)
-                return Response(data=encrypt({"status": "fail", "message": "Invalid payment method"}), status=status.HTTP_400_BAD_REQUEST)
+                logger.warning("Invalid payment method provided by user: %s", user.id)
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Invalid payment method"}),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
 
 class FmcgRatingView(generics.GenericAPIView):
@@ -602,7 +645,7 @@ class FmcgRatingView(generics.GenericAPIView):
 
     serializer_class = FmcgRatingSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
         product_id = kwargs.get("id")
@@ -678,7 +721,7 @@ class GetFmcgReview(generics.ListAPIView):
 
     serializer_class = FmcgRatingListSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -701,7 +744,7 @@ class GetFmcgReview(generics.ListAPIView):
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     queryset = PickupAdress.objects.all()
 
     def get(self, request, *args, **kwargs):

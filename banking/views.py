@@ -1,12 +1,12 @@
 import logging
 import json
 import requests
-from datetime import datetime
 from decouple import config
 from accounts.otp import otp_manager
 from permissions import (
     IsPartnerUserOrMember,
     IsPartnerUserOrMemberBrandAdOrSuperAdmin,
+    IsGuestWithValidId
 )
 from commons import Messaging
 
@@ -20,7 +20,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 # from rest_framework.exceptions import NotFound
-from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -36,6 +35,7 @@ from .serializers import (
     BankNtfnSerializer,
     BankingStatusSerializer,
     AccountDetailsSerializer,
+    RefundSerializers,
 )
 from accounts.models import UserNotification
 from roles.models import ActivityModel
@@ -43,7 +43,7 @@ from .models import (
     AccountCreation,
     BVNData,
 )
-from .controllers import BVN, Account
+from .controllers import BVN, Account, Paystack
 from security import encrypt, decrypt
 from sms import Message
 
@@ -706,6 +706,72 @@ class ResetPin(generics.CreateAPIView):
             response = {"status": "success", "message": "Pin reset successfully"}
             return Response(data=encrypt(response), status=status.HTTP_200_OK)
         else:
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class RefundFailedCardTransaction(generics.GenericAPIView):
+    """
+    RefundFailedCardTransaction is the POST request handler that
+    initialises a refund for a guest user's card transaction.
+    """
+
+    serializer_class = RefundSerializers
+    permission_classes = [IsGuestWithValidId]
+
+    def post(self, request, *args, **kwargs):
+        user_data = decrypt(request.data)
+        user = user_data.get("guest_id")
+        tx_ref = user_data.get("txn_reference")
+
+        serializer = RefundSerializers(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                # Initiae a refiund using Paystack
+                create_refund_response = Paystack.create_refund(txn_reference=tx_ref)
+                if create_refund_response.status_code == 200:
+                    # Log successful refund
+                    refund_resp = create_refund_response.json()
+                    logger.info(
+                        f"Refund of failed transaction initiated successfully for guest user: {user} with reference {tx_ref}"
+                    )
+
+                    response = {
+                        "status": "success",
+                        "message": "Refund of failed transaction initiated successfully.",
+                        "reference": tx_ref,
+                        "data": refund_resp,
+                    }
+                    return Response(data=encrypt(response), status=status.HTTP_200_OK)
+                else:
+                    # Log unsuccessful URL generation attempt
+                    logger.error(
+                        f"Failed to inititate refund for guest user: {user}. Status code: {create_refund_response.status_code}"
+                    )
+                    return Response(
+                        data=encrypt(create_refund_response.json()),
+                        status=create_refund_response.status_code,
+                    )
+            except Exception as e:
+                # Log exceptions in refund initiation process
+                logger.exception(
+                    f"Exception occurred while initiating refund for guest user: {user}: {e}"
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Internal server error during refund initialisation",
+                        }
+                    ),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        else:
+            # Log validation errors
+            logger.warning(
+                f"Validation failed for PayWithCard request by guest user: {user.id} with errors: {serializer.errors}"
+            )
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )

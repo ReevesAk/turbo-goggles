@@ -17,7 +17,6 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.parsers import MultiPartParser, JSONParser
 
 from drf_spectacular.utils import extend_schema
 
@@ -108,7 +107,7 @@ class Register(generics.GenericAPIView):
                 user=user,
                 user_type="User",
             )
-            user.active_role = "User"
+            user.active_role = "Member"
             user.save()
 
             logger.info("User created: %s", user.email)
@@ -127,8 +126,8 @@ class Register(generics.GenericAPIView):
 
             ActivityModel.objects.create(
                 user=user,
-                title="User Registration.",
-                description=f"{user.first_name} {user.last_name} just registered as a User.",
+                title="Member Registration",
+                description=f"{user.first_name} {user.last_name} just registered as a Member.",
             )
 
             # Create and send OTP.

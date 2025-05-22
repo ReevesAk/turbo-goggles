@@ -71,6 +71,7 @@ class Cart(models.Model):
 
 class CartItem(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="product_carts")
+    guest_id = models.UUIDField(null=True, blank=True)
     product = models.ForeignKey('Product', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -87,6 +88,7 @@ class FmcgOrder(BaseModel):
         FAILED = 'Failed', _('Failed')
 
     user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
+    guest_id = models.UUIDField(null=True, blank=True)
     product = models.CharField(max_length=150, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     billing_address = models.CharField(max_length=150, choices=BILLING_ADDRESS, null=True)

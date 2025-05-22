@@ -2,11 +2,6 @@ from django.test import TestCase
 from django.utils.timezone import now
 from decimal import Decimal
 from .models import User
-from unittest.mock import patch, MagicMock
-from rest_framework.test import APIClient
-from rest_framework import status
-from .models import AccountType
-from roles.models import ActivityModel
 
 
 class UserModelTest(TestCase):

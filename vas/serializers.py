@@ -7,9 +7,6 @@ from .models import (
     ElectricityBill,
     TvSubscription,
     WaecRegistration,
-    AccidentInsurance,
-    VehicleInsurance,
-    HealthInsurance,
 )
 
 
@@ -50,6 +47,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -60,7 +58,8 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     class Meta:
         model = AirtimeTopup
         fields = [
-            "id",  # Assuming the model has a default 'id' field.
+            "id",
+            "guest_id",
             "serviceID",
             "amount",
             "phone",
@@ -90,6 +89,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -101,6 +101,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         model = DataSubscription
         fields = [
             "id",
+            "guest_id",
             "payment_option",
             "serviceID",
             "amount",
@@ -132,6 +133,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
@@ -143,6 +145,7 @@ class ElectricityBillSerializer(serializers.ModelSerializer):
         model = ElectricityBill
         fields = [
             "id",
+            "guest_id",
             "pin",
             "use_biometrics",
             "payment_option",
@@ -171,6 +174,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=50, write_only=True)
     tx_reference = serializers.UUIDField(default=uuid.uuid4, read_only=False)
@@ -181,6 +185,7 @@ class TvSubscriptionSerializer(serializers.ModelSerializer):
         model = TvSubscription
         fields = [
             "id",
+            "guest_id",
             "payment_option",
             "serviceID",
             "amount",
@@ -207,6 +212,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
+    guest_id = serializers.CharField(required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_rewards = serializers.BooleanField(write_only=True, required=False)
@@ -215,6 +221,7 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
         model = WaecRegistration
         fields = [
             "id",
+            "guest_id",
             "serviceID",
             "payment_option",
             "variation_code",
@@ -231,94 +238,6 @@ class WaecRegistrationSerializer(serializers.ModelSerializer):
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
         return super().create(validated_data)
-
-
-class VehicleInsuranceSerializer(serializers.ModelSerializer):
-    """Serializers for vehicle insurance."""
-
-    pin = serializers.CharField(
-        max_length=4, min_length=4, required=False, allow_blank=True
-    )
-    use_biometrics = serializers.BooleanField(required=False)
-
-    class Meta:
-        model = VehicleInsurance
-        fields = [
-            "id",
-            "payment_option",
-            "billersCode",
-            "variation_code",
-            "phone",
-            "insured_name",
-            "engine_number",
-            "chasis_number",
-            "plate_number",
-            "vehicle_make",
-            "vehicle_color",
-            "vehicle_model",
-            "year_of_make",
-            "contact_address",
-            "pin",
-            "use_biometrics",
-            "tx_reference",
-        ]
-
-
-class AccidentInsuranceSerializer(serializers.ModelSerializer):
-    """Serializers for accident insurance."""
-
-    pin = serializers.CharField(
-        max_length=4, min_length=4, required=False, allow_blank=True
-    )
-    use_biometrics = serializers.BooleanField(required=False)
-
-    class Meta:
-        model = AccidentInsurance
-        fields = [
-            "id",
-            "payment_option",
-            "billersCode",
-            "variation_code",
-            "phone",
-            "full_name",
-            "address",
-            "dob",
-            "next_kin_name",
-            "next_kin_phone",
-            "business_occupation",
-            "pin",
-            "use_biometrics",
-            "tx_reference",
-        ]
-
-
-class HealthInsuranceSerializer(serializers.ModelSerializer):
-    """Serializers for home cover insurance."""
-
-    pin = serializers.CharField(
-        max_length=4, min_length=4, required=False, allow_blank=True
-    )
-    use_biometrics = serializers.BooleanField(required=False)
-
-    class Meta:
-        model = HealthInsurance
-        fields = [
-            "id",
-            "payment_option",
-            "serviceID",
-            "billersCode",
-            "variation_code",
-            "phone",
-            "full_name",
-            "address",
-            "selected_hospital",
-            "Passport_Photo",
-            "date_of_birth",
-            "extra_info",
-            "pin",
-            "use_biometrics",
-            "tx_reference",
-        ]
 
 
 class VasStatusSerializer(serializers.Serializer):

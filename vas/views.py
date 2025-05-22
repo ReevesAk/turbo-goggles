@@ -1,15 +1,12 @@
 import logging
 import requests
-import threading
 from decouple import config
-from cloudinary import uploader as cloud
 
 from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.parsers import MultiPartParser, JSONParser
 
 from drf_spectacular.utils import extend_schema
 
@@ -23,13 +20,10 @@ from .serializers import (
     TvSubscriptionSerializer,
     ProductStatusSerializer,
     WaecRegistrationSerializer,
-    VehicleInsuranceSerializer,
-    AccidentInsuranceSerializer,
-    HealthInsuranceSerializer,
 )
 from banking.models import AccountCreation
 from banking.controllers import Account
-from permissions import VasPermission
+from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
 from .controllers import (
     airtime,
@@ -38,11 +32,13 @@ from .controllers import (
     NewTvSub,
     RenewTvSub,
     waec_reg,
-    AccidentInsurance,
-    VehicleInsurance,
-    HealthInsurance,
 )
-from .utility import create_activity, create_notification, send_token
+from .utility import (
+    create_activity,
+    create_notification,
+    send_token,
+    send_token_to_guest_users,
+)
 from .helpers import VAS
 from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics
@@ -65,7 +61,7 @@ class AirTimeTopUp(generics.GenericAPIView):
 
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -73,9 +69,10 @@ class AirTimeTopUp(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = decrypted_payload.get("pin")
+        guest_id = decrypted_payload.get("guest_id")
         payment_option = decrypted_payload.get("payment_option")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
@@ -285,7 +282,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     airtime_response = airtime(
                         user=user,
                         serializer=serializer,
-                        reason="Debit for airtime recharge .",
+                        reason="Debit for airtime recharge",
                         user_data=user_data,
                     )
                     if airtime_response["code"] == "000":
@@ -374,11 +371,17 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                logger.info(
-                    f"User  {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 airtime_response = airtime(
                     user=user,
+                    guest_id=guest_id,
                     serializer=serializer,
                     reason="Debit for airtime recharge.",
                     user_data=user_data,
@@ -390,19 +393,30 @@ class AirTimeTopUp(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "airtime_response": airtime_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="Airtime purchase",
-                        message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Airtime purchase",
-                        description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Airtime purchase",
+                            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Airtime purchase",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user with ID {guest_id} successfully purchased airtime with CARD option."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="Airtime purchase",
+                            description=f"Guest user with ID {guest_id} has made a purchase of {amount} naira airtime on {phone}.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -420,19 +434,29 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "airtime_response": airtime_response,
                             }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Airtime purchase",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Airtime purchase",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                            )
+                            if user:
+                                logger.info(
+                                    f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
+                                )
+                                create_notification(
+                                    user=request.user,
+                                    title="Airtime purchase",
+                                    message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
+                                )
+                                create_activity(
+                                    user=request.user,
+                                    title="Airtime purchase",
+                                    description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
+                                )
+                            elif guest_id:
+                                logger.info(
+                                    f"Guest user with ID: {guest_id} successfully purchased airtime with CARD option."
+                                )
+                                create_activity(
+                                    user=guest_id,
+                                    title="Airtime purchase",
+                                    description=f"Guest user with ID {guest_id} has made a purchase of {amount} naira airtime on {phone}.",
+                                )
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
@@ -446,9 +470,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
-                    logger.warning(
-                        f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
-                    )
+                    if user:
+                        logger.warning(
+                            f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
+                        )
+                    elif guest_id:
+                        logger.warning(
+                            f"Airtime top-up failed for guest user with ID {guest_id} with CARD option."
+                        )
                     return Response(
                         data=encrypt(
                             {
@@ -487,7 +516,9 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
         responses={200: {"description": "Network Providers Varitaion Codes"}},
     )
     def get(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user.
+        user = (
+            request.user if request.user.is_authenticated else None
+        )  # Get the authenticated user.
 
         param_value = kwargs.get("service_ID")
         logger.info(
@@ -558,7 +589,7 @@ class DataSubscriptionView(generics.GenericAPIView):
 
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -566,9 +597,10 @@ class DataSubscriptionView(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         phone = user_data.get("phone")
@@ -873,11 +905,17 @@ class DataSubscriptionView(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 data_response = data(
                     user=user,
+                    guest_id=guest_id,
                     serializer=serializer,
                     reason="Debit for data subscription.",
                     user_data=user_data,
@@ -889,9 +927,27 @@ class DataSubscriptionView(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "data_response": data_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased data with CARD option."
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased data with CARD option."
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Data subscription",
+                            message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Data subscription",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                        )
+                    elif guest_id:
+                        create_activity(
+                            user=request.user,
+                            title="Data subscription",
+                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -909,19 +965,26 @@ class DataSubscriptionView(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "data_response": data_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Data subscription",
-                            message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Data subscription",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="Data subscription",
+                                message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Data subscription",
+                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            )
+                        elif guest_id:
+                            create_activity(
+                                user=request.user,
+                                title="Data subscription",
+                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -935,9 +998,14 @@ class DataSubscriptionView(generics.GenericAPIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
-                    logger.warning(
-                        f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
-                    )
+                    if user:
+                        logger.warning(
+                            f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
+                        )
+                    elif guest_id:
+                        logger.warning(
+                            f"Data subscription failed for guest user with ID: {guest_id} with CARD option."
+                        )
                     return Response(
                         data=encrypt(
                             {
@@ -966,7 +1034,7 @@ class ElectricityServiceIDListView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
         electricity_service_ids = [
@@ -1066,7 +1134,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
     serializer_class = ElectricityBillSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1074,9 +1142,10 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
@@ -1368,9 +1437,14 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 electricity_response = electricity(
                     user=user,
                     serializer=serializer,
@@ -1385,23 +1459,39 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         "bonus balance": user.welcome_bonus,
                         "electricity_response": electricity_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                    )
-
                     token = electricity_response.get("purchased_code")
-                    send_token(user=user, msg=f"Token purchase was successful. {token}")
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
+                        )
 
-                    create_notification(
-                        user=request.user,
-                        title="Electricity payment",
-                        message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Electricity payment",
-                        description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                    )
+                        # Send token to user's email and phone number
+                        send_token(
+                            user=user,
+                            msg=f"Electricity token purchase was successful. {token}",
+                        )
+
+                        create_notification(
+                            user=request.user,
+                            title="Electricity payment",
+                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Electricity payment",
+                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
+                        )
+                    if guest_id:
+                        logger.info(
+                            f"Guest user with ID: {guest_id} successfully purchased electricity with CARD option."
+                        )
+
+                        # Send token to user's email and phone number
+                        send_token_to_guest_users(
+                            guest_phone=user_data.get("phone"),
+                            msg=f"Electricity token purchase was successful. {token}",
+                        )
+
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1419,25 +1509,41 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                                 "bonus balance": user.welcome_bonus,
                                 "electricity_response": electricity_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
+                            )
 
-                        token = electricity_response.get("purchased_code")
-                        send_token(
-                            user=user, msg=f"Token purchase was successful. {token}"
-                        )
+                            token = electricity_response.get("purchased_code")
+                            send_token(
+                                user=user, msg=f"Token purchase was successful. {token}"
+                            )
 
-                        create_notification(
-                            user=request.user,
-                            title="Electricity payment",
-                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Electricity payment",
-                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                        )
+                            create_notification(
+                                user=request.user,
+                                title="Electricity payment",
+                                message=f"This is to inform you that your payment of {amount} for electricity is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Electricity payment",
+                                description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID{guest_id} successfully purchased electricity tokens with CARD option."
+                            )
+
+                            token = electricity_response.get("purchased_code")
+                            send_token_to_guest_users(
+                                guest_phone=user_data.get("phone"),
+                                msg=f"Token purchase was successful. {token}",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Electricity payment",
+                                description=f"Guest user with ID: {guest_id} has made a payment of {amount} for electricity bill.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1722,13 +1828,14 @@ class NewTvSubscription(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to make a TV subscription purchase with data: {user_data}"
         )
 
         pin = user_data.get("pin")
+        guest_id = decrypted_payload.get("guest_id")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
@@ -1918,9 +2025,15 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
+
                 new_tv_response = NewTvSub(
                     user=user,
                     serializer=serializer,
@@ -1934,19 +2047,29 @@ class NewTvSubscription(generics.GenericAPIView):
                         "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": new_tv_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="New TV subscription",
-                        message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="New TV subscription",
-                        description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                        )
+                        create_notification(
+                            user=request.user,
+                            title="New TV subscription",
+                            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="New TV subscription",
+                            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user {guest_id} successfully purchased TV subscription."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="New TV subscription",
+                            description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -1964,19 +2087,29 @@ class NewTvSubscription(generics.GenericAPIView):
                                 "message": f"TV subscription purchase of {new_amount} was successful.",
                                 "cable_tv_response": new_tv_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="New TV subscription",
-                            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="New TV subscription",
-                            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="New TV subscription",
+                                message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="New TV subscription",
+                                description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID: {guest_id} successfully purchased TV package with CARD option."
+                            )
+                            create_activity(
+                                user=guest_id,
+                                title="New TV subscription",
+                                description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2031,7 +2164,7 @@ class RenewTvSubscription(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_data.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         logger.info(
             f"User {user.first_name} {user.last_name} is attempting to renew TV subscription with data: {user_data}"
@@ -2039,6 +2172,7 @@ class RenewTvSubscription(generics.GenericAPIView):
 
         pin = user_data.get("pin")
         use_points = user_data.get("use_points")
+        guest_id = user_data.get("guest_id")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")
         billersCode = user_data.get("billersCode")
@@ -2237,9 +2371,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 renew_tv_response = RenewTvSub(
                     user=user,
                     serializer=serializer,
@@ -2252,19 +2391,29 @@ class RenewTvSubscription(generics.GenericAPIView):
                         "message": f"TV subscription purchase of {amount} was successful.",
                         "cable_tv_response": renew_tv_response,
                     }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                    )
-                    create_notification(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                    )
+                    if user:
+                        logger.info(
+                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                        )
+                        create_notification(
+                            user=request.user,
+                            title="Renew Tv subscription",
+                            message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
+                        )
+                        create_activity(
+                            user=request.user,
+                            title="Renew Tv subscription",
+                            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
+                        )
+                    elif guest_id:
+                        logger.info(
+                            f"Guest user {guest_id} successfully purchased TV subscription."
+                        )
+                        create_activity(
+                            user=guest_id,
+                            title="Renew TV subscription",
+                            description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                        )
                     return Response(
                         data=encrypt(response_data), status=status.HTTP_200_OK
                     )
@@ -2281,19 +2430,29 @@ class RenewTvSubscription(generics.GenericAPIView):
                                 "message": f"TV subscription purchase of {amount} was successful.",
                                 "cable_tv_response": renew_tv_response,
                             }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                        )
+                        if user:
+                            logger.info(
+                                f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                            )
+                            create_notification(
+                                user=request.user,
+                                title="Renew Tv subscription",
+                                message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
+                            )
+                            create_activity(
+                                user=request.user,
+                                title="Renew Tv subscription",
+                                description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
+                            )
+                        elif guest_id:
+                            logger.info(
+                                f"Guest user with ID: {guest_id} successfully purchased TV package with CARD option."
+                            )
+                            create_activity(
+                                user=guest_id,
+                                title="Renew TV subscription",
+                                description=f"Guest user with ID {guest_id} made a payment of {amount} for a new Cable TV subscription.",
+                            )
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2391,9 +2550,10 @@ class WaecRegistration(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
+        guest_id = user_data.get("guest_id")
         payment_option = request.data.get("payment_option")
         amount = user_data.get("amount")
 
@@ -2472,6 +2632,14 @@ class WaecRegistration(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
+                if user:
+                    logger.info(
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
+                elif guest_id:
+                    logger.info(
+                        f"Guest user with ID {guest_id} selected CARD as payment option."
+                    )
                 waec_response = waec_reg(
                     user=user,
                     serializer=serializer,
@@ -2499,843 +2667,3 @@ class WaecRegistration(generics.GenericAPIView):
                     data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-
-class GetVehicleInsuranceVaritaionCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceVaritaionCodes is the GET request handler for
-    retrieving the variation codes for vehicle insurance.
-    Take key note of the variation codes as they
-    are required to pay for vehicvle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "Vehicle insurance Varitaion Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "service-variations?serviceID=ui-insure"
-            vehicle_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_variation_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleInsuranceColorCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceColorCodes is the GET request handler for
-    retrieving the color codes for vehicle insurance.
-    Take key note of the color codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Color codes",
-        responses={200: {"description": "Vehicle insurance color Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "universal-insurance/options/color"
-            vehicle_color_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_color_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleEngineCapacityCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleEngineCapacityCodes is the GET request handler for
-    retrieving the engine capacity codes for vehicle insurance.
-    Take key note of the engine capacity codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Engine Capacity codes",
-        responses={200: {"description": "Vehicle insurance engine capacity Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "universal-insurance/options/engine-capacity"
-            vehicle_engine_capacity_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_engine_capacity_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleInsuranceStateCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceStateCodes is the GET request handler for
-    retrieving the state codes for vehicle insurance.
-    Take key note of the state codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="State codes",
-        responses={200: {"description": "Vehicle insurance state Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "universal-insurance/options/state"
-            vehicle_states_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_states_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleInsuranceAreaCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceAreaCodes is the GET request handler for
-    retrieving the area codes for vehicle insurance.
-    Take key note of the area codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Area codes",
-        responses={200: {"description": "Vehicle insurance area Codes"}},
-    )
-    def get(self, request, *arg, **kwargs):
-        user = request.user  # Get the authenticated user.
-        state_code = kwargs.get("state_code")
-
-        if user:
-            resource = f"universal-insurance/options/lga/{state_code}"
-            vehicle_area_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_area_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleInsuranceMakeCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceMakeCodes is the GET request handler for
-    retrieving the make codes for vehicle insurance.
-    Take key note of the make codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Make codes",
-        responses={200: {"description": "Vehicle insurance make Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "universal-insurance/options/brand"
-            vehicle_make_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_make_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetVehicleInsuranceModelCodes(generics.RetrieveAPIView):
-    """
-    GetVehicleInsuranceModelCodes is the GET request handler for
-    retrieving the model codes for vehicle insurance.
-    Take key note of the model codes as they
-    are required to pay for vehicle insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Make codes",
-        responses={200: {"description": "Vehicle insurance model Codes"}},
-    )
-    def get(self, request, *arg, **kwargs):
-        user = request.user  # Get the authenticated user.
-        vehicle_make_code = kwargs.get("vehicle_make_code")
-
-        if user:
-            resource = f"universal-insurance/options/model/{vehicle_make_code}"
-            vehicle_make_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=vehicle_make_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class VehicleInsuranceView(generics.GenericAPIView):
-    """
-    VehicleInsuranceView is the POST request handler for creating
-    an accident insurance.
-    """
-
-    serializer_class = VehicleInsuranceSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    def post(self, request):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        user = request.user
-
-        pin = user_data.get("pin")
-        payment_option = request.data.get("payment_option")
-        amount = user_data.get("amount")
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        biometrics = request.data.get("use_biometrics")
-
-        try:
-            account = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
-            return Response(
-                data={"status": "fail", "error": "Account not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-        else:
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-        if not verification:
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        vehicle_insurance_response = None
-
-        payment_option = request.data.get("payment_option")
-        match payment_option:
-            case "WALLET":
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=amount,
-                    reason="Debit for vehicle insurance.",
-                    transactionReference="",
-                )
-
-                if debit_response.status_code == 200:
-                    vehicle_insurance_response = VehicleInsurance(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for vehicle insurance.",
-                        user_data=user_data,
-                    )
-                    if vehicle_insurance_response["code"] == 200:
-                        response_data = {
-                            "status": "success",
-                            "message": f"Vehicle insurance payment of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "waec_response": vehicle_insurance_response,
-                        }
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    return Response(
-                        data={
-                            "status": "fail",
-                            "message": "Waec registration failed due to insufficient balance.",
-                            "error": vehicle_insurance_response,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
-            case "CARD":
-                vehicle_insurance_response = VehicleInsurance(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for vehicle insurance.",
-                    user_data=user_data,
-                )
-                if vehicle_insurance_response["code"] == 200:
-                    response_data = {
-                        "status": "success",
-                        "message": f"Vehicle insurance payment of {amount} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "waec_response": vehicle_insurance_response,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Waec registration failed.",
-                        "error": vehicle_insurance_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            case _:
-                return Response(
-                    data={"status": "fail", "message": "Invalid payment option"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-
-class GetAccidentVaritaionCodes(generics.RetrieveAPIView):
-    """
-    GetAccidentVaritaionCodes is the GET request handler for retrieving the variation codes for
-    accident insurance. Take key note of the variation codes as they
-    are required to create an accident insurance.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "Accident Varitaion Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "service-variations?serviceID=personal-accident-insurance"
-            accident_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=accident_variation_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]["variations"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class AccidentInsuranceView(generics.GenericAPIView):
-    """
-    AccidentInsuranceView is the POST request handler for creating
-    an accident insurance.
-    """
-
-    serializer_class = AccidentInsuranceSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    def post(self, request):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        user = request.user
-
-        pin = user_data.get("pin")
-        payment_option = request.data.get("payment_option")
-        amount = user_data.get("amount")
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        biometrics = request.data.get("use_biometrics")
-
-        try:
-            account = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
-            return Response(
-                data={"status": "fail", "error": "Account not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-        else:
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-        if not verification:
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        accident_response = None
-
-        payment_option = request.data.get("payment_option")
-        match payment_option:
-            case "WALLET":
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=amount,
-                    reason="Debit for accident inssurance.",
-                    transactionReference="",
-                )
-
-                if debit_response.status_code == 200:
-                    accident_response = AccidentInsurance(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for accident inssurance.",
-                        user_data=user_data,
-                    )
-                    if accident_response["code"] == 200:
-                        response_data = {
-                            "status": "success",
-                            "message": f"Accident Insurance payment of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "accident_response": accident_response,
-                        }
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    return Response(
-                        data={
-                            "status": "fail",
-                            "message": "Accident insurance failed due to insufficient balance.",
-                            "error": accident_response,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
-
-            case "CARD":
-                accident_response = AccidentInsurance(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for accident inssurance.",
-                    user_data=user_data,
-                )
-                if accident_response["code"] == 200:
-                    response_data = {
-                        "status": "success",
-                        "message": f"Accident Insurance payment of {amount} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "accident_response": accident_response,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Accident insurance failed due to insufficient balance.",
-                        "error": accident_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            case _:
-                return Response(
-                    data={"status": "fail", "message": "Invalid payment option"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-
-class GetHealthInsuranceVaritaionCodes(generics.RetrieveAPIView):
-    """
-    GetHealthInsuranceVaritaionCodes is a GET request handler for retrieving variation
-    codes of different health insurance plans.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "Health insurance Varitaion Codes"}},
-    )
-    def get(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user.
-
-        if user:
-            resource = "service-variations?serviceID=health-insurance-rhl"
-            fetch_all_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=fetch_all_variation_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]["variations"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(data=response.json(), status=response.status_code)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class GetHealthInsuranceOptions(generics.RetrieveAPIView):
-    """
-    GetHealthInsuranceOptions is a GET request handler for retrieving health insurance
-    options, in this case lit of supported hospitals.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Options",
-        responses={200: {"description": "Health insurance options"}},
-    )
-    def get(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user.
-
-        if user:
-            resource = "options?serviceID=health-insurance-rhl&name=selected_hospital"
-            insurance_options_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=insurance_options_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]["options"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response(data=response.json(), status=response.status_code)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class HealthInsuranceView(generics.GenericAPIView):
-    """
-    HealthInsuranceView is the POST request handler for creating
-    a home cover insurance.
-    """
-
-    serializer_class = HealthInsuranceSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-    parser_classes = (MultiPartParser, JSONParser)
-
-    def post(self, request):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        user = request.user
-
-        pin = user_data.get("pin")
-        payment_option = request.data.get("payment_option")
-        amount = user_data.get("amount")
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        biometrics = request.data.get("use_biometrics")
-
-        try:
-            account = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
-            return Response(
-                data={"status": "fail", "error": "Account not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-        else:
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-        if not verification:
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        health_response = None
-
-        payment_option = request.data.get("payment_option")
-        match payment_option:
-            case "WALLET":
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=amount,
-                    reason="Debit for health insurance.",
-                    transactionReference="",
-                )
-
-                if debit_response.status_code == 200:
-                    health_response = HealthInsurance(
-                        self.uploaded_passport_url,
-                        user=user,
-                        serializer=serializer,
-                        user_data=user_data,
-                    )
-                    # Start a separate thread for image upload
-                    thread_upload = threading.Thread(
-                        target=self.upload_image,
-                        args=(user_data.get("Passport_Photo"),),
-                    )
-                    thread_upload.start()
-
-                    if health_response["code"] == 200:
-                        response_data = {
-                            "status": "success",
-                            "message": f"Health Insurance payment of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "health_response": health_response,
-                        }
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    return Response(
-                        data={
-                            "status": "fail",
-                            "message": "Health insurance failed due to insufficient balance.",
-                            "error": health_response,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
-
-            case "CARD":
-                health_response = HealthInsurance(
-                    self.uploaded_passport_url,
-                    user=user,
-                    serializer=serializer,
-                    user_data=user_data,
-                )
-                # Start a separate thread for image upload
-                thread_upload = threading.Thread(
-                    target=self.upload_image,
-                    args=(user_data.get("Passport_Photo"),),
-                )
-                thread_upload.start()
-
-                if health_response["code"] == 200:
-                    response_data = {
-                        "status": "success",
-                        "message": f"Health Insurance payment of {amount} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "health_response": health_response,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Health insurance failed due to insufficient balance.",
-                        "error": health_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            case _:
-                return Response(
-                    data={"status": "fail", "message": "Invalid payment option"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-    def upload_image(self, image_data):
-        passport = cloud.upload(file=image_data)
-        self.uploaded_passport_url = passport["url"]

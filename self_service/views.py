@@ -8,7 +8,6 @@ from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from jinja2 import Template
 
 from .serializers import (
     RestaurantBookingSerializers,
@@ -39,7 +38,6 @@ from banking.models import AccountCreation
 from commons import Biometrics
 from roles.models import ActivityModel
 from security import encrypt, decrypt
-from commons import Messaging
 
 
 SERVICES = (

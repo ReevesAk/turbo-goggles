@@ -569,10 +569,10 @@ class AddAdmin(generics.CreateAPIView):
                     context={
                         "custom_text": f"""
                             Dear {name},<br><br>
-                            Your admin account has been created. Follow this 
+                            Your admin account has been created. Follow this
                             <a href="{signup_link}" style="color: #3498db; text-decoration: none;">
                                 link
-                            </a> 
+                            </a>
                             to complete your signup.<br><br>
                             If you have any questions, feel free to contact us at our support email or phone below.
                         """,

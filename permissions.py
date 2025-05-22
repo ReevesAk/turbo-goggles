@@ -1,3 +1,5 @@
+import uuid
+
 from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
@@ -18,6 +20,48 @@ class IsVerifiedUser(permissions.BasePermission):
             return True
         else:
             raise PermissionDenied(encrypt("Only verified users can login."))
+
+
+class IsGuestWithValidId(permissions.BasePermission):
+    """
+    Allows access only to unauthenticated (guest) users with a valid UUID guest_id.
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        if user and user.is_authenticated:
+            return False  # Block authenticated users
+
+        guest_id = request.data.get("guest_id")
+        if guest_id:
+            try:
+                uuid.UUID(guest_id, version=4)  # Validate UUID
+                return True
+            except (ValueError, TypeError):
+                raise ValidationError({"guest_id": "Invalid guest_id. Must be a valid UUIDv4."})
+
+        return False
+
+
+class IsAuthenticatedOrGuestWithValidId(permissions.BasePermission):
+    """
+    Allows access to authenticated users or guests with a valid UUID guest_id.
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        if user and user.is_authenticated:
+            return True
+
+        # For guest users, check for a valid UUID guest_id
+        guest_id = request.data.get("guest_id")
+        if guest_id:
+            try:
+                uuid.UUID(guest_id, version=4)  # Validate UUID
+                return True
+            except (ValueError, TypeError):
+                raise ValidationError({"guest_id": "Invalid guest_id. Must be a valid UUIDv4."})
+        return False
 
 
 class IsUser(permissions.BasePermission):
