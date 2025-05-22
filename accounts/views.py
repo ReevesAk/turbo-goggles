@@ -35,6 +35,7 @@ from .serializers import (
 from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
+from .utils import Liveness
 from roles.models import GamificationModel, ActivityModel
 from sms import Message
 from commons import Biometrics, Messaging
@@ -101,6 +102,22 @@ class Register(generics.GenericAPIView):
 
             profile_upload = user_data.get("profile_img_url")
             logger.info("Profile image: %s", profile_upload)
+
+            # Initiate liveness check on uploaded headshot images.
+            liveness_check_response = Liveness.check(image=profile_upload)
+            liveness_probability = liveness_check_response.json()["entity"]["liveness"][
+                "liveness_probability"
+            ]
+            if liveness_probability < 50:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "The uploded headshot is invalid or does mot pass the livesness check. Please take another.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             user = serializer.save()
             AccountType.objects.create(
