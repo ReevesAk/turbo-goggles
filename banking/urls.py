@@ -10,6 +10,7 @@ from .views import (
     ResetPin,
     NotificationView,
     GetAccountDetails,
+    RefundFailedCardTransaction,
 )
 from .transfers import (
     GetAllBanks,
@@ -92,4 +93,5 @@ urlpatterns = [
         FundWallet.as_view(),
         name="fund",
     ),
+    path("create-refund", RefundFailedCardTransaction.as_view(), name="create_refund"),
 ]
