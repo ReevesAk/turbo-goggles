@@ -6,7 +6,7 @@ from accounts.otp import otp_manager
 from permissions import (
     IsPartnerUserOrMember,
     IsPartnerUserOrMemberBrandAdOrSuperAdmin,
-    IsGuestWithValidId
+    IsGuestWithValidId,
 )
 from commons import Messaging
 

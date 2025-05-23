@@ -4,8 +4,7 @@ import random
 import string
 from datetime import datetime
 from commons import Allocate
-from accounts.models import TxModel, Rewards, UserNotification
-from roles.models import ActivityModel
+from accounts.models import TxModel, Rewards
 
 from django.db import transaction
 
