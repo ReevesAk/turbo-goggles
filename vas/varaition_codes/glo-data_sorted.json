@@ -1,0 +1,1136 @@
+{
+    "Special": [
+        {
+            "variation_code": "glo-special-500",
+            "name": "2GB - Special N500",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-special-1500",
+            "name": "6GB - Special N1500",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-special-500",
+            "name": "2GB - Special N500",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-special-1500",
+            "name": "6GB - Special N1500",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "daily": [
+        {
+            "variation_code": "glo-weekend-500",
+            "name": "2.2GB - Weekend N500",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-100",
+            "name": "235MB - Camp-Boost N100 Oneoff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-1000",
+            "name": "4.2GB - Camp-Boost N1000 Oneoff",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-weekend-500",
+            "name": "2.2GB - Weekend N500",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-100",
+            "name": "235MB - Camp-Boost N100 Oneoff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-1000",
+            "name": "4.2GB - Camp-Boost N1000 Oneoff",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "weekly": [
+        {
+            "variation_code": "glo-campus-booster-500",
+            "name": "2GB - Camp-Boost N500 Oneoff",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-500",
+            "name": "2GB - Camp-Boost N500 Oneoff",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "2 weeks": [
+        {
+            "variation_code": "glo-dg-70",
+            "name": "Glo Data (SME) N90 -  200MB - 14 days",
+            "variation_amount": "90.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-160-14",
+            "name": "Glo Data (SME) N225 - 500MB 14 days",
+            "variation_amount": "225.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-70",
+            "name": "Glo Data (SME) N90 -  200MB - 14 days",
+            "variation_amount": "90.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-160-14",
+            "name": "Glo Data (SME) N225 - 500MB 14 days",
+            "variation_amount": "225.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "monthly": [
+        {
+            "variation_code": "glo-dg-320",
+            "name": "Glo Data (SME) N450 - 1GB 30 days",
+            "variation_amount": "450.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-960",
+            "name": "Glo Data (SME) N1,350 - 3GB 30 days",
+            "variation_amount": "1350.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-3100",
+            "name": "Glo Data (SME) N4500 - 10GB - 30 Days",
+            "variation_amount": "4500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-640",
+            "name": "Glo Data (SME) N900 - 2GB 30 days",
+            "variation_amount": "900.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-1600",
+            "name": "Glo Data (SME) N2250 - 5GB 30 days",
+            "variation_amount": "2250.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-320",
+            "name": "Glo Data (SME) N450 - 1GB 30 days",
+            "variation_amount": "450.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-960",
+            "name": "Glo Data (SME) N1,350 - 3GB 30 days",
+            "variation_amount": "1350.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-3100",
+            "name": "Glo Data (SME) N4500 - 10GB - 30 Days",
+            "variation_amount": "4500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-640",
+            "name": "Glo Data (SME) N900 - 2GB 30 days",
+            "variation_amount": "900.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-dg-1600",
+            "name": "Glo Data (SME) N2250 - 5GB 30 days",
+            "variation_amount": "2250.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "Mega": [
+        {
+            "variation_code": "glo-mega-30000",
+            "name": "165GB - Mega N30000 Oneoff",
+            "variation_amount": "30000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-36000",
+            "name": "220GB - Mega N36000 Oneoff",
+            "variation_amount": "36000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-50000",
+            "name": "320GB - Mega N50000 Oneoff",
+            "variation_amount": "50000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-60000",
+            "name": "380GB - Mega N60000 Oneoff",
+            "variation_amount": "60000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-75000",
+            "name": "475GB - Mega N75000 Oneoff",
+            "variation_amount": "75000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-30000",
+            "name": "165GB - Mega N30000 Oneoff",
+            "variation_amount": "30000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-36000",
+            "name": "220GB - Mega N36000 Oneoff",
+            "variation_amount": "36000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-50000",
+            "name": "320GB - Mega N50000 Oneoff",
+            "variation_amount": "50000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-60000",
+            "name": "380GB - Mega N60000 Oneoff",
+            "variation_amount": "60000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-mega-75000",
+            "name": "475GB - Mega N75000 Oneoff",
+            "variation_amount": "75000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "Glo MyG": [
+        {
+            "variation_code": "glo-social-oneoff-100",
+            "name": "300MB - GloMyG N100 OneOff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-100",
+            "name": "300MB - GloMyG N100 OneOff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "TV": [
+        {
+            "variation_code": "glo-tv-150",
+            "name": "Glo TV VOD 500 MB 3days Oneoff",
+            "variation_amount": "150.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-450",
+            "name": "Glo TV VOD 2GB 7days Oneoff",
+            "variation_amount": "450.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-1400",
+            "name": "Glo TV VOD 6GB 30days Oneoff",
+            "variation_amount": "1400.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-900",
+            "name": "Glo TV Lite 2GB Oneoff",
+            "variation_amount": "900.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-3200",
+            "name": "Glo TV Max 6 GB Oneoff",
+            "variation_amount": "3200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-300",
+            "name": "Glo MyG N300 1 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "300.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-500",
+            "name": "Glo MyG N500 1.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-1000",
+            "name": "Glo MyG N1000 3.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-150",
+            "name": "Glo TV VOD 500 MB 3days Oneoff",
+            "variation_amount": "150.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-450",
+            "name": "Glo TV VOD 2GB 7days Oneoff",
+            "variation_amount": "450.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-1400",
+            "name": "Glo TV VOD 6GB 30days Oneoff",
+            "variation_amount": "1400.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-900",
+            "name": "Glo TV Lite 2GB Oneoff",
+            "variation_amount": "900.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-tv-3200",
+            "name": "Glo TV Max 6 GB Oneoff",
+            "variation_amount": "3200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-300",
+            "name": "Glo MyG N300 1 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "300.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-500",
+            "name": "Glo MyG N500 1.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-social-oneoff-1000",
+            "name": "Glo MyG N1000 3.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "others": [
+        {
+            "variation_code": "glo-daily-50",
+            "name": "45MB - N50 Oneoff",
+            "variation_amount": "50.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-daily-100",
+            "name": "125MB - N100 Oneoff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-2days-200",
+            "name": "260MB - N200 Oneoff",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-2weeks-500",
+            "name": "1.5GB - N500 Oneoff",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-1000",
+            "name": "2.6GB - N1000 Oneoff",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-1500",
+            "name": "5GB - N1500 Oneoff",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-2000",
+            "name": "6.25GB - N2000 Oneoff",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-2500",
+            "name": "7.5GB - N2500 Oneoff",
+            "variation_amount": "2500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-3000",
+            "name": "11GB - N3000 Oneoff",
+            "variation_amount": "3000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-4000",
+            "name": "14GB - N4000 Oneoff",
+            "variation_amount": "4000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-5000",
+            "name": "18GB - N5000 Oneoff",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-8000",
+            "name": "29GB - N8000 Oneoff",
+            "variation_amount": "8000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-10000",
+            "name": "40GB - N10000 Oneoff",
+            "variation_amount": "10000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-15000",
+            "name": "69GB - N15000 Oneoff",
+            "variation_amount": "15000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-20000",
+            "name": "110GB - N20000 Oneoff",
+            "variation_amount": "20000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-sunday-200",
+            "name": "1.75GB - Sunday N200",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-200",
+            "name": "480MB - Camp-Boost N200 Oneoff",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-2000",
+            "name": "10.6GB - Camp-Boost 2000 Oneoff",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-5000",
+            "name": "32GB - Camp-Boost N5000 Oneoff",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-daily-50",
+            "name": "45MB - N50 Oneoff",
+            "variation_amount": "50.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-daily-100",
+            "name": "125MB - N100 Oneoff",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-2days-200",
+            "name": "260MB - N200 Oneoff",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-2weeks-500",
+            "name": "1.5GB - N500 Oneoff",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-1000",
+            "name": "2.6GB - N1000 Oneoff",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-1500",
+            "name": "5GB - N1500 Oneoff",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-2000",
+            "name": "6.25GB - N2000 Oneoff",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-2500",
+            "name": "7.5GB - N2500 Oneoff",
+            "variation_amount": "2500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-3000",
+            "name": "11GB - N3000 Oneoff",
+            "variation_amount": "3000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-4000",
+            "name": "14GB - N4000 Oneoff",
+            "variation_amount": "4000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-5000",
+            "name": "18GB - N5000 Oneoff",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-8000",
+            "name": "29GB - N8000 Oneoff",
+            "variation_amount": "8000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-10000",
+            "name": "40GB - N10000 Oneoff",
+            "variation_amount": "10000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-15000",
+            "name": "69GB - N15000 Oneoff",
+            "variation_amount": "15000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-monthly-20000",
+            "name": "110GB - N20000 Oneoff",
+            "variation_amount": "20000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-sunday-200",
+            "name": "1.75GB - Sunday N200",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-200",
+            "name": "480MB - Camp-Boost N200 Oneoff",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-2000",
+            "name": "10.6GB - Camp-Boost 2000 Oneoff",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "glo-campus-booster-5000",
+            "name": "32GB - Camp-Boost N5000 Oneoff",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "all": {
+        "response_description": "000",
+        "content": {
+            "ServiceName": "GLO Data",
+            "serviceID": "glo-data",
+            "convinience_fee": "0 %",
+            "variations": [
+                {
+                    "variation_code": "glo-dg-70",
+                    "name": "Glo Data (SME) N90 -  200MB - 14 days",
+                    "variation_amount": "90.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-320",
+                    "name": "Glo Data (SME) N450 - 1GB 30 days",
+                    "variation_amount": "450.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-960",
+                    "name": "Glo Data (SME) N1,350 - 3GB 30 days",
+                    "variation_amount": "1350.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-3100",
+                    "name": "Glo Data (SME) N4500 - 10GB - 30 Days",
+                    "variation_amount": "4500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-640",
+                    "name": "Glo Data (SME) N900 - 2GB 30 days",
+                    "variation_amount": "900.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-160-14",
+                    "name": "Glo Data (SME) N225 - 500MB 14 days",
+                    "variation_amount": "225.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-1600",
+                    "name": "Glo Data (SME) N2250 - 5GB 30 days",
+                    "variation_amount": "2250.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-daily-50",
+                    "name": "45MB - N50 Oneoff",
+                    "variation_amount": "50.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-daily-100",
+                    "name": "125MB - N100 Oneoff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-2days-200",
+                    "name": "260MB - N200 Oneoff",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-2weeks-500",
+                    "name": "1.5GB - N500 Oneoff",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-1000",
+                    "name": "2.6GB - N1000 Oneoff",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-1500",
+                    "name": "5GB - N1500 Oneoff",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-2000",
+                    "name": "6.25GB - N2000 Oneoff",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-2500",
+                    "name": "7.5GB - N2500 Oneoff",
+                    "variation_amount": "2500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-3000",
+                    "name": "11GB - N3000 Oneoff",
+                    "variation_amount": "3000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-4000",
+                    "name": "14GB - N4000 Oneoff",
+                    "variation_amount": "4000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-5000",
+                    "name": "18GB - N5000 Oneoff",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-8000",
+                    "name": "29GB - N8000 Oneoff",
+                    "variation_amount": "8000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-10000",
+                    "name": "40GB - N10000 Oneoff",
+                    "variation_amount": "10000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-15000",
+                    "name": "69GB - N15000 Oneoff",
+                    "variation_amount": "15000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-20000",
+                    "name": "110GB - N20000 Oneoff",
+                    "variation_amount": "20000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-sunday-200",
+                    "name": "1.75GB - Sunday N200",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-special-500",
+                    "name": "2GB - Special N500",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-special-1500",
+                    "name": "6GB - Special N1500",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-weekend-500",
+                    "name": "2.2GB - Weekend N500",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-30000",
+                    "name": "165GB - Mega N30000 Oneoff",
+                    "variation_amount": "30000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-36000",
+                    "name": "220GB - Mega N36000 Oneoff",
+                    "variation_amount": "36000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-50000",
+                    "name": "320GB - Mega N50000 Oneoff",
+                    "variation_amount": "50000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-60000",
+                    "name": "380GB - Mega N60000 Oneoff",
+                    "variation_amount": "60000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-75000",
+                    "name": "475GB - Mega N75000 Oneoff",
+                    "variation_amount": "75000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-150",
+                    "name": "Glo TV VOD 500 MB 3days Oneoff",
+                    "variation_amount": "150.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-450",
+                    "name": "Glo TV VOD 2GB 7days Oneoff",
+                    "variation_amount": "450.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-1400",
+                    "name": "Glo TV VOD 6GB 30days Oneoff",
+                    "variation_amount": "1400.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-900",
+                    "name": "Glo TV Lite 2GB Oneoff",
+                    "variation_amount": "900.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-3200",
+                    "name": "Glo TV Max 6 GB Oneoff",
+                    "variation_amount": "3200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-100",
+                    "name": "300MB - GloMyG N100 OneOff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-300",
+                    "name": "Glo MyG N300 1 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "300.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-500",
+                    "name": "Glo MyG N500 1.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-1000",
+                    "name": "Glo MyG N1000 3.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-100",
+                    "name": "235MB - Camp-Boost N100 Oneoff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-200",
+                    "name": "480MB - Camp-Boost N200 Oneoff",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-500",
+                    "name": "2GB - Camp-Boost N500 Oneoff",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-1000",
+                    "name": "4.2GB - Camp-Boost N1000 Oneoff",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-2000",
+                    "name": "10.6GB - Camp-Boost 2000 Oneoff",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-5000",
+                    "name": "32GB - Camp-Boost N5000 Oneoff",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                }
+            ],
+            "varations": [
+                {
+                    "variation_code": "glo-dg-70",
+                    "name": "Glo Data (SME) N90 -  200MB - 14 days",
+                    "variation_amount": "90.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-320",
+                    "name": "Glo Data (SME) N450 - 1GB 30 days",
+                    "variation_amount": "450.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-960",
+                    "name": "Glo Data (SME) N1,350 - 3GB 30 days",
+                    "variation_amount": "1350.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-3100",
+                    "name": "Glo Data (SME) N4500 - 10GB - 30 Days",
+                    "variation_amount": "4500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-640",
+                    "name": "Glo Data (SME) N900 - 2GB 30 days",
+                    "variation_amount": "900.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-160-14",
+                    "name": "Glo Data (SME) N225 - 500MB 14 days",
+                    "variation_amount": "225.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-dg-1600",
+                    "name": "Glo Data (SME) N2250 - 5GB 30 days",
+                    "variation_amount": "2250.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-daily-50",
+                    "name": "45MB - N50 Oneoff",
+                    "variation_amount": "50.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-daily-100",
+                    "name": "125MB - N100 Oneoff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-2days-200",
+                    "name": "260MB - N200 Oneoff",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-2weeks-500",
+                    "name": "1.5GB - N500 Oneoff",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-1000",
+                    "name": "2.6GB - N1000 Oneoff",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-1500",
+                    "name": "5GB - N1500 Oneoff",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-2000",
+                    "name": "6.25GB - N2000 Oneoff",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-2500",
+                    "name": "7.5GB - N2500 Oneoff",
+                    "variation_amount": "2500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-3000",
+                    "name": "11GB - N3000 Oneoff",
+                    "variation_amount": "3000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-4000",
+                    "name": "14GB - N4000 Oneoff",
+                    "variation_amount": "4000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-5000",
+                    "name": "18GB - N5000 Oneoff",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-8000",
+                    "name": "29GB - N8000 Oneoff",
+                    "variation_amount": "8000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-10000",
+                    "name": "40GB - N10000 Oneoff",
+                    "variation_amount": "10000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-15000",
+                    "name": "69GB - N15000 Oneoff",
+                    "variation_amount": "15000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-monthly-20000",
+                    "name": "110GB - N20000 Oneoff",
+                    "variation_amount": "20000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-sunday-200",
+                    "name": "1.75GB - Sunday N200",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-special-500",
+                    "name": "2GB - Special N500",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-special-1500",
+                    "name": "6GB - Special N1500",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-weekend-500",
+                    "name": "2.2GB - Weekend N500",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-30000",
+                    "name": "165GB - Mega N30000 Oneoff",
+                    "variation_amount": "30000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-36000",
+                    "name": "220GB - Mega N36000 Oneoff",
+                    "variation_amount": "36000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-50000",
+                    "name": "320GB - Mega N50000 Oneoff",
+                    "variation_amount": "50000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-60000",
+                    "name": "380GB - Mega N60000 Oneoff",
+                    "variation_amount": "60000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-mega-75000",
+                    "name": "475GB - Mega N75000 Oneoff",
+                    "variation_amount": "75000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-150",
+                    "name": "Glo TV VOD 500 MB 3days Oneoff",
+                    "variation_amount": "150.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-450",
+                    "name": "Glo TV VOD 2GB 7days Oneoff",
+                    "variation_amount": "450.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-1400",
+                    "name": "Glo TV VOD 6GB 30days Oneoff",
+                    "variation_amount": "1400.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-900",
+                    "name": "Glo TV Lite 2GB Oneoff",
+                    "variation_amount": "900.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-tv-3200",
+                    "name": "Glo TV Max 6 GB Oneoff",
+                    "variation_amount": "3200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-100",
+                    "name": "300MB - GloMyG N100 OneOff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-300",
+                    "name": "Glo MyG N300 1 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "300.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-500",
+                    "name": "Glo MyG N500 1.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-social-oneoff-1000",
+                    "name": "Glo MyG N1000 3.5 GB OneOff (Whatsapp, Instagram, Snapchat, Boomplay, Audiomac, GloTV, Tiktok)",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-100",
+                    "name": "235MB - Camp-Boost N100 Oneoff",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-200",
+                    "name": "480MB - Camp-Boost N200 Oneoff",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-500",
+                    "name": "2GB - Camp-Boost N500 Oneoff",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-1000",
+                    "name": "4.2GB - Camp-Boost N1000 Oneoff",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-2000",
+                    "name": "10.6GB - Camp-Boost 2000 Oneoff",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "glo-campus-booster-5000",
+                    "name": "32GB - Camp-Boost N5000 Oneoff",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                }
+            ]
+        }
+    }
+}

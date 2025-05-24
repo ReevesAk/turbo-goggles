@@ -1,6 +1,9 @@
+import os
+import json
 import logging
 import requests
 from decouple import config
+from django.conf import settings
 
 from rest_framework.views import APIView
 from rest_framework import generics, status
@@ -500,81 +503,63 @@ class AirTimeTopUp(generics.GenericAPIView):
                 )
 
 
-class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
-    """
-    GetNetworkProvidersVaritaionCodes is a GET request handler for retrieving variation
-    codes of different network providers. It takes in the service_ID(mtn, airtel etc)
-    as url param.
-    """
-
+class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "Network Providers Varitaion Codes"}},
+        description="Variation codes from local JSON files",
+        responses={200: {"description": "Network Providers Variation Codes"}},
     )
     def get(self, request, *args, **kwargs):
-        user = (
-            request.user if request.user.is_authenticated else None
-        )  # Get the authenticated user.
+        user = request.user if request.user.is_authenticated else None
+        service_id = kwargs.get("service_ID")
 
-        param_value = kwargs.get("service_ID")
-
-        if user:
-            resource = f"service-variations?serviceID={param_value}"
-            fetch_all_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                logger.info(
-                    f"Making API call to {vtpass_url + resource} for user {user.first_name} {user.last_name}."
-                )
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=fetch_all_variation_codes_headers,
-                )
-
-                if response.status_code == 200:
-                    resp = response.json().get("content", {}).get("variations", [])
-                    logger.info(
-                        f"Successful response received for user {user.first_name} {user.last_name}: {resp}"
-                    )
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-                else:
-                    logger.error(
-                        f"Failed response for user {user.first_name} {user.last_name}: {response.status_code} - {response.text}"
-                    )
-                    return Response(
-                        data=encrypt(
-                            {"error": "Failed to retrieve service variations"}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            except requests.exceptions.RequestException as e:
-                logger.error(
-                    f"RequestException for user {user.first_name} {user.last_name}: {str(e)}"
-                )
-                return Response(
-                    data=encrypt({"error": str(e)}),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-        else:
-            logger.warning(
-                "Unauthenticated user attempted to access service variations."
-            )
+        if not user:
             return Response(
-                data=encrypt({"error": "User  not authenticated"}),
+                data=encrypt({"error": "User not authenticated"}),
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        service_id_raw = kwargs.get("service_ID", "").lower()
+        service_id = service_id_raw.split("-")[0]  # extract prefix before '-'
+
+        filename_map = {
+            "mtn": "mtn_sorted.json",
+            "glo": "glo_sorted.json",
+            "etisalat": "etisalat_sorted.json",
+            "airtel": "airtel_sorted.json",
+            # add other mappings if needed
+        }
+
+        filename = filename_map.get(service_id)
+        if not filename:
+            return Response(
+                data=encrypt({"error": f"Unknown service_ID '{service_id_raw}'"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Compose the path to the JSON file inside variation_codes folder
+        json_path = os.path.join(settings.BASE_DIR, "variation_codes", filename)
+
+        if not os.path.isfile(json_path):
+            return Response(
+                data=encrypt({"error": "Variation codes file not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            with open(json_path, "r") as f:
+                data = json.load(f)
+
+            response_data = {"data": data}
+            return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                data=encrypt({"error": f"Failed to read file: {str(e)}"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
