@@ -509,7 +509,7 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
 
     serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId)
 
     @extend_schema(
         description="Variation codes",
@@ -521,9 +521,6 @@ class GetNetworkProvidersVaritaionCodes(generics.RetrieveAPIView):
         )  # Get the authenticated user.
 
         param_value = kwargs.get("service_ID")
-        logger.info(
-            f"User {user.first_name} {user.last_name} is requesting service variations for service ID: {param_value}"
-        )
 
         if user:
             resource = f"service-variations?serviceID={param_value}"
