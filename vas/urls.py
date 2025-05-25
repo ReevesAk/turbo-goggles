@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ProductStatus,
     AirTimeTopUp,
-    GetNetworkProvidersVaritaionCodes,
+    GetNetworkProvidersVariationCodes,
     DataSubscriptionView,
     VerifyMeterNumber,
     ElectrcityBillPayment,
@@ -29,7 +29,7 @@ urlpatterns = [
     ),
     path(
         "get-variation-codes/<str:service_ID>/",
-        GetNetworkProvidersVaritaionCodes.as_view(),
+        GetNetworkProvidersVariationCodes.as_view(),
         name="variation_codes",
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),
