@@ -1,0 +1,526 @@
+{
+    "daily": [
+        {
+            "variation_code": "eti-100",
+            "name": "9mobile 100MB - 100 Naira - 1 day",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-200",
+            "name": "9mobile 250MB - 200 Naira - 1 day",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-500",
+            "name": "9mobile 650MB - 500 Naira - 1 day",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-50",
+            "name": "9mobile 40MB - 50 Naira - 1 day",
+            "variation_amount": "50.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-350",
+            "name": "9mobile 450MB  (1 day) - 350 Naira",
+            "variation_amount": "350.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-150-1",
+            "name": "9mobile 180MB - 1 day",
+            "variation_amount": "150.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-100",
+            "name": "9mobile 100MB - 100 Naira - 1 day",
+            "variation_amount": "100.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-200",
+            "name": "9mobile 250MB - 200 Naira - 1 day",
+            "variation_amount": "200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-500",
+            "name": "9mobile 650MB - 500 Naira - 1 day",
+            "variation_amount": "500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-50",
+            "name": "9mobile 40MB - 50 Naira - 1 day",
+            "variation_amount": "50.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-350",
+            "name": "9mobile 450MB  (1 day) - 350 Naira",
+            "variation_amount": "350.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-150-1",
+            "name": "9mobile 180MB - 1 day",
+            "variation_amount": "150.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "weekly": [
+        {
+            "variation_code": "eti-1500-7",
+            "name": "9mobile 1750MB - 7 days",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-1500-7",
+            "name": "9mobile 1750MB - 7 days",
+            "variation_amount": "1500.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "monthly": [
+        {
+            "variation_code": "eti-4000",
+            "name": "9mobile 5.10GB - 4,000 Naira - 30 days",
+            "variation_amount": "4000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-2000",
+            "name": "9mobile 2.44GB - 2000 Naira - 30 Days",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-5000",
+            "name": "9mobile 6.5GB - 5,000 Naira - 30 Days",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-12000",
+            "name": "9mobile 16GB - 12,000 Naira - 30 days",
+            "variation_amount": "12000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-18500",
+            "name": "9mobile 24.3GB - 18,500 Naira - 30 Days",
+            "variation_amount": "18500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-3000",
+            "name": "9mobile 3.91GB - 3,000 Naira - 30 days",
+            "variation_amount": "3000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-1200",
+            "name": "9mobile 1400MB - 1,200 Naira - 30 Days",
+            "variation_amount": "1200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-2500",
+            "name": "9mobile 3.17GB - 2,500 Naira - 30 days",
+            "variation_amount": "2500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-20000",
+            "name": "9mobile 26.5GB - 20,000 Naira - 30 days",
+            "variation_amount": "20000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-4000",
+            "name": "9mobile 5.10GB - 4,000 Naira - 30 days",
+            "variation_amount": "4000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-2000",
+            "name": "9mobile 2.44GB - 2000 Naira - 30 Days",
+            "variation_amount": "2000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-5000",
+            "name": "9mobile 6.5GB - 5,000 Naira - 30 Days",
+            "variation_amount": "5000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-12000",
+            "name": "9mobile 16GB - 12,000 Naira - 30 days",
+            "variation_amount": "12000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-18500",
+            "name": "9mobile 24.3GB - 18,500 Naira - 30 Days",
+            "variation_amount": "18500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-3000",
+            "name": "9mobile 3.91GB - 3,000 Naira - 30 days",
+            "variation_amount": "3000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-1200",
+            "name": "9mobile 1400MB - 1,200 Naira - 30 Days",
+            "variation_amount": "1200.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-2500",
+            "name": "9mobile 3.17GB - 2,500 Naira - 30 days",
+            "variation_amount": "2500.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-20000",
+            "name": "9mobile 26.5GB - 20,000 Naira - 30 days",
+            "variation_amount": "20000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "others": [
+        {
+            "variation_code": "eti-1000",
+            "name": "9mobile 1100MB - 1000 Naira",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-650-14",
+            "name": "9mobile 650MB - 600 Naira - 14 days",
+            "variation_amount": "600.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-39-60",
+            "name": "9mobile 39GB - 30,000 Naira - 2 Months",
+            "variation_amount": "30000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-78-90",
+            "name": "9mobile 78GB - 60,000 Naira - 3 Months",
+            "variation_amount": "60000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-190-180",
+            "name": "9mobile 190GB - 150,000 Naira - 6 Months",
+            "variation_amount": "150000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-1000",
+            "name": "9mobile 1100MB - 1000 Naira",
+            "variation_amount": "1000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-650-14",
+            "name": "9mobile 650MB - 600 Naira - 14 days",
+            "variation_amount": "600.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-39-60",
+            "name": "9mobile 39GB - 30,000 Naira - 2 Months",
+            "variation_amount": "30000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-78-90",
+            "name": "9mobile 78GB - 60,000 Naira - 3 Months",
+            "variation_amount": "60000.00",
+            "fixedPrice": "Yes"
+        },
+        {
+            "variation_code": "eti-190-180",
+            "name": "9mobile 190GB - 150,000 Naira - 6 Months",
+            "variation_amount": "150000.00",
+            "fixedPrice": "Yes"
+        }
+    ],
+    "all": {
+        "response_description": "000",
+        "content": {
+            "ServiceName": "9mobile Data",
+            "serviceID": "etisalat-data",
+            "convinience_fee": "0 %",
+            "variations": [
+                {
+                    "variation_code": "eti-100",
+                    "name": "9mobile 100MB - 100 Naira - 1 day",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-200",
+                    "name": "9mobile 250MB - 200 Naira - 1 day",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-500",
+                    "name": "9mobile 650MB - 500 Naira - 1 day",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-4000",
+                    "name": "9mobile 5.10GB - 4,000 Naira - 30 days",
+                    "variation_amount": "4000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-2000",
+                    "name": "9mobile 2.44GB - 2000 Naira - 30 Days",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-5000",
+                    "name": "9mobile 6.5GB - 5,000 Naira - 30 Days",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-12000",
+                    "name": "9mobile 16GB - 12,000 Naira - 30 days",
+                    "variation_amount": "12000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-18500",
+                    "name": "9mobile 24.3GB - 18,500 Naira - 30 Days",
+                    "variation_amount": "18500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-3000",
+                    "name": "9mobile 3.91GB - 3,000 Naira - 30 days",
+                    "variation_amount": "3000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1200",
+                    "name": "9mobile 1400MB - 1,200 Naira - 30 Days",
+                    "variation_amount": "1200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-50",
+                    "name": "9mobile 40MB - 50 Naira - 1 day",
+                    "variation_amount": "50.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-350",
+                    "name": "9mobile 450MB  (1 day) - 350 Naira",
+                    "variation_amount": "350.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-2500",
+                    "name": "9mobile 3.17GB - 2,500 Naira - 30 days",
+                    "variation_amount": "2500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-20000",
+                    "name": "9mobile 26.5GB - 20,000 Naira - 30 days",
+                    "variation_amount": "20000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1000",
+                    "name": "9mobile 1100MB - 1000 Naira",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1500-7",
+                    "name": "9mobile 1750MB - 7 days",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-150-1",
+                    "name": "9mobile 180MB - 1 day",
+                    "variation_amount": "150.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-650-14",
+                    "name": "9mobile 650MB - 600 Naira - 14 days",
+                    "variation_amount": "600.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-39-60",
+                    "name": "9mobile 39GB - 30,000 Naira - 2 Months",
+                    "variation_amount": "30000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-78-90",
+                    "name": "9mobile 78GB - 60,000 Naira - 3 Months",
+                    "variation_amount": "60000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-190-180",
+                    "name": "9mobile 190GB - 150,000 Naira - 6 Months",
+                    "variation_amount": "150000.00",
+                    "fixedPrice": "Yes"
+                }
+            ],
+            "varations": [
+                {
+                    "variation_code": "eti-100",
+                    "name": "9mobile 100MB - 100 Naira - 1 day",
+                    "variation_amount": "100.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-200",
+                    "name": "9mobile 250MB - 200 Naira - 1 day",
+                    "variation_amount": "200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-500",
+                    "name": "9mobile 650MB - 500 Naira - 1 day",
+                    "variation_amount": "500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-4000",
+                    "name": "9mobile 5.10GB - 4,000 Naira - 30 days",
+                    "variation_amount": "4000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-2000",
+                    "name": "9mobile 2.44GB - 2000 Naira - 30 Days",
+                    "variation_amount": "2000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-5000",
+                    "name": "9mobile 6.5GB - 5,000 Naira - 30 Days",
+                    "variation_amount": "5000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-12000",
+                    "name": "9mobile 16GB - 12,000 Naira - 30 days",
+                    "variation_amount": "12000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-18500",
+                    "name": "9mobile 24.3GB - 18,500 Naira - 30 Days",
+                    "variation_amount": "18500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-3000",
+                    "name": "9mobile 3.91GB - 3,000 Naira - 30 days",
+                    "variation_amount": "3000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1200",
+                    "name": "9mobile 1400MB - 1,200 Naira - 30 Days",
+                    "variation_amount": "1200.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-50",
+                    "name": "9mobile 40MB - 50 Naira - 1 day",
+                    "variation_amount": "50.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-350",
+                    "name": "9mobile 450MB  (1 day) - 350 Naira",
+                    "variation_amount": "350.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-2500",
+                    "name": "9mobile 3.17GB - 2,500 Naira - 30 days",
+                    "variation_amount": "2500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-20000",
+                    "name": "9mobile 26.5GB - 20,000 Naira - 30 days",
+                    "variation_amount": "20000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1000",
+                    "name": "9mobile 1100MB - 1000 Naira",
+                    "variation_amount": "1000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-1500-7",
+                    "name": "9mobile 1750MB - 7 days",
+                    "variation_amount": "1500.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-150-1",
+                    "name": "9mobile 180MB - 1 day",
+                    "variation_amount": "150.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-650-14",
+                    "name": "9mobile 650MB - 600 Naira - 14 days",
+                    "variation_amount": "600.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-39-60",
+                    "name": "9mobile 39GB - 30,000 Naira - 2 Months",
+                    "variation_amount": "30000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-78-90",
+                    "name": "9mobile 78GB - 60,000 Naira - 3 Months",
+                    "variation_amount": "60000.00",
+                    "fixedPrice": "Yes"
+                },
+                {
+                    "variation_code": "eti-190-180",
+                    "name": "9mobile 190GB - 150,000 Naira - 6 Months",
+                    "variation_amount": "150000.00",
+                    "fixedPrice": "Yes"
+                }
+            ]
+        }
+    }
+}
