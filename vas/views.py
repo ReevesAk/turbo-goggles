@@ -11,7 +11,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiResponse,
+)
 
 from .serializers import (
     VasStatusSerializer,
@@ -557,78 +560,82 @@ class AirTimeTopUp(generics.GenericAPIView):
 class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
+
+    # Map full service IDs to their corresponding filenames
+    SERVICE_MAPPINGS = {
+        'mtn-data': 'mtn-data_sorted.json',
+        'airtel-data': 'airtel-data_sorted.json',
+        'glo-data': 'glo-data_sorted.json',
+        'etisalat-data': 'etisalat-data_sorted.json',
+    }
 
     @extend_schema(
-        description="Variation codes from local JSON files",
-        responses={200: {"description": "Network Providers Variation Codes"}},
+        description="Retrieve variation codes for network providers",
+        responses={
+            200: OpenApiResponse(description="Successfully retrieved variation codes"),
+            400: OpenApiResponse(description="Invalid service ID provided"),
+            404: OpenApiResponse(description="Variation codes file not found"),
+            500: OpenApiResponse(description="Server error processing request")
+        }
     )
     def get(self, request, *args, **kwargs):
-        user = request.user if request.user.is_authenticated else None
-        service_id = kwargs.get("service_ID")
+        # Get the full service ID (e.g. 'mtn-data', 'etisalat-data')
+        service_id = kwargs.get("service_ID", "").lower().strip()
 
-        if not user:
-            return Response(
-                data=encrypt({"error": "User not authenticated"}),
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        # Use the full service ID to get filename (don't split on '-')
+        filename = self.SERVICE_MAPPINGS.get(service_id)
 
-        service_id_raw = kwargs.get("service_ID", "").lower()
-        service_id = service_id_raw.split("-")[0]  # extract prefix before '-'
-
-        filename_map = {
-            "mtn": "mtn-data_sorted.json",
-            "glo": "glo-data_sorted.json",
-            "etisalat": "etisalat-data_sorted.json",
-            "airtel": "airtel-data_sorted.json",
-        }
-
-        filename = filename_map.get(service_id)
         if not filename:
-            return Response(
-                data=encrypt({"error": f"Unknown service_ID '{service_id_raw}'"}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Compose the path to the JSON file inside variation_codes folder
-        json_path = os.path.join(settings.BASE_DIR, "variation_codes", filename)
-
-        if not os.path.isfile(json_path):
             return Response(
                 data=encrypt({
                     "status": "error",
-                    "message": f"Variation codes not found for {service_id}"
+                    "message": f"Unsupported service provider: {service_id}",
+                    "supported_providers": list(self.SERVICE_MAPPINGS.keys())
                 }),
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
+            json_path = os.path.join(settings.BASE_DIR, "variation_codes", filename)
+
+            if not os.path.isfile(json_path):
+                return Response(
+                    data=encrypt({
+                        "status": "error",
+                        "message": f"Variation codes file not found for {service_id}",
+                        "expected_filename": filename
+                    }),
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
             with open(json_path, "r") as f:
-                data = json.load(f)
+                variation_data = json.load(f)
 
             return Response(
                 data=encrypt({
                     "status": "success",
-                    "message": f"Variation codes for {service_id} retrieved successfully.",
                     "service": service_id,
-                    "data": data
+                    "data": variation_data
                 }),
                 status=status.HTTP_200_OK
             )
 
         except json.JSONDecodeError:
+            logger.error(f"Invalid JSON format in file: {filename}")
             return Response(
                 data=encrypt({
                     "status": "error",
-                    "message": "Invalid variation codes format"
+                    "message": "Invalid data format in variation codes file"
                 }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         except Exception as e:
+            logger.error(f"Error loading variation codes: {str(e)}")
             return Response(
                 data=encrypt({
                     "status": "error",
-                    "message": f"Failed to load variation codes: {str(e)}"
+                    "message": "Failed to load variation codes"
                 }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
