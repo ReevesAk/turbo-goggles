@@ -559,8 +559,6 @@ class AirTimeTopUp(generics.GenericAPIView):
 
 class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     # Map full service IDs to their corresponding filenames
     SERVICE_MAPPINGS = {
@@ -1868,77 +1866,107 @@ class ProductStatus(APIView):
             )
 
 
-class GetTvVaritaionCodes(generics.RetrieveAPIView):
+class GetTvVariationCodes(generics.RetrieveAPIView):
     """
-    GetTvVaritaionCodes is the GET request handler for retrieving
-    the variation codes for tv subscription. Take key note of the
-    variation codes as they are required to chose a tv plan.
+    Retrieves variation codes for TV subscriptions (supports both authenticated users and guests)
     """
-
     serializer_class = VasStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Updated permission class
 
     @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "TV Varitaion Codes"}},
+        description="Retrieve TV subscription variation codes",
+        responses={
+            200: OpenApiResponse(description="Successfully retrieved variation codes"),
+            400: OpenApiResponse(description="Invalid service ID"),
+            401: OpenApiResponse(description="Unauthorized"),
+            500: OpenApiResponse(description="Server error processing request")
+        }
     )
     def get(self, request, *args, **kwargs):
-        user = self.request.user  # Get the authenticated user.
+        user = request.user if request.user.is_authenticated else None
         param_value = kwargs.get("service_ID")
 
-        logger.info(
-            f"User {user.first_name} {user.last_name} is requesting service variations for service ID: {param_value}"
-        )
-
+        # Log appropriate message based on user type
         if user:
-            resource = (
-                "https://vtpass.com/api/service-variations?serviceID=" + param_value
+            logger.info(
+                f"User {user.first_name} {user.last_name} requesting TV variations for service ID: {param_value}"
             )
-            fetch_all_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-            try:
-                logger.info(
-                    f"Sending GET request to {resource} with headers: {fetch_all_variation_codes_headers}"
-                )
-                response = requests.get(
-                    url=resource,
-                    headers=fetch_all_variation_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json().get("content", [])
-                    response_data = {
-                        "data": resp,
-                    }
+        else:
+            guest_id = request.data.get('guest_id', 'unknown')
+            logger.info(
+                f"Guest user (ID: {guest_id}) requesting TV variations for service ID: {param_value}"
+            )
+
+        if not param_value:
+            return Response(
+                data=encrypt({"status": "error", "message": "service_ID parameter is required"}),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        resource = f"https://vtpass.com/api/service-variations?serviceID={param_value}"
+        headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "secret-key": x_secret,
+        }
+
+        try:
+            logger.info(f"Sending GET request to {resource}")
+            response = requests.get(url=resource, headers=headers)
+
+            if response.status_code == 200:
+                resp = response.json().get("content", [])
+                response_data = {
+                    "status": "success",
+                    "service": param_value,
+                    "data": resp
+                }
+
+                # Log success based on user type
+                if user:
                     logger.info(
-                        f"Successfully fetched service variations for user {user.first_name} {user.last_name}: {resp}"
-                    )
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
+                        f"Successfully fetched TV variations for user {user.first_name} {user.last_name}"
                     )
                 else:
-                    logger.error(
-                        f"Failed to fetch service variations for user {user.first_name} {user.last_name}: {response.json()}"
+                    logger.info(
+                        f"Successfully fetched TV variations for guest user: {guest_id}"
                     )
-                    return Response(
-                        data=encrypt(response.json()), status=response.status_code
-                    )
-            except requests.exceptions.RequestException as e:
-                logger.error(
-                    f"RequestException occurred for user {user.first_name} {user.last_name}: {str(e)}"
-                )
+
                 return Response(
-                    data=encrypt({"error": str(e)}),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    data=encrypt(response_data),
+                    status=status.HTTP_200_OK
                 )
-        else:
-            logger.warning("User  is not authenticated.")
+            else:
+                error_msg = response.json()
+                logger.error(f"Failed to fetch TV variations: {error_msg}")
+                return Response(
+                    data=encrypt({
+                        "status": "error",
+                        "message": "Failed to fetch variations",
+                        "details": error_msg
+                    }),
+                    status=response.status_code
+                )
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"RequestException occurred: {str(e)}")
             return Response(
-                data=encrypt({"error": "User  is not authenticated."}),
-                status=status.HTTP_401_UNAUTHORIZED,
+                data=encrypt({
+                    "status": "error",
+                    "message": "Service temporarily unavailable",
+                    "details": str(e)
+                }),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            return Response(
+                data=encrypt({
+                    "status": "error",
+                    "message": "Internal server error"
+                }),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
