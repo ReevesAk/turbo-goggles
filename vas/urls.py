@@ -8,7 +8,7 @@ from .views import (
     ElectrcityBillPayment,
     ElectricityServiceIDListView,
     CableServiceIDListView,
-    GetTvVaritaionCodes,
+    GetTvVariationCodes,
     VerifySmartCardNumber,
     NewTvSubscription,
     RenewTvSubscription,
@@ -51,7 +51,7 @@ urlpatterns = [
     ),
     path(
         "get-tv-variation-codes/<str:service_ID>/",
-        GetTvVaritaionCodes.as_view(),
+        GetTvVariationCodes.as_view(),
         name="tv_variation_codes",
     ),
     path(
