@@ -40,14 +40,11 @@ class ProductSerializers(serializers.ModelSerializer):
 class AddToCartSerializers(serializers.ModelSerializer):
     """Serializers for adding a product an FMCG product to cart."""
 
-    guest_id = serializers.CharField(required=False, allow_blank=True)
-
     class Meta:
         model = Product
         fields = [
             "id",
             "quantity",
-            "guest_id"
         ]
 
 
@@ -75,7 +72,6 @@ class ProductOrderSerializer(serializers.Serializer):
 
 
 class FmcgOrderSerializer(serializers.ModelSerializer):
-    guest_id = serializers.CharField(required=False, allow_blank=True)
     products = ProductOrderSerializer(many=True)  # Accepts a list of products with IDs and quantities
     pin = serializers.CharField(max_length=4, min_length=4, required=False, allow_blank=True)
     use_biometrics = serializers.BooleanField(required=False)
@@ -85,7 +81,6 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = FmcgOrder
         fields = [
-            "guest_id",
             "payment_method",
             "billing_address",
             "products",
@@ -109,26 +104,22 @@ class FmcgOrderSerializer(serializers.ModelSerializer):
 
 
 class FmcgRatingSerializer(serializers.ModelSerializer):
-    guest_id = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = FmcgRating
         fields = [
             "id",
-            "guest_id",
             "rating",
             "review",
         ]
 
 
 class FmcgRatingListSerializer(serializers.ModelSerializer):
-    guest_id = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = FmcgRating
         fields = [
             "id",
-            "guest_id",
             "product",
             "rating",
             "review",

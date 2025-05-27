@@ -77,8 +77,9 @@ class AirTimeTopUp(generics.GenericAPIView):
         }
         user = request.user if request.user.is_authenticated else None
 
+        guest_id = request.headers.get('X-Guest-ID')
+
         pin = decrypted_payload.get("pin")
-        guest_id = decrypted_payload.get("guest_id")
         payment_option = decrypted_payload.get("payment_option")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
@@ -651,6 +652,7 @@ class DataSubscriptionView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
+        guest_id = request.headers.get('X-Guest-ID')
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -659,7 +661,6 @@ class DataSubscriptionView(generics.GenericAPIView):
         user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
-        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         phone = user_data.get("phone")
@@ -1256,6 +1257,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
+        guest_id = request.headers.get('X-Guest-ID')
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -1264,7 +1266,6 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
-        guest_id = user_data.get("guest_id")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
@@ -2050,6 +2051,7 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, VasPermission)
 
     def post(self, request):
+        guest_id = request.headers.get('X-Guest-ID')
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -2058,7 +2060,6 @@ class NewTvSubscription(generics.GenericAPIView):
         user = request.user if request.user.is_authenticated else None
 
         pin = user_data.get("pin")
-        guest_id = decrypted_payload.get("guest_id")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         amount = user_data.get("amount")

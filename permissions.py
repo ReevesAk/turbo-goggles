@@ -32,7 +32,7 @@ class IsGuestWithValidId(permissions.BasePermission):
         if user and user.is_authenticated:
             return False  # Block authenticated users
 
-        guest_id = request.data.get("guest_id")
+        guest_id = request.headers.get('X-Guest-ID')
         if guest_id:
             try:
                 uuid.UUID(guest_id, version=4)  # Validate UUID
@@ -45,22 +45,26 @@ class IsGuestWithValidId(permissions.BasePermission):
 
 class IsAuthenticatedOrGuestWithValidId(permissions.BasePermission):
     """
-    Allows access to authenticated users or guests with a valid UUID guest_id.
+    Allows access via:
+    - Authenticated users (JWT)
+    - Guests with valid X-Guest-ID header (UUIDv4)
     """
-
     def has_permission(self, request, view):
-        user = request.user
-        if user and user.is_authenticated:
+        # Authenticated users
+        if request.user and request.user.is_authenticated:
             return True
 
-        # For guest users, check for a valid UUID guest_id
-        guest_id = request.data.get("guest_id")
+        # Guest users
+        guest_id = request.headers.get('X-Guest-ID')
         if guest_id:
             try:
-                uuid.UUID(guest_id, version=4)  # Validate UUID
+                uuid.UUID(guest_id, version=4)  # Validate UUID format
                 return True
-            except (ValueError, TypeError):
-                raise ValidationError({"guest_id": "Invalid guest_id. Must be a valid UUIDv4."})
+            except ValueError:
+                raise ValidationError({
+                    "error": "Invalid X-Guest-ID header",
+                    "detail": "Must be a valid UUIDv4"
+                })
         return False
 
 
