@@ -595,7 +595,8 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
             )
 
         try:
-            json_path = os.path.join(settings.BASE_DIR, "variation_codes", filename)
+            json_path = os.path.join(settings.BASE_DIR, "vas", "variation_codes", filename)
+            logger.debug(f"Checking for file at: {json_path}")
 
             if not os.path.isfile(json_path):
                 return Response(
