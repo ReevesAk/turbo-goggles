@@ -318,6 +318,26 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
+    def get_cart_id(self, user, guest_id):
+        """
+        Get cart ID for either authenticated user or guest.
+        """
+        if user.is_authenticated:
+            # For authenticated users
+            cart, _ = Cart.objects.get_or_create(user=user)
+            return cart.cart_id
+        else:
+            # For guests
+            if not guest_id:
+                return Response(data=encrypt({
+                    "status": "fail",
+                    "message": "Guest ID is required for anonymous users.",
+                    "cart_items": []
+                }), status=status.HTTP_200_OK)
+
+            cart, _ = Cart.objects.get_or_create(guest_id=guest_id)
+            return cart.cart_id
+
     def get(self, request, *args, **kwargs):
         user = request.user
         guest_id = request.headers.get('X-Guest-ID')
