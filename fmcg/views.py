@@ -236,19 +236,14 @@ class AddToCart(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
-    def get_cart(self, user=None, guest_id=None):
+    def get_cart(self, user):
         """
         Get or create a cart for a user or guest.
         """
-        if user and user.is_authenticated:
-            cart_id = f"cart_{user.id}"
-        elif guest_id:
-            cart_id = f"guest_cart_{guest_id}"
-        else:
-            raise ValueError("No user or guest_id provided for cart retrieval.")
-
-        logger.info("Fetching or creating cart with ID: %s", cart_id)
-        cart, _ = Cart.objects.get_or_create(cart_id=cart_id)
+        logger.info("Fetching or creating a cart for user: %s", user.id)
+        cart, _ = Cart.objects.get_or_create(
+            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
+        )
         return cart
 
     def post(self, request, *args, **kwargs):
@@ -265,16 +260,7 @@ class AddToCart(generics.CreateAPIView):
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             product_id = kwargs.get("product_id")
-
-            try:
-                quantity = int(user_data.get("quantity", 1))
-                if quantity < 1:
-                    raise ValueError("Quantity must be at least 1.")
-            except (ValueError, TypeError):
-                return Response(data=encrypt({
-                    "status": "error",
-                    "message": "Invalid quantity. Must be a positive integer."
-                }), status=status.HTTP_400_BAD_REQUEST)
+            quantity = user_data.get("quantity", 1)
 
             logger.debug("Fetching product with ID: %s", product_id)
             product = get_object_or_404(Product, id=product_id)
@@ -332,17 +318,6 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
-    def get_cart_id(self, user=None, guest_id=None):
-        if user and user.is_authenticated:
-            return f"cart_{user.id}"
-        elif guest_id:
-            return f"guest_cart_{guest_id}"
-        else:
-            return Response(data=encrypt({
-                "status": "success",
-                "message": "User or guest_id required to retrieve cart."}),
-                status=status.HTTP_200_OK)
-
     def get(self, request, *args, **kwargs):
         user = request.user
         guest_id = request.headers.get('X-Guest-ID')
@@ -355,6 +330,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
         if not cart_items.exists():
             logger.info("Cart is empty for cart_id: %s", cart_id)
+            cart_items = CartItem.objects.filter(user=user)
             return Response(data=encrypt({
                 "status": "success",
                 "message": "Your cart is empty.",
@@ -390,16 +366,14 @@ class RemoveFromCart(generics.DestroyAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Allow unauthenticated access for guests
 
-    def get_cart_id(self, user, guest_id):
-        if user and user.is_authenticated:
-            return f"cart_{user.id}"
-        elif guest_id:
-            return f"guest_cart_{guest_id}"
-        else:
-            return Response(data=encrypt({
-                "status": "success",
-                "message": "guest_id is required for unauthenticated users."}),
-                status=status.HTTP_200_OK)
+    def get_cart(self, user):
+        """
+        Get or create a cart for the user.
+        """
+        cart, created = Cart.objects.get_or_create(
+            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
+        )
+        return cart
 
     def delete(self, request, *args, **kwargs):
         user = request.user
@@ -411,13 +385,10 @@ class RemoveFromCart(generics.DestroyAPIView):
         logger.info("Attempting to remove product ID %s from cart: %s", product_id, cart_id)
 
         try:
+            # Fetch the product and cart item
             product = get_object_or_404(Product, id=product_id)
-
-            if user.is_authenticated:
-                cart_item = get_object_or_404(CartItem, user=user, product=product)
-            else:
-                cart = get_object_or_404(Cart, cart_id=cart_id)
-                cart_item = get_object_or_404(CartItem, cart=cart, product=product)
+            cart_item = get_object_or_404(CartItem, user=user, product=product)
+            logger.info("Product %s found in cart for user: %s", product.name_and_size, user.id)
 
         except Http404:
             logger.error("Cart item not found for cart: %s", cart_id)
@@ -432,11 +403,17 @@ class RemoveFromCart(generics.DestroyAPIView):
         cart_item.delete()
         logger.info("Removed product %s from cart: %s", product.name_and_size, cart_id)
 
-        if user.is_authenticated:
+        if user:
             ActivityModel.objects.create(
                 user=user,
                 title="Cart Item Removed",
                 description=f"{user.full_name or user.phone_number} removed {product.name_and_size} from cart."
+            )
+        elif guest_id:
+            ActivityModel.objects.create(
+                user=guest_id,
+                title="Cart Item Removed",
+                description=f"Guest user: {guest_id} removed {product.name_and_size} from cart."
             )
 
         return Response(
