@@ -259,7 +259,7 @@ class AddToCart(generics.CreateAPIView):
             for key, value in decrypted_payload.items()
         }
 
-        guest_id = user_data.get("guest_id")
+        guest_id = request.headers.get('X-Guest-ID')
         logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
 
         serializer = self.serializer_class(data=user_data)
@@ -345,7 +345,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        guest_id = request.query_params.get("guest_id")
+        guest_id = request.headers.get('X-Guest-ID')
 
         cart_id = self.get_cart_id(user=user, guest_id=guest_id)
         logger.info("Fetching cart items for cart_id: %s", cart_id)
@@ -403,9 +403,8 @@ class RemoveFromCart(generics.DestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         user = request.user
-        decrypted_data = decrypt(request.data)
         product_id = kwargs.get("product_id")
-        guest_id = decrypted_data.get("guest_id")
+        guest_id = request.headers.get('X-Guest-ID')
 
         cart_id = self.get_cart_id(user, guest_id)
 
@@ -465,7 +464,7 @@ class FmcgCheckout(generics.CreateAPIView):
         if request.user and request.user.is_authenticated:
             user = request.user
         else:
-            guest_id = payload.get("guest_id")
+            guest_id = request.headers.get('X-Guest-ID')
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID is required for unauthenticated users."}),
