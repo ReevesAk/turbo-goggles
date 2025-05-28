@@ -323,9 +323,8 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
         Get cart ID for either authenticated user or guest.
         """
         if user.is_authenticated:
-            # For authenticated users
-            cart, _ = Cart.objects.get_or_create(user=user)
-            return cart.cart_id
+            # For authenticated users, we'll use their user ID as cart_id
+            return str(user.id)
         else:
             # For guests
             if not guest_id:
@@ -335,8 +334,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
                     "cart_items": []
                 }), status=status.HTTP_200_OK)
 
-            cart, _ = Cart.objects.get_or_create(guest_id=guest_id)
-            return cart.cart_id
+            return guest_id
 
     def get(self, request, *args, **kwargs):
         user = request.user
