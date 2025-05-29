@@ -129,10 +129,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-
-        elif payment_option == "WALLET":
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
@@ -726,12 +725,12 @@ class DataSubscriptionView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-            logger.info(
-                f"User {user.first_name} {user.last_name} is using biometrics for authentication."
-            )
-        elif payment_option == "WALLET":
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
+                logger.info(
+                    f"User {user.first_name} {user.last_name} is using biometrics for authentication."
+                )
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
