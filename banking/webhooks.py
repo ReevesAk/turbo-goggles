@@ -14,6 +14,7 @@ from .serializers import VerifyCardDepositSerializers, WebhookSerializer
 from accounts.models import UserNotification
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+from permissions import IsAuthenticatedOrGuestWithValidId
 
 logger = logging.getLogger(__name__)
 
@@ -78,16 +79,18 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
 
     serializer_class = VerifyCardDepositSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request, *args, **kwargs):
         user_data = decrypt(request.data)
         user = request.user
+        guest_id = request.headers.get('X-Guest-ID')
         tx_ref = user_data.get("txn_reference")
 
-        user_obj = FundWithCard.objects.filter(
-            txn_reference=tx_ref, user=request.user
-        ).first()
+        if user:
+            user_obj = FundWithCard.objects.filter(
+                txn_reference=tx_ref, user=request.user
+            ).first()
         if user_obj:
             if user_obj.status == "success":
                 resp = {
@@ -101,17 +104,24 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                     },
                 }
                 encrypted_resp = encrypt(resp)
-                UserNotification.objects.create(
-                    user=user,
-                    title="Card Payment",
-                    message=f"Your card payment of {user_obj.amount}, was successful.",
-                )
+                if user:
+                    UserNotification.objects.create(
+                        user=user,
+                        title="Card Payment",
+                        message=f"Your card payment of {user_obj.amount}, was successful.",
+                    )
 
-                ActivityModel.objects.create(
-                    user=user,
-                    title="Card Payment",
-                    description=f"{user.first_name} {user.last_name} has successfully paid {user_obj.amount} from his card.",
-                )
+                    ActivityModel.objects.create(
+                        user=user,
+                        title="Card Payment",
+                        description=f"{user.first_name} {user.last_name} has successfully paid {user_obj.amount} from their card.",
+                    )
+                elif guest_id:
+                    ActivityModel.objects.create(
+                        user=guest_id,
+                        title="Card Payment",
+                        description=f"Guest user: {guest_id} has successfully paid {user_obj.amount} from their card.",
+                    )
 
                 return Response(data=encrypted_resp, status=status.HTTP_200_OK)
             else:
@@ -125,17 +135,24 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                         "status": user_obj.status,
                     },
                 }
-                UserNotification.objects.create(
-                    user=user,
-                    title="Card Payment",
-                    message=f"Your card payment of {user_obj.amount}, was unsuccessful.",
-                )
+                if user:
+                    UserNotification.objects.create(
+                        user=user,
+                        title="Card Payment",
+                        message=f"Your card payment of {user_obj.amount}, was unsuccessful.",
+                    )
 
-                ActivityModel.objects.create(
-                    user=user,
-                    title="Card Payment",
-                    description=f"Card payment of {user_obj.amount} by {user.first_name} {user.last_name} was unsuccessful.",
-                )
+                    ActivityModel.objects.create(
+                        user=user,
+                        title="Card Payment",
+                        description=f"Card payment of {user_obj.amount} by {user.first_name} {user.last_name} was unsuccessful.",
+                    )
+                elif guest_id:
+                    ActivityModel.objects.create(
+                        user=guest_id,
+                        title="Card Payment",
+                        description=f"Card payment of {user_obj.amount} by guest user: {guest_id} was unsuccessful.",
+                    )
                 encrypted_resp = encrypt(resp)
                 return Response(data=encrypted_resp, status=status.HTTP_400_BAD_REQUEST)
         else:
