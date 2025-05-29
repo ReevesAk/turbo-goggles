@@ -573,7 +573,6 @@ class AirTimeTopUp(generics.GenericAPIView):
 
 class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     # Map full service IDs to their corresponding filenames
     SERVICE_MAPPINGS = {
