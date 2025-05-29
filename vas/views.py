@@ -2066,7 +2066,7 @@ class NewTvSubscription(generics.GenericAPIView):
 
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     def post(self, request):
         guest_id = request.headers.get('X-Guest-ID')
