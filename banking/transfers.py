@@ -644,7 +644,8 @@ class PayWithCard(generics.CreateAPIView):
         user_data = decrypt(request.data)
         guest_email = user_data.get("email")
         guest_id = request.headers.get('X-Guest-ID')
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
+
         if user:
             logger.info(
                 f"User {user.id} initiated a PayWithCard request with data: {user_data}"
