@@ -1897,8 +1897,6 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
     Retrieves variation codes for TV subscriptions (supports both authenticated users and guests)
     """
     serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Updated permission class
 
     @extend_schema(
         description="Retrieve TV subscription variation codes",
@@ -1910,19 +1908,17 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
         }
     )
     def get(self, request, *args, **kwargs):
-        user = request.user if request.user.is_authenticated else None
-        guest_id = request.headers.get('X-Guest-ID')
         param_value = kwargs.get("service_ID")
 
-        # Log appropriate message based on user type
-        if user:
-            logger.info(
-                f"User {user.first_name} {user.last_name} requesting TV variations for service ID: {param_value}"
-            )
-        elif guest_id:
-            logger.info(
-                f"Guest user (ID: {guest_id}) requesting TV variations for service ID: {param_value}"
-            )
+        # # Log appropriate message based on user type
+        # if user:
+        #     logger.info(
+        #         f"User {user.first_name} {user.last_name} requesting TV variations for service ID: {param_value}"
+        #     )
+        # elif guest_id:
+        #     logger.info(
+        #         f"Guest user (ID: {guest_id}) requesting TV variations for service ID: {param_value}"
+        #     )
 
         if not param_value:
             return Response(
@@ -1949,15 +1945,15 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
                     "data": resp
                 }
 
-                # Log success based on user type
-                if user:
-                    logger.info(
-                        f"Successfully fetched TV variations for user {user.first_name} {user.last_name}"
-                    )
-                elif guest_id:
-                    logger.info(
-                        f"Successfully fetched TV variations for guest user: {guest_id}"
-                    )
+                # # Log success based on user type
+                # if user:
+                #     logger.info(
+                #         f"Successfully fetched TV variations for user {user.first_name} {user.last_name}"
+                #     )
+                # elif guest_id:
+                #     logger.info(
+                #         f"Successfully fetched TV variations for guest user: {guest_id}"
+                #     )
 
                 return Response(
                     data=encrypt(response_data),
