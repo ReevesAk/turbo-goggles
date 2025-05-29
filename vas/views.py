@@ -421,6 +421,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                             title="Airtime purchase",
                             description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
                         )
+                        return Response(
+                            data=encrypt(response_data),
+                            status=status.HTTP_200_OK
+                        )
                     elif airtime_response["code"] == "014":
                         request_id = airtime_response.get("requestId")
                         if request_id:
