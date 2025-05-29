@@ -265,6 +265,15 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
+                if biometrics:
+                    verification = Biometrics.authenticate(user.phone_number)
+                elif account and account.pin is not None:
+                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                else:
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
                 logger.info(
                     f"User {user.first_name} {user.last_name} selected WALLET as payment option."
                 )
@@ -388,6 +397,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
+                verification = True
                 if user:
                     logger.info(
                         f"User {user.first_name} {user.last_name} selected CARD as payment option."
@@ -858,6 +868,15 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
+                if biometrics:
+                    verification = Biometrics.authenticate(user.phone_number)
+                elif account and account.pin is not None:
+                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                else:
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
                 logger.info(
                     f"User {user.first_name} {user.last_name} selected WALLET as payment option."
                 )
@@ -983,6 +1002,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         status=debit_response.status_code,
                     )
             case "CARD":
+                verification = True
                 if user:
                     logger.info(
                         f"User {user.first_name} {user.last_name} selected CARD as payment option."
