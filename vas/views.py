@@ -1176,9 +1176,6 @@ class ElectricityServiceIDListView(APIView):
     ElectricityServiceIDListView is the GET request handler that returns a list of electricity service ids.
     """
 
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]
-
     def get(self, request):
         electricity_service_ids = [
             service_id[1] for service_id in ELECTRICITY_SERVICE_ID_CHOICES
@@ -1344,12 +1341,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-            logger.info(
-                f"User {user.first_name} {user.last_name} is using biometrics for authentication."
-            )
-        elif payment_option == "WALLET":
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
             if account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
@@ -1459,6 +1453,15 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
+                if biometrics:
+                    verification = Biometrics.authenticate(user.phone_number)
+                elif account and account.pin is not None:
+                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                else:
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
                 logger.info(
                     f"User {user.first_name} {user.last_name} selected WALLET as payment option."
                 )
@@ -1599,6 +1602,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     )
 
             case "CARD":
+                verification = True
                 if user:
                     logger.info(
                         f"User {user.first_name} {user.last_name} selected CARD as payment option."
@@ -1807,15 +1811,13 @@ class CableServiceIDListView(APIView):
     CableServiceIDListView is the GET request handler that returns a list of cable TV service ids.
     """
 
-    authentication_classes = [JWTAuthentication]
-
     def get(self, request):
         cableTv_service_ids = [service_id[1] for service_id in TV_SERVICE_ID_CHOICES]
         return Response(
             data=encrypt(
                 {
                     "status": "success.",
-                    "message": "Electricity service Ids retrieved successfully.",
+                    "message": "Cable Tv service Ids retrieved successfully.",
                     "categories": cableTv_service_ids,
                 }
             ),
@@ -2001,8 +2003,6 @@ class VerifySmartCardNumber(generics.GenericAPIView):
     """
 
     serializer_class = VerifyCardNumberSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId)
 
     def get_queryset(self):
         return None
@@ -2018,7 +2018,7 @@ class VerifySmartCardNumber(generics.GenericAPIView):
             for key, value in decrypted_payload.items()
         }
 
-        logger.info(f"User   is attempting to verify smart card with data: {user_data}")
+        logger.info(f"User is attempting to verify smart card with data: {user_data}")
 
         resource = "merchant-verify"
         payload = {
@@ -2070,7 +2070,7 @@ class NewTvSubscription(generics.GenericAPIView):
 
     serializer_class = TvSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId)
 
     def post(self, request):
         guest_id = request.headers.get('X-Guest-ID')
@@ -2133,17 +2133,14 @@ class NewTvSubscription(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if biometrics:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is using biometrics for authentication."
-            )
-            verification = Biometrics.authenticate(user.phone_number)
-        else:
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
             if account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
                 logger.info(
                     f"User {user.first_name} {user.last_name} is using PIN for authentication."
                 )
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
             else:
                 logger.error(
                     f"Account or PIN not found for user {user.first_name} {user.last_name}."
@@ -2157,6 +2154,8 @@ class NewTvSubscription(generics.GenericAPIView):
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
+        else:
+            verification = True
 
         if not verification:
             logger.warning(
@@ -2171,6 +2170,15 @@ class NewTvSubscription(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
+                if biometrics:
+                    verification = Biometrics.authenticate(user.phone_number)
+                elif account and account.pin is not None:
+                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                else:
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
                 logger.info(
                     f"User {user.first_name} {user.last_name} selected WALLET as payment option."
                 )
@@ -2293,6 +2301,7 @@ class NewTvSubscription(generics.GenericAPIView):
                     )
 
             case "CARD":
+                verification = True
                 if user:
                     logger.info(
                         f"User {user.first_name} {user.last_name} selected CARD as payment option.")
