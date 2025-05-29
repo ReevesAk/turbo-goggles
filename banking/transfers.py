@@ -6,7 +6,7 @@ from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
 
-from permissions import IsPartnerUserOrMember, IsBrandAd
+from permissions import IsPartnerUserOrMember, IsBrandAd, IsAuthenticatedOrGuestWithValidId
 from commons import generate_txId, Messaging, Biometrics
 
 # Third party imports.
@@ -638,15 +638,21 @@ class PayWithCard(generics.CreateAPIView):
 
     serializer_class = PaymentURLSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     def post(self, request):
         user_data = decrypt(request.data)
+        guest_email = user_data.get("email")
+        guest_id = request.headers.get('X-Guest-ID')
         user = request.user
-        logger.info(
-            f"User {user.id} initiated a PayWithCard request with data: {user_data}"
-        )
-
+        if user:
+            logger.info(
+                f"User {user.id} initiated a PayWithCard request with data: {user_data}"
+            )
+        elif guest_id:
+            logger.info(
+                f"Guest User: {guest_id} initiated a PayWithCard request with data: {user_data}"
+            )
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             try:
@@ -654,42 +660,80 @@ class PayWithCard(generics.CreateAPIView):
                 amount_in_naira = int(user_data["amount"]) * 100
 
                 # Generate checkout URL using Paystack
-                checkout_url_response = Paystack.generate_url(
-                    email=user.email, amount=amount_in_naira
-                )
-                if checkout_url_response.status_code == 200:
-                    # Log successful URL generation
-                    url_resp = checkout_url_response.json()
-                    logger.info(
-                        f"Checkout URL generated successfully for user {user.id} with reference {url_resp['data']['reference']}"
+                if user:
+                    checkout_url_response = Paystack.generate_url(
+                        email=user.email, amount=amount_in_naira
                     )
+                    if checkout_url_response.status_code == 200:
+                        # Log successful URL generation
+                        url_resp = checkout_url_response.json()
+                        logger.info(
+                            f"Checkout URL generated successfully for user {user.id} with reference {url_resp['data']['reference']}"
+                        )
 
-                    # Save transaction in FundWithCard model
-                    FundWithCard.objects.create(
-                        user=user, txn_reference=url_resp["data"]["reference"]
+                        # Save transaction in FundWithCard model
+                        FundWithCard.objects.create(
+                            user=user, txn_reference=url_resp["data"]["reference"]
+                        )
+                        response = {
+                            "status": "success",
+                            "message": "Checkout URL generated successfully.",
+                            "checkout_url": url_resp["data"]["authorization_url"],
+                            "access_code": url_resp["data"]["access_code"],
+                            "reference": url_resp["data"]["reference"],
+                        }
+                        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+                    else:
+                        # Log unsuccessful URL generation attempt
+                        logger.error(
+                            f"Failed to generate checkout URL for user {user.id}. Status code: {checkout_url_response.status_code}"
+                        )
+                        return Response(
+                            data=encrypt(checkout_url_response.json()),
+                            status=checkout_url_response.status_code,
+                        )
+                elif guest_id:
+                    checkout_url_response = Paystack.generate_url(
+                        email=guest_email, amount=amount_in_naira
                     )
-                    response = {
-                        "status": "success",
-                        "message": "Checkout URL generated successfully.",
-                        "checkout_url": url_resp["data"]["authorization_url"],
-                        "access_code": url_resp["data"]["access_code"],
-                        "reference": url_resp["data"]["reference"],
-                    }
-                    return Response(data=encrypt(response), status=status.HTTP_200_OK)
-                else:
-                    # Log unsuccessful URL generation attempt
-                    logger.error(
-                        f"Failed to generate checkout URL for user {user.id}. Status code: {checkout_url_response.status_code}"
-                    )
-                    return Response(
-                        data=encrypt(checkout_url_response.json()),
-                        status=checkout_url_response.status_code,
-                    )
+                    if checkout_url_response.status_code == 200:
+                        # Log successful URL generation
+                        url_resp = checkout_url_response.json()
+                        logger.info(
+                            f"Checkout URL generated successfully for guest user {guest_id} with reference {url_resp['data']['reference']}"
+                        )
+
+                        # # Save transaction in FundWithCard model
+                        # FundWithCard.objects.create(
+                        #     user=user, txn_reference=url_resp["data"]["reference"]
+                        # )
+                        response = {
+                            "status": "success",
+                            "message": "Checkout URL generated successfully.",
+                            "checkout_url": url_resp["data"]["authorization_url"],
+                            "access_code": url_resp["data"]["access_code"],
+                            "reference": url_resp["data"]["reference"],
+                        }
+                        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+                    else:
+                        # Log unsuccessful URL generation attempt
+                        logger.error(
+                            f"Failed to generate checkout URL for guest user {guest_id}. Status code: {checkout_url_response.status_code}"
+                        )
+                        return Response(
+                            data=encrypt(checkout_url_response.json()),
+                            status=checkout_url_response.status_code,
+                        )
             except Exception as e:
                 # Log exceptions in checkout URL generation process
-                logger.exception(
-                    f"Exception occurred while generating checkout URL for user {user.id}: {e}"
-                )
+                if user:
+                    logger.exception(
+                        f"Exception occurred while generating checkout URL for user {user.id}: {e}"
+                    )
+                elif guest_id:
+                    logger.exception(
+                        f"Exception occurred while generating checkout URL for guest user {guest_id}: {e}"
+                    )
                 return Response(
                     data=encrypt(
                         {
@@ -701,9 +745,14 @@ class PayWithCard(generics.CreateAPIView):
                 )
         else:
             # Log validation errors
-            logger.warning(
-                f"Validation failed for PayWithCard request by user {user.id} with errors: {serializer.errors}"
-            )
+            if user:
+                logger.warning(
+                    f"Validation failed for PayWithCard request by user {user.id} with errors: {serializer.errors}"
+                )
+            elif guest_id:
+                logger.warning(
+                    f"Validation failed for PayWithCard request by guest user {guest_id} with errors: {serializer.errors}"
+                )
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
