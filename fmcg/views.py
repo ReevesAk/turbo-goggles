@@ -236,19 +236,40 @@ class AddToCart(generics.CreateAPIView):
     authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
-    def get_cart(self, user):
+    def get_cart_id(self, user, guest_id):
         """
-        Get or create a cart for a user or guest.
+        Get cart ID for either authenticated user or guest.
         """
-        logger.info("Fetching or creating a cart for user: %s", user.id)
-        cart, _ = Cart.objects.get_or_create(
-            cart_id=f"cart_{user.id}",  # Generates a unique cart_id
-        )
-        return cart
+        if user.is_authenticated:
+            # For authenticated users, we'll use their user ID as cart_id
+            return str(user.id)
+        else:
+            # For guests
+            if not guest_id:
+                return Response(data=encrypt({
+                    "status": "fail",
+                    "message": "Guest ID is required for anonymous users.",
+                    "cart_items": []
+                }), status=status.HTTP_200_OK)
+
+            return str(guest_id)
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        decrypted_payload = decrypt(request.data)
+        try:
+            if isinstance(request.data, dict):
+                # Already decrypted (likely during testing)
+                decrypted_payload = request.data
+            else:
+                # Normal case - decrypt the payload
+                decrypted_payload = decrypt(request.data)
+        except Exception as e:
+            logger.error("Decryption failed: %s", str(e))
+            return Response(
+                {"status": "error", "message": "Invalid payload format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()

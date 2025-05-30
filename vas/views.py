@@ -77,7 +77,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         }
         user = request.user if request.user.is_authenticated else None
 
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
 
         pin = decrypted_payload.get("pin")
         payment_option = decrypted_payload.get("payment_option")
@@ -91,16 +91,18 @@ class AirTimeTopUp(generics.GenericAPIView):
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if payment_option != "CARD":
                 return Response(
-                    data=encrypt({
-                        "status": "fail", 
-                        "message": "Guests can only use card payments"
-                    }),
-                    status=status.HTTP_400_BAD_REQUEST
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Guests can only use card payments",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
         serializer = self.serializer_class(data=user_data)
@@ -267,10 +269,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 elif account and account.pin is not None:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
                 else:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account or PIN not found"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
                 logger.info(
@@ -431,8 +437,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
                         )
                         return Response(
-                            data=encrypt(response_data),
-                            status=status.HTTP_200_OK
+                            data=encrypt(response_data), status=status.HTTP_200_OK
                         )
                     elif airtime_response["code"] == "014":
                         request_id = airtime_response.get("requestId")
@@ -463,7 +468,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
                                 )
                                 return Response(
-                                    data=encrypt(response_data), status=status.HTTP_200_OK
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
                                 )
                         else:
                             response_data = {
@@ -495,7 +501,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             guest_id=guest_id,
                             serializer=serializer,
                             reason="Guest airtime purchase",
-                            user_data=user_data
+                            user_data=user_data,
                         )
 
                         if airtime_response["code"] == "000":
@@ -504,60 +510,80 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 user=None,
                                 guest_id=guest_id,
                                 title="Airtime purchase",
-                                description=f"Guest {guest_id} purchased {user_data['amount']} airtime"
+                                description=f"Guest {guest_id} purchased {user_data['amount']} airtime",
                             )
                             return Response(
-                                data=encrypt({
-                                    "status": "success",
-                                    "message": f"Airtime purchase of {user_data['amount']} was successful",
-                                    "airtime_response": airtime_response
-                                }),
-                                status=status.HTTP_200_OK
+                                data=encrypt(
+                                    {
+                                        "status": "success",
+                                        "message": f"Airtime purchase of {user_data['amount']} was successful",
+                                        "airtime_response": airtime_response,
+                                    }
+                                ),
+                                status=status.HTTP_200_OK,
                             )
 
                         elif airtime_response["code"] == "014":
                             request_id = airtime_response.get("requestId")
-                            if request_id and VAS.check_status(req_id=request_id)["content"]["transactions"]["status"] == "delivered":
-                                logger.info(f"Guest {guest_id} purchase eventually succeeded")
+                            if (
+                                request_id
+                                and VAS.check_status(req_id=request_id)["content"][
+                                    "transactions"
+                                ]["status"]
+                                == "delivered"
+                            ):
+                                logger.info(
+                                    f"Guest {guest_id} purchase eventually succeeded"
+                                )
                                 create_activity(
                                     user=None,
                                     guest_id=guest_id,
                                     title="Airtime purchase",
-                                    description=f"Guest {guest_id} purchased {user_data['amount']} airtime"
+                                    description=f"Guest {guest_id} purchased {user_data['amount']} airtime",
                                 )
                                 return Response(
-                                    data=encrypt({
-                                        "status": "success",
-                                        "message": "Airtime purchase was successful",
-                                        "airtime_response": airtime_response
-                                    }),
-                                    status=status.HTTP_200_OK
+                                    data=encrypt(
+                                        {
+                                            "status": "success",
+                                            "message": "Airtime purchase was successful",
+                                            "airtime_response": airtime_response,
+                                        }
+                                    ),
+                                    status=status.HTTP_200_OK,
                                 )
 
-                        logger.warning(f"Guest {guest_id} purchase failed: {airtime_response}")
+                        logger.warning(
+                            f"Guest {guest_id} purchase failed: {airtime_response}"
+                        )
                         create_activity(
                             user=None,
                             guest_id=guest_id,
                             title="Failed airtime purchase",
-                            description=f"Guest {guest_id} failed to purchase airtime"
+                            description=f"Guest {guest_id} failed to purchase airtime",
                         )
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "message": airtime_response.get("response_description", "Purchase failed"),
-                                "error": airtime_response
-                            }),
-                            status=status.HTTP_400_BAD_REQUEST
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": airtime_response.get(
+                                        "response_description", "Purchase failed"
+                                    ),
+                                    "error": airtime_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
                         )
 
                     except Exception as e:
                         logger.error(f"Guest {guest_id} processing error: {str(e)}")
                         return Response(
-                            data=encrypt({
-                                "status": "error",
-                                "message": "Processing error occurred"
-                            }),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            data=encrypt(
+                                {
+                                    "status": "error",
+                                    "message": "Processing error occurred",
+                                }
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
             case _:
                 logger.error(
@@ -576,10 +602,10 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
 
     # Map full service IDs to their corresponding filenames
     SERVICE_MAPPINGS = {
-        'mtn-data': 'mtn-data_sorted.json',
-        'airtel-data': 'airtel-data_sorted.json',
-        'glo-data': 'glo-data_sorted.json',
-        'etisalat-data': 'etisalat-data_sorted.json',
+        "mtn-data": "mtn-data_sorted.json",
+        "airtel-data": "airtel-data_sorted.json",
+        "glo-data": "glo-data_sorted.json",
+        "etisalat-data": "etisalat-data_sorted.json",
     }
 
     @extend_schema(
@@ -588,8 +614,8 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
             200: OpenApiResponse(description="Successfully retrieved variation codes"),
             400: OpenApiResponse(description="Invalid service ID provided"),
             404: OpenApiResponse(description="Variation codes file not found"),
-            500: OpenApiResponse(description="Server error processing request")
-        }
+            500: OpenApiResponse(description="Server error processing request"),
+        },
     )
     def get(self, request, *args, **kwargs):
         # Get the full service ID (e.g. 'mtn-data', 'etisalat-data')
@@ -600,57 +626,62 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
 
         if not filename:
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": f"Unsupported service provider: {service_id}",
-                    "supported_providers": list(self.SERVICE_MAPPINGS.keys())
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": f"Unsupported service provider: {service_id}",
+                        "supported_providers": list(self.SERVICE_MAPPINGS.keys()),
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            json_path = os.path.join(settings.BASE_DIR, "vas", "variation_codes", filename)
+            json_path = os.path.join(
+                settings.BASE_DIR, "vas", "variation_codes", filename
+            )
             logger.debug(f"Checking for file at: {json_path}")
 
             if not os.path.isfile(json_path):
                 return Response(
-                    data=encrypt({
-                        "status": "error",
-                        "message": f"Variation codes file not found for {service_id}",
-                        "expected_filename": filename
-                    }),
-                    status=status.HTTP_404_NOT_FOUND
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": f"Variation codes file not found for {service_id}",
+                            "expected_filename": filename,
+                        }
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
             with open(json_path, "r") as f:
                 variation_data = json.load(f)
 
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "service": service_id,
-                    "data": variation_data
-                }),
-                status=status.HTTP_200_OK
+                data=encrypt(
+                    {"status": "success", "service": service_id, "data": variation_data}
+                ),
+                status=status.HTTP_200_OK,
             )
 
         except json.JSONDecodeError:
             logger.error(f"Invalid JSON format in file: {filename}")
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "Invalid data format in variation codes file"
-                }),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Invalid data format in variation codes file",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         except Exception as e:
             logger.error(f"Error loading variation codes: {str(e)}")
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "Failed to load variation codes"
-                }),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt(
+                    {"status": "error", "message": "Failed to load variation codes"}
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -665,7 +696,7 @@ class DataSubscriptionView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -685,16 +716,18 @@ class DataSubscriptionView(generics.GenericAPIView):
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if payment_option != "CARD":
                 return Response(
-                    data=encrypt({
-                        "status": "fail", 
-                        "message": "Guests can only use card payments"
-                    }),
-                    status=status.HTTP_400_BAD_REQUEST
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Guests can only use card payments",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             logger.info(f"Guest {guest_id} attempting data subscription")
@@ -870,10 +903,14 @@ class DataSubscriptionView(generics.GenericAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 elif account and account.pin is not None:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
                 else:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account or PIN not found"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
                 logger.info(
@@ -1095,69 +1132,91 @@ class DataSubscriptionView(generics.GenericAPIView):
                             guest_id=guest_id,
                             serializer=serializer,
                             reason="Guest data subscription",
-                            user_data=user_data
+                            user_data=user_data,
                         )
 
                         if data_response["code"] == "000":
-                            logger.info(f"Guest {guest_id} data subscription successful")
+                            logger.info(
+                                f"Guest {guest_id} data subscription successful"
+                            )
                             create_activity(
                                 user=None,
                                 guest_id=guest_id,
                                 title="Data subscription",
-                                description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan"
+                                description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan",
                             )
                             return Response(
-                                data=encrypt({
-                                    "status": "success",
-                                    "message": f"Data subscription of {user_data['amount']} was successful",
-                                    "data_response": data_response
-                                }),
-                                status=status.HTTP_200_OK
+                                data=encrypt(
+                                    {
+                                        "status": "success",
+                                        "message": f"Data subscription of {user_data['amount']} was successful",
+                                        "data_response": data_response,
+                                    }
+                                ),
+                                status=status.HTTP_200_OK,
                             )
 
                         elif data_response["code"] == "014":
                             request_id = data_response.get("requestId")
-                            if request_id and VAS.check_status(req_id=request_id)["content"]["transactions"]["status"] == "delivered":
-                                logger.info(f"Guest {guest_id} subscription eventually succeeded")
+                            if (
+                                request_id
+                                and VAS.check_status(req_id=request_id)["content"][
+                                    "transactions"
+                                ]["status"]
+                                == "delivered"
+                            ):
+                                logger.info(
+                                    f"Guest {guest_id} subscription eventually succeeded"
+                                )
                                 create_activity(
                                     user=None,
                                     guest_id=guest_id,
                                     title="Data subscription",
-                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan"
+                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan",
                                 )
                                 return Response(
-                                    data=encrypt({
-                                        "status": "success",
-                                        "message": "Data subscription was successful",
-                                        "data_response": data_response
-                                    }),
-                                    status=status.HTTP_200_OK
+                                    data=encrypt(
+                                        {
+                                            "status": "success",
+                                            "message": "Data subscription was successful",
+                                            "data_response": data_response,
+                                        }
+                                    ),
+                                    status=status.HTTP_200_OK,
                                 )
 
-                        logger.warning(f"Guest {guest_id} subscription failed: {data_response}")
+                        logger.warning(
+                            f"Guest {guest_id} subscription failed: {data_response}"
+                        )
                         create_activity(
                             user=None,
                             guest_id=guest_id,
                             title="Failed data subscription",
-                            description=f"Guest {guest_id} failed to subscribe to data plan"
+                            description=f"Guest {guest_id} failed to subscribe to data plan",
                         )
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "message": data_response.get("response_description", "Subscription failed"),
-                                "error": data_response
-                            }),
-                            status=status.HTTP_400_BAD_REQUEST
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": data_response.get(
+                                        "response_description", "Subscription failed"
+                                    ),
+                                    "error": data_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
                         )
 
                     except Exception as e:
                         logger.error(f"Guest {guest_id} processing error: {str(e)}")
                         return Response(
-                            data=encrypt({
-                                "status": "error",
-                                "message": "Processing error occurred"
-                            }),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            data=encrypt(
+                                {
+                                    "status": "error",
+                                    "message": "Processing error occurred",
+                                }
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
             case _:
                 logger.error(
@@ -1277,7 +1336,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -1301,16 +1360,18 @@ class ElectrcityBillPayment(generics.GenericAPIView):
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if payment_option != "CARD":
                 return Response(
-                    data=encrypt({
-                        "status": "fail", 
-                        "message": "Guests can only use card payments"
-                    }),
-                    status=status.HTTP_400_BAD_REQUEST
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Guests can only use card payments",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             logger.info(f"Guest {guest_id} attempting electricity payment")
@@ -1456,10 +1517,14 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 elif account and account.pin is not None:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
                 else:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account or PIN not found"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
                 logger.info(
@@ -1699,7 +1764,9 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             data=encrypt(
                                 {
                                     "status": "fail",
-                                    "message": electricity_response["response_description"],
+                                    "message": electricity_response[
+                                        "response_description"
+                                    ],
                                 }
                             ),
                             status=status.HTTP_400_BAD_REQUEST,
@@ -1711,7 +1778,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             guest_id=guest_id,
                             serializer=serializer,
                             reason="Guest electricity payment",
-                            user_data=user_data
+                            user_data=user_data,
                         )
 
                         if electricity_response["code"] == "000":
@@ -1721,78 +1788,96 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             # Send token to guest
                             send_token_to_guest_users(
                                 guest_phone=user_data.get("phone"),
-                                msg=f"Electricity token: {token}"
+                                msg=f"Electricity token: {token}",
                             )
 
                             create_activity(
                                 user=None,
                                 guest_id=guest_id,
                                 title="Electricity payment",
-                                description=f"Guest {guest_id} paid {user_data['amount']} for electricity"
+                                description=f"Guest {guest_id} paid {user_data['amount']} for electricity",
                             )
 
                             return Response(
-                                data=encrypt({
-                                    "status": "success",
-                                    "message": f"Electricity payment of {user_data['amount']} was successful",
-                                    "token": token,
-                                    "electricity_response": electricity_response
-                                }),
-                                status=status.HTTP_200_OK
+                                data=encrypt(
+                                    {
+                                        "status": "success",
+                                        "message": f"Electricity payment of {user_data['amount']} was successful",
+                                        "token": token,
+                                        "electricity_response": electricity_response,
+                                    }
+                                ),
+                                status=status.HTTP_200_OK,
                             )
 
                         elif electricity_response["code"] == "014":
                             request_id = electricity_response.get("requestId")
-                            if request_id and VAS.check_status(req_id=request_id)["content"]["transactions"]["status"] == "delivered":
+                            if (
+                                request_id
+                                and VAS.check_status(req_id=request_id)["content"][
+                                    "transactions"
+                                ]["status"]
+                                == "delivered"
+                            ):
                                 token = electricity_response.get("purchased_code")
                                 send_token_to_guest_users(
                                     guest_phone=user_data.get("phone"),
-                                    msg=f"Electricity token: {token}"
+                                    msg=f"Electricity token: {token}",
                                 )
 
                                 create_activity(
                                     user=None,
                                     guest_id=guest_id,
                                     title="Electricity payment",
-                                    description=f"Guest {guest_id} paid {user_data['amount']} for electricity"
+                                    description=f"Guest {guest_id} paid {user_data['amount']} for electricity",
                                 )
 
                                 return Response(
-                                    data=encrypt({
-                                        "status": "success",
-                                        "message": "Electricity payment was successful",
-                                        "token": token,
-                                        "electricity_response": electricity_response
-                                    }),
-                                    status=status.HTTP_200_OK
+                                    data=encrypt(
+                                        {
+                                            "status": "success",
+                                            "message": "Electricity payment was successful",
+                                            "token": token,
+                                            "electricity_response": electricity_response,
+                                        }
+                                    ),
+                                    status=status.HTTP_200_OK,
                                 )
 
                         # If payment failed
-                        logger.warning(f"Guest {guest_id} payment failed: {electricity_response}")
+                        logger.warning(
+                            f"Guest {guest_id} payment failed: {electricity_response}"
+                        )
                         create_activity(
                             user=None,
                             guest_id=guest_id,
                             title="Failed electricity payment",
-                            description=f"Guest {guest_id} failed electricity payment"
+                            description=f"Guest {guest_id} failed electricity payment",
                         )
 
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "message": electricity_response.get("response_description", "Payment failed"),
-                                "error": electricity_response
-                            }),
-                            status=status.HTTP_400_BAD_REQUEST
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": electricity_response.get(
+                                        "response_description", "Payment failed"
+                                    ),
+                                    "error": electricity_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
                         )
 
                     except Exception as e:
                         logger.error(f"Guest {guest_id} processing error: {str(e)}")
                         return Response(
-                            data=encrypt({
-                                "status": "error",
-                                "message": "Processing error occurred"
-                            }),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            data=encrypt(
+                                {
+                                    "status": "error",
+                                    "message": "Processing error occurred",
+                                }
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
             case _:
                 logger.warning(
@@ -1896,6 +1981,7 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
     """
     Retrieves variation codes for TV subscriptions (supports both authenticated users and guests)
     """
+
     serializer_class = VasStatusSerializer
 
     @extend_schema(
@@ -1904,8 +1990,8 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
             200: OpenApiResponse(description="Successfully retrieved variation codes"),
             400: OpenApiResponse(description="Invalid service ID"),
             401: OpenApiResponse(description="Unauthorized"),
-            500: OpenApiResponse(description="Server error processing request")
-        }
+            500: OpenApiResponse(description="Server error processing request"),
+        },
     )
     def get(self, request, *args, **kwargs):
         param_value = kwargs.get("service_ID")
@@ -1922,8 +2008,10 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
 
         if not param_value:
             return Response(
-                data=encrypt({"status": "error", "message": "service_ID parameter is required"}),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {"status": "error", "message": "service_ID parameter is required"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         resource = f"https://vtpass.com/api/service-variations?serviceID={param_value}"
@@ -1942,7 +2030,7 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
                 response_data = {
                     "status": "success",
                     "service": param_value,
-                    "data": resp
+                    "data": resp,
                 }
 
                 # # Log success based on user type
@@ -1955,40 +2043,38 @@ class GetTvVariationCodes(generics.RetrieveAPIView):
                 #         f"Successfully fetched TV variations for guest user: {guest_id}"
                 #     )
 
-                return Response(
-                    data=encrypt(response_data),
-                    status=status.HTTP_200_OK
-                )
+                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             else:
                 error_msg = response.json()
                 logger.error(f"Failed to fetch TV variations: {error_msg}")
                 return Response(
-                    data=encrypt({
-                        "status": "error",
-                        "message": "Failed to fetch variations",
-                        "details": error_msg
-                    }),
-                    status=response.status_code
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Failed to fetch variations",
+                            "details": error_msg,
+                        }
+                    ),
+                    status=response.status_code,
                 )
 
         except requests.exceptions.RequestException as e:
             logger.error(f"RequestException occurred: {str(e)}")
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "Service temporarily unavailable",
-                    "details": str(e)
-                }),
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Service temporarily unavailable",
+                        "details": str(e),
+                    }
+                ),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
             return Response(
-                data=encrypt({
-                    "status": "error",
-                    "message": "Internal server error"
-                }),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                data=encrypt({"status": "error", "message": "Internal server error"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -2069,7 +2155,7 @@ class NewTvSubscription(generics.GenericAPIView):
     permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     def post(self, request):
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -2087,16 +2173,18 @@ class NewTvSubscription(generics.GenericAPIView):
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if payment_option != "CARD":
                 return Response(
-                    data=encrypt({
-                        "status": "fail", 
-                        "message": "Guests can only use card payments"
-                    }),
-                    status=status.HTTP_400_BAD_REQUEST
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Guests can only use card payments",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             logger.info(f"Guest {guest_id} attempting TV subscription")
@@ -2169,10 +2257,14 @@ class NewTvSubscription(generics.GenericAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 elif account and account.pin is not None:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
                 else:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Account or PIN not found"}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Account or PIN not found"}
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
                 logger.info(
@@ -2300,7 +2392,8 @@ class NewTvSubscription(generics.GenericAPIView):
                 verification = True
                 if user:
                     logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option.")
+                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    )
 
                     new_tv_response = NewTvSub(
                         user=user,
@@ -2392,7 +2485,7 @@ class NewTvSubscription(generics.GenericAPIView):
                             guest_id=guest_id,
                             serializer=serializer,
                             reason="Guest TV subscription",
-                            user_data=user_data
+                            user_data=user_data,
                         )
 
                         if new_tv_response["code"] == "000":
@@ -2401,61 +2494,81 @@ class NewTvSubscription(generics.GenericAPIView):
                                 user=None,
                                 guest_id=guest_id,
                                 title="TV subscription",
-                                description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan"
+                                description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan",
                             )
                             return Response(
-                                data=encrypt({
-                                    "status": "success",
-                                    "message": f"TV subscription of {user_data['amount']} was successful",
-                                    "cable_tv_response": new_tv_response
-                                }),
-                                status=status.HTTP_200_OK
+                                data=encrypt(
+                                    {
+                                        "status": "success",
+                                        "message": f"TV subscription of {user_data['amount']} was successful",
+                                        "cable_tv_response": new_tv_response,
+                                    }
+                                ),
+                                status=status.HTTP_200_OK,
                             )
 
                         elif new_tv_response["code"] == "014":
                             request_id = new_tv_response.get("requestId")
-                            if request_id and VAS.check_status(req_id=request_id)["content"]["transactions"]["status"] == "delivered":
-                                logger.info(f"Guest {guest_id} subscription eventually succeeded")
+                            if (
+                                request_id
+                                and VAS.check_status(req_id=request_id)["content"][
+                                    "transactions"
+                                ]["status"]
+                                == "delivered"
+                            ):
+                                logger.info(
+                                    f"Guest {guest_id} subscription eventually succeeded"
+                                )
                                 create_activity(
                                     user=None,
                                     guest_id=guest_id,
                                     title="TV subscription",
-                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan"
+                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan",
                                 )
                                 return Response(
-                                    data=encrypt({
-                                        "status": "success",
-                                        "message": "TV subscription was successful",
-                                        "cable_tv_response": new_tv_response
-                                    }),
-                                    status=status.HTTP_200_OK
+                                    data=encrypt(
+                                        {
+                                            "status": "success",
+                                            "message": "TV subscription was successful",
+                                            "cable_tv_response": new_tv_response,
+                                        }
+                                    ),
+                                    status=status.HTTP_200_OK,
                                 )
 
                         # If subscription failed
-                        logger.warning(f"Guest {guest_id} subscription failed: {new_tv_response}")
+                        logger.warning(
+                            f"Guest {guest_id} subscription failed: {new_tv_response}"
+                        )
                         create_activity(
                             user=None,
                             guest_id=guest_id,
                             title="Failed TV subscription",
-                            description=f"Guest {guest_id} failed to subscribe to TV plan"
+                            description=f"Guest {guest_id} failed to subscribe to TV plan",
                         )
                         return Response(
-                            data=encrypt({
-                                "status": "fail",
-                                "message": new_tv_response.get("response_description", "Subscription failed"),
-                                "error": new_tv_response
-                            }),
-                            status=status.HTTP_400_BAD_REQUEST
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": new_tv_response.get(
+                                        "response_description", "Subscription failed"
+                                    ),
+                                    "error": new_tv_response,
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
                         )
 
                     except Exception as e:
                         logger.error(f"Guest {guest_id} processing error: {str(e)}")
                         return Response(
-                            data=encrypt({
-                                "status": "error",
-                                "message": "Processing error occurred"
-                            }),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            data=encrypt(
+                                {
+                                    "status": "error",
+                                    "message": "Processing error occurred",
+                                }
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
             case _:
                 logger.error(

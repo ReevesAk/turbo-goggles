@@ -6,7 +6,11 @@ from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
 
-from permissions import IsPartnerUserOrMember, IsBrandAd, IsAuthenticatedOrGuestWithValidId
+from permissions import (
+    IsPartnerUserOrMember,
+    IsBrandAd,
+    IsAuthenticatedOrGuestWithValidId,
+)
 from commons import generate_txId, Messaging, Biometrics
 
 # Third party imports.
@@ -643,7 +647,7 @@ class PayWithCard(generics.CreateAPIView):
     def post(self, request):
         user_data = decrypt(request.data)
         guest_email = user_data.get("email")
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         user = request.user if request.user.is_authenticated else None
 
         if user:
@@ -683,7 +687,9 @@ class PayWithCard(generics.CreateAPIView):
                             "access_code": url_resp["data"]["access_code"],
                             "reference": url_resp["data"]["reference"],
                         }
-                        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response), status=status.HTTP_200_OK
+                        )
                     else:
                         # Log unsuccessful URL generation attempt
                         logger.error(
@@ -715,7 +721,9 @@ class PayWithCard(generics.CreateAPIView):
                             "access_code": url_resp["data"]["access_code"],
                             "reference": url_resp["data"]["reference"],
                         }
-                        return Response(data=encrypt(response), status=status.HTTP_200_OK)
+                        return Response(
+                            data=encrypt(response), status=status.HTTP_200_OK
+                        )
                     else:
                         # Log unsuccessful URL generation attempt
                         logger.error(

@@ -50,22 +50,20 @@ class IsAuthenticatedOrGuestWithValidId(permissions.BasePermission):
     - Guests with valid X-Guest-ID header (UUIDv4)
     """
     def has_permission(self, request, view):
-        # Authenticated users
+        # Authenticated users always have permission
         if request.user and request.user.is_authenticated:
             return True
 
-        # Guest users
+        # Guest users need valid UUID
         guest_id = request.headers.get('X-Guest-ID')
-        if guest_id:
-            try:
-                uuid.UUID(guest_id, version=4)  # Validate UUID format
-                return True
-            except ValueError:
-                raise ValidationError({
-                    "error": "Invalid X-Guest-ID header",
-                    "detail": "Must be a valid UUIDv4"
-                })
-        return False
+        if not guest_id:
+            return False
+
+        try:
+            uuid.UUID(guest_id, version=4)
+            return True
+        except ValueError:
+            return False
 
 
 class IsUser(permissions.BasePermission):

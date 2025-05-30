@@ -84,7 +84,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
     def get(self, request, *args, **kwargs):
         user_data = decrypt(request.data)
         user = request.user
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         tx_ref = user_data.get("txn_reference")
 
         if user:
