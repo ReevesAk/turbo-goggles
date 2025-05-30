@@ -334,7 +334,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
                     "cart_items": []
                 }), status=status.HTTP_200_OK)
 
-            return guest_id
+            return str(guest_id)
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -382,7 +382,7 @@ class RemoveFromCart(generics.DestroyAPIView):
     """
     serializer_class = RemoveFromCartSerializers
     authentication_classes = []
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Allow unauthenticated access for guests
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart(self, user):
         """
