@@ -84,7 +84,7 @@ class CompanyListView(APIView):
     """
     CompanyListView is the GET request handler that returns a list of fmcg companies.
     """
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
@@ -119,7 +119,7 @@ class ListAllProducts(generics.ListAPIView):
     of all fmcg products.
     """
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
@@ -183,7 +183,7 @@ class ProductDetails(generics.RetrieveAPIView):
     """
 
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     lookup_field = "id"
 
@@ -233,7 +233,7 @@ class AddToCart(generics.CreateAPIView):
     If the product is already in the cart, update the quantity.
     """
     serializer_class = AddToCartSerializers
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart(self, user):
@@ -315,7 +315,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     items in the user's or guest's cart.
     """
     serializer_class = RetrieveCartProductsSerializers
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart_id(self, user, guest_id):
@@ -381,7 +381,7 @@ class RemoveFromCart(generics.DestroyAPIView):
     RemoveFromCart handles deleting a product from the cart for a user or guest.
     """
     serializer_class = RemoveFromCartSerializers
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]  # Allow unauthenticated access for guests
 
     def get_cart(self, user):
@@ -445,7 +445,7 @@ class RemoveFromCart(generics.DestroyAPIView):
 
 class FmcgCheckout(generics.CreateAPIView):
     serializer_class = FmcgOrderSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -638,7 +638,7 @@ class FmcgRatingView(generics.GenericAPIView):
     """
 
     serializer_class = FmcgRatingSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -737,7 +737,7 @@ class GetFmcgReview(generics.ListAPIView):
 
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     queryset = PickupAdress.objects.all()
 
