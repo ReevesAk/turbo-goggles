@@ -71,7 +71,7 @@ class Cart(models.Model):
 
 
 class CartItem(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="product_carts")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="product_carts", null=True, blank=True)
     guest_id = models.UUIDField(null=True, blank=True)
     product = models.ForeignKey('Product', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], null=True)
