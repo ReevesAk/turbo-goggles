@@ -265,6 +265,8 @@ class AddToCart(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         user = request.user
+        guest_id = request.headers.get('X-Guest-ID')
+
         try:
             if isinstance(request.data, dict):
                 # Already decrypted (likely during testing)
@@ -285,7 +287,10 @@ class AddToCart(generics.CreateAPIView):
         }
 
         guest_id = request.headers.get('X-Guest-ID')
-        logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
+        if user:
+            logger.info("Received request to add product to cart for user: %s, data: %s", user.id, user_data)
+        elif guest_id:
+            logger.info("Received request to add product to cart for guest user: %s, data: %s", guest_id, user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
@@ -296,7 +301,7 @@ class AddToCart(generics.CreateAPIView):
             product = get_object_or_404(Product, id=product_id)
 
             logger.info("Product found: %s. Retrieving cart for user: %s", product.name_and_size, user.id)
-            cart = self.get_cart(user)
+            cart = self.get_cart(user, guest_id)
 
             logger.debug("Checking if product %s is already in the cart for user: %s", product_id, user.id)
             cart_item, created = CartItem.objects.get_or_create(
