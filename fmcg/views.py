@@ -391,12 +391,24 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
         cart_id = self.get_cart_id(user=user, guest_id=guest_id)
         logger.info("Fetching cart items for cart_id: %s", cart_id)
 
-        cart = get_object_or_404(Cart, cart_id=cart_id)
         cart_items = CartItem.objects.filter(cart=cart)
+
+        cart = Cart.objects.filter(cart_id=cart_id).first()
+        if not cart:
+            logger.info("No cart found for cart_id: %s", cart_id)
+            return Response(data=encrypt({
+                "status": "success",
+                "message": "Your cart is empty.",
+                "cart_items": []
+            }), status=status.HTTP_200_OK)
+
+        if user.is_authenticated:
+            cart_items = CartItem.objects.filter(user=user)
+        else:
+            cart_items = CartItem.objects.filter(guest_id=guest_id)
 
         if not cart_items.exists():
             logger.info("Cart is empty for cart_id: %s", cart_id)
-            cart_items = CartItem.objects.filter(user=user)
             return Response(data=encrypt({
                 "status": "success",
                 "message": "Your cart is empty.",
