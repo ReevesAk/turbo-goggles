@@ -53,7 +53,7 @@ class CategoryListView(APIView):
     CategoryListView is the GET request handler that returns a list of product categories.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     def get(self, request):
 
@@ -85,7 +85,7 @@ class CompanyListView(APIView):
     CompanyListView is the GET request handler that returns a list of fmcg companies.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
 
     def get(self, request):
 
@@ -120,7 +120,7 @@ class ListAllProducts(generics.ListAPIView):
     """
     serializer_class = ProductSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -184,7 +184,7 @@ class ProductDetails(generics.RetrieveAPIView):
 
     serializer_class = ProductSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
     lookup_field = "id"
 
     def get_queryset(self):
