@@ -52,7 +52,7 @@ class CategoryListView(APIView):
     """
     CategoryListView is the GET request handler that returns a list of product categories.
     """
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
@@ -84,7 +84,7 @@ class CompanyListView(APIView):
     """
     CompanyListView is the GET request handler that returns a list of fmcg companies.
     """
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
@@ -183,7 +183,7 @@ class ProductDetails(generics.RetrieveAPIView):
     """
 
     serializer_class = ProductSerializers
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     lookup_field = "id"
 
@@ -233,7 +233,7 @@ class AddToCart(generics.CreateAPIView):
     If the product is already in the cart, update the quantity.
     """
     serializer_class = AddToCartSerializers
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart_id(self, user, guest_id):
@@ -253,6 +253,15 @@ class AddToCart(generics.CreateAPIView):
                 }), status=status.HTTP_200_OK)
 
             return str(guest_id)
+
+    def get_cart(self, user, guest_id):
+        """
+        Get or create a cart for a user or guest.
+        """
+        cart_id = self.get_cart_id(user, guest_id)
+        logger.info("Fetching or creating cart with ID: %s", cart_id)
+        cart, _ = Cart.objects.get_or_create(cart_id=cart_id)
+        return cart
 
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -336,7 +345,7 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     items in the user's or guest's cart.
     """
     serializer_class = RetrieveCartProductsSerializers
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart_id(self, user, guest_id):
@@ -402,7 +411,7 @@ class RemoveFromCart(generics.DestroyAPIView):
     RemoveFromCart handles deleting a product from the cart for a user or guest.
     """
     serializer_class = RemoveFromCartSerializers
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart(self, user):
@@ -466,7 +475,7 @@ class RemoveFromCart(generics.DestroyAPIView):
 
 class FmcgCheckout(generics.CreateAPIView):
     serializer_class = FmcgOrderSerializer
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -659,7 +668,7 @@ class FmcgRatingView(generics.GenericAPIView):
     """
 
     serializer_class = FmcgRatingSerializer
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -758,7 +767,7 @@ class GetFmcgReview(generics.ListAPIView):
 
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     queryset = PickupAdress.objects.all()
 
