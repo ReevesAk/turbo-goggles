@@ -304,10 +304,21 @@ class AddToCart(generics.CreateAPIView):
             cart = self.get_cart(user, guest_id)
 
             logger.debug("Checking if product %s is already in the cart for user: %s", product_id, user.id)
-            cart_item, created = CartItem.objects.get_or_create(
-                user=user, product=product,
-                defaults={'quantity': quantity, 'price': product.price}
-            )
+            if user.is_authenticated:
+                cart_item, created = CartItem.objects.get_or_create(
+                    user=user, 
+                    product=product,
+                    guest_id=None,  # Explicit None for authenticated users
+                    defaults={'quantity': quantity, 'price': product.price}
+                )
+            else:
+                # For guests, user should be None and guest_id should be set
+                cart_item, created = CartItem.objects.get_or_create(
+                    user=None,  # None for guests
+                    product=product,
+                    guest_id=guest_id,
+                    defaults={'quantity': quantity, 'price': product.price}
+                )
 
             if not created:
                 if user:
