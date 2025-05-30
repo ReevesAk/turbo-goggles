@@ -310,7 +310,8 @@ class AddToCart(generics.CreateAPIView):
             )
 
             if not created:
-                logger.info("Product %s already in cart. Updating quantity for user: %s", product.name_and_size, user.id)
+                if user:
+                    logger.info("Product %s already in cart. Updating quantity for user: %s", product.name_and_size, user.id)
                 if isinstance(quantity, str):
                     quantity = int(quantity)
 
@@ -319,13 +320,14 @@ class AddToCart(generics.CreateAPIView):
             else:
                 logger.info("Added new product %s to cart for user: %s", product.name_and_size, user.id)
 
-            ActivityModel.objects.create(
-                user=user,
-                title="Cart Item.",
-                description=f"{user.first_name} {user.last_name} added {product.name_and_size} to cart."
-            )
+            if user:
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Cart Item.",
+                    description=f"{user.first_name} {user.last_name} added {product.name_and_size} to cart."
+                )
+                logger.info("Cart updated successfully for user: %s", user.id)
 
-            logger.info("Cart updated successfully for user: %s", user.id)
             resp = {
                 "status": "success",
                 "message": "Product added to cart.",
