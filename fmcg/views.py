@@ -53,7 +53,7 @@ class CategoryListView(APIView):
     CategoryListView is the GET request handler that returns a list of product categories.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
 
@@ -85,7 +85,7 @@ class CompanyListView(APIView):
     CompanyListView is the GET request handler that returns a list of fmcg companies.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
 
