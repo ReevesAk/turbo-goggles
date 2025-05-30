@@ -52,7 +52,7 @@ class CategoryListView(APIView):
     """
     CategoryListView is the GET request handler that returns a list of product categories.
     """
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = []
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
