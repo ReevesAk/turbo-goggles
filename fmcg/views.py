@@ -331,7 +331,7 @@ class AddToCart(generics.CreateAPIView):
             else:
                 logger.info("Added new product %s to cart for user: %s", product.name_and_size, user.id)
 
-            if user:
+            if user.IsAuthenticated:
                 ActivityModel.objects.create(
                     user=user,
                     title="Cart Item.",
