@@ -11,8 +11,39 @@ from .models import CreateAd, AdBudget
 logger = logging.getLogger(__name__)
 
 
+class OnboardBrandSerializer(serializers.ModelSerializer):
+    """Serializers for onboarding a brand"""
+
+    class Meta:
+        model = User
+        fields = [
+            "active_role",
+            "whoareyou",
+            "name",
+            "address",
+            "brand_email",
+            "brand_type",
+            "phone_number",
+            "country",
+            "brand_name",
+            "description",
+            "services",
+            "state",
+            "city",
+            "website",
+            "facebook",
+            "twitter",
+            "instagram",
+            "telegram",
+            "online_presence",
+        ]
+
+    def validate(self, attrs):
+        return super().validate(attrs)
+
+
 class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
-    """Serializers for registering brand adverts"""
+    """Serializers for craeating brand adverts"""
 
     class Meta:
         model = User
@@ -42,7 +73,7 @@ class BrandAdProfileSerializers(serializers.ModelSerializer):
             "address",
             "email",
             "brand_type",
-            "phone_number",
+            "brand_phone_number",
             "country",
             "brand_name",
             "description",
@@ -84,11 +115,16 @@ class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
         ]
 
 
-class BrandSurveySerializers(serializers.ModelSerializer):
-    """Serializers for creating brand adverts survey."""
+class CreateAdSerializers(serializers.ModelSerializer):
+    """Serializers for onboarding brand adverts survey."""
 
-    state = serializers.CharField(max_length=150, write_only=True)
-    city = serializers.CharField(max_length=150, write_only=True)
+    state = serializers.ListField(
+        child=serializers.CharField(max_length=150), write_only=True
+    )
+    city = serializers.ListField(
+        child=serializers.CharField(max_length=150), write_only=True
+    )
+    website = serializers.CharField(max_length=200, write_only=True, required=False)
 
     class Meta:
         model = CreateAd
@@ -112,18 +148,6 @@ class BrandSurveySerializers(serializers.ModelSerializer):
 
         def validate(self, attrs):
             logger.info("Validating website format for BrandSurveySerializers.")
-            # website = attrs.get("website")
-
-            # # Ensure the website URL starts with http:// or https://
-            # if website and not website.startswith(("http://", "https://")):
-            #     logger.error("Invalid website URL format: %s", website)
-            #     raise serializers.ValidationError(
-            #         {
-            #             "website": "Invalid website format. Please include 'http://' or 'https://'."
-            #         }
-            #     )
-
-            # logger.info("Validation successful for BrandSurveySerializers.")
             return attrs
 
 

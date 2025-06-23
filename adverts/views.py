@@ -13,10 +13,10 @@ from rest_framework.pagination import PageNumberPagination
 
 # In project imports.
 from .serializers import (
-    CreateBrandAdvertSeriailizers,
+    OnboardBrandSerializer,
     BrandAdProfileSerializers,
     UpdateBrandAdProfileSerializers,
-    BrandSurveySerializers,
+    CreateAdSerializers,
     AdBudgetSerializer,
 )
 
@@ -38,8 +38,8 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
-class CreateBrandAdvertsAccount(generics.GenericAPIView):
-    serializer_class = CreateBrandAdvertSeriailizers
+class OnboardBrandAdvertsAccount(generics.GenericAPIView):
+    serializer_class = OnboardBrandSerializer
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -85,21 +85,15 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
 
             # Save the new brand advert data
             try:
-                user = User.objects.create(
-                    whoareyou=user_data["whoareyou"],
-                    facebook=user_data["facebook"],
-                    twitter=user_data["twitter"],
-                    instagram=user_data["instagram"],
-                    telegram=user_data["telegram"],
-                )
-                logger.info(f"User created successfully: {user.id}")
+                serializer.save()
+                logger.info("Brand user Onboarded successfully")
             except Exception as e:
-                logger.error(f"Error creating user: {e}")
+                logger.error(f"Error onboarding brand user: {e}")
                 return Response(
                     data=encrypt(
                         {
                             "status": "fail",
-                            "message": "An error occurred while creating the user.",
+                            "message": "An error occurred while onboarding the user.",
                         }
                     ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -141,6 +135,11 @@ class CreateBrandAdvertsAccount(generics.GenericAPIView):
                 "message": "Brand advert account created successfully.",
                 "data": {
                     "whoareyou": user_data.get("whoareyou"),
+                    "name": user_data.get("name"),
+                    "address": user_data.get("address"),
+                    "brand_email": user_data.get("brand_email"),
+                    "brand_type": user_data.get("brand_type"),
+                    "brand_name": user_data.get("brand_name"),
                     "facebook": user_data.get("facebook"),
                     "twitter": user_data.get("twitter"),
                     "instagram": user_data.get("instagram"),
@@ -249,8 +248,8 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
             )
 
 
-class BrandSurveyView(generics.CreateAPIView):
-    serializer_class = BrandSurveySerializers
+class CreateAdView(generics.CreateAPIView):
+    serializer_class = CreateAdSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsBrandAd)
 
@@ -286,18 +285,21 @@ class BrandSurveyView(generics.CreateAPIView):
                 duration=serializer.validated_data["duration"],
             )
 
-            # Create AdLocation entry for the survey
-            AdLocation.objects.create(
-                brand=brand_survey_instance,
-                state=serializer.validated_data.get("state"),
-                city=serializer.validated_data.get("city"),
-            )
+            states = serializer.validated_data.get("state")
+            cities = serializer.validated_data.get("city")
 
+            # Create AdLocation entry for the survey
+            for state, city in zip(states, cities):
+                AdLocation.objects.create(
+                    brand=brand_survey_instance,
+                    state=state,
+                    city=city
+                )
             # Log the brand survey activity
             ActivityModel.objects.create(
                 user=brand_survey_instance,
                 title="Brand Survey",
-                description=f"{brand_survey_instance.brand_user} conducted a brand survey successfully.",
+                description=f"{brand_survey_instance.brand_user} created an Ad successfully.",
             )
 
             logger.info(
