@@ -12,7 +12,6 @@ from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
@@ -522,14 +521,6 @@ class FmcgCheckout(generics.CreateAPIView):
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID is required for unauthenticated users."}),
                     status=status.HTTP_400_BAD_REQUEST
-                )
-
-            try:
-                user = User.objects.get(guest_id=guest_id)
-            except User.DoesNotExist:
-                return Response(
-                    data=encrypt({"status": "fail", "message": "Invalid guest ID."}),
-                    status=status.HTTP_404_NOT_FOUND
                 )
 
         tracking_id = generate_tracking_id(10)

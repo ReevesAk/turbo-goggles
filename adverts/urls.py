@@ -1,18 +1,18 @@
 from django.urls import path
 from .views import (
-    CreateBrandAdvertsAccount,
+    OnboardBrandAdvertsAccount,
     ListAllBrandAds,
     GetBrandAdDetails,
     UpdateBrandAdProfile,
-    BrandSurveyView,
-    BrandPromote,
+    CreateAdView,
+    PromoteBrand,
 )
 
 app_name = "adverts"
 
 
 urlpatterns = [
-    path("create-ad", CreateBrandAdvertsAccount.as_view(), name="create_ad"),
+    path("onboard", OnboardBrandAdvertsAccount.as_view(), name="onboard"),
     path(
         "list-all-ads",
         ListAllBrandAds.as_view(),
@@ -20,6 +20,6 @@ urlpatterns = [
     ),
     path("profile", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile", UpdateBrandAdProfile.as_view(), name="update_profile"),
-    path("survey", BrandSurveyView.as_view(), name="survey"),
-    path("promote", BrandPromote.as_view(), name="promote"),
+    path("create", CreateAdView.as_view(), name="create"),
+    path("promote", PromoteBrand.as_view(), name="promote"),
 ]

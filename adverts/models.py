@@ -1,6 +1,7 @@
 from django.db import models
 
 from accounts.models import User
+from basemodel import PAYMENT_OPTIONS
 
 ONLINE_PRESENCE = (("Yes", "Yes"), ("No", "No"))
 
@@ -78,6 +79,9 @@ class AdLocation(models.Model):
 class AdBudget(models.Model):
     user = models.OneToOneField(
         to=User, on_delete=models.CASCADE, related_name="promote_ad"
+    )
+    payment_option = models.CharField(
+        choices=PAYMENT_OPTIONS, max_length=100, null=True
     )
     ad_type = models.CharField(choices=AD_TYPE, max_length=150)
     category = models.CharField(max_length=150, null=True)

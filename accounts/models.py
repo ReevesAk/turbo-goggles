@@ -80,6 +80,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     address = models.CharField(max_length=155, blank=False, null=True)
     whoareyou = models.CharField(choices=BRAND_TYPE, max_length=150, null=True)
     name = models.CharField(max_length=155, blank=False, null=True)
+    brand_email = models.CharField(max_length=80, unique=True, null=True)
+    brand_phone_number = models.CharField(max_length=20, unique=True, null=True)
     brand_type = models.CharField(max_length=155, blank=False, null=True)
     has_promoted = models.BooleanField(default=False)
 
@@ -120,7 +122,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class AccountType(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(
+        to=User, related_name="account_types", on_delete=models.CASCADE, null=True
+    )
     user_type = models.CharField(
         choices=USER_CATEGORY_CHOICES, max_length=40, null=True
     )
