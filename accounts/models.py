@@ -122,7 +122,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class AccountType(models.Model):
-    user = models.ForeignKey(to=User, related_name='account_types', on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(
+        to=User, related_name="account_types", on_delete=models.CASCADE, null=True
+    )
     user_type = models.CharField(
         choices=USER_CATEGORY_CHOICES, max_length=40, null=True
     )

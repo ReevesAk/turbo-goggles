@@ -29,6 +29,7 @@ from banking.controllers import Account
 from banking.models import AccountCreation
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+from commons import Biometrics
 
 
 logger = logging.getLogger(__name__)
@@ -291,9 +292,7 @@ class CreateAdView(generics.CreateAPIView):
             # Create AdLocation entry for the survey
             for state, city in zip(states, cities):
                 AdLocation.objects.create(
-                    brand=brand_survey_instance,
-                    state=state,
-                    city=city
+                    brand=brand_survey_instance, state=state, city=city
                 )
             # Log the brand survey activity
             ActivityModel.objects.create(
@@ -317,12 +316,13 @@ class CreateAdView(generics.CreateAPIView):
             )
 
 
-class BrandPromote(generics.CreateAPIView):
+class PromoteBrand(generics.CreateAPIView):
     serializer_class = AdBudgetSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
+        authenticated_user = request.user
         decrypted_data = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
@@ -330,96 +330,135 @@ class BrandPromote(generics.CreateAPIView):
         }
         serializer = self.get_serializer(data=payload)
 
-        if serializer.is_valid(raise_exception=True):
-            try:
-                authenticated_user = request.user
-                pin = payload.get("pin")
+        if not serializer.is_valid(raise_exception=True):
+            logger.warning(
+                f"Serializer validation failed for user {authenticated_user.first_name} {authenticated_user.last_name}: {serializer.errors}"
+            )
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
-                # Verify PIN
-                is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
-                if not is_verified:
-                    logger.warning(
-                        "PIN verification failed for user %s", authenticated_user.email
+        payment_option = payload.get("payment_option")
+        pin = payload.get("pin")
+        # biometrics = decrypted_data.get("use_biometrics")
+
+        match payment_option:
+            case "WALLET":
+                pass
+
+                try:
+                    pin = payload.get("pin")
+
+                    # Verify PIN
+                    is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
+                    if not is_verified:
+                        logger.warning(
+                            "PIN verification failed for user %s",
+                            authenticated_user.email,
+                        )
+                        return Response(
+                            encrypt({"error": "Invalid PIN."}),
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+
+                    # Debit Account
+                    price = payload.get("price")
+                    user_details = AccountCreation.objects.get(user=authenticated_user)
+                    debit_response = Account.Debit(
+                        debitAccount=user_details.account_number,
+                        amount=price,
+                        description="Debit for brand promotion",
+                        transactionReference="",
                     )
-                    return Response(
-                        encrypt({"error": "Invalid PIN."}),
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
 
-                # Debit Account
-                price = payload.get("price")
-                user_details = AccountCreation.objects.get(user=authenticated_user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=price,
-                    description="Debit for brand promotion",
-                    transactionReference="",
-                )
+                    # Check debit response
+                    if debit_response == 200:
+                        serializer.save()
+                        UserNotification.objects.create(
+                            user=authenticated_user,
+                            title="Brand Promotion",
+                            message=f"Your payment of {price} for brand promotion was successful.",
+                        )
 
-                # Check debit response
-                if debit_response == 200:
-                    serializer.save()
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Brand Promotion",
-                        message=f"Your payment of {price} for brand promotion was successful.",
-                    )
+                        ActivityModel.objects.create(
+                            user=authenticated_user,
+                            title="Brand Promotion",
+                            description=f"{authenticated_user.whoareyou} promoted their brand successfully.",
+                        )
 
-                    ActivityModel.objects.create(
-                        user=authenticated_user,
-                        title="Brand Promotion",
-                        description=f"{authenticated_user.whoareyou} promoted their brand successfully.",
-                    )
+                        logger.info(
+                            "Brand promotion payment successful for user %s",
+                            authenticated_user.email,
+                        )
 
-                    logger.info(
-                        "Brand promotion payment successful for user %s",
+                        response_data = {
+                            "status": "Success!",
+                            "message": "Brand advert promoted successfully.",
+                        }
+                        encrypted_success = encrypt(response_data)
+                        return Response(
+                            data=encrypted_success, status=status.HTTP_200_OK
+                        )
+
+                    else:
+                        # Handle debit failure
+                        logger.error(
+                            "Debit failed with response: %s", debit_response.json()
+                        )
+                        response_data = {
+                            "status": "Failure",
+                            "details": debit_response.json(),
+                        }
+                        encrypted_response = encrypt(response_data)
+                        return Response(
+                            data=encrypted_response, status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                # except AccountCreation.DoesNotExist:
+                #     logger.error(
+                #         "Account details not found for user %s", authenticated_user.email
+                #     )
+                #     resp = {"error": "Account details not found."}
+                #     encrypted_response = encrypt(resp)
+                #     return Response(
+                #         data=encrypted_response,
+                #         status=status.HTTP_404_NOT_FOUND,
+                #     )
+
+                except Exception as err:
+                    logger.exception(
+                        "An error occurred during brand promotion for user %s: %s",
                         authenticated_user.email,
+                        err,
                     )
-
-                    response_data = {
-                        "status": "Success!",
-                        "message": "Brand advert promoted successfully.",
-                    }
-                    encrypted_success = encrypt(response_data)
-                    return Response(data=encrypted_success, status=status.HTTP_200_OK)
-
-                else:
-                    # Handle debit failure
-                    logger.error(
-                        "Debit failed with response: %s", debit_response.json()
-                    )
-                    response_data = {
-                        "status": "Failure",
-                        "details": debit_response.json(),
-                    }
-                    encrypted_response = encrypt(response_data)
+                    resp = {"error": "An error occurred during promotion."}
+                    encrypted_response = encrypt(resp)
                     return Response(
-                        data=encrypted_response, status=status.HTTP_400_BAD_REQUEST
+                        data=encrypted_response,
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            except AccountCreation.DoesNotExist:
-                logger.error(
-                    "Account details not found for user %s", authenticated_user.email
-                )
-                resp = {"error": "Account details not found."}
-                encrypted_response = encrypt(resp)
-                return Response(
-                    data=encrypted_response,
-                    status=status.HTTP_404_NOT_FOUND,
+            case "CARD":
+                UserNotification.objects.create(
+                    user=authenticated_user,
+                    title="Brand Promotion",
+                    message=f"Your payment of {price} for brand promotion was successful.",
                 )
 
-            except Exception as err:
-                logger.exception(
-                    "An error occurred during brand promotion for user %s: %s",
+                ActivityModel.objects.create(
+                    user=authenticated_user,
+                    title="Brand Promotion",
+                    description=f"{authenticated_user.whoareyou} promoted their brand successfully.",
+                )
+
+                logger.info(
+                    "Brand promotion payment successful for user %s",
                     authenticated_user.email,
-                    err,
-                )
-                resp = {"error": "An error occurred during promotion."}
-                encrypted_response = encrypt(resp)
-                return Response(
-                    data=encrypted_response,
-                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # If serializer errors exist
-        return Response(encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+                response_data = {
+                    "status": "Success!",
+                    "message": "Brand advert promoted successfully.",
+                }
+                encrypted_success = encrypt(response_data)
+                return Response(data=encrypted_success, status=status.HTTP_200_OK)

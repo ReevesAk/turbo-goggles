@@ -5,7 +5,7 @@ from .views import (
     GetBrandAdDetails,
     UpdateBrandAdProfile,
     CreateAdView,
-    BrandPromote,
+    PromoteBrand,
 )
 
 app_name = "adverts"
@@ -21,5 +21,5 @@ urlpatterns = [
     path("profile", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile", UpdateBrandAdProfile.as_view(), name="update_profile"),
     path("create", CreateAdView.as_view(), name="create"),
-    path("promote", BrandPromote.as_view(), name="promote"),
+    path("promote", PromoteBrand.as_view(), name="promote"),
 ]

@@ -155,7 +155,23 @@ class AdBudgetSerializer(serializers.ModelSerializer):
     """Serializers for Advert budget."""
 
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    payment_option = serializers.CharField(max_length=50, write_only=True)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = AdBudget
-        fields = ["id", "ad_type", "ad", "star", "price_range", "pin"]
+        fields = [
+            "id",
+            "ad_type",
+            "ad",
+            "star",
+            "price_range",
+            "pin",
+            "payment_option",
+            "use_biometrics",
+        ]
+
+    def create(self, validated_data):
+        validated_data.pop("pin", None)
+        validated_data.pop("use_biometrics", None)
+        return super().create(validated_data)
