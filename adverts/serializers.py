@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class OnboardBrandSerializer(serializers.ModelSerializer):
     """Serializers for onboarding a brand"""
 
-    use_biometrics = serializers.BooleanField(max_length=150, write_only=True)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = User
