@@ -15,6 +15,7 @@ class OnboardBrandSerializer(serializers.ModelSerializer):
     """Serializers for onboarding a brand"""
 
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
+    online_presence = serializers.CharField(max_length=200, write_only=True, required=False)
 
     class Meta:
         model = User
