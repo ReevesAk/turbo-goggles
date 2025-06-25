@@ -37,6 +37,7 @@ class OnboardBrandSerializer(serializers.ModelSerializer):
             "twitter",
             "instagram",
             "telegram",
+            "use_biometrics",
             "online_presence",
         ]
 
