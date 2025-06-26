@@ -120,20 +120,23 @@ class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
 
 
 class CreateAdSerializers(serializers.ModelSerializer):
-    """Serializers for onboarding brand adverts survey."""
-
     state = serializers.ListField(
-        child=serializers.CharField(max_length=150), write_only=True
+        child=serializers.CharField(max_length=150), 
+        write_only=True,
+        required=False  # Add if these fields can be optional
     )
     city = serializers.ListField(
-        child=serializers.CharField(max_length=150), write_only=True
+        child=serializers.CharField(max_length=150), 
+        write_only=True,
+        required=False  # Add if these fields can be optional
     )
-    website = serializers.CharField(max_length=200, write_only=True, required=False)
+    website = serializers.CharField(max_length=200, required=False, allow_blank=True)
 
     class Meta:
         model = CreateAd
         fields = [
             "id",
+            "brand_user",  # Make sure this matches your model
             "brand_type",
             "product_type",
             "online_presence",
@@ -149,25 +152,27 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "description",
             "duration",
         ]
+        extra_kwargs = {
+            'brand_user': {'write_only': True}  # If you don't want it in responses
+        }
 
-        def create(self, validated_data):
-            # Remove state and city from validated_data as they're not model fields
-            states = validated_data.pop("state", [])
-            cities = validated_data.pop("city", [])
+    def create(self, validated_data):
+        # Extract non-model fields first
+        states = validated_data.pop('state', [])
+        cities = validated_data.pop('city', [])
 
-            # Create the CreateAd instance
-            create_ad = CreateAd.objects.create(**validated_data)
+        # Create the main CreateAd instance
+        create_ad = CreateAd.objects.create(**validated_data)
 
-            # Create AdLocation entries
-            for state, city in zip(states, cities):
-                AdLocation.objects.create(brand=create_ad, state=state, city=city)
+        # Create related AdLocation entries
+        for state, city in zip(states, cities):
+            AdLocation.objects.create(
+                brand=create_ad,
+                state=state,
+                city=city
+            )
 
-            return create_ad
-
-        def validate(self, attrs):
-            logger.info("Validating website format for BrandSurveySerializers.")
-            # Add any additional validation here
-            return attrs
+        return create_ad
 
 
 class AdBudgetSerializer(serializers.ModelSerializer):

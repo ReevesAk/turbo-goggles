@@ -254,57 +254,34 @@ class CreateAdView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, IsBrandAd)
 
     def create(self, request, *args, **kwargs):
-        decrypted_data = decrypt(request.data)
-
-        serializer = self.get_serializer(data=decrypted_data)
-
-        if not serializer.is_valid(raise_exception=True):
-            # In case of validation errors
-            return Response(
-                encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
         try:
-            # Attach authenticated user to the survey data
-            serializer.validated_data["user"] = request.user
+            decrypted_data = decrypt(request.data)
+            serializer = self.get_serializer(data=decrypted_data)
+            serializer.is_valid(raise_exception=True)
+
+            # Assign the user directly in the validated data
+            serializer.validated_data['brand_user'] = request.user
+
+            # Let the serializer handle the creation
             serializer.save()
 
-            # # Create survey instance in CreateAd model
-            # brand_survey_instance = CreateAd.objects.create(
-            #     brand_user=brand_survey.user,
-            #     brand_type=serializer.validated_data["brand_type"],
-            #     product_type=serializer.validated_data["product_type"],
-            #     online_presence=serializer.validated_data["online_presence"],
-            #     online_preferences=serializer.validated_data["online_preferences"],
-            #     metric_to_increase=serializer.validated_data["metric_to_increase"],
-            #     demography=serializer.validated_data["demography"],
-            #     website=serializer.validated_data["website"],
-            #     type=serializer.validated_data["type"],
-            #     category=serializer.validated_data["category"],
-            #     address=serializer.validated_data["address"],
-            #     description=serializer.validated_data["description"],
-            #     duration=serializer.validated_data["duration"],
-            # )
-
-            user = request.user
-            # Log the brand survey activity
+            # Log activity
             ActivityModel.objects.create(
                 user=serializer.instance,
                 title="Brand Survey",
-                description=f"{user.name} created an Ad successfully.",
+                description=f"{request.user} created an Ad successfully.",
             )
 
-            logger.info(
-                "Brand survey created successfully for user: %s", request.user.email
+            return Response(
+                encrypt(serializer.data),
+                status=status.HTTP_201_CREATED
             )
-            return Response(encrypt(serializer.data), status=status.HTTP_201_CREATED)
 
         except Exception as err:
-            logger.error("Brand advert survey creation failed: %s", err)
+            logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
             return Response(
-                encrypt(
-                    {"error": "An error occurred while creating the brand survey."}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
+                encrypt({"error": "An error occurred while creating the ad."}),
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
