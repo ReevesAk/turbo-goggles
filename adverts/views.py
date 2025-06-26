@@ -268,6 +268,10 @@ class CreateAdView(generics.CreateAPIView):
             serializer.validated_data["user"] = request.user
             brand_survey = serializer.save()
 
+            validated_data = serializer.validated_data.copy()
+            states = validated_data.pop('state', [])
+            cities = validated_data.pop('city', [])
+
             # Create survey instance in CreateAd model
             brand_survey_instance = CreateAd.objects.create(
                 brand_user=brand_survey.user,
@@ -284,9 +288,6 @@ class CreateAdView(generics.CreateAPIView):
                 description=serializer.validated_data["description"],
                 duration=serializer.validated_data["duration"],
             )
-
-            states = serializer.validated_data.get("state", [])
-            cities = serializer.validated_data.get("city", [])
 
             if len(states) != len(cities):
                 return Response(
