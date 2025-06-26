@@ -148,9 +148,9 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "duration",
         ]
 
-        def validate(self, attrs):
-            logger.info("Validating website format for BrandSurveySerializers.")
-            return attrs
+    def validate(self, attrs):
+        logger.info("Validating website format for BrandSurveySerializers.")
+        return attrs
 
 
 class AdBudgetSerializer(serializers.ModelSerializer):

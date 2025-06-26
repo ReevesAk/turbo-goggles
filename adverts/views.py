@@ -29,7 +29,6 @@ from banking.controllers import Account
 from banking.models import AccountCreation
 from roles.models import ActivityModel
 from security import encrypt, decrypt
-from commons import Biometrics
 
 
 logger = logging.getLogger(__name__)
@@ -286,14 +285,23 @@ class CreateAdView(generics.CreateAPIView):
                 duration=serializer.validated_data["duration"],
             )
 
-            states = serializer.validated_data.get("state")
-            cities = serializer.validated_data.get("city")
+            states = serializer.validated_data.get("state", [])
+            cities = serializer.validated_data.get("city", [])
+
+            if len(states) != len(cities):
+                return Response(
+                    encrypt(
+                        {"error": "The number of states must match the number of cities."}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Create AdLocation entry for the survey
             for state, city in zip(states, cities):
                 AdLocation.objects.create(
                     brand=brand_survey_instance, state=state, city=city
                 )
+
             # Log the brand survey activity
             ActivityModel.objects.create(
                 user=brand_survey_instance,
