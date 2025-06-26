@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
-from .models import CreateAd, AdBudget
+from .models import CreateAd, AdBudget, AdLocation
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class OnboardBrandSerializer(serializers.ModelSerializer):
     """Serializers for onboarding a brand"""
 
-    online_presence = serializers.CharField(max_length=200, write_only=True, required=False)
+    online_presence = serializers.CharField(
+        max_length=200, write_only=True, required=False
+    )
 
     class Meta:
         model = User
@@ -148,9 +150,24 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "duration",
         ]
 
-    def validate(self, attrs):
-        logger.info("Validating website format for BrandSurveySerializers.")
-        return attrs
+        def create(self, validated_data):
+            # Remove state and city from validated_data as they're not model fields
+            states = validated_data.pop("state", [])
+            cities = validated_data.pop("city", [])
+
+            # Create the CreateAd instance
+            create_ad = CreateAd.objects.create(**validated_data)
+
+            # Create AdLocation entries
+            for state, city in zip(states, cities):
+                AdLocation.objects.create(brand=create_ad, state=state, city=city)
+
+            return create_ad
+
+        def validate(self, attrs):
+            logger.info("Validating website format for BrandSurveySerializers.")
+            # Add any additional validation here
+            return attrs
 
 
 class AdBudgetSerializer(serializers.ModelSerializer):

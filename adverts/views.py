@@ -266,48 +266,31 @@ class CreateAdView(generics.CreateAPIView):
         try:
             # Attach authenticated user to the survey data
             serializer.validated_data["user"] = request.user
-            brand_survey = serializer.save()
+            serializer.save()
 
-            validated_data = serializer.validated_data.copy()
-            states = validated_data.pop('state', [])
-            cities = validated_data.pop('city', [])
+            # # Create survey instance in CreateAd model
+            # brand_survey_instance = CreateAd.objects.create(
+            #     brand_user=brand_survey.user,
+            #     brand_type=serializer.validated_data["brand_type"],
+            #     product_type=serializer.validated_data["product_type"],
+            #     online_presence=serializer.validated_data["online_presence"],
+            #     online_preferences=serializer.validated_data["online_preferences"],
+            #     metric_to_increase=serializer.validated_data["metric_to_increase"],
+            #     demography=serializer.validated_data["demography"],
+            #     website=serializer.validated_data["website"],
+            #     type=serializer.validated_data["type"],
+            #     category=serializer.validated_data["category"],
+            #     address=serializer.validated_data["address"],
+            #     description=serializer.validated_data["description"],
+            #     duration=serializer.validated_data["duration"],
+            # )
 
-            # Create survey instance in CreateAd model
-            brand_survey_instance = CreateAd.objects.create(
-                brand_user=brand_survey.user,
-                brand_type=serializer.validated_data["brand_type"],
-                product_type=serializer.validated_data["product_type"],
-                online_presence=serializer.validated_data["online_presence"],
-                online_preferences=serializer.validated_data["online_preferences"],
-                metric_to_increase=serializer.validated_data["metric_to_increase"],
-                demography=serializer.validated_data["demography"],
-                website=serializer.validated_data["website"],
-                type=serializer.validated_data["type"],
-                category=serializer.validated_data["category"],
-                address=serializer.validated_data["address"],
-                description=serializer.validated_data["description"],
-                duration=serializer.validated_data["duration"],
-            )
-
-            if len(states) != len(cities):
-                return Response(
-                    encrypt(
-                        {"error": "The number of states must match the number of cities."}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Create AdLocation entry for the survey
-            for state, city in zip(states, cities):
-                AdLocation.objects.create(
-                    brand=brand_survey_instance, state=state, city=city
-                )
-
+            user = request.user
             # Log the brand survey activity
             ActivityModel.objects.create(
-                user=brand_survey_instance,
+                user=serializer.instance,
                 title="Brand Survey",
-                description=f"{brand_survey_instance.brand_user} created an Ad successfully.",
+                description=f"{user.name} created an Ad successfully.",
             )
 
             logger.info(
