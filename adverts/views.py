@@ -179,8 +179,8 @@ class ListAllBrandAds(generics.ListAPIView):
             logger.info(
                 "Paginated response for BrandAd users. Page size: %d", len(page)
             )
-            encrypted_data = encrypt(serializer.data)
-            return self.get_paginated_response(encrypted_data)
+            response_data = self.get_paginated_response(serializer.data).data
+            return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
         # If pagination is not applied, return the full response
         serializer = self.serializer_class(queryset, many=True)
