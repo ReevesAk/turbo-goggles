@@ -263,11 +263,11 @@ class CreateAdView(generics.CreateAPIView):
             serializer.validated_data["user"] = request.user.id
 
             # Let the serializer handle the creation
-            serializer.save()
+            create_ad = serializer.save()
 
             # Log activity
             ActivityModel.objects.create(
-                user=serializer.instance,
+                user=create_ad,
                 title="Brand Survey",
                 description=f"{request.user} created an Ad successfully.",
             )
