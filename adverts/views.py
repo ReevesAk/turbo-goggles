@@ -280,7 +280,7 @@ class CreateAdView(generics.CreateAPIView):
         except Exception as err:
             logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
             return Response(
-                encrypt({"error": "An error occurred while creating the ad."}),
+                encrypt({"error": f"An error occurred while creating the ad: {str(err)}"}),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
