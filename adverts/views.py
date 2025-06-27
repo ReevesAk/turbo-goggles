@@ -259,21 +259,17 @@ class CreateAdView(generics.CreateAPIView):
             serializer = self.get_serializer(data=decrypted_data)
             serializer.is_valid(raise_exception=True)
 
-            # Assign the user directly in the validated data
-            serializer.validated_data["user"] = request.user.id
-
-            # Let the serializer handle the creation
+            serializer.validated_data["user"] = request.user  # Corrected here
             create_ad = serializer.save()
 
-            # Log activity
             ActivityModel.objects.create(
-                user=create_ad,
+                user=request.user,
                 title="Brand Survey",
                 description=f"{request.user} created an Ad successfully.",
             )
 
             return Response(
-                encrypt(serializer.data),
+                encrypt(CreateAdSerializers(create_ad).data),
                 status=status.HTTP_201_CREATED
             )
 
