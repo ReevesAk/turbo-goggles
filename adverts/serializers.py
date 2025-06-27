@@ -131,6 +131,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
         required=False  # Add if these fields can be optional
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = CreateAd
