@@ -202,7 +202,7 @@ class GetAllBrandAdUsers(generics.ListAPIView):
 
 class AdStatsView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         try:
