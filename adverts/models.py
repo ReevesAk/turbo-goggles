@@ -83,6 +83,10 @@ class AdBudget(models.Model):
     payment_option = models.CharField(
         choices=PAYMENT_OPTIONS, max_length=100, null=True
     )
+    is_active_ad = models.BooleanField(default=False)
+    is_completed = models.BooleanField(default=False)
+    is_ongoing = models.BooleanField(default=False)
+    has_made_request = models.BooleanField(default=False)
     ad_type = models.CharField(choices=AD_TYPE, max_length=150)
     category = models.CharField(max_length=150, null=True)
     ad = models.CharField(max_length=100, null=True)

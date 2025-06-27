@@ -49,7 +49,8 @@ from .partners import (
     AdminViewPartnerServiceList,
     PartnerSearch,
 )
-from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers
+from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers, AdStatsView
+from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
 
 
@@ -182,6 +183,8 @@ urlpatterns = [
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
     ),
+    path("ad-profile", GetBrandAdDetails.as_view(), name="ad_profile"),
+    path("ad-stats-view", AdStatsView.as_view(), name="ad-stats_view"),
     # Fmcg admin endpoints
     path("fmcg/add-product", AddProduct.as_view(), name="add_product"),
     path("fmcg/add-address", AddAddress.as_view(), name="add_address"),

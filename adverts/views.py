@@ -23,7 +23,7 @@ from .serializers import (
 # from mail import send_email
 from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
-from .models import CreateAd, AdLocation
+from .models import CreateAd, AdBudget
 from banking.helpers import Pin
 from banking.controllers import Account
 from banking.models import AccountCreation
@@ -416,6 +416,13 @@ class PromoteBrand(generics.CreateAPIView):
                     title="Brand Promotion",
                     description=f"{authenticated_user.whoareyou} promoted their brand successfully.",
                 )
+
+                # Update and save promotion status.
+                promoted_ad = AdBudget.objects.update(
+                    user=authenticated_user
+                )
+                promoted_ad.has_made_request = True
+                promoted_ad.save()
 
                 logger.info(
                     "Brand promotion payment successful for user %s",

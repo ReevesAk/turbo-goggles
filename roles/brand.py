@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import check_password
 # In project imports.
 from .serializers import RestrictBrandAdSerializers, ListBrandAdSerializer
 from .models import RestrictBrandAdAccount, ActivityModel
+from adverts.models import AdBudget
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -177,8 +178,8 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        partners = User.objects.filter(accounttype__user_type="BrandAd").distinct()
-        return partners
+        brand = User.objects.filter(accounttype__user_type="BrandAd").distinct()
+        return brand
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -196,4 +197,47 @@ class GetAllBrandAdUsers(generics.ListAPIView):
                     }
                 ),
                 status=status.HTTP_200_OK,
+            )
+
+
+class AdStatsView(generics.RetrieveAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
+
+    def get(self, request):
+        try:
+            # Raw counts
+            ad_requests = AdBudget.objects.filter(ad_request=True).count()
+            active_ads = AdBudget.objects.filter(is_active_ad=True).count()
+            completed_ads = AdBudget.objects.filter(is_completed=True).count()
+            not_promoted = AdBudget.objects.filter(
+                ad_request=False, is_active_ad=False, is_completed=False
+            ).count()
+
+            # Graph-friendly format
+            graph_data = {
+                "labels": ["Ad Requests", "Active Ads", "Completed Ads", "Not Promoted"],
+                "values": [ad_requests, active_ads, completed_ads, not_promoted],
+            }
+
+            # Full response
+            data = {
+                "status": "success",
+                "message": "All brand advert details retrieved successfully.",
+                "data": {
+                    "No of ad requests": ad_requests,
+                    "No of active_ads": active_ads,
+                    "No of completed_ads": completed_ads,
+                    "No of ads not promoted_yet": not_promoted,
+                },
+                "graph": graph_data,
+            }
+
+            return Response(encrypt(data), status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error("Error fetching ad statistics: %s", str(e), exc_info=True)
+            return Response(
+                encrypt({"error": "Could not fetch ad statistics"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
