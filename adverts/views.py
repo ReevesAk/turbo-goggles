@@ -260,7 +260,7 @@ class CreateAdView(generics.CreateAPIView):
             serializer.is_valid(raise_exception=True)
 
             # Assign the user directly in the validated data
-            serializer.validated_data['brand_user'] = request.user
+            serializer.validated_data["user"] = request.user
 
             # Let the serializer handle the creation
             serializer.save()

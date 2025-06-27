@@ -136,7 +136,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
         model = CreateAd
         fields = [
             "id",
-            "brand_user",  # Make sure this matches your model
+            "user",
             "brand_type",
             "product_type",
             "online_presence",
@@ -152,9 +152,6 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "description",
             "duration",
         ]
-        extra_kwargs = {
-            'brand_user': {'write_only': True}  # If you don't want it in responses
-        }
 
     def create(self, validated_data):
         # Extract non-model fields first
