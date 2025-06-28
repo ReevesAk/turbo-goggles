@@ -207,11 +207,11 @@ class AdStatsView(generics.RetrieveAPIView):
     def get(self, request):
         try:
             # Raw counts
-            ad_requests = AdBudget.objects.filter(ad_request=True).count()
+            ad_requests = AdBudget.objects.filter(has_made_request=True).count()
             active_ads = AdBudget.objects.filter(is_active_ad=True).count()
             completed_ads = AdBudget.objects.filter(is_completed=True).count()
             not_promoted = AdBudget.objects.filter(
-                ad_request=False, is_active_ad=False, is_completed=False
+                has_made_request=False, is_active_ad=False, is_completed=False
             ).count()
 
             # Graph-friendly format
