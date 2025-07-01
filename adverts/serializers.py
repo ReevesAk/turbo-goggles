@@ -191,8 +191,6 @@ class AdSerializers(serializers.ModelSerializer):
             "metric_to_increase",
             "demography",
             "website",
-            "state",
-            "city",
             "type",
             "category",
             "address",
