@@ -216,7 +216,12 @@ class AdStatsView(generics.RetrieveAPIView):
 
             # Graph-friendly format
             graph_data = {
-                "labels": ["Ad Requests", "Active Ads", "Completed Ads", "Not Promoted"],
+                "labels": [
+                    "Ad Requests",
+                    "Active Ads",
+                    "Completed Ads",
+                    "Not Promoted",
+                ],
                 "values": [ad_requests, active_ads, completed_ads, not_promoted],
             }
 

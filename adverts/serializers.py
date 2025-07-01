@@ -121,20 +121,18 @@ class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
 
 class CreateAdSerializers(serializers.ModelSerializer):
     state = serializers.ListField(
-        child=serializers.CharField(max_length=150), 
+        child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False  # Add if these fields can be optional
+        required=False,  # Add if these fields can be optional
     )
     city = serializers.ListField(
-        child=serializers.CharField(max_length=150), 
+        child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False  # Add if these fields can be optional
+        required=False,  # Add if these fields can be optional
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
     user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        write_only=True,
-        required=False
+        queryset=User.objects.all(), write_only=True, required=False
     )
 
     class Meta:
@@ -160,21 +158,39 @@ class CreateAdSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Extract non-model fields first
-        states = validated_data.pop('state', [])
-        cities = validated_data.pop('city', [])
+        states = validated_data.pop("state", [])
+        cities = validated_data.pop("city", [])
 
         # Create the main CreateAd instance
         create_ad = CreateAd.objects.create(**validated_data)
 
         # Create related AdLocation entries
         for state, city in zip(states, cities):
-            AdLocation.objects.create(
-                brand=create_ad,
-                state=state,
-                city=city
-            )
+            AdLocation.objects.create(brand=create_ad, state=state, city=city)
 
         return create_ad
+
+
+class AdSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = CreateAd
+        fields = [
+            "id",
+            "brand_type",
+            "product_type",
+            "online_presence",
+            "online_preferences",
+            "metric_to_increase",
+            "demography",
+            "website",
+            "state",
+            "city",
+            "type",
+            "category",
+            "address",
+            "description",
+            "duration",
+        ]
 
 
 class AdBudgetSerializer(serializers.ModelSerializer):

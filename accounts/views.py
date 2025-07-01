@@ -35,7 +35,6 @@ from .serializers import (
 from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
-from .utils import Liveness
 from roles.models import GamificationModel, ActivityModel
 from sms import Message
 from commons import Biometrics, Messaging

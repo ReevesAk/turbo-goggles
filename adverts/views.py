@@ -18,6 +18,7 @@ from .serializers import (
     UpdateBrandAdProfileSerializers,
     CreateAdSerializers,
     AdBudgetSerializer,
+    AdSerializers,
 )
 
 # from mail import send_email
@@ -271,15 +272,52 @@ class CreateAdView(generics.CreateAPIView):
 
             return Response(
                 encrypt(CreateAdSerializers(create_ad).data),
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
 
         except Exception as err:
             logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
             return Response(
-                encrypt({"error": f"An error occurred while creating the ad: {str(err)}"}),
-                status=status.HTTP_400_BAD_REQUEST
+                encrypt(
+                    {"error": f"An error occurred while creating the ad: {str(err)}"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class SingleAdDetailView(generics.RetrieveAPIView):
+    """SingleAdDetailView is the GET request handler to get the details of a single
+    brandAd of any authenticated Brand advertiser.
+    """
+
+    queryset = CreateAd.objects.all()
+    serializer_class = AdSerializers
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "ad_id"
+
+    def get(self, request, *args, **kwargs):
+        ad_id = kwargs.get("ad_id")
+        logger.info("Received request to retrieve ad details with ID: %s", ad_id)
+
+        try:
+            ad = self.get_queryset().get(id=ad_id)
+        except CreateAd.DoesNotExist:
+            logger.error("Ad with ID %s not found.", ad_id)
+            return Response(
+                data=encrypt({"status": "fail", "message": "Ad not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(ad)
+        logger.info("Ad serialized successfully: %s", ad_id)
+
+        response = {
+            "status": "success",
+            "message": "Ad retrieved successfully!",
+            "data": serializer.data,
+        }
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class PromoteBrand(generics.CreateAPIView):
@@ -418,9 +456,7 @@ class PromoteBrand(generics.CreateAPIView):
                 )
 
                 # Update and save promotion status.
-                promoted_ad = AdBudget.objects.update(
-                    user=authenticated_user
-                )
+                promoted_ad = AdBudget.objects.update(user=authenticated_user)
                 promoted_ad.has_made_request = True
                 promoted_ad.save()
 
