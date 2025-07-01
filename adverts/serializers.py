@@ -178,6 +178,8 @@ class AdLocationSerializer(serializers.ModelSerializer):
 
 
 class AdSerializers(serializers.ModelSerializer):
+    brand_location = AdLocationSerializer(many=True, read_only=True)
+
     class Meta:
         model = CreateAd
         fields = [
