@@ -171,6 +171,12 @@ class CreateAdSerializers(serializers.ModelSerializer):
         return create_ad
 
 
+class AdLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdLocation
+        fields = ["state", "city"]
+
+
 class AdSerializers(serializers.ModelSerializer):
     class Meta:
         model = CreateAd
@@ -190,6 +196,7 @@ class AdSerializers(serializers.ModelSerializer):
             "address",
             "description",
             "duration",
+            "brand_location"
         ]
 
 
