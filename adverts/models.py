@@ -38,7 +38,7 @@ AD_TYPE = (
 
 
 class CreateAd(models.Model):
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="create_ad"
     )
     brand_type = models.CharField(max_length=155, null=True)
