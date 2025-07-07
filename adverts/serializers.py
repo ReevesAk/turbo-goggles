@@ -196,7 +196,7 @@ class AdSerializers(serializers.ModelSerializer):
             "address",
             "description",
             "duration",
-            "brand_location"
+            "brand_location",
         ]
 
 

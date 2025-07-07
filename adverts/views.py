@@ -156,10 +156,10 @@ class OnboardBrandAdvertsAccount(generics.GenericAPIView):
             )
 
 
-class ListAllBrandAds(generics.ListAPIView):
+class ListAllBrandAdsUsers(generics.ListAPIView):
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    permission_classes = [IsAuthenticated, IsBrandAdAdmin]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -189,7 +189,49 @@ class ListAllBrandAds(generics.ListAPIView):
             "Returning full response for BrandAd users. Total count: %d",
             queryset.count(),
         )
-        encrypted_response = encrypt(serializer.data)
+        response = {
+            "status": "success",
+            "message": "All brand ad users retrieved successfully!",
+            "data": serializer.data,
+        }
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+
+class ListAllBrandAds(generics.ListAPIView):
+    serializer_class = AdSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        logger.info("Retrieving all ads created by BrandAd users.")
+        return (
+            CreateAd.objects.filter(brand_user__active_role="BrandAd")
+            .select_related("create_ad")
+            .prefetch_related("brand_location")
+        )
+
+    def list(self, request, *args, **kwargs):
+        logger.info("ListAllBrandAds view created by user: %s", request.user.email)
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        serializer = (
+            self.serializer_class(page, many=True)
+            if page
+            else self.serializer_class(queryset, many=True)
+        )
+        response_data = (
+            self.get_paginated_response(serializer.data).data
+            if page
+            else serializer.data
+        )
+        response = {
+            "status": "success",
+            "message": "All created ads retrieved successfully!",
+            "data": response_data,
+        }
+        encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
@@ -207,7 +249,12 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         # Serialize and return the user's profile details
         serializer = self.get_serializer(user)
         logger.info("Successfully retrieved profile for user: %s", user.email)
-        encrypted_response = encrypt(serializer.data)
+        response = {
+            "status": "success",
+            "message": "Ad detail retrieved successfully!",
+            "data": serializer.data,
+        }
+        encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
