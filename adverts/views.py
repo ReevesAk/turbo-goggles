@@ -205,9 +205,10 @@ class ListAllBrandAds(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
+        user = self.request.user
         logger.info("Retrieving all ads created by BrandAd users.")
         return (
-            CreateAd.objects.filter(user__active_role="BrandAd")
+            CreateAd.objects.filter(user=user)
             .select_related("user")
             .prefetch_related("brand_location")
         )
