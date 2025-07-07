@@ -208,7 +208,7 @@ class ListAllBrandAds(generics.ListAPIView):
         logger.info("Retrieving all ads created by BrandAd users.")
         return (
             CreateAd.objects.filter(brand_user__active_role="BrandAd")
-            .select_related("create_ad")
+            .select_related("user")
             .prefetch_related("brand_location")
         )
 
