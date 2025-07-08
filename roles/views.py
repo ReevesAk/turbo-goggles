@@ -2247,7 +2247,7 @@ class ActivityTitleListView(APIView):
             )
             logger.info("Fetched %d unique non-admin titles.", non_admin_titles.count())
 
-            # Prepare response
+            # Prepare the response containing unique admin and non-admin activity titles
             response = {
                 "status": "success",
                 "message": "All unique activity titles fetched successfully!",

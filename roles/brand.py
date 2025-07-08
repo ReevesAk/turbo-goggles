@@ -178,8 +178,7 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        brand = User.objects.filter(accounttype__user_type="BrandAd").distinct()
-        return brand
+        return User.objects.filter(account_types__user_type="BrandAd").distinct()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -198,6 +197,16 @@ class GetAllBrandAdUsers(generics.ListAPIView):
                 ),
                 status=status.HTTP_200_OK,
             )
+        serialized_users = self.get_serializer(queryset, many=True)
+        return Response(
+            data={
+                "status": "success",
+                "message": "All brand advert users retrieved successfully.",
+                "No of BrandAd Users": queryset.count(),
+                "BrandAd user object": serialized_users.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdStatsView(generics.RetrieveAPIView):
