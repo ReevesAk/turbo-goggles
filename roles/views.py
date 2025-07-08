@@ -2232,16 +2232,15 @@ class ActivityTitleListView(APIView):
             # Filter titles based on the user type through AccountType model
             admin_titles = (
                 ActivityModel.objects.filter(
-                    Q(user__accounttype__user_type__in=admin_roles)
+                    Q(user__account_types__user_type__in=admin_roles)
                 )
                 .values_list("title", flat=True)
                 .distinct()
             )
             logger.info("Fetched %d unique admin titles.", admin_titles.count())
-
             non_admin_titles = (
                 ActivityModel.objects.exclude(
-                    Q(user__accounttype__user_type__in=admin_roles)
+                    Q(user__account_types__user_type__in=admin_roles)
                 )
                 .values_list("title", flat=True)
                 .distinct()
