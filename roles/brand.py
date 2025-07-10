@@ -187,24 +187,24 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data=(
+                data=encrypt((
                     {
                         "status": "success",
                         "message": "All brand advert users retrieved successfully.",
                         "No of BrandAd Users": queryset.count(),
                         "BrandAd user object": serialized_users.data,
                     }
-                ),
+                )),
                 status=status.HTTP_200_OK,
             )
         serialized_users = self.get_serializer(queryset, many=True)
         return Response(
-            data={
+            data=encrypt({
                 "status": "success",
                 "message": "All brand advert users retrieved successfully.",
                 "No of BrandAd Users": queryset.count(),
                 "BrandAd user object": serialized_users.data,
-            },
+            }),
             status=status.HTTP_200_OK,
         )
 
