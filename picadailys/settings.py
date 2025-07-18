@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "self_service",
     "banking",
     "support",
+    "gamification",
     "csp",
 ]
 

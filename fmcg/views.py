@@ -118,7 +118,7 @@ class ListAllProducts(generics.ListAPIView):
     of all fmcg products.
     """
     serializer_class = ProductSerializers
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 

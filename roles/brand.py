@@ -187,24 +187,28 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             return Response(
-                data=encrypt((
-                    {
-                        "status": "success",
-                        "message": "All brand advert users retrieved successfully.",
-                        "No of BrandAd Users": queryset.count(),
-                        "BrandAd user object": serialized_users.data,
-                    }
-                )),
+                data=encrypt(
+                    (
+                        {
+                            "status": "success",
+                            "message": "All brand advert users retrieved successfully.",
+                            "No of BrandAd Users": queryset.count(),
+                            "BrandAd user object": serialized_users.data,
+                        }
+                    )
+                ),
                 status=status.HTTP_200_OK,
             )
         serialized_users = self.get_serializer(queryset, many=True)
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "All brand advert users retrieved successfully.",
-                "No of BrandAd Users": queryset.count(),
-                "BrandAd user object": serialized_users.data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "All brand advert users retrieved successfully.",
+                    "No of BrandAd Users": queryset.count(),
+                    "BrandAd user object": serialized_users.data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -213,14 +217,21 @@ class AdStatsView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def get(self, request):
+    def get(self, request, user_id, *args, **kwargs):
         try:
             # Raw counts
-            ad_requests = AdBudget.objects.filter(has_made_request=True).count()
-            active_ads = AdBudget.objects.filter(is_active_ad=True).count()
-            completed_ads = AdBudget.objects.filter(is_completed=True).count()
+            ad_requests = AdBudget.objects.filter(
+                id=user_id, has_made_request=True
+            ).count()
+            active_ads = AdBudget.objects.filter(id=user_id, is_active_ad=True).count()
+            completed_ads = AdBudget.objects.filter(
+                id=user_id, is_completed=True
+            ).count()
             not_promoted = AdBudget.objects.filter(
-                has_made_request=False, is_active_ad=False, is_completed=False
+                id=user_id,
+                has_made_request=False,
+                is_active_ad=False,
+                is_completed=False,
             ).count()
 
             # Graph-friendly format
