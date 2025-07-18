@@ -16,7 +16,7 @@ from ElasticEmail.models import (
 from decouple import config
 
 from accounts.models import User
-from roles.models import Points
+from gamification.models import Points
 
 elastic_api_key = config("ELASTIC_API_KEY")
 

@@ -5,7 +5,6 @@ from rest_framework import serializers
 
 # In project imports.
 from .models import User
-from roles.models import GamificationModel
 
 
 logger = logging.getLogger(__name__)
@@ -185,14 +184,3 @@ class LogoutSerializer(serializers.Serializer):
         fields = [
             "refresh_token",
         ]
-
-
-class SubmitGamificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GamificationModel
-        fields = ["task_id", "task_url"]
-
-    def validate(self, attrs):
-        task_id = attrs.get("task_id")
-        logger.info("Submit task request for phone number: %s", task_id)
-        return attrs

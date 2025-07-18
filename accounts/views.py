@@ -30,15 +30,13 @@ from .serializers import (
     ForgotPasswordSerializer,
     PasswordResendOTPSerializer,
     LogoutSerializer,
-    SubmitGamificationSerializer,
 )
 from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
-from roles.models import GamificationModel, ActivityModel
+from roles.models import ActivityModel
 from sms import Message
 from commons import Biometrics, Messaging
-from permissions import IsUserOrMember
 from security import encrypt, decrypt
 
 
@@ -739,65 +737,65 @@ class ResetPassword(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-class SubmitGamification(generics.CreateAPIView):
-    """
-    SubmitGamification handles the POST request that allows a User/Member
-    to submit a gamification task result.
-    """
+# class SubmitGamification(generics.CreateAPIView):
+#     """
+#     SubmitGamification handles the POST request that allows a User/Member
+#     to submit a gamification task result.
+#     """
 
-    serializer_class = SubmitGamificationSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsUserOrMember)
+#     serializer_class = SubmitGamificationSerializer
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated, IsUserOrMember)
 
-    def post(self, request):
-        decrypted_payload = decrypt(request.data)
-        payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
-        }
+#     def post(self, request):
+#         decrypted_payload = decrypt(request.data)
+#         payload = {
+#             key: value.strip() if isinstance(value, str) else value
+#             for key, value in decrypted_payload.items()
+#         }
 
-        current_user = request.user
-        serializer = self.get_serializer(data=payload)
-        if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         current_user = request.user
+#         serializer = self.get_serializer(data=payload)
+#         if not serializer.is_valid(raise_exception=True):
+#             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        task_id = serializer.validated_data["task_id"]
+#         task_id = serializer.validated_data["task_id"]
 
-        try:
-            task = GamificationModel.objects.get(task_id=task_id)
-            logger.info(f"Gamification task found: {task_id}")
-        except User.DoesNotExist:
-            logger.error(f"Gamification task not found for ID: {task_id}")
-            raise Customexceptions.not_found(item_not_found=task_id)
+#         try:
+#             task = GamificationModel.objects.get(task_id=task_id)
+#             logger.info(f"Gamification task found: {task_id}")
+#         except User.DoesNotExist:
+#             logger.error(f"Gamification task not found for ID: {task_id}")
+#             raise Customexceptions.not_found(item_not_found=task_id)
 
-        task.url = serializer.validated_data["task_url"]
-        task.save()
+#         task.url = serializer.validated_data["task_url"]
+#         task.save()
 
-        UserNotification.objects.create(
-            user=request.user,
-            title="Submit Gamification.",
-            message="You have successfully submitted your gamification task.",
-        )
+#         UserNotification.objects.create(
+#             user=request.user,
+#             title="Submit Gamification.",
+#             message="You have successfully submitted your gamification task.",
+#         )
 
-        ActivityModel.objects.create(
-            user=current_user,
-            title="Submit Gamification.",
-            description=f"{current_user.first_name} {current_user.last_name} submitted a gamification task.",
-        )
+#         ActivityModel.objects.create(
+#             user=current_user,
+#             title="Submit Gamification.",
+#             description=f"{current_user.first_name} {current_user.last_name} submitted a gamification task.",
+#         )
 
-        response_data = {
-            "status": "Success",
-            "message": "Task submitted successfully, please wait for review.",
-            "data": {
-                "task_id": task.task_id,
-                "title": task.title,
-                "description": task.description,
-            },
-        }
-        encrypt_response = encrypt(response_data)
+#         response_data = {
+#             "status": "Success",
+#             "message": "Task submitted successfully, please wait for review.",
+#             "data": {
+#                 "task_id": task.task_id,
+#                 "title": task.title,
+#                 "description": task.description,
+#             },
+#         }
+#         encrypt_response = encrypt(response_data)
 
-        logger.info(f"Gamification task {task_id} submission completed successfully")
-        return Response(data=encrypt_response, status=status.HTTP_200_OK)
+#         logger.info(f"Gamification task {task_id} submission completed successfully")
+#         return Response(data=encrypt_response, status=status.HTTP_200_OK)
 
 
 class Logout(APIView):

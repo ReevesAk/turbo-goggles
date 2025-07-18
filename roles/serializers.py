@@ -6,12 +6,12 @@ from accounts.models import User
 from banking.models import AccountCreation
 
 from .models import (
-    GamificationModel,
     Applications,
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
     ActivityModel,
 )
+from gamification.models import GamificationModel
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from security import encrypt
 

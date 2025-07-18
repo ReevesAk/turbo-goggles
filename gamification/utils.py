@@ -24,7 +24,7 @@ nextbee_advertiser_id = conf("NEXTBEE_ADVERTISER_ID")
 nextbee_program_id = conf("NEXTBEE_PROGRAM_ID")
 
 
-class JWTUtils:
+class NextBee:
     @staticmethod
     def encrypt_nb(self, data: str, key: str) -> str:
         encrypted = ''.join(chr(ord(data[i]) ^ ord(key[i % len(key)])) for i in range(len(data)))
@@ -64,29 +64,23 @@ class JWTUtils:
     @staticmethod
     def sso_login(
         self,
-        env: str,
-        email: str,
-        program_id: int,
-        advertiser_id: str,
-        ssoRegisterWidgetConfigId: int,
-        ssoLoginWidgetConfigId: int,
-
+        email: str
     ) -> str:
         """
         Login to NextBee SSO.
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.generate_jwt_token(advertiser_id, email)}"
+            "Authorization": f"Bearer {self.generate_jwt_token(nextbee_advertiser_id, email)}"
         }
 
         url = f"{nextbee_base_url}/client/sso/login"
         payload = {
-            "env": env,
+            "env": nextbee_environment,
             "email": email,
             "programId": program_id,
-            "ssoRegisterWidgetConfigId": ssoRegisterWidgetConfigId,
-            "ssoLoginWidgetConfigId": ssoLoginWidgetConfigId
+            "ssoRegisterWidgetConfigId": sso_register_widget_config,
+            "ssoLoginWidgetConfigId": sso_login_widget_config
         }
         try:
             response = requests.post(

@@ -38,7 +38,8 @@ from .serializers import (
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
-from roles.models import Points, ActivityModel
+from roles.models import ActivityModel
+from gamification.models import Points
 from vas.helpers import VAS
 from self_service.models import (
     LandTravels,
@@ -56,6 +57,7 @@ from vas.models import (
     WaecRegistration,
     ElectricityBill,
 )
+from gamification.utils import NextBee
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 
@@ -769,6 +771,17 @@ class PostMemberSurvey(generics.CreateAPIView):
                 f"User {user.first_name} {user.last_name} has completed the survey and updated done_survey status."
             )
 
+            resp = NextBee.sso_login(
+                email=user.email,
+            )
+            if resp.status_code == 200:
+                logger.info(
+                    f"SSO login successful for user {user.first_name} {user.last_name}."
+                )
+            else:
+                logger.error(
+                    f"SSO login failed for user {user.first_name} {user.last_name}: {resp.text}"
+                )
             response = {
                 "status": "success",
                 "message": "Survey completed successfully!",

@@ -22,7 +22,7 @@ from .serializers import (
     ReviewTaskSerializer,
 )
 from accounts.models import User
-from .models import GamificationModel, Points
+from gamification.models import GamificationModel, Points
 from permissions import IsTaskAdmin, IsSuperAdmin
 from security import encrypt, decrypt
 
