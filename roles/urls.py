@@ -184,7 +184,7 @@ urlpatterns = [
         name="get_all_brandAds",
     ),
     path("ad-profile", GetBrandAdDetails.as_view(), name="ad_profile"),
-    path("ad-stats-view", AdStatsView.as_view(), name="ad-stats_view"),
+    path("ad-stats-view/<int:user_id>/", AdStatsView.as_view(), name="ad-stats_view"),
     # Fmcg admin endpoints
     path("fmcg/add-product", AddProduct.as_view(), name="add_product"),
     path("fmcg/add-address", AddAddress.as_view(), name="add_address"),

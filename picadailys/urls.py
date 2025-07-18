@@ -43,6 +43,8 @@ urlpatterns = [
     path("v1/accounts/", include("accounts.urls")),
     # Partners endpoints.
     path("v1/partners/", include("partners.urls")),
+    # Gamification endpoints.
+    path("v1/gamification/", include("gamification.urls")),
     # Brand Adverts endpoints.
     path("v1/adverts/", include("adverts.urls")),
     # VAS endpoints.
