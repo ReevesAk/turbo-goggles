@@ -221,42 +221,30 @@ class StatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 
-class AssignTaskSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = GamificationModel
-        fields = ["title", "task_id", "description", "assigned_to"]
+# class GetAllTaskSerializer(serializers.Serializer):
+#     message = serializers.CharField(max_length=200)
 
 
-class UpdateTaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GamificationModel
-        fields = ["user_id", "title", "task_id", "description", "assigned_to"]
+# class GetSingleTaskSerializer(serializers.Serializer):
+#     message = serializers.CharField(max_length=200)
 
 
-class GetAllTaskSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
+# class GetAllSubittedTasksSerializer(serializers.Serializer):
+#     class Meta:
+#         model = GamificationModel
+#         fields = [
+#             "task_url",
+#         ]
 
 
-class GetSingleTaskSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
+# class GetSingleSubmittedTaskSerializer(serializers.Serializer):
+#     message = serializers.CharField(max_length=200)
 
 
-class GetAllSubittedTasksSerializer(serializers.Serializer):
-    class Meta:
-        model = GamificationModel
-        fields = [
-            "task_url",
-        ]
-
-
-class GetSingleSubmittedTaskSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
-
-class ReviewTaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GamificationModel
-        fields = ["user_id", "remarks", "pts"]
+# class ReviewTaskSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = GamificationModel
+#         fields = ["user_id", "remarks", "pts"]
 
 
 class ApplicationsSerializers(serializers.ModelSerializer):
