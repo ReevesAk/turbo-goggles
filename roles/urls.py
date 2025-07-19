@@ -32,15 +32,15 @@ from .views import (
     GetAllWalletStatus,
     ActivityTitleListView,
 )
-from .tasks import (
-    AssignTask,
-    GetAllTasks,
-    GetSingleTask,
-    UpdateUserTask,
-    GetAllSubmittedTasks,
-    GetSingleSubmittedTask,
-    ReviewTask,
-)
+# from .tasks import (
+#     AssignTask,
+#     GetAllTasks,
+#     GetSingleTask,
+#     UpdateUserTask,
+#     GetAllSubmittedTasks,
+#     GetSingleSubmittedTask,
+#     ReviewTask,
+# )
 from .wallets import GetallWalletUsers, CreateBankAccountForUser, WalletSearch
 
 from .partners import (
