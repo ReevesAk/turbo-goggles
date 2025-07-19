@@ -765,7 +765,7 @@ class PostMemberSurvey(generics.CreateAPIView):
                 description=f"{request.user.first_name} {request.user.last_name} has completed Member account survey.",
             )
 
-            user.done_survey = True
+            user.has_done_survey = True
             user.save()
             logger.info(
                 f"User {user.first_name} {user.last_name} has completed the survey and updated done_survey status."
