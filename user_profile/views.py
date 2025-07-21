@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 
 from .serializers import (
@@ -1259,7 +1260,7 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     lookup_field = "id"
 
 
-class CustomerTicketCreation(generics.CreateAPIView):
+class CustomerTicketCreation(generics.GenericAPIView):
     """
     CustomerTicketCreation is the POST request handler for allowing a
     user to create a support ticket.
@@ -1269,7 +1270,14 @@ class CustomerTicketCreation(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def create(self, request, *args, **kwargs):
+    @extend_schema(
+        request=SupportTicketSerializer,
+        responses={
+            201: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        }
+    )
+    def post(self, request, *args, **kwargs):
         logger.info(
             "User  %s is attempting to create a support ticket.", request.user.email
         )
