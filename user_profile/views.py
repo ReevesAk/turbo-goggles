@@ -1269,7 +1269,7 @@ class CustomerTicketCreation(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request, *args, **kwargs):
+    def create(self, request, *args, **kwargs):
         logger.info(
             "User  %s is attempting to create a support ticket.", request.user.email
         )
