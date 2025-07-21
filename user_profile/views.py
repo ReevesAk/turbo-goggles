@@ -1270,13 +1270,6 @@ class CustomerTicketCreation(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        request=SupportTicketSerializer,
-        responses={
-            201: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        }
-    )
     def post(self, request, *args, **kwargs):
         logger.info(
             "User  %s is attempting to create a support ticket.", request.user.email
