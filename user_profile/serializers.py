@@ -155,7 +155,7 @@ class FavouriteSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "content_type", "object_id", "added_at"]
 
 
-class SupportTicketSerializer(serializers.Serializer):
+class SupportTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = ["description", "category"]
