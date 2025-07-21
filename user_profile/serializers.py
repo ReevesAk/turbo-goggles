@@ -156,8 +156,6 @@ class FavouriteSerializer(serializers.ModelSerializer):
 
 
 class SupportTicketSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
-
     class Meta:
         model = Ticket
         fields = ["description", "category"]

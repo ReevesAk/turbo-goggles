@@ -35,7 +35,7 @@ from .serializers import (
     SwitchToBrandAdSerializer,
     AddToFavouriteSerializer,
     FavouriteSerializer,
-    SupportTicketSerializer
+    SupportTicketSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
@@ -1270,7 +1270,9 @@ class CustomerTicketCreation(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
-        logger.info("User  %s is attempting to create a support ticket.", request.user.email)
+        logger.info(
+            "User  %s is attempting to create a support ticket.", request.user.email
+        )
 
         decrypted_payload = decrypt(request.data)
         payload = {
@@ -1280,7 +1282,10 @@ class CustomerTicketCreation(generics.CreateAPIView):
 
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
-            logger.warning("User  %s provided invalid data for creating a support ticket.", request.user.email)
+            logger.warning(
+                "User  %s provided invalid data for creating a support ticket.",
+                request.user.email,
+            )
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
@@ -1321,5 +1326,5 @@ class CustomerTicketCreation(generics.CreateAPIView):
                     },
                 }
             ),
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )

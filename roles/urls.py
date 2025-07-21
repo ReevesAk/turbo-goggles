@@ -32,6 +32,7 @@ from .views import (
     GetAllWalletStatus,
     ActivityTitleListView,
 )
+
 # from .tasks import (
 #     AssignTask,
 #     GetAllTasks,
