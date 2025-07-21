@@ -139,10 +139,12 @@ class RegisterManager(generics.GenericAPIView):
 
 class CreateTicket(generics.CreateAPIView):
     """
-    CreateTicket handles the POST request of logging an issue from
+    CreateTicket handles the POST request of logging an issue for
     a customer and generating a ticket.
     """
     serializer_class = CreateTicketSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def create(self, request, *args, **kwargs):
         logger.info("Received request to create a support ticket.")
@@ -206,7 +208,7 @@ class CreateTicket(generics.CreateAPIView):
         ActivityModel.objects.create(
             user=user,
             title="Create Ticket",
-            message="Support ticket has been created for your issue"
+            message=f"Support ticket has been created for user: {user.first_name} {user.last_name}, issue: {category}"
         )
         logger.info("Activity logged for user: %s", user)
 

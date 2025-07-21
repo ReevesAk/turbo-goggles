@@ -5,6 +5,7 @@ from rest_framework import serializers
 from accounts.models import User, UserNotification
 from .models import MemberSurvey
 from fmcg.models import Favourite
+from support.models import Ticket
 
 
 class ProfileImageSerializer(serializers.Serializer):
@@ -152,3 +153,11 @@ class FavouriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favourite
         fields = ["id", "user", "content_type", "object_id", "added_at"]
+
+
+class SupportTicketSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=200)
+
+    class Meta:
+        model = Ticket
+        fields = ["description", "category"]

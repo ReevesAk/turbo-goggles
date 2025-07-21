@@ -16,6 +16,7 @@ from .views import (
     AddToFavourite,
     ListFavourites,
     RetrieveFavourite,
+    CustomerTicketCreation,
 )
 from .notifications import (
     GetAllNotifications,
@@ -57,4 +58,5 @@ urlpatterns = [
     path("favourites/add", AddToFavourite.as_view(), name="add_favourite"),
     path("favourites/list-all", ListFavourites.as_view(), name="list_favourites"),
     path("favourites/<uuid:id>/get", RetrieveFavourite.as_view(), name="get_favourite"),
+    path("customer-ticket", CustomerTicketCreation.as_view(), name="customer_ticket_creation"),
 ]

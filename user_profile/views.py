@@ -35,10 +35,12 @@ from .serializers import (
     SwitchToBrandAdSerializer,
     AddToFavouriteSerializer,
     FavouriteSerializer,
+    SupportTicketSerializer
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import ActivityModel
+from support.models import Ticket
 from gamification.models import Points
 from vas.helpers import VAS
 from self_service.models import (
@@ -1255,3 +1257,69 @@ class RetrieveFavourite(generics.RetrieveAPIView):
 
     # Specify the field used for lookups
     lookup_field = "id"
+
+
+class CustomerTicketCreation(generics.CreateAPIView):
+    """
+    CustomerTicketCreation is the POST request handler for allowing a
+    user to create a support ticket.
+    """
+
+    serializer_class = SupportTicketSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        logger.info("User  %s is attempting to create a support ticket.", request.user.email)
+
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            logger.warning("User  %s provided invalid data for creating a support ticket.", request.user.email)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ticket = Ticket.objects.create(
+            user=request.user,
+            description=payload.get("description"),
+            category=payload.get("category"),
+            status="Queuing",
+            channel="App",
+            escalation_level="Management",
+        )
+
+        UserNotification.objects.create(
+            user=request.user,
+            title="Create Ticket.",
+            message="You have successfully created a support ticket.",
+        )
+
+        ActivityModel.objects.create(
+            user=request.user,
+            title="Create Ticket.",
+            description=f"{request.user.first_name}  with email {request.user.email} has successfully created a support ticket.",
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Support ticket created successfully, support will get back to you soon.",
+                    "data": {
+                        "Ticket Number": ticket.number,
+                        "Category": payload.get("category"),
+                        "Description": payload.get("description"),
+                        "Channel": "App",
+                        "Escalation Level": "Management",
+                        "Status": "Queuing",
+                    },
+                }
+            ),
+            status=status.HTTP_201_CREATED
+        )

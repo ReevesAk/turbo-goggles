@@ -11,6 +11,7 @@ ESCALATION_LEVEL = (
 )
 
 STATUS = (
+    ("Queuing", "Queuing"),
     ("Closed", "Closed"),
     ("In-Progress", "In-Progress"),
     ("Unopened", "Unopened"),
