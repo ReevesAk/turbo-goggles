@@ -128,6 +128,15 @@ class ClaimRewardSerializers(serializers.Serializer):
         fields = ["service_id", "phone_number", "form_of_gift"]
 
 
+class SSOLoginSerializer(serializers.ModelField):
+
+    class Meta:
+        model = User
+        fields = [
+            "email",
+        ]
+
+
 class SwitchToUserSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 

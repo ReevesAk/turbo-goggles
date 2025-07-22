@@ -18,7 +18,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 
 from drf_spectacular.utils import extend_schema
-from drf_spectacular.types import OpenApiTypes
 
 
 from .serializers import (
@@ -37,6 +36,7 @@ from .serializers import (
     AddToFavouriteSerializer,
     FavouriteSerializer,
     SupportTicketSerializer,
+    SSOLoginSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
@@ -773,18 +773,7 @@ class PostMemberSurvey(generics.CreateAPIView):
             logger.info(
                 f"User {user.first_name} {user.last_name} has completed the survey and updated done_survey status."
             )
-
-            resp = NextBee.sso_login(
-                email=user.email,
-            )
-            if resp.status_code == 200:
-                logger.info(
-                    f"SSO login successful for user {user.first_name} {user.last_name}."
-                )
-            else:
-                logger.error(
-                    f"SSO login failed for user {user.first_name} {user.last_name}: {resp.text}"
-                )
+            # Prepare the response data
             response = {
                 "status": "success",
                 "message": "Survey completed successfully!",
@@ -801,6 +790,44 @@ class PostMemberSurvey(generics.CreateAPIView):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
+    """NextBeeGamificationLSSOLogin is the POST request handler for
+    NextBee Gamification SSO login.
+    """
+
+    serializer_class = SSOLoginSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsUserOrMember)
+
+    def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        if serializer.is_valid():
+            email = serializer.validated_data["email"]
+            resp = NextBee.sso_login(email=email)
+            if resp.status_code == 200:
+                logger.info(
+                    f"SSO login successful for user {request.user.first_name} {request.user.last_name}."
+                )
+                return Response(data=encrypt(resp.json()), status=status.HTTP_200_OK)
+            else:
+                logger.error(
+                    f"SSO login failed for user {request.user.first_name} {request.user.last_name}: {resp.text}"
+                )
+                return Response(
+                    data=encrypt({"error": "SSO login failed."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return Response(
+            data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class DeleteUser(generics.DestroyAPIView):
