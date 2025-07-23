@@ -9,7 +9,6 @@ from decouple import config as conf
 from rest_framework.response import Response
 from rest_framework import status
 
-
 logger = logging.getLogger(__name__)
 
 nextbee_base_url = conf("NEXTBEE_BASE_URL")

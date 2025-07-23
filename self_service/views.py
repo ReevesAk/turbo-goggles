@@ -1,4 +1,4 @@
-from permissions import IsUserOrMember, IsSuperAdmin
+from permissions import IsSuperAdmin, IsMember
 
 # Third party imports
 from rest_framework import generics, status
@@ -58,7 +58,7 @@ class PaginationStyle(PageNumberPagination):
 class TableBooking(generics.CreateAPIView):
     serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = RestaurantBookingSerializers(data=request.data)
@@ -248,7 +248,7 @@ class TableBookingList(generics.ListAPIView):
 
     serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -275,7 +275,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -301,7 +301,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
 class GymBooking(generics.CreateAPIView):
     serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = GymSubcriptionSerializers(data=request.data)
@@ -485,7 +485,7 @@ class GymBookingList(generics.ListAPIView):
 
     serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -512,7 +512,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -538,7 +538,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
 class CinemaBookingView(generics.CreateAPIView):
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -720,7 +720,7 @@ class CinemaBookingList(generics.ListAPIView):
 
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -747,7 +747,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -773,7 +773,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
 class BookCourierSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = CourierBookingSerializers(data=request.data)
@@ -957,7 +957,7 @@ class CourierBookingList(generics.ListAPIView):
 
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_queryset(self):
         user = self.request.user
@@ -984,7 +984,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1010,7 +1010,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
 class BookConsumableSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     queryset = ConsumableService.objects.all()
 
     def create(self, request, *args, **kwargs):
@@ -1167,7 +1167,7 @@ class ConsumableBookingList(generics.ListAPIView):
 
     serializer_class = ConsumableSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1195,7 +1195,7 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = ConsumableSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1225,7 +1225,7 @@ class BookLandTrip(generics.GenericAPIView):
 
     serializer_class = LandTravelsSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1372,7 +1372,7 @@ class LandTripBookingDetail(generics.RetrieveAPIView):
 
     serializer_class = LandTravelsSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1400,7 +1400,7 @@ class LandTripBookingList(generics.ListAPIView):
 
     serializer_class = LandTravelsSerilaizers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1427,7 +1427,7 @@ class BookHotel(generics.GenericAPIView):
 
     serializer_class = HotelSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1613,7 +1613,7 @@ class ServiceRating(generics.GenericAPIView):
 
     serializer_class = CustomerRatingSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     lookup_field = "id"
 
     def post(self, request, *args, **kwargs):
@@ -1690,7 +1690,7 @@ class GetTransaction(generics.RetrieveAPIView):
 
     serializer_class = GetTransactionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsUserOrMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_queryset(self, request):
         decrypted_payload = decrypt(request.data)

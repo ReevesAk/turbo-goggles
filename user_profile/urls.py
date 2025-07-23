@@ -17,7 +17,6 @@ from .views import (
     ListFavourites,
     RetrieveFavourite,
     CustomerTicketCreation,
-    NextBeeGamificationLSSOLogin
 )
 from .notifications import (
     GetAllNotifications,
@@ -63,10 +62,5 @@ urlpatterns = [
         "customer-ticket",
         CustomerTicketCreation.as_view(),
         name="customer_ticket_creation",
-    ),
-    path(
-        "nextbee-gamification-sso-login",
-        NextBeeGamificationLSSOLogin.as_view(),
-        name="nextbee_gamification_sso_login",
     ),
 ]
