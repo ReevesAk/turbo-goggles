@@ -2,7 +2,7 @@ import logging
 
 from sms import Message
 from commons import Messaging
-from permissions import IsSuperAdmin, IsUserOrMember
+from permissions import IsSuperAdmin, IsMember
 
 from django.contrib.auth.hashers import check_password
 from django.contrib.contenttypes.models import ContentType
@@ -36,7 +36,6 @@ from .serializers import (
     AddToFavouriteSerializer,
     FavouriteSerializer,
     SupportTicketSerializer,
-    SSOLoginSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
 from accounts.models import User, Rewards, UserNotification, AccountType
@@ -60,7 +59,6 @@ from vas.models import (
     WaecRegistration,
     ElectricityBill,
 )
-from gamification.utils import NextBee
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 
@@ -732,7 +730,7 @@ class PostMemberSurvey(generics.CreateAPIView):
 
     serializer_class = MemberSurverySerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsUserOrMember)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def create(self, request):
         user = request.user
@@ -790,44 +788,6 @@ class PostMemberSurvey(generics.CreateAPIView):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
-
-
-class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
-    """NextBeeGamificationLSSOLogin is the POST request handler for
-    NextBee Gamification SSO login.
-    """
-
-    serializer_class = SSOLoginSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsUserOrMember)
-
-    def post(self, request, *args, **kwargs):
-        decrypted_payload = decrypt(request.data)
-        payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
-        }
-
-        serializer = self.get_serializer(data=payload)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
-            resp = NextBee.sso_login(email=email)
-            if resp.status_code == 200:
-                logger.info(
-                    f"SSO login successful for user {request.user.first_name} {request.user.last_name}."
-                )
-                return Response(data=encrypt(resp.json()), status=status.HTTP_200_OK)
-            else:
-                logger.error(
-                    f"SSO login failed for user {request.user.first_name} {request.user.last_name}: {resp.text}"
-                )
-                return Response(
-                    data=encrypt({"error": "SSO login failed."}),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        return Response(
-            data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-        )
 
 
 class DeleteUser(generics.DestroyAPIView):
@@ -902,7 +862,7 @@ class OpenRewardBox(generics.GenericAPIView):
 
     serializer_class = OpenRewardBoxSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsUserOrMember)
+    permission_classes = (IsAuthenticated, IsMember)
 
     @extend_schema(
         description="Open Reward view",
@@ -993,7 +953,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
 
     serializer_class = ClaimRewardSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsUserOrMember)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request):
         authenticated_user = request.user

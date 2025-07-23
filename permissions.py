@@ -66,19 +66,19 @@ class IsAuthenticatedOrGuestWithValidId(permissions.BasePermission):
             return False
 
 
-class IsUser(permissions.BasePermission):
+class HasCompletedSurvey(permissions.BasePermission):
+    """
+    Allows access only to authenticated users who have completed the survey.
+    """
+
     def has_permission(self, request, view):
-        # Required type.
-        required_user_types = ["User"]
+        if not request.user.is_authenticated:
+            raise ValidationError(encrypt("Authentication is required to access this resource."))
 
-        if request.user.is_authenticated:
-            # Check if the user_type matches the required user_type
-            if request.user.active_role in required_user_types:
-                return True
-            else:
-                raise ValidationError(encrypt("Only Users can perform this action."))
+        if request.user.has_done_survey:
+            return True
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(encrypt("You need to complete the survey to access this resource."))
 
 
 class VasPermission(permissions.BasePermission):
@@ -142,10 +142,10 @@ class IsPartnerUserOrMember(permissions.BasePermission):
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
-class IsUserOrMember(permissions.BasePermission):
+class IsMember(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["User", "Member"]
+        required_user_types = ["Member"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
