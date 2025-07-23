@@ -25,7 +25,7 @@ class StepCampaignSerializer(serializers.ModelSerializer):
         model = StepCampaignModel
         fields = [
             'id', "campaign_id", "name", "duration", "step_target", "reward_points",
-            "created_by", "created_at", "user", "session_id", "session_date",
+            "created_by", "created_at", "session_id", "session_date",
             "step_count", "completed", "last_updated", "time_limit",
             "total_steps", "is_campaign_active", "time_remaining"
         ]
