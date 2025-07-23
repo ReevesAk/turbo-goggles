@@ -26,10 +26,10 @@ class StepCampaignSerializer(serializers.ModelSerializer):
         fields = [
             'id', "campaign_id", "name", "duration", "step_target", "reward_points",
             "created_by", "created_at", "description",
-            "completed", "last_updated", "time_limit",
+            "completed", "time_limit",
             "total_steps", "is_campaign_active", "time_remaining"
         ]
-        read_only_fields = ['created_by', 'created_at', 'session_id', 'last_updated']
+        read_only_fields = ['created_by', 'created_at']
 
 
 class StepCampaignListSerializer(serializers.ModelSerializer):
