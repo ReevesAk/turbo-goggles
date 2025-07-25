@@ -1,7 +1,5 @@
 from django.utils import timezone
 
-from exceptions import Customexceptions
-
 import logging
 
 from django.template.loader import render_to_string
@@ -35,6 +33,7 @@ from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
+from gamification.utils import NextBee
 from sms import Message
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
@@ -576,6 +575,9 @@ class Login(APIView):
             user=user,
             title="Login.",
             description=f"{user.first_name} {user.last_name} successfully logged into their account.",
+        )
+        NextBee.member_activity(
+            member_email=user.email, activityId="8474", numericValue="10"
         )
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])

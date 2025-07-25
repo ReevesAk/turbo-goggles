@@ -161,3 +161,25 @@ class NextBee:
             return Response(
                 data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def points_summary(self, member_email: str) -> str:
+        """
+        Get the points summary for a member.
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.get_token(nextbee_advertiser_id, admin_email)}"
+        }
+
+        url = f"{nextbee_base_url}/points-summary?email={member_email}"
+        try:
+            response = requests.get(
+                url=url,
+                headers=headers
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Points summary API request error: {str(e)}")
+            return Response(
+                data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

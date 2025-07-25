@@ -11,7 +11,6 @@ from .models import (
     RestrictBrandAdAccount,
     ActivityModel,
 )
-from gamification.models import GamificationModel
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from security import encrypt
 

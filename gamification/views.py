@@ -172,3 +172,28 @@ class JoinOrAddStepsView(generics.GenericAPIView):
             }),
             status=status.HTTP_200_OK
         )
+
+
+class GetMemberPointsSummary(generics.GenericAPIView):
+    """
+    GetMemberPointsSummary is the GET request handler that allows a user to
+    retrieve their points summary from NextBee.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+
+    def get(self, request, *args, **kwargs):
+        member_email = request.user.email
+        response = NextBee.points_summary(member_email)
+        if isinstance(response, Response):
+            return response
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Points summary retrieved successfully.",
+                    "data": response.json() if response.status_code == 200 else response.text
+                }
+            ),
+            status=status.HTTP_200_OK
+        )
