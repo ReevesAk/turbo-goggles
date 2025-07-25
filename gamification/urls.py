@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     NextBeeGamificationLSSOLogin,
-    JoinOrAddStepsView
+    JoinOrAddStepsView,
+    GetMemberPointsSummary
 )
 
 app_name = "gamification"
@@ -17,4 +18,5 @@ urlpatterns = [
         JoinOrAddStepsView.as_view(),
         name="join_or_add_steps",
     ),
+    path("get-member-points-summary", GetMemberPointsSummary.as_view(), name="get_member_points_summary"),
 ]
