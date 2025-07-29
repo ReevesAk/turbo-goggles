@@ -34,6 +34,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
 from gamification.utils import NextBee
+from gamification.points import calculate_points
 from sms import Message
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
@@ -576,9 +577,16 @@ class Login(APIView):
             title="Login.",
             description=f"{user.first_name} {user.last_name} successfully logged into their account.",
         )
-        NextBee.member_activity(
-            member_email=user.email, activityId="8474", numericValue="10"
-        )
+        if user.has_done_survey:
+            # Calculate points for daily login activity
+            logger.info("Calculating points for user %s daily login activity.", user.phone_number)
+            points = calculate_points(activity_type="daily_login", level=user.level)
+            NextBee.member_activity(
+                member_email=user.email, activityId="8474", numericValue=str(points)
+            )
+        else:
+            pass
+
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 

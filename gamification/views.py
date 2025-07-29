@@ -2,9 +2,6 @@ import logging
 from decouple import config as conf
 
 from django.utils import timezone
-from django.db.models import Sum
-from django.shortcuts import get_object_or_404
-
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -19,6 +16,7 @@ from .serializers import (
 )
 from .models import StepCampaignModel, StepSessionModel
 
+from accounts.models import User
 from gamification.utils import NextBee
 from security import encrypt, decrypt
 from permissions import HasCompletedSurvey, IsMember
@@ -185,6 +183,12 @@ class GetMemberPointsSummary(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         member_email = request.user.email
         response = NextBee.points_summary(member_email)
+
+        user = request.user
+        user.total_points = response.json().get("points").get("available", 0) if isinstance(response, Response) else 0
+        user.update_level()
+        user.save()
+
         if isinstance(response, Response):
             return response
         return Response(
