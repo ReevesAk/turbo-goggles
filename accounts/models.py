@@ -68,6 +68,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False)
     is_member = models.BooleanField(default=False)
     has_done_survey = models.BooleanField(default=False)
+    total_points = models.IntegerField(default=0, null=True)
+    level = models.CharField(max_length=20, default="Starter", null=True)
     welcome_bonus = models.FloatField(default=Decimal("0.00"))
     has_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
@@ -121,6 +123,22 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.phone_number
+
+    def update_level(self):
+        LEVELS = [
+            {"title": "Starter", "min_points": 0},
+            {"title": "Explorer", "min_points": 400},
+            {"title": "Challenger", "min_points": 800},
+            {"title": "Influencer", "min_points": 1500},
+            {"title": "Champion", "min_points": 2500},
+            {"title": "Elite", "min_points": 4000},
+            {"title": "Legend", "min_points": 6000},
+        ]
+
+        for level in reversed(LEVELS):
+            if self.total_points >= level["min_points"]:
+                self.level = level["title"]
+                break
 
 
 class AccountType(models.Model):

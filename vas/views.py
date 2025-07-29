@@ -31,6 +31,8 @@ from banking.models import AccountCreation
 from banking.controllers import Account
 from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
+from gamification.points import calculate_points
+from gamification.utils import NextBee
 from .controllers import (
     airtime,
     data,
@@ -336,6 +338,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                             title="Airtime purchase",
                             description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -973,6 +983,14 @@ class DataSubscriptionView(generics.GenericAPIView):
                             title="Data subscription",
                             description=f"{user.first_name} {user.last_name} has made a purchase of {new_amount} naira data subscription on {phone}",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -1594,6 +1612,14 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                             title="Electricity payment",
                             description=f"{user.first_name} {user.last_name} has made a payment of {new_amount} for electricity bill.",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2325,6 +2351,14 @@ class NewTvSubscription(generics.GenericAPIView):
                             title="New TV subscription",
                             description=f"{user.first_name} {user.last_name} made a payment of {new_amount} for a new Cable TV subscription.",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2354,6 +2388,14 @@ class NewTvSubscription(generics.GenericAPIView):
                                 title="New TV subscription",
                                 description=f"{user.first_name} {user.last_name} made a payment of {new_amount} for a new Cable TV subscription.",
                             )
+                            if user.has_done_survey:
+                                # Calculate points for service purchase activity
+                                points = calculate_points(activity_type="service_purchase", level=user.level)
+                                NextBee.member_activity(
+                                    member_email=user.email, activityId="8474", numericValue=str(points)
+                                )
+                            else:
+                                pass
                             return Response(
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
@@ -2738,6 +2780,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                             title="Renew Tv subscription",
                             description=f"{user.first_name} {user.last_name} just made a payment of {new_amount} for Cable TV renewal on {billersCode}.",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -2862,6 +2912,14 @@ class RenewTvSubscription(generics.GenericAPIView):
                             title="Renew Tv subscription",
                             description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
                         )
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
@@ -3026,6 +3084,14 @@ class WaecRegistration(generics.GenericAPIView):
                             "bonus balance": user.welcome_bonus,
                             "waec_response": waec_response,
                         }
+                        if user.has_done_survey:
+                            # Calculate points for service purchase activity
+                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            NextBee.member_activity(
+                                member_email=user.email, activityId="8474", numericValue=str(points)
+                            )
+                        else:
+                            pass
                         return Response(data=response_data, status=status.HTTP_200_OK)
                     return Response(
                         data={
