@@ -263,16 +263,16 @@ class AssignTicket(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         admin_email = payload.get("agent_email")
-        ticket_id = payload.get("ticket_id")
+        ticket_number = payload.get("number")
         pin = request.data.get("pin")
-        logger.debug("Admin email: %s, Ticket ID: %s", admin_email, ticket_id)
+        logger.debug("Admin email: %s, Ticket Number: %s", admin_email, ticket_number)
 
         # Attempt to retrieve the ticket
         try:
-            ticket = Ticket.objects.get(id=ticket_id)
+            ticket = Ticket.objects.get(number=ticket_number)
             logger.info("Ticket found: %s", ticket)
         except Ticket.DoesNotExist:
-            logger.error("Ticket with ID %s does not exist.", ticket_id)
+            logger.error("Ticket with number %s does not exist.", ticket_number)
             return Response(
                 data={
                     "status": "fail",
@@ -315,19 +315,19 @@ class AssignTicket(generics.GenericAPIView):
                 # Assign the ticket to the user
                 ticket.assigned_to = user
                 ticket.save()
-                logger.info("Ticket %s assigned to user: %s", ticket_id, user.full_name)
+                logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
 
                 # Log the activity
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Assign Ticket",
-                    message=f"Support ticket {ticket_id} has been assigned to {user.full_name}."
+                    message=f"Support ticket {ticket_number} has been assigned to {user.full_name}."
                 )
-                logger.info("Activity logged for assigning ticket %s to user: %s", ticket_id, user.full_name)
+                logger.info("Activity logged for assigning ticket %s to user: %s", ticket_number, user.full_name)
 
                 response = {
                     "status": "success",
-                    "message": f"Support ticket {ticket_id} has been successfully assigned to {user.full_name}",
+                    "message": f"Support ticket {ticket_number} has been successfully assigned to {user.full_name}",
                     "data": serializer.data,
                 }
                 logger.info("Response prepared successfully: %s", response)
