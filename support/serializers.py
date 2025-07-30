@@ -76,7 +76,7 @@ class SupportVerifyOTPSerializer(serializers.Serializer):
 
 class CreateTicketSerializers(serializers.ModelSerializer):
     email = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
 
     class Meta:
         model = Ticket
@@ -116,7 +116,7 @@ class UserWithTicketsSerializer(serializers.ModelSerializer):
 
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
     ticket_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
     class Meta:
