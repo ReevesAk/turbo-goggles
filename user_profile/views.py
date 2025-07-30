@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
 
 
 from .serializers import (
@@ -1320,9 +1320,25 @@ class CustomerTicketCreation(generics.GenericAPIView):
         )
 
 
+example_response = OpenApiExample(
+    name="TierResponseExample",
+    value={
+        "status": "success",
+        "message": "Tier levels retrieved successfully!",
+        "data": {
+            "current_level": "Explorer",
+            "total_points": 750,
+            "tiers": LEVELS,
+        }
+    },
+    response_only=True
+)
+
+
 @extend_schema_view(
     retrieve=extend_schema(
         responses={200: TierListResponseSerializer},
+        examples=[example_response],
         description="Returns all tier levels with required points and the current level of the user.",
         summary="User Tier Levels",
     )

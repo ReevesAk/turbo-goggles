@@ -177,6 +177,6 @@ class TierDataSerializer(serializers.Serializer):
 
 
 class TierListResponseSerializer(serializers.Serializer):
-    status = serializers.CharField(example="success")
-    message = serializers.CharField(example="Tier levels retrieved successfully!")
+    status = serializers.CharField()
+    message = serializers.CharField()
     data = TierDataSerializer()
