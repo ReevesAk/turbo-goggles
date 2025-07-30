@@ -269,7 +269,7 @@ class AssignTicket(generics.GenericAPIView):
 
         # Attempt to retrieve the ticket
         try:
-            ticket = Ticket.objects.get(number=ticket_number)
+            ticket = Ticket.objects.filter(number=ticket_number).first()
             logger.info("Ticket found: %s", ticket)
         except Ticket.DoesNotExist:
             logger.error("Ticket with number %s does not exist.", ticket_number)
