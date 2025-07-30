@@ -83,11 +83,13 @@ class CreateTicketSerializers(serializers.ModelSerializer):
         fields = [
             "id",
             "pin",
+            "number"
             "category",
             "channel",
             "email",
             "description",
         ]
+        read_only_fields = ["number", "status", "created_at"]
 
 
 class TicketSerializers(serializers.ModelSerializer):

@@ -215,10 +215,13 @@ class CreateTicket(generics.CreateAPIView):
         )
         logger.info("Activity logged for user: %s", user)
 
+        # Serialize the created ticket
+        serialized_ticket = self.get_serializer(ticket)
+
         resp = {
             "status": "success",
             "message": f"Support ticket created for {user.first_name} {user.last_name}, for {category} issues.",
-            "data": serializer.data,
+            "data": serialized_ticket.data,
             "created_at": ticket.created_at,
         }
         logger.info("Response prepared successfully: %s", resp)
