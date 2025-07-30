@@ -77,7 +77,6 @@ class NextBee:
         payload = {
             "env": nextbee_environment,
             "advertiserId": nextbee_advertiser_id,
-            "email": email,
             "programId": program_id,
             "ssoRegisterWidgetConfigId": sso_register_widget_config,
             "ssoLoginWidgetConfigId": sso_login_widget_config
