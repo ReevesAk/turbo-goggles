@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 
 from .serializers import (
@@ -36,6 +36,7 @@ from .serializers import (
     AddToFavouriteSerializer,
     FavouriteSerializer,
     SupportTicketSerializer,
+    EncryptedResponseSerializer
 )
 from .helpers import MysteryBox, VariationCodes
 from .choices import LEVELS
@@ -1319,6 +1320,12 @@ class CustomerTicketCreation(generics.GenericAPIView):
         )
 
 
+@extend_schema_view(
+    retrieve=extend_schema(
+        responses={200: EncryptedResponseSerializer},
+        description="Get the current user's tier and all tier levels"
+    )
+)
 class TierListView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]

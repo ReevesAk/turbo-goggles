@@ -163,3 +163,18 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = ["description", "category"]
+
+
+class TierSerializer(serializers.Serializer):
+    title = serializers.CharField()
+    min_points = serializers.IntegerField()
+
+class TierListResponseSerializer(serializers.Serializer):
+    current_level = serializers.CharField()
+    total_points = serializers.IntegerField()
+    tiers = TierSerializer(many=True)
+
+class EncryptedResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    message = serializers.CharField()
+    data = TierListResponseSerializer()
