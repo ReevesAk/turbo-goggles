@@ -89,7 +89,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "email",
             "description",
         ]
-        read_only_fields = ["number", "status", "created_at"]
+        read_only_fields = ["status", "created_at"]
 
 
 class TicketSerializers(serializers.ModelSerializer):
