@@ -161,7 +161,6 @@ class CreateTicket(generics.CreateAPIView):
             logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        user_data = serializer.validated_data
         user_email = payload.get("email")
         channel = payload.get("channel")
         description = payload.get("description")
@@ -220,7 +219,7 @@ class CreateTicket(generics.CreateAPIView):
             "status": "success",
             "message": f"Support ticket created for {user.first_name} {user.last_name}, for {category} issues.",
             "data": serializer.data,
-            "created_at": user_data["created_at"],
+            "created_at": ticket.created_at,
         }
         logger.info("Response prepared successfully: %s", resp)
         return Response(data=resp, status=status.HTTP_201_CREATED)
