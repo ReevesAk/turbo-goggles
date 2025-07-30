@@ -197,6 +197,8 @@ class CreateTicket(generics.CreateAPIView):
             escalation_level="Management",
             status="Queuing",
         )
+
+        ticket.refresh_from_db()
         logger.info("Ticket created successfully: %s", ticket)
 
         # Create user notification
