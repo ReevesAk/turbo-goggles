@@ -310,28 +310,28 @@ class AssignTicket(generics.GenericAPIView):
                 logger.warning("User %s exists, but is not an agent.", user.email)
                 raise PermissionDenied("User exists, but is not an agent.")
 
-                logger.info("Pin verification successful for user: %s", authenticated_user)
+            logger.info("Pin verification successful for user: %s", authenticated_user)
 
-                # Assign the ticket to the user
-                ticket.assigned_to = user
-                ticket.save()
-                logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
+            # Assign the ticket to the user
+            ticket.assigned_to = user
+            ticket.save()
+            logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
 
-                # Log the activity
-                ActivityModel.objects.create(
-                    user=authenticated_user,
-                    title="Assign Ticket",
-                    message=f"Support ticket {ticket_number} has been assigned to {user.full_name}."
-                )
-                logger.info("Activity logged for assigning ticket %s to user: %s", ticket_number, user.full_name)
+            # Log the activity
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Assign Ticket",
+                message=f"Support ticket {ticket_number} has been assigned to {user.full_name}."
+            )
+            logger.info("Activity logged for assigning ticket %s to user: %s", ticket_number, user.full_name)
 
-                response = {
-                    "status": "success",
-                    "message": f"Support ticket {ticket_number} has been successfully assigned to {user.full_name}",
-                    "data": serializer.data,
-                }
-                logger.info("Response prepared successfully: %s", response)
-                return Response(data=response, status=status.HTTP_201_CREATED)
+            response = {
+                "status": "success",
+                "message": f"Support ticket {ticket_number} has been successfully assigned to {user.full_name}",
+                "data": serializer.data,
+            }
+            logger.info("Response prepared successfully: %s", response)
+            return Response(data=response, status=status.HTTP_201_CREATED)
         else:
             logger.warning("Incorrect pin provided for user: %s", authenticated_user)
             return Response(
