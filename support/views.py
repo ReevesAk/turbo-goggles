@@ -203,7 +203,7 @@ class CreateTicket(generics.CreateAPIView):
         ticket.save()
 
         # Generate and set the number
-        ticket.number = generate_ticket_number(ticket.id)
+        ticket.number = generate_ticket_number()
         ticket.save()
 
         logger.info("Ticket created successfully: %s", ticket)

@@ -1,3 +1,6 @@
-def generate_ticket_number(ticket_id):
-    """Generate a formatted ticket number from ticket ID"""
-    return f"TCK{ticket_id:04d}"
+import uuid
+
+
+def generate_ticket_number():
+    """Generate a random ticket number using UUID"""
+    return f"TCK-{uuid.uuid4().hex[:8].upper()}"
