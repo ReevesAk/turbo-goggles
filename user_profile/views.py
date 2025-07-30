@@ -36,7 +36,7 @@ from .serializers import (
     AddToFavouriteSerializer,
     FavouriteSerializer,
     SupportTicketSerializer,
-    EncryptedResponseSerializer
+    TierListResponseSerializer
 )
 from .helpers import MysteryBox, VariationCodes
 from .choices import LEVELS
@@ -1322,8 +1322,9 @@ class CustomerTicketCreation(generics.GenericAPIView):
 
 @extend_schema_view(
     retrieve=extend_schema(
-        responses={200: EncryptedResponseSerializer},
-        description="Get the current user's tier and all tier levels"
+        responses={200: TierListResponseSerializer},
+        description="Returns all tier levels with required points and the current level of the user.",
+        summary="User Tier Levels",
     )
 )
 class TierListView(generics.RetrieveAPIView):
