@@ -73,9 +73,10 @@ class NextBee:
             "Authorization": f"Bearer {self.generate_jwt_token(nextbee_advertiser_id, email)}"
         }
 
-        url = f"{nextbee_base_url}/client/sso/login"
+        url = f"{nextbee_base_url}/client/sso-login"
         payload = {
             "env": nextbee_environment,
+            "advertiserId": nextbee_advertiser_id,
             "email": email,
             "programId": program_id,
             "ssoRegisterWidgetConfigId": sso_register_widget_config,
