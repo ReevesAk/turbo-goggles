@@ -132,7 +132,7 @@ class ClaimRewardSerializers(serializers.Serializer):
         fields = ["service_id", "phone_number", "form_of_gift"]
 
 
-class SwitchToUserSerializer(serializers.Serializer):
+class SwitchToMemberSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
 
 

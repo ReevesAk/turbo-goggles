@@ -3,10 +3,9 @@ from django.urls import path
 from .views import (
     SwitchToBrandAd,
     SwitchToPartner,
-    SwitchToUser,
+    SwitchToMember,
     GetUserDetails,
     UpdateUserProfile,
-    MemberUserSwitch,
     PostMemberSurvey,
     ChangePassword,
     ProfileImage,
@@ -31,13 +30,13 @@ app_name = "user_profile"
 
 
 urlpatterns = [
-    path("switch-to-user", SwitchToUser.as_view(), name="switch_to_user"),
+    path("switch-to-member", SwitchToMember.as_view(), name="switch_to_member"),
     path("switch-to-partner", SwitchToPartner.as_view(), name="switch_to_partner"),
     path("switch-to-brandAd", SwitchToBrandAd.as_view(), name="switch_to_brandAd"),
     path("profile-img", ProfileImage.as_view(), name="profile_img"),
     path("get-user-profile", GetUserDetails.as_view(), name="get_user_profile"),
     path("update-user", UpdateUserProfile.as_view(), name="update_user"),
-    path("upgrade-to-member", MemberUserSwitch.as_view(), name="upgrade_to_member"),
+    # path("upgrade-to-member", MemberUserSwitch.as_view(), name="upgrade_to_member"),
     path("member-survey", PostMemberSurvey.as_view(), name="member_survey"),
     path("change-password", ChangePassword.as_view(), name="change_password"),
     path("open-box", OpenRewardBox.as_view(), name="open_box"),
