@@ -50,14 +50,16 @@ class Ticket(BaseModel):
     assigned_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        # Automatically set the ticket number if not already set
-        if not self.number:
-            last_ticket = Ticket.objects.last()
-            next_id = int(last_ticket.number[3:]) + 1 if last_ticket else 1
-            self.number = f"TCK{next_id:04d}"  # Example: TCK0001
-        if self.assigned_to and not self.assigned_at:
-            self.assigned_at = now()
-        super().save(*args, **kwargs)
+        is_new = self.pk is None  # Check if this is a new object
+
+        super().save(*args, **kwargs)  # Save once to get `id`
+
+        # Only generate number after the first save
+        if is_new and not self.number:
+            self.number = f"TCK{self.id:04d}"
+            # Save again without triggering another number generation
+            kwargs['force_insert'] = False
+            super().save(update_fields=["number"])
 
 
 class AgentRating(models.Model):
