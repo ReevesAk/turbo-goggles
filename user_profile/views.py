@@ -1320,8 +1320,8 @@ class CustomerTicketCreation(generics.GenericAPIView):
 
 
 class TierListView(generics.RetrieveAPIView):
-    # authentication_classes = [JWTAuthentication]
-    # permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
@@ -1332,7 +1332,7 @@ class TierListView(generics.RetrieveAPIView):
             "data": {
                 "current_level": user.level,
                 "total_points": user.total_points,
-                "tiers": LEVELS
+                "tiers": LEVELS,
             },
         }
         return Response(data=encrypt(response), status=status.HTTP_200_OK)

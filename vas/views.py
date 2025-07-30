@@ -340,9 +340,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -985,9 +989,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -1614,9 +1622,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -2353,9 +2365,13 @@ class NewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -2390,9 +2406,13 @@ class NewTvSubscription(generics.GenericAPIView):
                             )
                             if user.has_done_survey:
                                 # Calculate points for service purchase activity
-                                points = calculate_points(activity_type="service_purchase", level=user.level)
+                                points = calculate_points(
+                                    activity_type="service_purchase", level=user.level
+                                )
                                 NextBee.member_activity(
-                                    member_email=user.email, activityId="8474", numericValue=str(points)
+                                    member_email=user.email,
+                                    activityId="8474",
+                                    numericValue=str(points),
                                 )
                             else:
                                 pass
@@ -2782,9 +2802,13 @@ class RenewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -2914,9 +2938,13 @@ class RenewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass
@@ -3086,9 +3114,13 @@ class WaecRegistration(generics.GenericAPIView):
                         }
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(activity_type="service_purchase", level=user.level)
+                            points = calculate_points(
+                                activity_type="service_purchase", level=user.level
+                            )
                             NextBee.member_activity(
-                                member_email=user.email, activityId="8474", numericValue=str(points)
+                                member_email=user.email,
+                                activityId="8474",
+                                numericValue=str(points),
                             )
                         else:
                             pass

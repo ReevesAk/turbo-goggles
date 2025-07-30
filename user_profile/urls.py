@@ -17,7 +17,7 @@ from .views import (
     ListFavourites,
     RetrieveFavourite,
     CustomerTicketCreation,
-    TierListView
+    TierListView,
 )
 from .notifications import (
     GetAllNotifications,

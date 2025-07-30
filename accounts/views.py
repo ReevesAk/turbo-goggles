@@ -579,7 +579,10 @@ class Login(APIView):
         )
         if user.has_done_survey:
             # Calculate points for daily login activity
-            logger.info("Calculating points for user %s daily login activity.", user.phone_number)
+            logger.info(
+                "Calculating points for user %s daily login activity.",
+                user.phone_number,
+            )
             points = calculate_points(activity_type="daily_login", level=user.level)
             NextBee.member_activity(
                 member_email=user.email, activityId="8474", numericValue=str(points)
