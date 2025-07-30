@@ -25,12 +25,12 @@ nextbee_program_id = conf("NEXTBEE_PROGRAM_ID")
 
 class NextBee:
     @staticmethod
-    def encrypt_nb(self, data: str, key: str) -> str:
+    def encrypt_nb(data: str, key: str) -> str:
         encrypted = ''.join(chr(ord(data[i]) ^ ord(key[i % len(key)])) for i in range(len(data)))
         return base64.b64encode(encrypted.encode()).decode()
 
     @staticmethod
-    def generate_jwt_token(self, advertiser_id: str, email: str, algorithm: str = 'HS256') -> str:
+    def generate_jwt_token(advertiser_id: str, email: str, algorithm: str = 'HS256') -> str:
         """
         Generate a JWT token with the given data and secret key.
         """
@@ -43,7 +43,7 @@ class NextBee:
 
         # === Encrypt and encode ===
         json_data = json.dumps(data)
-        encrypted_data = self.encrypt_nb(json_data, secret_key)
+        encrypted_data = NextBee.encrypt_nb(json_data, secret_key)
 
         # === JWT payload ===
         timestamp = int(time.time())  # UTC time
@@ -62,7 +62,6 @@ class NextBee:
 
     @staticmethod
     def sso_login(
-        self,
         email: str
     ) -> str:
         """
@@ -70,7 +69,7 @@ class NextBee:
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.generate_jwt_token(nextbee_advertiser_id, email)}"
+            "Authorization": f"Bearer {NextBee.generate_jwt_token(nextbee_advertiser_id, email)}"
         }
 
         url = f"{nextbee_base_url}/client/sso-login"
@@ -96,7 +95,6 @@ class NextBee:
 
     @staticmethod
     def get_token(
-        self,
         email: str,
         program_id,
     ) -> str:
@@ -105,7 +103,7 @@ class NextBee:
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.generate_jwt_token(nextbee_advertiser_id, email)}"
+            "Authorization": f"Bearer {NextBee.generate_jwt_token(nextbee_advertiser_id, email)}"
         }
 
         url = f"{nextbee_base_url}/client/api-token"
@@ -129,7 +127,6 @@ class NextBee:
 
     @staticmethod
     def member_activity(
-        self,
         member_email,
         activityId,
         numericValue
@@ -139,7 +136,7 @@ class NextBee:
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.get_token(nextbee_advertiser_id, admin_email)}"
+            "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
         }
 
         url = f"{nextbee_base_url}/client/member/activity"
@@ -162,13 +159,13 @@ class NextBee:
                 data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def points_summary(self, member_email: str) -> str:
+    def points_summary(member_email: str) -> str:
         """
         Get the points summary for a member.
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.get_token(nextbee_advertiser_id, admin_email)}"
+            "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
         }
 
         url = f"{nextbee_base_url}/points-summary?email={member_email}"
