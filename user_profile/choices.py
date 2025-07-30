@@ -25,3 +25,13 @@ RELIGION = (
     ("Muslim", "Muslim"),
     ("Prefer not to say", "Prefer not to say"),
 )
+
+LEVELS = [
+    {"title": "Starter", "min_points": 0},
+    {"title": "Explorer", "min_points": 400},
+    {"title": "Challenger", "min_points": 800},
+    {"title": "Influencer", "min_points": 1500},
+    {"title": "Champion", "min_points": 2500},
+    {"title": "Elite", "min_points": 4000},
+    {"title": "Legend", "min_points": 6000},
+]

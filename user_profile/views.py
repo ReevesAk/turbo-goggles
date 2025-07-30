@@ -38,6 +38,7 @@ from .serializers import (
     SupportTicketSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
+from .choices import LEVELS
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import ActivityModel
 from support.models import Ticket
@@ -1316,3 +1317,22 @@ class CustomerTicketCreation(generics.GenericAPIView):
             ),
             status=status.HTTP_201_CREATED,
         )
+
+
+class TierListView(generics.RetrieveAPIView):
+    # authentication_classes = [JWTAuthentication]
+    # permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        user = request.user
+
+        response = {
+            "status": "success",
+            "message": "Tier levels retrieved successfully!",
+            "data": {
+                "current_level": user.level,
+                "total_points": user.total_points,
+                "tiers": LEVELS
+            },
+        }
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)

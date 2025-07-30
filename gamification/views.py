@@ -16,7 +16,6 @@ from .serializers import (
 )
 from .models import StepCampaignModel, StepSessionModel
 
-from accounts.models import User
 from gamification.utils import NextBee
 from security import encrypt, decrypt
 from permissions import HasCompletedSurvey, IsMember
