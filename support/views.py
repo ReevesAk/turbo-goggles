@@ -16,6 +16,7 @@ from .serializers import (
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer,
 )
+from .utils import generate_ticket_number
 from .models import Ticket, AgentRating
 
 # Third party imports.
@@ -198,7 +199,13 @@ class CreateTicket(generics.CreateAPIView):
             status="Queuing",
         )
 
-        ticket.refresh_from_db()
+        # Save the ticket to get an ID
+        ticket.save()
+
+        # Generate and set the number
+        ticket.number = generate_ticket_number(ticket.id)
+        ticket.save()
+
         logger.info("Ticket created successfully: %s", ticket)
 
         # Create user notification
