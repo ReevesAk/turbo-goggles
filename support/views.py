@@ -212,7 +212,7 @@ class CreateTicket(generics.CreateAPIView):
         ActivityModel.objects.create(
             user=user,
             title="Create Ticket",
-            message=f"Support ticket has been created for user: {user.first_name} {user.last_name}, issue: {category}"
+            description=f"Support ticket has been created for user: {user.first_name} {user.last_name}, issue: {category}"
         )
         logger.info("Activity logged for user: %s", user)
 
