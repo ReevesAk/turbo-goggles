@@ -30,7 +30,7 @@ from .serializers import (
     OpenRewardBoxSerializers,
     ClaimRewardSerializers,
     MemberSurverySerializers,
-    SwitchToUserSerializer,
+    SwitchToMemberSerializer,
     SwitchToPartnersSerializer,
     SwitchToBrandAdSerializer,
     AddToFavouriteSerializer,
@@ -68,19 +68,19 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
-class SwitchToUser(generics.RetrieveAPIView):
+class SwitchToMember(generics.RetrieveAPIView):
     """
-    SwitchToUser is the PUT request method for updating and switching
+    SwitchToMember is the PUT request method for updating and switching
     to a user's account type.
     """
 
-    serializer_class = SwitchToUserSerializer
+    serializer_class = SwitchToMemberSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
-        description="Switch to User.",
-        responses={200: {"description": "Switch an account type to User."}},
+        description="Switch to Member.",
+        responses={200: {"description": "Switch an account type to Member."}},
     )
     def get_object(self):
         return self.request.user
@@ -95,17 +95,17 @@ class SwitchToUser(generics.RetrieveAPIView):
                 "Account types retrieved for user %s: %s", user.email, account_types
             )
 
-            # Check if any AccountType has "User " in user_type
-            is_user = any(acct.user_type == "User" for acct in account_types)
+            # Check if any AccountType has "Member" in user_type
+            is_member = any(acct.user_type == "Member" for acct in account_types)
 
-            if not is_user:
+            if not is_member:
                 data = {
                     "status": "fail",
-                    "message": "Oops, you haven't registered as a User yet.",
+                    "message": "Oops, you haven't registered as a Member yet.",
                     "data": user.active_role,
                 }
                 logger.warning(
-                    "User  %s attempted to switch to User but is not registered as one.",
+                    "User  %s attempted to switch to Member but is not registered as one.",
                     user.email,
                 )
                 return Response(data=encrypt(data), status=status.HTTP_400_BAD_REQUEST)
@@ -116,42 +116,42 @@ class SwitchToUser(generics.RetrieveAPIView):
                 encrypt("AccountType for the user does not exist.")
             )
 
-        # Handle already switched to User
-        if user.active_role == "User":
+        # Handle already switched to Member
+        if user.active_role == "Member":
             data = {
                 "status": "success",
-                "message": "You are already on the User screen.",
+                "message": "You are already on the Member screen.",
                 "data": user.active_role,
             }
-            logger.info("User  %s is already on the User screen.", user.email)
+            logger.info("User  %s is already on the Member screen.", user.email)
             return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
         # Log the switch action
         logger.info(
-            "User  %s is switching account type from %s to User.",
+            "User  %s is switching account type from %s to Member.",
             user.email,
             user.active_role,
         )
 
         UserNotification.objects.create(
             user=user,
-            title="User Type Switch.",
-            message="Account type switched to User successfully.",
+            title="User Type Switch",
+            message="Account type switched to Member successfully.",
         )
 
         ActivityModel.objects.create(
             user=user,
-            title="User  Type Switch.",
-            description=f"{user.first_name} {user.last_name} switched account from {user.active_role} to User.",
+            title="User Type Switch",
+            description=f"{user.first_name} {user.last_name} switched account from {user.active_role} to Member.",
         )
 
-        # User has a Partner account type, switch the role
-        user.active_role = "User"
+        # User has a Member account type, switch the role
+        user.active_role = "Member"
         user.save()
 
         data = {
             "status": "success",
-            "message": "Account type switched to User successfully.",
+            "message": "Account type switched to Member successfully.",
             "data": user.active_role,
         }
         logger.info("User  %s successfully switched account type to User.", user.email)
@@ -620,109 +620,109 @@ class ChangePassword(generics.UpdateAPIView):
         )
 
 
-class MemberUserSwitch(generics.UpdateAPIView):
-    serializer_class = ProfileStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+# class MemberUserSwitch(generics.UpdateAPIView):
+#     serializer_class = ProfileStatusSerializer
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        description="Member-User switch",
-        responses={200: {"description": "User and member switch."}},
-    )
-    def get_object(self):
-        return self.request.user
+#     @extend_schema(
+#         description="Member-User switch",
+#         responses={200: {"description": "User and member switch."}},
+#     )
+#     def get_object(self):
+#         return self.request.user
 
-    def put(self, request):
-        user = self.get_object()
-        logger.info(
-            f"User {user.first_name} {user.last_name} initiated a role switch request."
-        )
+#     def put(self, request):
+#         user = self.get_object()
+#         logger.info(
+#             f"User {user.first_name} {user.last_name} initiated a role switch request."
+#         )
 
-        game_point = Points.objects.get(user=user)
+#         game_point = Points.objects.get(user=user)
 
-        if user.active_role == "User ":
-            try:
-                logger.info(
-                    f"User {user.first_name} {user.last_name} has current balance: {game_point.balance}"
-                )
+#         if user.active_role == "User ":
+#             try:
+#                 logger.info(
+#                     f"User {user.first_name} {user.last_name} has current balance: {game_point.balance}"
+#                 )
 
-                if game_point.balance is not None:
-                    if game_point.balance >= 10.0:
-                        AccountType.objects.update_or_create(
-                            user_type="Partners",
-                        )
+#                 if game_point.balance is not None:
+#                     if game_point.balance >= 10.0:
+#                         AccountType.objects.update_or_create(
+#                             user_type="Partners",
+#                         )
 
-                        user.active_role = "Member"
-                        game_point.balance -= 10.0
-                        user.save()
-                        game_point.save()  # Don't forget to save the updated game_point
+#                         user.active_role = "Member"
+#                         game_point.balance -= 10.0
+#                         user.save()
+#                         game_point.save()  # Don't forget to save the updated game_point
 
-                        UserNotification.objects.create(
-                            user=request.user,
-                            title="Member Switch.",
-                            message="Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
-                        )
+#                         UserNotification.objects.create(
+#                             user=request.user,
+#                             title="Member Switch.",
+#                             message="Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
+#                         )
 
-                        ActivityModel.objects.create(
-                            user=request.user,
-                            title="Member Switch.",
-                            description=f"{request.user.first_name} {request.user.last_name} switched from User to Member.",
-                        )
+#                         ActivityModel.objects.create(
+#                             user=request.user,
+#                             title="Member Switch.",
+#                             description=f"{request.user.first_name} {request.user.last_name} switched from User to Member.",
+#                         )
 
-                        resp = {
-                            "status": "success!",
-                            "data": "Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully upgraded to Member."
-                        )
-                        return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-                    else:
-                        resp = {
-                            "status": "fail",
-                            "error": "You do not have enough points.",
-                        }
-                        logger.warning(
-                            f"User {user.first_name} {user.last_name} attempted to switch roles but does not have enough points."
-                        )
-                        return Response(
-                            data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST
-                        )
-                else:
-                    resp = {
-                        "status": "fail!",
-                        "error": "You have not started earning points.",
-                    }
-                    logger.warning(
-                        f"User {user.first_name} {user.last_name} has not started earning points."
-                    )
-                    return Response(
-                        data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST
-                    )
+#                         resp = {
+#                             "status": "success!",
+#                             "data": "Congratulations you have been upgraded to a member. You can now engage in gamifications and enjoy amazing discounts and offers with us.",
+#                         }
+#                         logger.info(
+#                             f"User {user.first_name} {user.last_name} successfully upgraded to Member."
+#                         )
+#                         return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+#                     else:
+#                         resp = {
+#                             "status": "fail",
+#                             "error": "You do not have enough points.",
+#                         }
+#                         logger.warning(
+#                             f"User {user.first_name} {user.last_name} attempted to switch roles but does not have enough points."
+#                         )
+#                         return Response(
+#                             data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST
+#                         )
+#                 else:
+#                     resp = {
+#                         "status": "fail!",
+#                         "error": "You have not started earning points.",
+#                     }
+#                     logger.warning(
+#                         f"User {user.first_name} {user.last_name} has not started earning points."
+#                     )
+#                     return Response(
+#                         data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST
+#                     )
 
-            except Exception as e:
-                logger.error(
-                    f"An error occurred while processing the role switch for user {user.first_name} {user.last_name}: {str(e)}"
-                )
-                return Response(
-                    data=encrypt({"error": str(e)}),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-        elif user.active_role == "Member":
-            user.active_role = "User "
-            user.save()
-            logger.info(
-                f"User {user.first_name} {user.last_name} switched from Member to User."
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "Member has been switched to a User.",
-                    }
-                ),
-                status=status.HTTP_200_OK,
-            )
+#             except Exception as e:
+#                 logger.error(
+#                     f"An error occurred while processing the role switch for user {user.first_name} {user.last_name}: {str(e)}"
+#                 )
+#                 return Response(
+#                     data=encrypt({"error": str(e)}),
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#                 )
+#         elif user.active_role == "Member":
+#             user.active_role = "User "
+#             user.save()
+#             logger.info(
+#                 f"User {user.first_name} {user.last_name} switched from Member to User."
+#             )
+#             return Response(
+#                 data=encrypt(
+#                     {
+#                         "status": "success",
+#                         "message": "Member has been switched to a User.",
+#                     }
+#                 ),
+#                 status=status.HTTP_200_OK,
+#             )
 
 
 class PostMemberSurvey(generics.CreateAPIView):

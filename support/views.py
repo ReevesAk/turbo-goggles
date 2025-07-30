@@ -163,6 +163,8 @@ class CreateTicket(generics.CreateAPIView):
 
         user_data = serializer.validated_data
         user_email = payload.get("email")
+        channel = payload.get("channel")
+        description = payload.get("description")
         pin = payload.get("pin")
         logger.debug("User email extracted from payload: %s", user_email)
 
@@ -178,9 +180,9 @@ class CreateTicket(generics.CreateAPIView):
             user = User.objects.get(email=user_email)
             logger.info("User  found: %s", user)
         except User.DoesNotExist:
-            logger.error("User  with email %s not found.", user_email)
+            logger.error("User with email %s not found.", user_email)
             return Response(
-                data={"error": "User  not found"},
+                data={"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -190,7 +192,9 @@ class CreateTicket(generics.CreateAPIView):
         # Create the ticket
         ticket = Ticket.objects.create(
             user=user,
-            title=category,
+            category=category,
+            channel=channel,
+            description=description,
             escalation_level="Management",
             status="Queuing",
         )
@@ -202,7 +206,7 @@ class CreateTicket(generics.CreateAPIView):
             title="Create Ticket",
             message="Support ticket has been created for your issue."
         )
-        logger.info("User  notification created for user: %s", user)
+        logger.info("User notification created for user: %s", user)
 
         # Log activity
         ActivityModel.objects.create(
@@ -272,11 +276,11 @@ class AssignTicket(generics.GenericAPIView):
                 user = User.objects.get(email=admin_email)
                 logger.info("User  found: %s", user)
             except User.DoesNotExist:
-                logger.error("User  with email %s does not exist.", admin_email)
+                logger.error("User with email %s does not exist.", admin_email)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "User  does not exist",
+                        "message": "User does not exist",
                     },
                     status=status.HTTP_404_NOT_FOUND
                 )
@@ -292,7 +296,7 @@ class AssignTicket(generics.GenericAPIView):
             ).exists()
 
             if not is_agent:
-                logger.warning("User  %s exists, but is not an agent.", user.email)
+                logger.warning("User %s exists, but is not an agent.", user.email)
                 raise PermissionDenied("User exists, but is not an agent.")
 
                 logger.info("Pin verification successful for user: %s", authenticated_user)
@@ -333,7 +337,6 @@ class GetAllSupportTickets(generics.ListAPIView):
 
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
-    serializer_class = CreateTicketSerializers
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
@@ -351,7 +354,7 @@ class GetAllSupportTickets(generics.ListAPIView):
         for ticket in paginated_tickets:
             data.append(
                 {
-                    "ticket_number": ticket.ticket_number,
+                    "ticket_number": ticket.number,
                     "authorised_by": "SuperAdmin",
                     "category": ticket.category,
                     "description": ticket.description,
