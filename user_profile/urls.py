@@ -17,6 +17,7 @@ from .views import (
     ListFavourites,
     RetrieveFavourite,
     CustomerTicketCreation,
+    TierListView
 )
 from .notifications import (
     GetAllNotifications,
@@ -63,4 +64,5 @@ urlpatterns = [
         CustomerTicketCreation.as_view(),
         name="customer_ticket_creation",
     ),
+    path("tier-list", TierListView.as_view(), name="tier_list"),
 ]
