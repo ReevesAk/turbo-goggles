@@ -83,7 +83,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
         fields = [
             "id",
             "pin",
-            "number"
+            "number",
             "category",
             "channel",
             "email",
