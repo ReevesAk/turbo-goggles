@@ -46,8 +46,7 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
         serializer = self.get_serializer(data=payload)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
-            nb = NextBee()
-            resp = nb.sso_login(email=email)
+            resp = NextBee.sso_login(email=email)
             if resp.status_code == 200:
                 logger.info(
                     f"SSO login successful for user {request.user.first_name} {request.user.last_name}."

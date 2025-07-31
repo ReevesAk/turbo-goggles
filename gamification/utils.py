@@ -67,9 +67,12 @@ class NextBee:
         """
         Login to NextBee SSO.
         """
+
+        token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
+        print(f"Generated JWT token: {token}")
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {NextBee.generate_jwt_token(nextbee_advertiser_id, email)}"
+            "Authorization": f"Bearer {token}"
         }
 
         url = f"{nextbee_base_url}/client/sso-login"
