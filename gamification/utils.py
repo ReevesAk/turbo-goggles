@@ -77,8 +77,8 @@ class NextBee:
         url = f"{nextbee_base_url}/client/sso-login"
         payload = {
             "env": nextbee_environment,
-            "advertiserId": nextbee_advertiser_id,
-            "programId": program_id,
+            "advertiser_id": nextbee_advertiser_id,
+            "program_id": program_id,
             "ssoRegisterWidgetConfigId": sso_register_widget_config,
             "ssoLoginWidgetConfigId": sso_login_widget_config
         }
