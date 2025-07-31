@@ -111,7 +111,7 @@ class NextBee:
         payload = {
             "env": nextbee_environment,
             "email": email,
-            "programId": program_id,
+            "program_id": program_id,
         }
         try:
             response = requests.post(
