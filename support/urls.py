@@ -1,7 +1,7 @@
 from django.urls import path
 
-class GetAllAgentAndModeratorUsers(generics.ListAPIView):
-from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin, 
+
+from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin, GetAllAgentAndModeratorUsers
 from .pusher import SupportChat
 
 
