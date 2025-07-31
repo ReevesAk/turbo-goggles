@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin
+class GetAllAgentAndModeratorUsers(generics.ListAPIView):
+from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin, 
 from .pusher import SupportChat
 
 
@@ -17,6 +18,7 @@ urlpatterns = [
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign", AssignTicket.as_view(), name="assign_ticket"),
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
+    path("get-all-agents-and-moderators", GetAllAgentAndModeratorUsers.as_view(), name="get_all_agents_and_moderators"),
     path("chat/<int:user_id_1>/<int:user_id_2>/", SupportChat.as_view(), name="chat"),
     path("get-single/<uuid:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
     path('users-with-tickets/', UsersWithTickets.as_view(), name='users-with-tickets'),

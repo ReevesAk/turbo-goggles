@@ -238,3 +238,19 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
         if not value.isdigit() or len(value) != 5:
             raise serializers.ValidationError("Pin must be a 5-digit number.")
         return value
+
+
+class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
+    user_type = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "full_name", "phone_number", "email", "status", "user_type", "last_login"]
+
+    def get_user_type(self, obj):
+        # Fetch user_type values from AccountType model related to the user
+        return list(obj.accounttype_set.values_list("user_type", flat=True))
+
+    # def get_status(self, obj):
+    #     return "Disabled" if obj.is_admin_disabled else "Active"

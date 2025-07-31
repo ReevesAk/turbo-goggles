@@ -14,7 +14,7 @@ from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer,
+    CreateAgentPinSerializer, ListAgentAndModeratorSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating
@@ -489,6 +489,45 @@ class GetTicketByChannel(generics.ListAPIView):
                     "message": "An error occurred while processing the request.",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class DeleteTicket(generics.DestroyAPIView):
+    """
+    DeleteTicket is the DELETE request handler that allows a SuperAdmin to
+    delete a specific support ticket using its ticket_number.
+    """
+
+    queryset = Ticket.objects.all()
+    serializer_class = CreateTicketSerializers
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+    lookup_field = "ticket_number"
+
+    def destroy(self, request, *args, **kwargs):
+        logger.info("Received request to delete support ticket.")
+
+        ticket_id = kwargs.get("ticket_number")
+        logger.debug("Attempting to delete ticket with ID: %s", ticket_id)
+
+        try:
+            ticket = Ticket.objects.get(number=ticket_id)
+            ticket.delete()
+            logger.info("Ticket deleted successfully: %s", ticket_id)
+
+            return Response(
+                {
+                    "status": "success",
+                    "message": f"Support ticket with ID {ticket_id} has been deleted.",
+                },
+                status=status.HTTP_204_NO_CONTENT,
+            )
+
+        except Ticket.DoesNotExist:
+            logger.error("Ticket with ID %s not found.", ticket_id)
+            return Response(
+                {"status": "fail", "message": "Ticket not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
 
@@ -1092,3 +1131,55 @@ class SetAgentPin(generics.CreateAPIView):
                 data={"status": "fail", "message": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class GetAllAgentAndModeratorUsers(generics.ListAPIView):
+    """
+    GET request to retrieve the count and list of users with user_type 'Agent' or 'Moderator'.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = ListAgentAndModeratorSerializer  # You may rename if needed
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    pagination_class = CustomPageNumberPagination
+
+    def get_queryset(self):
+        logger.info("Retrieving agent and moderator users.")
+        users = (
+            User.objects.filter(
+                accounttype__user_type__in=["Agent", "Moderator"]
+            )
+            .distinct()
+            .order_by("accounttype__created_at")
+        )
+        logger.info("Agent and moderator users retrieved successfully.")
+        return users
+
+    def list(self, request, *args, **kwargs):
+        logger.info("Accessing agent and moderator users list view.")
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        # Count Agent and Moderator users
+        agent_count = queryset.filter(accounttype__user_type="Agent").count()
+        moderator_count = queryset.filter(accounttype__user_type="Moderator").count()
+
+        response_data = {
+            "status": "success",
+            "message": "Agent and moderator users retrieved successfully"
+            if queryset.exists()
+            else "No agent or moderator users found.",
+            "num_of_users": queryset.count(),
+            "num_of_agents": agent_count,
+            "num_of_moderators": moderator_count,
+            "users": [],
+        }
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            response_data["users"] = serialized_users.data
+        else:
+            logger.warning("No users found for pagination.")
+
+        return Response(data=response_data, status=status.HTTP_200_OK)

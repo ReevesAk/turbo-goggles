@@ -71,6 +71,7 @@ class NextBee:
         token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
         print(f"Generated JWT token: {token}")
         headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": f"Bearer {token}"
         }
 
@@ -103,8 +104,10 @@ class NextBee:
         """
         Generate a JWT token that will be used to access NextBee member resources.
         """
+        token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
         headers = {
-            "Authorization": f"Bearer {NextBee.generate_jwt_token(nextbee_advertiser_id, email)}"
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Bearer {token}"
         }
 
         url = f"{nextbee_base_url}/client/api-token"
@@ -136,6 +139,7 @@ class NextBee:
         Register member activity on NextBee.
         """
         headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
         }
 
