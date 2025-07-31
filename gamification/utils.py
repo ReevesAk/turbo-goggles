@@ -71,7 +71,6 @@ class NextBee:
         token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
         print(f"Generated JWT token: {token}")
         headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         }
 
@@ -105,7 +104,6 @@ class NextBee:
         Generate a JWT token that will be used to access NextBee member resources.
         """
         headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {NextBee.generate_jwt_token(nextbee_advertiser_id, email)}"
         }
 
@@ -138,7 +136,6 @@ class NextBee:
         Register member activity on NextBee.
         """
         headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
         }
 
@@ -167,7 +164,6 @@ class NextBee:
         Get the points summary for a member.
         """
         headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
         }
 
