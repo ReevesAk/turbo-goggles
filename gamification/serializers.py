@@ -6,7 +6,8 @@ from accounts.models import User
 from .models import StepCampaignModel, StepSessionModel
 
 
-class SSOLoginSerializer(serializers.ModelSerializer):
+class SSOLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
 
     class Meta:
         model = User

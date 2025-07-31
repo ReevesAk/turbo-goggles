@@ -1,7 +1,6 @@
 import uuid
 
 from django.db import models
-from django.utils.timezone import now
 from basemodel import BaseModel
 
 from accounts.models import User

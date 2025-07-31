@@ -76,20 +76,14 @@ class NextBee:
         }
 
         url = f"{nextbee_base_url}/client/sso-login"
-        # payload = {
-        #     "env": nextbee_environment,
-        #     "advertiser_id": nextbee_advertiser_id,
-        #     "program_id": program_id,
-        #     "ssoRegisterWidgetConfigId": sso_register_widget_config,
-        #     "ssoLoginWidgetConfigId": sso_login_widget_config
-        # }
         payload = {
-            "env": "cp5",
-            "advertiser_id": "3053",
-            "program_id": "6738",
-            "ssoRegisterWidgetConfigId": "47190",
-            "ssoLoginWidgetConfigId": "47191"
+            "env": nextbee_environment,
+            "advertiser_id": nextbee_advertiser_id,
+            "program_id": program_id,
+            "ssoRegisterWidgetConfigId": sso_register_widget_config,
+            "ssoLoginWidgetConfigId": sso_login_widget_config
         }
+
         try:
             response = requests.post(
                 url=url,
