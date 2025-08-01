@@ -121,13 +121,21 @@ class JoinCampaignView(generics.CreateAPIView):
         # Check if user already joined today
         existing_session = StepSessionModel.objects.filter(
             campaign=campaign,
-            user=request.user,
+            user=request.user
         ).first()
 
         if existing_session:
-            return self._error_response(
-                message="You have already joined this campaign today.",
-                status_code=status.HTTP_409_CONFLICT
+            # Return the existing session instead of error
+            serializer = self.get_serializer(existing_session)
+            return self._success_response(
+                "You are already part of this campaign!",
+                {
+                    **serializer.data,
+                    "total_steps": existing_session.step_count,
+                    "completed": existing_session.completed,
+                    "time_limit": str(campaign.time_limit),
+                    "campaign_end_time": str(campaign.campaign_end_time),
+                }
             )
 
         # Create new session
@@ -196,16 +204,43 @@ class AddStepsView(generics.UpdateAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        # Get today's session
-        try:
-            step_session = StepSessionModel.objects.get(
-                campaign__campaign_id=campaign_id,
-                user=request.user,
-            )
-        except StepSessionModel.DoesNotExist:
+        # Get all user's sessions for this campaign
+        sessions = StepSessionModel.objects.filter(
+            campaign__campaign_id=campaign_id,
+            user=request.user
+        ).order_by('created_at')  # Keep the oldest as main session
+
+        if not sessions.exists():
             return self._error_response(
                 message="You haven't joined this campaign. Please join first.",
                 status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        # Merge sessions into one if multiple exist
+        with transaction.atomic():
+            main_session = sessions.first()
+
+            # If there are multiple sessions, merge them
+            if sessions.count() > 1:
+                total_combined_steps = sum(session.step_count for session in sessions)
+
+                # Update main session with combined steps
+                main_session.step_count = total_combined_steps
+                main_session.last_updated = timezone.now()
+                main_session.save()
+
+                # Delete duplicate sessions
+                sessions.exclude(id=main_session.id).delete()
+
+                logger.info(f"Merged {sessions.count()} sessions with total {total_combined_steps} steps")
+
+            step_session = main_session
+
+        # Check if campaign is already completed
+        if step_session.completed:
+            return self._error_response(
+                message="You have already completed this campaign. No more steps can be added.",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         # Check if user can still accumulate steps
@@ -215,7 +250,7 @@ class AddStepsView(generics.UpdateAPIView):
                 status_code=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if adding these steps would exceed the target
+        # Check current progress
         current_total = step_session.step_count
         step_target = step_session.campaign.step_target
 
@@ -238,13 +273,13 @@ class AddStepsView(generics.UpdateAPIView):
         with transaction.atomic():
             StepSessionModel.objects.filter(
                 id=step_session.id
-            ).update(step_count=F('step_count') + steps_to_add)
+            ).update(step_count=F('step_count') + steps_accepted)
 
             # Refresh the instance to get updated values
             step_session.refresh_from_db()
             completed = step_session.check_completion()
 
-        logger.info(f"Added {steps_to_add} steps to session {step_session.session_id}")
+        logger.info(f"Added {steps_accepted} steps to session {step_session.session_id}")
 
         # Prepare response message
         if steps_trimmed > 0:
@@ -254,20 +289,17 @@ class AddStepsView(generics.UpdateAPIView):
             completion_message = " Congratulations! You've completed the campaign!" if just_completed else ""
             message = f"Successfully added {steps_accepted} steps!{completion_message}"
 
-        # Award points.
-        points = calculate_points(activity_type="special_campaign", level=user.level)
-        NextBee.member_activity(
-            member_email=user.email, activityId="8474", numericValue=str(points)
-        )
-
         serializer = self.get_serializer(step_session)
         return self._success_response(
             message=message,
             data={
                 **serializer.data,
-                "total_steps": step_session.total_steps,
+                "total_steps": step_session.step_count,
                 "completed": completed,
-                "steps_added": steps_to_add,
+                "steps_requested": steps_to_add,
+                "steps_accepted": steps_accepted,
+                "steps_trimmed": steps_trimmed,
+                "remaining_steps": max(step_target - step_session.step_count, 0),
                 "time_limit": str(step_session.campaign.time_limit),
                 "campaign_end_time": str(step_session.campaign.campaign_end_time),
             }
