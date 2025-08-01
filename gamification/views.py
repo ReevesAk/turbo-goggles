@@ -208,7 +208,7 @@ class AddStepsView(generics.UpdateAPIView):
         sessions = StepSessionModel.objects.filter(
             campaign__campaign_id=campaign_id,
             user=request.user
-        ).order_by('created_at')  # Keep the oldest as main session
+        ).order_by('started_at')  # Keep the oldest as main session
 
         if not sessions.exists():
             return self._error_response(
@@ -288,6 +288,11 @@ class AddStepsView(generics.UpdateAPIView):
             just_completed = completed and step_session.step_count == step_target
             completion_message = " Congratulations! You've completed the campaign!" if just_completed else ""
             message = f"Successfully added {steps_accepted} steps!{completion_message}"
+
+        points = calculate_points(activity_type="special_campaign", level=user.level)
+        NextBee.member_activity(
+            member_email=user.email, activityId="8474", numericValue=str(points)
+        )
 
         serializer = self.get_serializer(step_session)
         return self._success_response(
