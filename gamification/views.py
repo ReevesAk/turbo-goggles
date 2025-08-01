@@ -19,6 +19,7 @@ from .serializers import (
 from .models import StepCampaignModel, StepSessionModel
 
 from gamification.utils import NextBee
+from gamification.points import calculate_points
 from security import encrypt, decrypt
 from permissions import HasCompletedSurvey, IsMember
 
@@ -92,102 +93,6 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
         )
 
 
-# class JoinOrAddStepsView(generics.GenericAPIView):
-#     """
-#     A unified view that allows a user to:
-#     - Join a step campaign (if not already joined today)
-#     - Continue a campaign session
-#     - Add steps to the current session (if `steps` is provided)
-#     """
-#     serializer_class = StepCountSessionSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request, *args, **kwargs):
-#         logger.info("User attempting to join or update a step campaign session.")
-#         decrypted_payload = decrypt(request.data)
-
-#         campaign_id = decrypted_payload.get("campaign_id")
-#         steps_to_add = decrypted_payload.get("steps")
-
-#         if not campaign_id:
-#             return Response(
-#                 encrypt({"status": "error", "message": "Campaign ID is required."}),
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # Validate steps (if provided)
-#         if steps_to_add is not None:
-#             try:
-#                 steps_to_add = int(steps_to_add)
-#                 if steps_to_add <= 0:
-#                     raise ValueError
-#             except (ValueError, TypeError):
-#                 return Response(
-#                     encrypt({"status": "error", "message": "Steps must be a positive integer."}),
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#         # Retrieve the campaign
-#         try:
-#             campaign = StepCampaignModel.objects.get(campaign_id=campaign_id)
-#         except StepCampaignModel.DoesNotExist:
-#             return Response(
-#                 encrypt({"status": "error", "message": "Campaign not found."}),
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#         if not campaign.is_campaign_active:
-#             return Response(
-#                 encrypt({"status": "error", "message": "Campaign has expired."}),
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         session_date = timezone.now().date()
-
-#         # Get or create the session
-#         step_session, created = StepSessionModel.objects.get_or_create(
-#             campaign=campaign,
-#             user=request.user,
-#             session_date=session_date,
-#             defaults={"started_at": timezone.now()},
-#         )
-
-#         # Check personal time limit
-#         if not step_session.can_still_accumulate:
-#             return Response(
-#                 encrypt({"status": "error", "message": "Your personal time limit has expired."}),
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-
-#         # Add steps if provided
-#         if steps_to_add is not None:
-#             step_session.step_count += steps_to_add
-#             step_session.save()
-#             completed = step_session.check_completion()
-#             message = "Steps added successfully."
-#         else:
-#             completed = step_session.completed
-#             message = "Session is active."
-
-#         # Prepare response
-#         serializer = self.get_serializer(step_session)
-#         return Response(
-#             encrypt({
-#                 "status": "success",
-#                 "message": message,
-#                 "data": {
-#                     **serializer.data,
-#                     "total_steps": step_session.total_steps,
-#                     "completed": completed,
-#                     "time_limit": campaign.time_limit,
-#                     "campaign_end_time": campaign.campaign_end_time,
-#                 }
-#             }),
-#             status=status.HTTP_200_OK
-#         )
-
-
 class JoinCampaignView(generics.CreateAPIView):
     """
     Allows a user to join a step campaign.
@@ -213,13 +118,10 @@ class JoinCampaignView(generics.CreateAPIView):
         if not campaign.is_campaign_active:
             return self._error_response(message="Campaign has expired.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        session_date = timezone.now().date()
-
         # Check if user already joined today
         existing_session = StepSessionModel.objects.filter(
             campaign=campaign,
             user=request.user,
-            session_date=session_date
         ).first()
 
         if existing_session:
@@ -232,7 +134,6 @@ class JoinCampaignView(generics.CreateAPIView):
         step_session = StepSessionModel.objects.create(
             campaign=campaign,
             user=request.user,
-            session_date=session_date,
             started_at=timezone.now()
         )
 
@@ -273,6 +174,7 @@ class AddStepsView(generics.UpdateAPIView):
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to add steps.")
         decrypted_payload = decrypt(request.data)
+        user = request.user
 
         campaign_id = kwargs.get("campaign_id")
         steps_to_add = decrypted_payload.get("step_count")
@@ -295,16 +197,14 @@ class AddStepsView(generics.UpdateAPIView):
             )
 
         # Get today's session
-        session_date = timezone.now().date()
         try:
             step_session = StepSessionModel.objects.get(
                 campaign__campaign_id=campaign_id,
                 user=request.user,
-                session_date=session_date
             )
         except StepSessionModel.DoesNotExist:
             return self._error_response(
-                message="You haven't joined this campaign today. Please join first.",
+                message="You haven't joined this campaign. Please join first.",
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
@@ -314,6 +214,25 @@ class AddStepsView(generics.UpdateAPIView):
                 message="Your personal time limit has expired.",
                 status_code=status.HTTP_403_FORBIDDEN
             )
+
+        # Check if adding these steps would exceed the target
+        current_total = step_session.step_count
+        step_target = step_session.campaign.step_target
+
+        if current_total >= step_target:
+            return self._error_response(
+                message="You have already reached the step target for this campaign.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Trim steps if it would exceed target, but still accept the request
+        steps_accepted = steps_to_add
+        steps_trimmed = 0
+
+        if current_total + steps_to_add > step_target:
+            steps_accepted = step_target - current_total
+            steps_trimmed = steps_to_add - steps_accepted
+            logger.info(f"Trimmed {steps_trimmed} excess steps. Accepting {steps_accepted} steps.")
 
         # Add steps atomically to prevent race conditions
         with transaction.atomic():
@@ -327,9 +246,23 @@ class AddStepsView(generics.UpdateAPIView):
 
         logger.info(f"Added {steps_to_add} steps to session {step_session.session_id}")
 
+        # Prepare response message
+        if steps_trimmed > 0:
+            message = f"Added {steps_accepted} steps and trimmed {steps_trimmed} excess steps. Campaign completed!"
+        else:
+            just_completed = completed and step_session.step_count == step_target
+            completion_message = " Congratulations! You've completed the campaign!" if just_completed else ""
+            message = f"Successfully added {steps_accepted} steps!{completion_message}"
+
+        # Award points.
+        points = calculate_points(activity_type="special_campaign", level=user.level)
+        NextBee.member_activity(
+            member_email=user.email, activityId="8474", numericValue=str(points)
+        )
+
         serializer = self.get_serializer(step_session)
         return self._success_response(
-            message=f"Successfully added {steps_to_add} steps!",
+            message=message,
             data={
                 **serializer.data,
                 "total_steps": step_session.total_steps,
@@ -369,13 +302,10 @@ class CampaignStatusView(generics.RetrieveAPIView):
         if not campaign_id:
             return self._error_response("Campaign ID is required.", status.HTTP_400_BAD_REQUEST)
 
-        session_date = timezone.now().date()
-
         try:
             step_session = StepSessionModel.objects.select_related('campaign').get(
                 campaign__campaign_id=campaign_id,
                 user=request.user,
-                session_date=session_date
             )
         except StepSessionModel.DoesNotExist:
             return self._error_response(
