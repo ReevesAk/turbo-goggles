@@ -75,14 +75,21 @@ class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
         return len({session.user_id for session in obj.sessions.all()})
 
 
+# Main output serializer - enhanced version of your original
 class StepCountSessionSerializer(serializers.ModelSerializer):
+    """Enhanced serializer for step session responses"""
     campaign_name = serializers.CharField(source="campaign.name", read_only=True)
     step_target = serializers.IntegerField(source="campaign.step_target", read_only=True)
+    reward_points = serializers.IntegerField(source="campaign.reward_points", read_only=True)
+    campaign_end_time = serializers.DateTimeField(source="campaign.campaign_end_time", read_only=True)
+    time_limit = serializers.DurationField(source="campaign.time_limit", read_only=True)
 
     class Meta:
         model = StepSessionModel
         fields = [
             "session_id", "campaign", "campaign_name",
-            "session_date", "step_count", "completed", "step_target"
+            "session_date", "step_count", "completed", 
+            "step_target", "reward_points", "started_at", "last_updated",
+            "campaign_end_time", "time_limit"
         ]
-        read_only_fields = ["session_id", "completed"]
+        read_only_fields = ["session_id", "completed", "started_at", "last_updated"]

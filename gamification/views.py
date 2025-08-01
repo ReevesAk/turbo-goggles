@@ -199,9 +199,8 @@ class JoinCampaignView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
-        decrypted_payload = decrypt(request.data)
 
-        campaign_id = decrypted_payload.get("campaign_id")
+        campaign_id = kwargs.get("campaign_id")
         if not campaign_id:
             return self._error_response("Campaign ID is required.", status.HTTP_400_BAD_REQUEST)
 
@@ -225,7 +224,7 @@ class JoinCampaignView(generics.CreateAPIView):
 
         if existing_session:
             return self._error_response(
-                message="You have already joined this campaign today.", 
+                message="You have already joined this campaign today.",
                 status_code=status.HTTP_409_CONFLICT
             )
 
@@ -275,7 +274,7 @@ class AddStepsView(generics.UpdateAPIView):
         logger.info(f"User {request.user.id} attempting to add steps.")
         decrypted_payload = decrypt(request.data)
 
-        campaign_id = decrypted_payload.get("campaign_id")
+        campaign_id = kwargs.get("campaign_id")
         steps_to_add = decrypted_payload.get("steps")
 
         if not campaign_id:
@@ -366,7 +365,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} checking campaign status.")
 
-        campaign_id = request.query_params.get("campaign_id")
+        campaign_id = kwargs.get("campaign_id")
         if not campaign_id:
             return self._error_response("Campaign ID is required.", status.HTTP_400_BAD_REQUEST)
 

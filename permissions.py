@@ -242,9 +242,9 @@ class IsTaskAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt(detail="Only TaskAdmin Users can perform this action."))
+                raise ValidationError(encrypt("Only TaskAdmin Users can perform this action."))
 
-        raise ValidationError(encrypt(detail="Authentication is required to access this resource."))
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
