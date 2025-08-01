@@ -1151,7 +1151,7 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
                 account_types__user_type__in=["Agent", "Moderator"]
             )
             .distinct()
-            .order_by("accounttypes__created_at")
+            .order_by("account_types__created_at")
         )
         logger.info("Agent and moderator users retrieved successfully.")
         return users
