@@ -37,7 +37,7 @@ from .tasks import (
     CreateStepCampaign,
     GetAllStepCampaigns,
     GetSingleStepCampaign,
-    CampaignListView,
+    CampaignParticipantListView,
 )
 from .wallets import GetallWalletUsers, CreateBankAccountForUser, WalletSearch
 
@@ -117,12 +117,12 @@ urlpatterns = [
     path("activity/title-list", ActivityTitleListView.as_view(), name="title-list"),
     # Gamification Tasks endpoints.
     path(
-        "tasks/campaigns/create/",
+        "tasks/campaigns/create",
         CreateStepCampaign.as_view(),
         name="create-step-campaign",
     ),
     path(
-        "tasks/campaigns/all/",
+        "tasks/campaigns/all",
         GetAllStepCampaigns.as_view(),
         name="get-all-step-campaigns",
     ),
@@ -132,8 +132,8 @@ urlpatterns = [
         name="get-single-step-campaign",
     ),
     path(
-        "tasks/campaigns/with-participants/",
-        CampaignListView.as_view(),
+        "tasks/campaigns/with-participants",
+        CampaignParticipantListView.as_view(),
         name="campaigns-with-participants",
     ),
     # Applications endpoints.

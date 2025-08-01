@@ -4,6 +4,11 @@ from .views import (
     JoinOrAddStepsView,
     GetMemberPointsSummary
 )
+from roles.tasks import (
+    GetAllStepCampaigns,
+    GetSingleStepCampaign
+)
+
 
 app_name = "gamification"
 
@@ -12,6 +17,16 @@ urlpatterns = [
         "nextbee-gamification-sso-login",
         NextBeeGamificationLSSOLogin.as_view(),
         name="nextbee_gamification_sso_login",
+    ),
+    path(
+        "campaigns/all",
+        GetAllStepCampaigns.as_view(),
+        name="get-all-step-campaigns",
+    ),
+    path(
+        "campaigns/<uuid:campaign_id>/",
+        GetSingleStepCampaign.as_view(),
+        name="get-single-step-campaign",
     ),
     path(
         "join-or-add-steps",

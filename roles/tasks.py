@@ -86,7 +86,7 @@ class GetAllStepCampaigns(generics.ListAPIView):
 
     serializer_class = StepCampaignListSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin | IsSuperAdmin)
+    permission_classes = [IsAuthenticated]
     queryset = StepCampaignModel.objects.all().order_by("-created_at")
 
     @extend_schema(
@@ -113,7 +113,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
 
     serializer_class = StepCampaignDetailSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin | IsSuperAdmin)
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         description="Retrieve a specific step campaign and its participants",
@@ -132,7 +132,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-class CampaignListView(generics.ListAPIView):
+class CampaignParticipantListView(generics.ListAPIView):
     serializer_class = CampaignWithParticipantsSerializer
 
     def get_queryset(self):
