@@ -243,8 +243,8 @@ class JoinCampaignView(generics.CreateAPIView):
                 **serializer.data,
                 "total_steps": step_session.total_steps,
                 "completed": step_session.completed,
-                "time_limit": campaign.time_limit,
-                "campaign_end_time": campaign.campaign_end_time,
+                "time_limit": str(campaign.time_limit),
+                "campaign_end_time": str(campaign.campaign_end_time),
             }
         )
 
