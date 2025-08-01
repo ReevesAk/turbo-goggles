@@ -54,13 +54,13 @@ class CreateStepCampaign(generics.GenericAPIView):
             "status": "Success",
             "message": "Campaign created successfully.",
             "data": {
-                "campaign_id": campaign.campaign_id,
+                "campaign_id": str(campaign.campaign_id),
                 "name": campaign.name,
                 "description": campaign.description,
-                "duration": campaign.duration,
+                "duration": str(campaign.duration),
                 "reward_points": campaign.reward_points,
                 "step_target": campaign.step_target,
-                "time_limit": campaign.time_limit,
+                "time_limit": str(campaign.time_limit),
             },
         }
         logger.info(
