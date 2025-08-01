@@ -20,7 +20,7 @@ from gamification.serializers import (
 )
 from accounts.models import User, UserNotification
 from gamification.models import StepCampaignModel, StepSessionModel
-from permissions import IsTaskAdmin, IsSuperAdmin
+from permissions import IsTaskAdminOrSuperAdmin, IsSuperAdmin
 from security import encrypt, decrypt
 
 
@@ -35,7 +35,7 @@ class CreateStepCampaign(generics.GenericAPIView):
 
     serializer_class = StepCampaignSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated & (IsTaskAdmin | IsSuperAdmin),)
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
         logger.info("Request to start step count campaign.")

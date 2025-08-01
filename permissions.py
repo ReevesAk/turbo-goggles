@@ -232,17 +232,15 @@ class IsFmcgAdmin(permissions.BasePermission):
         raise ValidationError(encrypt(detail="Authentication is required to access this resource."))
 
 
-class IsTaskAdmin(permissions.BasePermission):
+class IsTaskAdminOrSuperAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        # Required type.
-        required_user_types = ["TaskAdmin"]
+        # Allow both TaskAdmin and SuperAdmin
+        required_user_types = ["TaskAdmin", "SuperAdmin"]
 
         if request.user.is_authenticated:
-            # Check if the user_type matches the required user_type
             if request.user.active_role in required_user_types:
                 return True
-            else:
-                raise ValidationError(encrypt("Only TaskAdmin Users can perform this action."))
+            raise ValidationError(encrypt("Only TaskAdmin or SuperAdmin users can perform this action."))
 
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
