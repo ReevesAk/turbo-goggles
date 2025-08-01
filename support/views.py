@@ -1148,7 +1148,7 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         logger.info("Retrieving agent and moderator users.")
         users = (
             User.objects.filter(
-                accounttypes__user_types__in=["Agent", "Moderator"]
+                account_types__user_type__in=["Agent", "Moderator"]
             )
             .distinct()
             .order_by("accounttypes__created_at")
@@ -1162,8 +1162,8 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
 
         # Count Agent and Moderator users
-        agent_count = queryset.filter(accounttypes__user_types="Agent").count()
-        moderator_count = queryset.filter(accounttypes__user_types="Moderator").count()
+        agent_count = queryset.filter(account_types__user_type="Agent").count()
+        moderator_count = queryset.filter(account_types__user_type="Moderator").count()
 
         response_data = {
             "status": "success",
