@@ -77,8 +77,8 @@ class StepSessionModel(models.Model):
 
     @property
     def personal_deadline(self):
-        if self.started_at and self.time_limit:
-            return self.started_at + self.time_limit
+        if self.started_at and self.campaign.time_limit:
+            return self.started_at + self.campaign.time_limit
         return None
 
     @property

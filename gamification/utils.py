@@ -62,7 +62,7 @@ class NextBee:
 
     @staticmethod
     def sso_login(
-        email: str
+        email: str, first_name: str = "", last_name: str = "",
     ) -> str:
         """
         Login to NextBee SSO.
@@ -81,7 +81,9 @@ class NextBee:
             "advertiser_id": nextbee_advertiser_id,
             "program_id": program_id,
             "ssoRegisterWidgetConfigId": sso_register_widget_config,
-            "ssoLoginWidgetConfigId": sso_login_widget_config
+            "ssoLoginWidgetConfigId": sso_login_widget_config,
+            "firstName": first_name,
+            "lastName": last_name,
         }
 
         try:
