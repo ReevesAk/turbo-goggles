@@ -242,11 +242,10 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
 
 class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "phone_number", "email", "status", "user_type", "last_login"]
+        fields = ["id", "full_name", "phone_number", "email", "user_type", "last_login"]
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
