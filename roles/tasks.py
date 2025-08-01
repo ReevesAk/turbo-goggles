@@ -35,7 +35,7 @@ class CreateStepCampaign(generics.GenericAPIView):
 
     serializer_class = StepCampaignSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsTaskAdmin | IsSuperAdmin)
+    permission_classes = (IsAuthenticated & (IsTaskAdmin | IsSuperAdmin),)
 
     def post(self, request, *args, **kwargs):
         logger.info("Request to start step count campaign.")
