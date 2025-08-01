@@ -1,7 +1,9 @@
 from django.urls import path
 from .views import (
     NextBeeGamificationLSSOLogin,
-    JoinOrAddStepsView,
+    JoinCampaignView,
+    AddStepsView,
+    CampaignStatusView,
     GetMemberPointsSummary
 )
 from roles.tasks import (
@@ -28,10 +30,8 @@ urlpatterns = [
         GetSingleStepCampaign.as_view(),
         name="get-single-step-campaign",
     ),
-    path(
-        "join-or-add-steps",
-        JoinOrAddStepsView.as_view(),
-        name="join_or_add_steps",
-    ),
+    path('campaigns/join/', JoinCampaignView.as_view(), name='join-campaign'),
+    path('campaigns/add-steps/', AddStepsView.as_view(), name='add-steps'),
+    path('campaigns/status/', CampaignStatusView.as_view(), name='campaign-status'),
     path("get-member-points-summary", GetMemberPointsSummary.as_view(), name="get_member_points_summary"),
 ]

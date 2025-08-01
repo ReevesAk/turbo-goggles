@@ -36,7 +36,7 @@ from .serializers import (
     AddToFavouriteSerializer,
     FavouriteSerializer,
     SupportTicketSerializer,
-    TierListResponseSerializer
+    TierListResponseSerializer,
 )
 from .helpers import MysteryBox, VariationCodes
 from .choices import LEVELS
@@ -1329,9 +1329,9 @@ example_response = OpenApiExample(
             "current_level": "Explorer",
             "total_points": 750,
             "tiers": LEVELS,
-        }
+        },
     },
-    response_only=True
+    response_only=True,
 )
 
 
