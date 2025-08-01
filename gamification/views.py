@@ -275,7 +275,7 @@ class AddStepsView(generics.UpdateAPIView):
         decrypted_payload = decrypt(request.data)
 
         campaign_id = kwargs.get("campaign_id")
-        steps_to_add = decrypted_payload.get("steps")
+        steps_to_add = decrypted_payload.get("step_count")
 
         if not campaign_id:
             return self._error_response(message="Campaign ID is required.", status_code=status.HTTP_400_BAD_REQUEST)
@@ -335,8 +335,8 @@ class AddStepsView(generics.UpdateAPIView):
                 "total_steps": step_session.total_steps,
                 "completed": completed,
                 "steps_added": steps_to_add,
-                "time_limit": step_session.campaign.time_limit,
-                "campaign_end_time": step_session.campaign.campaign_end_time,
+                "time_limit": str(step_session.campaign.time_limit),
+                "campaign_end_time": str(step_session.campaign.campaign_end_time),
             }
         )
 
