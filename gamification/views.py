@@ -195,7 +195,7 @@ class JoinCampaignView(generics.CreateAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsMember]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
