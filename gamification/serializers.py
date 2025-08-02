@@ -106,12 +106,13 @@ class StepCountSessionSerializer(serializers.ModelSerializer):
     reward_points = serializers.IntegerField(source="campaign.reward_points", read_only=True)
     campaign_end_time = serializers.DateTimeField(source="campaign.campaign_end_time", read_only=True)
     time_limit = serializers.DurationField(source="campaign.time_limit", read_only=True)
+    session_date = serializers.SerializerMethodField()
 
     class Meta:
         model = StepSessionModel
         fields = [
             "session_id", "campaign", "campaign_name",
-            "session_date", "step_count", "completed", 
+            "session_date", "step_count", "completed",
             "step_target", "reward_points", "started_at", "last_updated",
             "campaign_end_time", "time_limit"
         ]

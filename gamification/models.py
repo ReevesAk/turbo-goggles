@@ -52,11 +52,15 @@ class StepCampaignModel(models.Model):
         return timezone.now() < self.campaign_end_time
 
 
+def get_current_date():
+    return timezone.now().date()
+
+
 class StepSessionModel(models.Model):
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     campaign = models.ForeignKey(StepCampaignModel, on_delete=models.CASCADE, related_name="sessions")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="step_sessions")
-    session_date = models.DateField(default=timezone.now)
+    session_date = models.DateField(default=get_current_date)
     step_count = models.PositiveIntegerField(default=0)
     completed = models.BooleanField(default=False)
     started_at = models.DateTimeField(null=True, blank=True)
