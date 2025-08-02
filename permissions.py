@@ -387,10 +387,10 @@ class IsPartnerUserOrMemberBrandAdOrSuperAdmin(permissions.BasePermission):
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
-class IsManager(permissions.BasePermission):
+class IsManagerOrSuperAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["Manager"]
+        required_user_types = ["Manager", "SuperAdmin"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type
