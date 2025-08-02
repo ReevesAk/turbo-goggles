@@ -121,7 +121,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
     )
     def retrieve(self, request, *args, **kwargs):
         campaign_id = kwargs.get("campaign_id")
-        campaign = get_object_or_404(StepCampaignModel, id=campaign_id)
+        campaign = get_object_or_404(StepCampaignModel, campaign_id=campaign_id)
         serializer = self.get_serializer(campaign)
 
         response_data = {
