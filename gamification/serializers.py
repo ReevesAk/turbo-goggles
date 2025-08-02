@@ -36,7 +36,7 @@ class StepCampaignSerializer(serializers.ModelSerializer):
 class StepCampaignListSerializer(serializers.ModelSerializer):
     class Meta:
         model = StepCampaignModel
-        fields = ["id", "name", "description", "duration", "step_target", "reward_points", "created_at"]
+        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at"]
 
 
 class StepCampaignDetailSerializer(serializers.ModelSerializer):
