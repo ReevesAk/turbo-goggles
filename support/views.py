@@ -32,7 +32,7 @@ from accounts.tokens import create_jwt_pair_for_user
 from accounts.otp import otp_manager
 from roles.models import ActivityModel
 from permissions import (
-    IsSuperAdmin, IsManager, IsAgent
+    IsSuperAdmin, IsManagerOrSuperAdmin, IsAgent
 )
 from commons import Messaging
 from sms import Message
@@ -648,7 +648,7 @@ class AddAgent(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = AddAgentSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsManager)
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
 
     def post(self, request):
         try:
