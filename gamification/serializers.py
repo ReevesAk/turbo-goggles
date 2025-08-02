@@ -50,9 +50,20 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_participants(self, obj):
-        # Assuming there's a related model like StepCampaignParticipation or M2M through
-        participants = obj.participants.all()  # Update this according to your relationship
-        return [{"user_id": u.id, "full_name": u.full_name} for u in participants]
+        # Get sessions with user info
+        sessions = StepSessionModel.objects.filter(campaign=obj).select_related('user')
+
+        participants = []
+        for session in sessions:
+            participants.append({
+                "user_id": session.user.id,
+                "full_name": session.user.full_name,
+                "step_count": session.step_count,
+                "completed": session.completed,
+                "started_at": session.started_at
+            })
+
+        return participants
 
 
 class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
