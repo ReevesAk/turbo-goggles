@@ -127,7 +127,7 @@ urlpatterns = [
         name="get-all-step-campaigns",
     ),
     path(
-        "tasks/campaigns/<uuid:campaign_id>/",
+        "tasks/campaigns/<uuid:campaign_id>/get",
         GetSingleStepCampaign.as_view(),
         name="get-single-step-campaign",
     ),
