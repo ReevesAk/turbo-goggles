@@ -41,6 +41,8 @@ class StepCampaignListSerializer(serializers.ModelSerializer):
 
 class StepCampaignDetailSerializer(serializers.ModelSerializer):
     participants = serializers.SerializerMethodField()
+    duration = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = StepCampaignModel
@@ -48,6 +50,16 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
             "id", "name", "description", "duration", "step_target",
             "reward_points", "created_at", "participants"
         ]
+
+    def get_duration(self, obj):
+        if obj.duration:
+            return str(obj.duration)  # Convert timedelta to string
+        return None
+
+    def get_created_at(self, obj):
+        if obj.created_at:
+            return obj.created_at.isoformat()  # Convert datetime to ISO string
+        return None
 
     def get_participants(self, obj):
         # Get sessions with user info
@@ -60,7 +72,7 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
                 "full_name": session.user.full_name,
                 "step_count": session.step_count,
                 "completed": session.completed,
-                "started_at": session.started_at
+                "started_at": str(session.started_at)
             })
 
         return participants
