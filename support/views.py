@@ -20,7 +20,7 @@ from .utils import generate_ticket_number
 from .models import Ticket, AgentRating
 
 # Third party imports.
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -502,29 +502,30 @@ class DeleteTicket(generics.DestroyAPIView):
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "ticket_number"
+    lookup_field = "number"  # This should match your model field
+    lookup_url_kwarg = "ticket_number"  # This should match your URL parameter
 
     def destroy(self, request, *args, **kwargs):
         logger.info("Received request to delete support ticket.")
 
-        ticket_id = kwargs.get("ticket_number")
-        logger.debug("Attempting to delete ticket with ID: %s", ticket_id)
+        ticket_number = kwargs.get("ticket_number")  # Get from URL kwargs
+        logger.debug("Attempting to delete ticket with number: %s", ticket_number)
 
         try:
-            ticket = Ticket.objects.get(number=ticket_id)
+            ticket = Ticket.objects.get(number=ticket_number)  # Query using model field
             ticket.delete()
-            logger.info("Ticket deleted successfully: %s", ticket_id)
+            logger.info("Ticket deleted successfully: %s", ticket_number)
 
             return Response(
                 {
                     "status": "success",
-                    "message": f"Support ticket with ID {ticket_id} has been deleted.",
+                    "message": f"Support ticket with number {ticket_number} has been deleted.",
                 },
                 status=status.HTTP_204_NO_CONTENT,
             )
 
         except Ticket.DoesNotExist:
-            logger.error("Ticket with ID %s not found.", ticket_id)
+            logger.error("Ticket with number %s not found.", ticket_number)
             return Response(
                 {"status": "fail", "message": "Ticket not found."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -761,13 +762,14 @@ class AgentSignUpComplete(generics.UpdateAPIView):
     permission_classes = [AllowAny]
 
     def get_object(self):
-        user_id = self.kwargs.get("user_id")
+        user_id = self.kwargs.get("user_id")  # Make sure this matches your URL pattern
+        logger.debug("Getting object for user ID: %s", user_id)
 
         try:
             user = User.objects.get(id=user_id)
             admin_types = [
                 "SuperAdmin",
-                "TaskAdmin",
+                "TaskAdmin", 
                 "AdAdmin",
                 "MembersAdmin",
                 "UserAdmin",
@@ -780,29 +782,27 @@ class AgentSignUpComplete(generics.UpdateAPIView):
                 user=user, user_type__in=admin_types
             ).exists()
 
-            if is_admin:
-                return user
-            else:
-                raise PermissionError("User exists, but is not an admin.")
+            if not is_admin:
+                logger.warning("User %s exists but is not an admin.", user_id)
+                return None  # Return None instead of raising exception
+
+            return user
 
         except User.DoesNotExist:
+            logger.warning("User with ID %s not found.", user_id)
             return None
 
     def update(self, request, *args, **kwargs):
-        user_id = kwargs.get("id")  # Assuming the user ID is passed in the URL
+        user_id = kwargs.get("user_id")  # Match the parameter name with get_object()
         logger.info("Update request received for user ID: %s", user_id)
 
         instance = self.get_object()
         if instance is None:
-            logger.warning("User  with ID %s not found.", user_id)
+            logger.warning("User with ID %s not found or not authorized.", user_id)
             return Response(
-                data={"status": "fail", "message": "User  not found."}, status=status.HTTP_404_NOT_FOUND
+                data={"status": "fail", "message": "User not found or not authorized."}, 
+                status=status.HTTP_404_NOT_FOUND
             )
-        elif isinstance(instance, Response):  # Return Response if not an admin
-            logger.warning(
-                "User  with ID %s is not an admin, returning response.", user_id
-            )
-            return instance
 
         payload = {
             key: value.strip() if isinstance(value, str) else value
@@ -812,39 +812,39 @@ class AgentSignUpComplete(generics.UpdateAPIView):
 
         serializer = self.get_serializer(instance=instance, data=payload)
 
-        if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
-            user.set_password(
-                serializer.validated_data.get("password", user.password)
-            )  # Ensure password is set correctly
-            user.is_verified = True
-            user.save()
+        try:
+            if serializer.is_valid(raise_exception=True):
+                user = serializer.save()  # The serializer handles password hashing
+                user.is_verified = True
+                user.save()
 
-            ActivityModel.objects.create(
-                user=user,
-                title="Admin Complete Signup.",
-                description=f"Support agent {instance.full_name} completed signup.",
-            )
-            logger.info(
-                "Support ageent registration completed successfully for user ID: %s", user_id
-            )
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Admin Complete Signup.",
+                    description=f"Support agent {instance.full_name} completed signup.",
+                )
+                logger.info(
+                    "Support agent registration completed successfully for user ID: %s", user_id
+                )
+                return Response(
+                    data={
+                        "status": "success",
+                        "message": "Support Agent signup completed successfully.",
+                        "data": serializer.data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+        except serializers.ValidationError as e:
+            logger.error("Validation error for user ID %s: %s", user_id, e)
             return Response(
-                data={
-                    "status": "success",
-                    "message": "Suppot Agent signup completed successfully.",
-                    "data": serializer.data,
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            logger.error(
-                "Error during user update for user ID %s: %s",
-                user_id,
-                serializer.errors,
-            )
-            return Response(
-                data={"status": "fail", "message": serializer.errors},
+                data={"status": "fail", "message": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.error("Unexpected error for user ID %s: %s", user_id, str(e))
+            return Response(
+                data={"status": "fail", "message": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

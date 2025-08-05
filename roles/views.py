@@ -1495,9 +1495,9 @@ class GetAllAdminUsers(generics.ListAPIView):
     def get_queryset(self):
         logger.info("Retrieving admin users.")
         admin_users = (
-            User.objects.filter(accounttype__user_type__icontains="Admin")
+            User.objects.filter(account_types__user_type__icontains="Admin")
             .distinct()
-            .order_by("accounttype__created_at")
+            .order_by("account_types__created_at")
         )
         logger.info("Admin users retrieved successfully.")
         return admin_users
@@ -1559,9 +1559,9 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
 
     def get_queryset(self):
         return (
-            User.objects.filter(accounttype__user_type__icontains="Admin")
+            User.objects.filter(account_types__user_type__icontains="Admin")
             .distinct()
-            .order_by("accounttype__created_at")
+            .order_by("account_types__created_at")
         )
 
     def list(self, request, *args, **kwargs):
@@ -1634,9 +1634,9 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
 
     def get_queryset(self):
         wallet_admin_users = (
-            User.objects.filter(accounttype__user_type__icontains="WalletAdmin")
+            User.objects.filter(account_types__user_type__icontains="WalletAdmin")  # Changed
             .distinct()
-            .order_by("accounttype__created_at")
+            .order_by("account_types__created_at")  # Changed
         )
         return wallet_admin_users
 
