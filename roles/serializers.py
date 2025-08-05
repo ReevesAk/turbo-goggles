@@ -210,7 +210,7 @@ class ListAdminSerializer(serializers.ModelSerializer):
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
-        return list(obj.accounttype_set.values_list("user_type", flat=True))
+        return list(obj.account_types_set.values_list("user_type", flat=True))
 
     def get_status(self, obj):
         return "Disabled" if obj.is_admin_disabled else "Active"
