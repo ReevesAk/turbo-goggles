@@ -1,11 +1,17 @@
 from django.urls import path
 
 
-from .views import CreateTicket, RegisterManager, SupportPhoneVerifyOTP, AssignTicket, GetAllSupportTickets, GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets, AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin, GetAllAgentAndModeratorUsers, DeleteTicket
+from .views import (
+    CreateTicket, RegisterManager, SupportPhoneVerifyOTP,
+    AssignTicket, GetAllSupportTickets, GetSingleTicket,
+    RateSupportAgent, GetTicketByChannel, UsersWithTickets,
+    AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
+    GetAllAgentAndModeratorUsers, DeleteTicket
+)
 from .pusher import SupportChat
 
 
-app_name = 'support'
+app_name = "support"
 
 
 urlpatterns = [

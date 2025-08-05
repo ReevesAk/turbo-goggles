@@ -40,7 +40,7 @@ class GetAllPartnersUsers(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        partners = User.objects.filter(accounttype__user_type="Partner").distinct()
+        partners = User.objects.filter(account_types__user_type="Partner").distinct()
         return partners
 
     def list(self, request, *args, **kwargs):
