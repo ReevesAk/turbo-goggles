@@ -404,7 +404,7 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
         """
         Get the list of user types for a wallet user from the AccountType model.
         """
-        return list(obj.account_types.values_list("user_type", flat=True))
+        return list(obj.user.account_types.values_list("user_type", flat=True))
 
 
 class GetAllActivityLogsSerializer(serializers.Serializer):

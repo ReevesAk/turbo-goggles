@@ -1569,14 +1569,14 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
 
         # Count the number of admins by each role
         role_counts = (
-            queryset.values("accounttype__user_type")
+            queryset.values("account_types__user_type")  # Changed from accounttype
             .annotate(role_count=Count("id"))
-            .order_by("accounttype__user_type")
+            .order_by("account_types__user_type")  # Changed from accounttype
         )
 
         # Transform role counts into a dictionary
         role_counts_dict = {
-            role["accounttype__user_type"]: role["role_count"] for role in role_counts
+            role["account_types__user_type"]: role["role_count"] for role in role_counts  # Changed from accounttype
         }
 
         page = self.paginate_queryset(queryset)
