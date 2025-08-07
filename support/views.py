@@ -767,23 +767,16 @@ class AgentSignUpComplete(generics.UpdateAPIView):
 
         try:
             user = User.objects.get(id=user_id)
-            admin_types = [
-                "SuperAdmin",
-                "TaskAdmin", 
-                "AdAdmin",
-                "MembersAdmin",
-                "UserAdmin",
-                "PartnersAdmin",
-                "ContentAdmin",
-                "IntegrationAdmin",
-                "WalletAdmin",
+            agent_types = [
+                "Agent",
+                "Moderator",
             ]
-            is_admin = AccountType.objects.filter(
-                user=user, user_type__in=admin_types
+            is_agent = AccountType.objects.filter(
+                user=user, user_type__in=agent_types
             ).exists()
 
-            if not is_admin:
-                logger.warning("User %s exists but is not an admin.", user_id)
+            if not is_agent:
+                logger.warning("User %s exists but is not an agent.", user_id)
                 return None  # Return None instead of raising exception
 
             return user
