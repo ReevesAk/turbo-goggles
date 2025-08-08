@@ -21,7 +21,6 @@ from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_sch
 
 
 from .serializers import (
-    ProfileStatusSerializer,
     ChangePasswordSerializer,
     GetUserSerializer,
     UpdateUserSerializer,
@@ -43,7 +42,6 @@ from .choices import LEVELS
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import ActivityModel
 from support.models import Ticket
-from gamification.models import Points
 from vas.helpers import VAS
 from self_service.models import (
     LandTravels,

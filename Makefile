@@ -18,3 +18,9 @@ fmt:
 
 purge:
 	python3 manage.py flush --no-input
+
+showcron:
+	python3 manage.py crontab show
+
+removecron:
+	python manage.py crontab remove
