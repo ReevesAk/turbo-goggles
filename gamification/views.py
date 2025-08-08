@@ -19,7 +19,7 @@ from .serializers import (
 from .models import StepCampaignModel, StepSessionModel
 
 from gamification.utils import NextBee
-from gamification.points import calculate_points
+from gamification.points import Points
 from security import encrypt, decrypt
 from permissions import HasCompletedSurvey, IsMember
 
@@ -37,7 +37,7 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
 
     serializer_class = SSOLoginSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -100,7 +100,7 @@ class JoinCampaignView(generics.CreateAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = (IsAuthenticated, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
@@ -177,7 +177,7 @@ class AddStepsView(generics.UpdateAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = (IsAuthenticated, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to add steps.")
@@ -289,10 +289,14 @@ class AddStepsView(generics.UpdateAPIView):
             completion_message = " Congratulations! You've completed the campaign!" if just_completed else ""
             message = f"Successfully added {steps_accepted} steps!{completion_message}"
 
-        points = calculate_points(activity_type="special_campaign", level=user.level)
-        NextBee.member_activity(
-            member_email=user.email, activityId="8474", numericValue=str(points)
-        )
+        if user.has_done_survey:
+            points = Points.determine(activity_type="special_campaign", level=user.level)
+            NextBee.member_activity(
+                member_email=user.email, activityId="8474", numericValue=str(points)
+            )
+            Points.refresh_user_points(user)
+        else:
+            pass
 
         serializer = self.get_serializer(step_session)
         return self._success_response(
@@ -330,7 +334,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = (IsAuthenticated, HasCompletedSurvey)
 
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} checking campaign status.")
@@ -346,7 +350,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
             )
         except StepSessionModel.DoesNotExist:
             return self._error_response(
-                "You haven't joined this campaign today.", 
+                "You haven't joined this campaign today.",
                 status.HTTP_404_NOT_FOUND
             )
 

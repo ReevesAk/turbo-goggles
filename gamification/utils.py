@@ -6,8 +6,12 @@ import logging
 import requests
 from decouple import config as conf
 
+from django.db import transaction
+
 from rest_framework.response import Response
 from rest_framework import status
+
+from .models import Points
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +170,7 @@ class NextBee:
                 data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @staticmethod
     def points_summary(member_email: str) -> str:
         """
         Get the points summary for a member.

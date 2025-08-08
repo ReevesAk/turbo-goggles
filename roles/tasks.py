@@ -20,7 +20,7 @@ from gamification.serializers import (
 )
 from accounts.models import User, UserNotification
 from gamification.models import StepCampaignModel, StepSessionModel
-from permissions import IsTaskAdminOrSuperAdmin, IsSuperAdmin
+from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt, decrypt
 
 

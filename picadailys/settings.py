@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "cloudinary",
     "corsheaders",
+    "django_crontab",
     # Internal Project apps.
     "accounts",
     "adverts",
@@ -275,6 +276,11 @@ if TESTING:
             return None
 
     MIGRATION_MODULES = DisableMigrations()
+
+
+CRONJOBS = [
+    ("*/5 * * * *", "gamification.jobs.refresh_all_users_points")
+]
 
 
 LOGGING = {

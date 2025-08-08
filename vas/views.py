@@ -31,7 +31,7 @@ from banking.models import AccountCreation
 from banking.controllers import Account
 from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
-from gamification.points import calculate_points
+from gamification.points import Points
 from gamification.utils import NextBee
 from .controllers import (
     airtime,
@@ -340,7 +340,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -989,7 +989,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -1622,7 +1622,7 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -2365,7 +2365,7 @@ class NewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -2406,7 +2406,7 @@ class NewTvSubscription(generics.GenericAPIView):
                             )
                             if user.has_done_survey:
                                 # Calculate points for service purchase activity
-                                points = calculate_points(
+                                points = Points.calculate_points(
                                     activity_type="service_purchase", level=user.level
                                 )
                                 NextBee.member_activity(
@@ -2802,7 +2802,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -2938,7 +2938,7 @@ class RenewTvSubscription(generics.GenericAPIView):
                         )
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(
@@ -3114,7 +3114,7 @@ class WaecRegistration(generics.GenericAPIView):
                         }
                         if user.has_done_survey:
                             # Calculate points for service purchase activity
-                            points = calculate_points(
+                            points = Points.calculate_points(
                                 activity_type="service_purchase", level=user.level
                             )
                             NextBee.member_activity(

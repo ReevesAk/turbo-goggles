@@ -1576,7 +1576,8 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
 
         # Transform role counts into a dictionary
         role_counts_dict = {
-            role["account_types__user_type"]: role["role_count"] for role in role_counts  # Changed from accounttype
+            role["account_types__user_type"]: role["role_count"]
+            for role in role_counts  # Changed from accounttype
         }
 
         page = self.paginate_queryset(queryset)
@@ -1634,7 +1635,9 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
 
     def get_queryset(self):
         wallet_admin_users = (
-            User.objects.filter(account_types__user_type__icontains="WalletAdmin")  # Changed
+            User.objects.filter(
+                account_types__user_type__icontains="WalletAdmin"
+            )  # Changed
             .distinct()
             .order_by("account_types__created_at")  # Changed
         )

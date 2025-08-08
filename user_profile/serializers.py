@@ -19,6 +19,9 @@ class ProfileImageSerializer(serializers.Serializer):
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 
+    balance = serializers.SerializerMethodField()
+    redeemable = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -44,7 +47,21 @@ class GetUserSerializer(serializers.ModelSerializer):
             "has_bonus",
             "welcome_bonus",
             "has_card",
+            "balance",
+            "redeemable",
         ]
+
+    def get_balance(self, obj):
+        points = getattr(obj, "points_set", None)
+        if points and points.exists():
+            return points.first().balance
+        return 0
+
+    def get_redeemable(self, obj):
+        points = getattr(obj, "points_set", None)
+        if points and points.exists():
+            return points.first().redeemable
+        return 0
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
