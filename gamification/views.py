@@ -37,7 +37,7 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
 
     serializer_class = SSOLoginSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -100,7 +100,7 @@ class JoinCampaignView(generics.CreateAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
@@ -177,7 +177,7 @@ class AddStepsView(generics.UpdateAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to add steps.")
@@ -334,7 +334,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
     """
     serializer_class = StepCountSessionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} checking campaign status.")
@@ -394,7 +394,7 @@ class GetMemberPointsSummary(generics.GenericAPIView):
     retrieve their points summary from NextBee.
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, HasCompletedSurvey)
+    permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request, *args, **kwargs):
         member_email = request.user.email
