@@ -2,9 +2,9 @@ import logging
 from django.contrib.auth.hashers import check_password
 
 # In project imports.
-from .serializers import RestrictBrandAdSerializers, ListBrandAdSerializer
+from .serializers import RestrictBrandAdSerializers, ListBrandAdSerializer, ApproveAdSerializers
 from .models import RestrictBrandAdAccount, ActivityModel
-from adverts.models import AdBudget
+from adverts.models import AdBudget, CreateAd
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -264,5 +264,49 @@ class AdStatsView(generics.RetrieveAPIView):
             logger.error("Error fetching ad statistics: %s", str(e), exc_info=True)
             return Response(
                 encrypt({"error": "Could not fetch ad statistics"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ApproveAd(generics.GenericAPIView):
+    serializer_class = ApproveAdSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
+
+    def post(self, request, ad_id, *args, **kwargs):
+        try:
+            decrypted_payload = decrypt(request.data)
+            approved = decrypted_payload.get("approved", None)
+            reason = decrypted_payload.get("reason", "")
+
+            if approved is None:
+                return Response(
+                    encrypt({"error": "Please provide 'approved' status: true or false"}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            ad = CreateAd.objects.get(id=ad_id)
+            ad.is_approved = bool(approved)
+            ad.is_rejected = not bool(approved)
+            ad.save()
+
+            message = (
+                "Ad approved successfully." if approved else "Ad rejected successfully."
+            )
+
+            return Response(
+                encrypt({"status": "success", "message": message, "reason": reason}),
+                status=status.HTTP_200_OK,
+            )
+
+        except CreateAd.DoesNotExist:
+            return Response(
+                encrypt({"status": "fail", "error": "Ad not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error("Error approving ad: %s", str(e), exc_info=True)
+            return Response(
+                encrypt({"status": "fail", "error": "Could not approve ad"}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

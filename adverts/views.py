@@ -309,7 +309,7 @@ class CreateAdView(generics.CreateAPIView):
             serializer = self.get_serializer(data=decrypted_data)
             serializer.is_valid(raise_exception=True)
 
-            serializer.validated_data["user"] = request.user  # Corrected here
+            serializer.validated_data["user"] = request.user
             create_ad = serializer.save()
 
             ActivityModel.objects.create(
@@ -392,7 +392,19 @@ class PromoteBrand(generics.CreateAPIView):
 
         payment_option = payload.get("payment_option")
         pin = payload.get("pin")
+        ad_id = kwargs.get("ad_id")
         # biometrics = decrypted_data.get("use_biometrics")
+
+        advert_id = CreateAd.objects.filter(id=ad_id).first()
+
+        if not advert_id.is_approved:
+            logger.warning(
+                f"Ad with ID {ad_id} is not approved for promotion."
+            )
+            return Response(
+                data=encrypt({"status": "fail", "message": "Ad is not approved and thus cannot be promoted."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         match payment_option:
             case "WALLET":

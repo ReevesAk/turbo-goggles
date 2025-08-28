@@ -59,6 +59,23 @@ class CreateAd(models.Model):
     address = models.CharField(max_length=155, null=True, blank=True)
     description = models.CharField(max_length=155, null=True, blank=True)
     duration = models.CharField(max_length=155, null=True, blank=True)
+    is_approved = models.BooleanField(default=False, null=True, blank=True)
+    is_rejected = models.BooleanField(default=False, null=True, blank=True)
+
+
+class AdMedia(models.Model):
+    brand = models.ForeignKey(
+        to=CreateAd, on_delete=models.CASCADE, related_name="ad_media"
+    )
+    images = models.CharField(max_length=150, blank=True, null=True)
+    videos = models.CharField(max_length=150, blank=True, null=True)
+
+    def __str__(self) -> str:
+        return (
+            f"{self.images}, {self.videos}"
+            if self.images and self.videos
+            else "Unknown Media"
+        )
 
 
 class AdLocation(models.Model):

@@ -5,6 +5,8 @@ from rest_framework import serializers
 from accounts.models import User
 from banking.models import AccountCreation
 
+from adverts.models import CreateAd
+
 from .models import (
     Applications,
     RestrictPartnerAccount,
@@ -198,6 +200,15 @@ class RemoveRoleFromAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email", "role_to_remove", "pin"]
+
+
+class ApproveAdSerializers(serializers.ModelSerializer):
+    approved = serializers.BooleanField(write_only=True)
+    reason = serializers.CharField(max_length=255, write_only=True)
+
+    class Meta:
+        model = CreateAd
+        fields = ["approved", "reason"]
 
 
 class ListAdminSerializer(serializers.ModelSerializer):

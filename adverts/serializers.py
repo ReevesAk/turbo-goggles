@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
-from .models import CreateAd, AdBudget, AdLocation
+from .models import CreateAd, AdBudget, AdLocation, AdMedia
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,7 @@ class BrandAdProfileSerializers(serializers.ModelSerializer):
             "telegram",
             "created_at",
             "updated_at",
+            "is_approved",
         ]
 
 
@@ -123,12 +124,22 @@ class CreateAdSerializers(serializers.ModelSerializer):
     state = serializers.ListField(
         child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False,  # Add if these fields can be optional
+        required=False,  # Optional field
     )
     city = serializers.ListField(
         child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False,  # Add if these fields can be optional
+        required=False,  # Optional field
+    )
+    images = serializers.ListField(
+        child=serializers.CharField(max_length=150),
+        write_only=True,
+        required=False,  # Optional field
+    )
+    videos = serializers.ListField(
+        child=serializers.CharField(max_length=150),
+        write_only=True,
+        required=False,
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
     user = serializers.PrimaryKeyRelatedField(
@@ -149,17 +160,22 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "website",
             "state",
             "city",
+            "images",
+            "videos",
             "type",
             "category",
             "address",
             "description",
             "duration",
+            "is_approved"
         ]
 
     def create(self, validated_data):
         # Extract non-model fields first
         states = validated_data.pop("state", [])
         cities = validated_data.pop("city", [])
+        images = validated_data.pop("images", [])
+        videos = validated_data.pop("videos", [])
 
         # Create the main CreateAd instance
         create_ad = CreateAd.objects.create(**validated_data)
@@ -167,6 +183,10 @@ class CreateAdSerializers(serializers.ModelSerializer):
         # Create related AdLocation entries
         for state, city in zip(states, cities):
             AdLocation.objects.create(brand=create_ad, state=state, city=city)
+
+        # Create related AdMedia entries
+        for image, video in zip(images, videos):
+            AdMedia.objects.create(brand=create_ad, images=image, videos=video)
 
         return create_ad
 
@@ -197,6 +217,7 @@ class AdSerializers(serializers.ModelSerializer):
             "description",
             "duration",
             "brand_location",
+            "is_approved",
         ]
 
 
