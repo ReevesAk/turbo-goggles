@@ -29,5 +29,5 @@ urlpatterns = [
     path("profile", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile", UpdateBrandAdProfile.as_view(), name="update_profile"),
     path("create", CreateAdView.as_view(), name="create"),
-    path("promote", PromoteBrand.as_view(), name="promote"),
+    path("promote/<int:ad_id>/", PromoteBrand.as_view(), name="promote"),
 ]
