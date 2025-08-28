@@ -67,6 +67,8 @@ class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
 class BrandAdProfileSerializers(serializers.ModelSerializer):
     """Serailizers for our BrandAds profile."""
 
+    is_approved = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -167,7 +169,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "address",
             "description",
             "duration",
-            "is_approved"
+            "is_approved",
         ]
 
     def create(self, validated_data):

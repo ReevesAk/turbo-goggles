@@ -2,7 +2,11 @@ import logging
 from django.contrib.auth.hashers import check_password
 
 # In project imports.
-from .serializers import RestrictBrandAdSerializers, ListBrandAdSerializer, ApproveAdSerializers
+from .serializers import (
+    RestrictBrandAdSerializers,
+    ListBrandAdSerializer,
+    ApproveAdSerializers,
+)
 from .models import RestrictBrandAdAccount, ActivityModel
 from adverts.models import AdBudget, CreateAd
 
@@ -281,7 +285,9 @@ class ApproveAd(generics.GenericAPIView):
 
             if approved is None:
                 return Response(
-                    encrypt({"error": "Please provide 'approved' status: true or false"}),
+                    encrypt(
+                        {"error": "Please provide 'approved' status: true or false"}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

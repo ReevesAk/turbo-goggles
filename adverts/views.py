@@ -398,11 +398,14 @@ class PromoteBrand(generics.CreateAPIView):
         advert_id = CreateAd.objects.filter(id=ad_id).first()
 
         if not advert_id.is_approved:
-            logger.warning(
-                f"Ad with ID {ad_id} is not approved for promotion."
-            )
+            logger.warning(f"Ad with ID {ad_id} is not approved for promotion.")
             return Response(
-                data=encrypt({"status": "fail", "message": "Ad is not approved and thus cannot be promoted."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Ad is not approved and thus cannot be promoted.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

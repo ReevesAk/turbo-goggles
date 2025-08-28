@@ -47,7 +47,12 @@ from .partners import (
     AdminViewPartnerServiceList,
     PartnerSearch,
 )
-from .brand import RestrictBrandAdAccountView, GetAllBrandAdUsers, AdStatsView, ApproveAd
+from .brand import (
+    RestrictBrandAdAccountView,
+    GetAllBrandAdUsers,
+    AdStatsView,
+    ApproveAd,
+)
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
 
