@@ -549,6 +549,7 @@ class Login(APIView):
         # Successful login
         return self.handle_login_success(user)
 
+    # TODO Quick fix for device limit check
     def check_device_limit(self, user):
         existing_device_count = DeviceId.objects.filter(user=user).count()
         if existing_device_count >= 2:

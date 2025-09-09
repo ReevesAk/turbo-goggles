@@ -33,7 +33,7 @@ AD_TYPE = (
     ("Pay Per Action(PPA)", "Pay Per Action(PPA)"),
     ("Pay Per Click (PPC)", "Pay Per Click (PPC)"),
     ("Pay Per Engagement (PPE)", "Pay Per Engagement (PPE)"),
-    ("Pay Per Mile", "Pay Per Mile"),
+    ("Pay Per View (PPV)", "Pay Per View (PPV)"),
 )
 
 
