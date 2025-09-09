@@ -21,7 +21,7 @@ from .models import StepCampaignModel, StepSessionModel
 from gamification.utils import NextBee
 from gamification.points import Points
 from security import encrypt, decrypt
-from permissions import HasCompletedSurvey, IsMember
+from permissions import IsMember
 
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
