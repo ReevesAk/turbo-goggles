@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q
+from django.core.cache import cache
 
 # In project imports.
 from .serializers import (
@@ -44,22 +45,35 @@ class GetAllPartnersUsers(generics.ListAPIView):
         return partners
 
     def list(self, request, *args, **kwargs):
+        cache_key = "all_partner_users"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            logger.info("Returning cached partner users list")
+            return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
+
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "All partner users retrieved successfully",
-                        "No of Partner Users": queryset.count(),
-                        "Partners user object": serialized_users.data,
-                    }
-                ),
-                status=status.HTTP_200_OK,
-            )
+            response_data = {
+                "status": "success",
+                "message": "All partner users retrieved successfully",
+                "No of Partner Users": queryset.count(),
+                "Partners user object": serialized_users.data,
+            }
+        else:
+            response_data = {
+                "status": "success",
+                "message": "No partner users found.",
+                "No of Partner Users": 0,
+                "Partners user object": [],
+            }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response_data, timeout=300)  # 5 minutes
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class RestrictPartnerAccountView(generics.CreateAPIView):

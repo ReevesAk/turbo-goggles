@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.core.cache import cache
 
 from django.template.loader import render_to_string
 
@@ -1503,6 +1504,13 @@ class GetAllAdminUsers(generics.ListAPIView):
         return admin_users
 
     def list(self, request, *args, **kwargs):
+        cache_key = "all_admin_users"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            logger.info("Returning cached admin users list")
+            return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
+
         logger.info("Accessing admin users list view.")
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
@@ -1515,32 +1523,34 @@ class GetAllAdminUsers(generics.ListAPIView):
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
             logger.info("Admin users serialized successfully.")
+            response_data = {
+                "status": "success",
+                "message": "All admin users retrieved successfully",
+                "num_of_admin_users": queryset.count(),
+                "num_of_active_admin_users": active_admin_count,
+                "num_of_disabled_admin_users": disabled_admin_count,
+                "admin_users": serialized_users.data,
+            }
             return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "All admin users retrieved successfully",
-                        "num_of_admin_users": queryset.count(),
-                        "num_of_active_admin_users": active_admin_count,
-                        "num_of_disabled_admin_users": disabled_admin_count,
-                        "admin_users": serialized_users.data,
-                    }
-                ),
+                data=encrypt(response_data),
                 status=status.HTTP_200_OK,
             )
         else:
             logger.warning("No admin users found for pagination.")
+            response_data = {
+                "status": "success",
+                "message": "No admin users found.",
+                "num_of_admin_users": queryset.count(),
+                "num_of_active_admin_users": active_admin_count,
+                "num_of_disabled_admin_users": disabled_admin_count,
+                "admin_users": [],
+            }
+
+            # Save to cache (short TTL)
+            cache.set(cache_key, response_data, timeout=900)  # 15 minutes
+
             return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "No admin users found.",
-                        "num_of_admin_users": queryset.count(),
-                        "num_of_active_admin_users": active_admin_count,
-                        "num_of_disabled_admin_users": disabled_admin_count,
-                        "admin_users": [],
-                    }
-                ),
+                data=encrypt(response_data),
                 status=status.HTTP_200_OK,
             )
 
@@ -1565,6 +1575,13 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
         )
 
     def list(self, request, *args, **kwargs):
+        cache_key = "admin_users_by_role"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            logger.info("Returning cached admin users grouped by role")
+            return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
+
         queryset = self.get_queryset()
 
         # Count the number of admins by each role
@@ -1580,19 +1597,17 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
             for role in role_counts  # Changed from accounttype
         }
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "All admin users retrieved successfully",
-                        "num_of_admin_users": queryset.count(),
-                        "admin_role_counts": role_counts_dict,
-                    }
-                ),
-                status=status.HTTP_200_OK,
-            )
+        response_data = {
+            "status": "success",
+            "message": "All admin users retrieved successfully",
+            "num_of_admin_users": queryset.count(),
+            "admin_role_counts": role_counts_dict,
+        }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response_data, timeout=1000)  # 16.67 minutes
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class GetAllWalletStatus(generics.ListAPIView):
@@ -1644,22 +1659,27 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
         return wallet_admin_users
 
     def list(self, request, *args, **kwargs):
+        cache_key = "admin_users_by_role"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            logger.info("Returning cached wallet admin users list")
+            return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
+
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
 
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": "All wallet admin users retrieved successfully",
-                        "num_of_wallet_admin_users": queryset.count(),
-                        "wallet_admin_users": serialized_users.data,
-                    }
-                ),
-                status=status.HTTP_200_OK,
-            )
+            response_data = {
+                "status": "success",
+                "message": "All wallet admin users retrieved successfully",
+                "num_of_wallet_admin_users": queryset.count(),
+                "wallet_admin_users": serialized_users.data,
+            }
+            # Save to cache (short TTL)
+            cache.set(cache_key, response_data, timeout=1000)
+            return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class SwitchRoles(generics.RetrieveAPIView):
@@ -2192,17 +2212,19 @@ class AdminTypesListView(APIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def get(self, request):
-        admin_types = [admin_type[1] for admin_type in ADMIN_TYPES]
-        return Response(
-            data=encrypt(
-                {
-                    "status": "success.",
-                    "message": "Admin types retrieved successfully.",
-                    "categories": admin_types,
-                }
-            ),
-            status=status.HTTP_200_OK,
-        )
+        cache_key = "admin_types_list"
+        response_data = cache.get(cache_key)
+
+        if not response_data:
+            admin_types = [admin_type[1] for admin_type in ADMIN_TYPES]
+            response_data = {
+                "status": "success.",
+                "message": "Admin types retrieved successfully.",
+                "categories": admin_types,
+            }
+            cache.set(cache_key, response_data, timeout=None)  # cache forever
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class ActivityTitleListView(APIView):

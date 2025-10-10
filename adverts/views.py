@@ -1,6 +1,7 @@
 import logging
 from urllib.parse import urlparse
 
+from django.core.cache import cache
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -215,6 +216,18 @@ class ListAllBrandAds(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         logger.info("ListAllBrandAds view created by user: %s", request.user.email)
+
+        user_id = request.user.id
+        cache_key = f"user_ads:{user_id}"
+
+        # Try Redis cache first
+        cached_ads = cache.get(cache_key)
+        if cached_ads:
+            logger.info("Returning cached ads for user %s", request.user.email)
+            encrypted_response = encrypt(cached_ads)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+        # If not in cache, fetch from database
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         serializer = (
@@ -232,6 +245,10 @@ class ListAllBrandAds(generics.ListAPIView):
             "message": "All created ads retrieved successfully!",
             "data": response_data,
         }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response, timeout=300)  # 5 minutes
+
         encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
@@ -247,6 +264,16 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         user = request.user
         logger.info("GetBrandAdDetails accessed by user: %s", user.email)
 
+        user_id = request.user.id
+        cache_key = f"Ad_Details:{user_id}"
+
+        # Try Redis cache first
+        cached_ads = cache.get(cache_key)
+        if cached_ads:
+            logger.info("Returning cached ad detail for user %s", request.user.email)
+            encrypted_response = encrypt(cached_ads)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
         # Serialize and return the user's profile details
         serializer = self.get_serializer(user)
         logger.info("Successfully retrieved profile for user: %s", user.email)
@@ -255,6 +282,10 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
             "message": "Ad detail retrieved successfully!",
             "data": serializer.data,
         }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response, timeout=300)  # 5 minutes
+
         encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
@@ -286,6 +317,14 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
         if serializer.is_valid():
             self.perform_update(serializer)
             logger.info("Profile updated successfully for user: %s", instance.email)
+
+            # clear the user's ads cache after update
+            user_id = request.user.id
+            cache_key = f"Ad_Details:{user_id}"
+            cache.delete(cache_key)
+            logger.info(
+                "Cleared cache for user %s after profile update.", instance.email
+            )
             return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
         else:
             logger.error(
@@ -357,6 +396,13 @@ class SingleAdDetailView(generics.RetrieveAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        cache_key = f"singleAd_Details:{ad_id}"
+        cached_ad = cache.get(cache_key)
+        if cached_ad:
+            logger.info("Returning cached ad detail for user %s", request.user.email)
+            encrypted_response = encrypt(cached_ad)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(ad)
         logger.info("Ad serialized successfully: %s", ad_id)
 
@@ -365,6 +411,10 @@ class SingleAdDetailView(generics.RetrieveAPIView):
             "message": "Ad retrieved successfully!",
             "data": serializer.data,
         }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response, timeout=300)  # 5 minutes
+
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
