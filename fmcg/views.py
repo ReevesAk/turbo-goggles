@@ -7,6 +7,7 @@ from commons import Allocate, Biometrics
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.db import transaction
+from django.core.cache import cache
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -26,7 +27,7 @@ from .serializers import (
     FmcgOrderSerializer,
     PickupAddressSerializer
 )
-from accounts.models import User, UserNotification, TxModel, Rewards
+from accounts.models import UserNotification, TxModel, Rewards
 from banking.controllers import Account
 from banking.models import AccountCreation
 from banking.helpers import Pin
@@ -141,6 +142,15 @@ class ListAllProducts(generics.ListAPIView):
         total_count = queryset.count()
         logger.info("Total products to be returned: %d", total_count)
 
+        user_id = request.user.id
+        cache_key = f"user_products:{user_id}"
+
+        cached_products = cache.get(cache_key)
+        if cached_products:
+            logger.info("Returning cached products for user %s", request.user.email)
+            encrypted_response = encrypt(cached_products)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -171,6 +181,10 @@ class ListAllProducts(generics.ListAPIView):
             "count": total_count,
             "data": serialized_data,
         }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, response_data, timeout=300)  # 5 minutes
+
         encrypted_response = encrypt(response_data)  # 🔐 Encrypt response
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
@@ -193,6 +207,14 @@ class ProductDetails(generics.RetrieveAPIView):
         product_id = kwargs.get(self.lookup_field)
         logger.info("ProductDetails: GET request received for product ID: %s", product_id)
 
+        cache_key = f"product__id:{product_id}"
+
+        cached_products = cache.get(cache_key)
+        if cached_products:
+            logger.info("Returning cached products for user %s", request.user.email)
+            encrypted_response = encrypt(cached_products)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
         try:
             # Retrieve product by ID
             product = self.get_object()
@@ -205,6 +227,8 @@ class ProductDetails(generics.RetrieveAPIView):
                 "data": serializer.data
             }
 
+            # Save to cache (short TTL)
+            cache.set(cache_key, resp, timeout=300)  # 5 minutes
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         except Product.DoesNotExist:
             logger.warning("Product with ID %s not found.", product_id)
@@ -391,6 +415,15 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
         logger.info("Fetching cart items for cart_id: %s", cart_id)
 
         cart = Cart.objects.filter(cart_id=cart_id).first()
+
+        cache_key = f"user_products:{cart_id}"
+
+        cached_cartItems = cache.get(cache_key)
+        if cached_cartItems:
+            logger.info("Returning cached cart items for user %s", request.user.email)
+            encrypted_response = encrypt(cached_cartItems)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
         if not cart:
             logger.info("No cart found for cart_id: %s", cart_id)
             return Response(data=encrypt({
@@ -426,11 +459,16 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
             })
 
         logger.info("Cart retrieved successfully.")
-        return Response(data=encrypt({
+        resp = {
             "status": "success",
             "message": "Cart items retrieved successfully.",
             "cart_items": cart_data
-        }), status=status.HTTP_200_OK)
+        }
+
+        # Save to cache (short TTL)
+        cache.set(cache_key, resp, timeout=300)  # 5 minutes
+
+        return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
 
 class RemoveFromCart(generics.DestroyAPIView):

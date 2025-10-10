@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = conf("SECRET_KEY")
+REDIS_LOCATION = conf("REDIS_LOCATION")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
@@ -282,6 +283,16 @@ CRONJOBS = [
     ("*/5 * * * *", "gamification.jobs.refresh_all_users_points")
 ]
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_LOCATION,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 100, "retry_on_timeout": True},
+        }
+    }
+}
 
 LOGGING = {
     'version': 1,

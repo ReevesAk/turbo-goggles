@@ -1,6 +1,8 @@
 import logging
 import requests
 
+from django.core.cache import cache
+
 # In project imports.
 from .serializers import ListWalletUsersSerializer, AdminBankAccountCreationSerializers
 from .models import ActivityModel
@@ -36,23 +38,37 @@ class GetallWalletUsers(generics.ListAPIView):
     ]
 
     def list(self, request, *args, **kwargs):
+        cache_key = "wallet_users_list"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            return Response(encrypt(cached_response), status=status.HTTP_200_OK)
+
         queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serialized_users = self.get_serializer(page, many=True)
+            data = {
+                "status": "success",
+                "message": "All Wallet owners retrieved successfully.",
+                "num_of_wallet_owners": queryset.count(),
+                "wallet_owners": serialized_users.data,
+            }
+            # Save to cache (short TTL)  # ✅ cache for 5 minutes
+            return self.get_paginated_response(encrypt(data))
 
         serialized_users = self.get_serializer(queryset, many=True)
-        count = queryset.count()
-        data = serialized_users.data
+        data = {
+            "status": "success",
+            "message": "All Wallet owners retrieved successfully.",
+            "num_of_wallet_owners": queryset.count(),
+            "wallet_owners": serialized_users.data,
+        }
 
-        return Response(
-            data=encrypt(
-                {
-                    "status": "success",
-                    "message": "All Wallet owners retrieved successfully.",
-                    "num_of_wallet_owners": count,
-                    "wallet_owners": data,
-                }
-            ),
-            status=status.HTTP_200_OK,
-        )
+        # Save to cache (short TTL)
+        cache.set(cache_key, data, timeout=300)  # 5 minutes
+        return Response(encrypt(data), status=status.HTTP_200_OK)
 
 
 class CreateBankAccountForUser(generics.GenericAPIView):

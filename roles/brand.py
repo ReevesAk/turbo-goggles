@@ -1,5 +1,7 @@
 import logging
+
 from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
 
 # In project imports.
 from .serializers import (
@@ -185,36 +187,33 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         return User.objects.filter(account_types__user_type="BrandAd").distinct()
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
+        cache_key = "brandad_users_list"
 
+        # ✅ check cache
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
+
+        queryset = self.get_queryset()
+        total_count = queryset.count()
+
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serialized_users = self.get_serializer(page, many=True)
-            return Response(
-                data=encrypt(
-                    (
-                        {
-                            "status": "success",
-                            "message": "All brand advert users retrieved successfully.",
-                            "No of BrandAd Users": queryset.count(),
-                            "BrandAd user object": serialized_users.data,
-                        }
-                    )
-                ),
-                status=status.HTTP_200_OK,
-            )
-        serialized_users = self.get_serializer(queryset, many=True)
-        return Response(
-            data=encrypt(
-                {
-                    "status": "success",
-                    "message": "All brand advert users retrieved successfully.",
-                    "No of BrandAd Users": queryset.count(),
-                    "BrandAd user object": serialized_users.data,
-                }
-            ),
-            status=status.HTTP_200_OK,
-        )
+        else:
+            serialized_users = self.get_serializer(queryset, many=True)
+
+        response_data = {
+            "status": "success",
+            "message": "All brand advert users retrieved successfully.",
+            "No of BrandAd Users": total_count,
+            "BrandAd user object": serialized_users.data,
+        }
+
+        # ✅ save to cache (short TTL)
+        cache.set(cache_key, response_data, timeout=300)
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class AdStatsView(generics.RetrieveAPIView):
@@ -223,6 +222,13 @@ class AdStatsView(generics.RetrieveAPIView):
 
     def get(self, request, user_id, *args, **kwargs):
         try:
+            cache_key = f"ad_stats_{user_id}"
+
+            # ✅ Try cache first
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(encrypt(cached_data), status=status.HTTP_200_OK)
+
             # Raw counts
             ad_requests = AdBudget.objects.filter(
                 id=user_id, has_made_request=True
@@ -261,6 +267,9 @@ class AdStatsView(generics.RetrieveAPIView):
                 },
                 "graph": graph_data,
             }
+
+            # ✅ Save to cache (short TTL)
+            cache.set(cache_key, data, timeout=300)  # 5 minutes
 
             return Response(encrypt(data), status=status.HTTP_200_OK)
 
