@@ -355,7 +355,7 @@ class CreateUserWallet(generics.GenericAPIView):
                 transactionTrackingRef=unique_code,
                 lastName=current_user.last_name,
                 otherNames=current_user.first_name,
-                accountName=payload.get("accountName"),
+                accountName=payload.get("account_number"),
                 gender=payload.get("gender"),
                 bvn=payload.get("bvn"),
                 dateOfBirth=payload.get("dateOfBirth"),
