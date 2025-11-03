@@ -10,8 +10,8 @@ from decouple import config
 from rest_framework import status
 from rest_framework.response import Response
 
-username = config("USERNAME")
-password = config("PASSWORD")
+username = config("NINE_PSB_USERNAME")
+password = config("NINE_PSB_PASSWORD")
 clientId = config("CLIENT_ID")
 clientSecret = config("CLIENT_SECRET")
 base_url = config("9PSB_BASEURL")
