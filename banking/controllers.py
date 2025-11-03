@@ -14,7 +14,7 @@ username = config("NINE_PSB_USERNAME")
 password = config("NINE_PSB_PASSWORD")
 clientId = config("CLIENT_ID")
 clientSecret = config("CLIENT_SECRET")
-base_url = config("9PSB_BASEURL")
+base_url = config("NINE_PSB_BASEURL")
 
 picadailys_merchant_account = config("MERCHANT_ACCOUNT")
 
