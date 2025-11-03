@@ -258,7 +258,7 @@ class InterBankTransfersSerializer(serializers.ModelSerializer):
             "beneficiary_account_name",
             "beneficiary_account_number",
             "beneficiary_bank",
-            "source_account_name",
+            "debit_account",
             "narration",
             "transaction_amount",
             "transaction_reference",
