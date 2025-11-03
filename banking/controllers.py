@@ -515,7 +515,7 @@ class Transfers:
 
     @staticmethod
     def initiate_transfer(
-        bank,
+        bank_code,
         account_number,
         sender_account_number,
         name,
@@ -534,7 +534,7 @@ class Transfers:
         payload = {
             "customer": {
                 "account": {
-                    "bank": bank,
+                    "bank": bank_code,
                     "number": account_number,
                     "senderaccountnumber": sender_account_number,
                     "name": name,

@@ -247,9 +247,9 @@ class IntraBankTransfer(generics.CreateAPIView):
             logger.info("Verification successful, proceeding with transfer.")
             tx_id = self._generate_transaction_id(prefix="PICA")
             transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("credit_account"),
+                bank=payload.get("bank_code"),
                 account_number=payload.get("credit_account"),
-                name=payload.get(""),
+                name=payload.get("beneficiary_name"),
                 sender_name=authenticated_user.full_name,
                 sender_account_number=payload.get("debit_account"),
                 amount=payload.get("transaction_amount"),
@@ -402,9 +402,9 @@ class InterBankTransfer(generics.CreateAPIView):
             logger.info("Verification successful, proceeding with transfer.")
             tx_id = self._generate_transaction_id(prefix="PICA")
             transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("credit_account"),
+                bank=payload.get("bank_code"),
                 account_number=payload.get("credit_account"),
-                name=payload.get(""),
+                name=payload.get("beneficiary_name"),
                 sender_name=authenticated_user.full_name,
                 sender_account_number=payload.get("debit_account"),
                 amount=payload.get("transaction_amount"),

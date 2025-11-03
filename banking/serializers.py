@@ -255,7 +255,7 @@ class InterBankTransfersSerializer(serializers.ModelSerializer):
             "id",
             "pin",
             "use_biometrics",
-            "beneficiary_account_name",
+            "beneficiary_name",
             "beneficiary_account_number",
             "beneficiary_bank",
             "debit_account",
