@@ -49,6 +49,8 @@ class NINSerializer(serializers.ModelSerializer):
 class WalletCreationSerializers(serializers.ModelSerializer):
     """Serailizers for creating a bank account for users."""
 
+    bvn = serializers.CharField(max_length=12, write_only=True, required=True)
+
     class Meta:
         model = WalletModel
         fields = ["id", "account_number", "gender", "dateOfBirth", "email", "bvn"]
