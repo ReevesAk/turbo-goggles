@@ -8,7 +8,6 @@ from accounts.models import TxModel, Rewards
 
 from django.db import transaction
 
-from banking.controllers import Account
 from .helpers import VAS
 from .models import (
     AirtimeTopup,

@@ -33,8 +33,6 @@ from .models import (
 from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
 from banking.helpers import Pin
-from banking.controllers import Account
-from banking.models import AccountCreation
 from commons import Biometrics
 from roles.models import ActivityModel
 from security import encrypt, decrypt

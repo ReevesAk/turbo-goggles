@@ -1,4 +1,6 @@
 import logging
+import base64
+from decouple import config
 
 from django.http import HttpResponse
 from django.views import View
@@ -8,14 +10,137 @@ from rest_framework import generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
-from .models import FundWithCard
-from .serializers import VerifyCardDepositSerializers, WebhookSerializer
+from .models import FundWithCard, WalletModel
+from .controllers import Transfers
+from .serializers import (
+    VerifyCardDepositSerializers,
+    WebhookSerializer,
+    NotificationWebhookSerializer,
+)
 from accounts.models import UserNotification
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 
 logger = logging.getLogger(__name__)
+
+
+class InflowsWebhookNotificationView(generics.CreateAPIView):
+    serializer_class = NotificationWebhookSerializer
+
+    # Credentials you registered with 9PSB
+    EXPECTED_USERNAME = config("9PSB_WEBHOOK_USERNAME")
+    EXPECTED_PASSWORD = config("9PSB_WEBHOOK_PASSWORD")
+
+    def verify_basic_auth(self, request):
+        """Validate Basic Auth header."""
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header or not auth_header.startswith("Basic "):
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Missing or invalid Authorization header",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            encoded_credentials = auth_header.split(" ")[1]
+            decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
+            username, password = decoded_credentials.split(":", 1)
+        except Exception:
+            return Response(
+                {
+                    "success": False,
+                    "code": "400",
+                    "status": "FAILED",
+                    "message": "Invalid Basic Auth format or encoding",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if username != self.EXPECTED_USERNAME or password != self.EXPECTED_PASSWORD:
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Invalid username or password",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return None  # Auth passed
+
+    def post(self, request, *args, **kwargs):
+        # Step 1: Validate Basic Auth
+        auth_error = self.verify_basic_auth(request)
+        if auth_error:
+            return auth_error
+
+        # Step 2: Validate payload
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        webhook_data = serializer.validated_data
+
+        logger.info(f"Received 9PSB inflow webhook: {webhook_data}")
+
+        # Step 3: Extract key details (adjust to your serializer’s fields)
+        merchant = webhook_data.get("merchant")
+        account_number = webhook_data.get("accountnumber")
+        amount = webhook_data.get("amount")
+        sender_name = webhook_data.get("sendername")
+        nipsessionid = webhook_data.get("nipsessionid")
+
+        requery_request = Transfers.tx_requery(
+            sessionID=nipsessionid, accountNumber=account_number
+        )
+
+        status_msg = requery_request.json().get("status")
+        if not status_msg == "SUCCESS":
+            return Response(
+                {
+                    "success": False,
+                    "code": "400",
+                    "status": "FAILED",
+                    "message": f"Got a {status_msg} status message.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if merchant == "Picadailys":
+            wallet = WalletModel.objects.filter(account_number=account_number).first()
+
+            if wallet:
+                # Record notification
+                UserNotification.objects.create(
+                    user=wallet.user,
+                    title="Wallet Credit",
+                    message=f"Your wallet has been credited with ₦{amount} from {sender_name}.",
+                )
+
+                ActivityModel.objects.create(
+                    user=wallet.user,
+                    title="Wallet Credit",
+                    description=f"{wallet.user.full_name}'s wallet credited with ₦{amount}.",
+                )
+
+                logger.info(
+                    f"Wallet {account_number} successfully credited with ₦{amount}."
+                )
+
+        return Response(
+            {
+                "success": True,
+                "code": "00",
+                "status": "SUCCESS",
+                "message": "Acknowledged",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class CardDepositPaystackWebhook(generics.CreateAPIView):

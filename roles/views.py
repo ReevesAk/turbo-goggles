@@ -35,7 +35,7 @@ from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from banking.serializers import WalletStatusSerializer
-from banking.models import AccountCreation
+from banking.models import WalletModel
 from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
@@ -1616,7 +1616,7 @@ class GetAllWalletStatus(generics.ListAPIView):
     of all wallets, including balance and activation status.
     """
 
-    queryset = AccountCreation.objects.all()
+    queryset = WalletModel.objects.all()
     serializer_class = WalletStatusSerializer
     permission_classes = (IsAuthenticated, IsWalletAdminOrSuperAdmin)
 

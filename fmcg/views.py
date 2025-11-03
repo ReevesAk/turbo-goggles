@@ -28,8 +28,6 @@ from .serializers import (
     PickupAddressSerializer
 )
 from accounts.models import UserNotification, TxModel, Rewards
-from banking.controllers import Account
-from banking.models import AccountCreation
 from banking.helpers import Pin
 from roles.models import ActivityModel
 from security import encrypt, decrypt

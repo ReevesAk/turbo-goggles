@@ -1,5 +1,9 @@
 import logging
 import json
+import string
+import random
+from datetime import datetime
+import uuid
 import requests
 from decouple import config
 
@@ -8,10 +12,14 @@ from rest_framework.response import Response
 
 username = config("USERNAME")
 password = config("PASSWORD")
-base_url = config("PROVIDUS_BASEURL")
-tf_base_url = config("TRANSFERS_URL")
-tf_username = config("TRANSFERS_USERNAME")
-tf_password = config("TRANSFERS_PASSWORD")
+clientId = config("CLIENT_ID")
+clientSecret = config("CLIENT_SECRET")
+base_url = config("9PSB_BASEURL")
+
+picadailys_merchant_account = config("MERCHANT_ACCOUNT")
+
+app_id = config("APP_ID")
+authorization = config("AUTHORIZATION")
 
 secret_key = config("PAYSTACK_SECRET_KEY")
 headers = {
@@ -22,27 +30,110 @@ headers = {
 logger = logging.getLogger(__name__)
 
 
-def login():
-    resource = "login"
-    payload = {"username": username, "password": password}
+def authenticate():
+    resource = "authenticate"
+    payload = {
+        "username": username,
+        "password": password,
+        "clientId": clientId,
+        "clientSecret": clientSecret,
+    }
     try:
         response = requests.post(
             url=base_url + resource,
             json=payload,
         )
-        return response.json()["accessToken"]
-    except Exception as e:
-        logging.debug(e)
+        token = response.json().get("accessToken")
+        return token
+    except Exception:
+        logging.debug("Authentication failed")
+        return response
 
 
-class BVN:
+class KYC:
     @staticmethod
-    def verify(bvn):
-        resource = "validate_bvn"
-        payload = {
-            "BVN": bvn,
+    def verify_bvn(bvn):
+        resource = "https://sandbox.dojah.io/api/v1/kyc/bvn/full"
+        payload = {"bvn": bvn}
+        headers = {
+            "AppId": app_id,
+            "Authorization": authorization,
         }
-        bearer_token = login()
+
+        try:
+            response = requests.post(
+                url=resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"BVN check API request error: {str(e)}")
+            return response
+
+    @staticmethod
+    def verify_nin(nin):
+        resource = "https://sandbox.dojah.io/api/v1/kyc/nin"
+        payload = {"nin": nin}
+        headers = {
+            "AppId": app_id,
+            "Authorization": authorization,
+        }
+
+        try:
+            response = requests.post(
+                url=resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"BVN check API request error: {str(e)}")
+            return response
+
+
+class Wallet:
+    def _generate_transaction_id(prefix="PICA"):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        rand_suffix = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=6)
+        )
+
+        # Combine all parts
+        tx_id = f"{prefix}{timestamp}{rand_suffix}"
+
+        return tx_id
+
+    @staticmethod
+    def generate_unique_code(prefix="Pica"):
+        return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
+
+    @staticmethod
+    def Open(
+        transactionTrackingRef,
+        lastName,
+        otherNames,
+        accountName,
+        gender,
+        bvn,
+        dateOfBirth,
+        email,
+        phoneNo,
+    ):
+        resource = "individual_account_api"
+        payload = {
+            "transactionTrackingRef": transactionTrackingRef,
+            "lastName": lastName,
+            "otherNames": otherNames,
+            "accountName": accountName,
+            "gender": gender,
+            "bvn": bvn,
+            "dateOfBirth": dateOfBirth,
+            "email": email,
+            "phoneNo": phoneNo,
+        }
+
+        bearer_token = authenticate()
 
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
@@ -52,9 +143,67 @@ class BVN:
             )
 
         headers = {
-            "accept": "application/json",
-            "content-Type": "application/json",
-            "Authorization": bearer_token,
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
+        }
+
+        logger.info(f"Wallet Creation Payload:\n{json.dumps(payload, indent=4)}")
+        try:
+            response = requests.post(
+                url=base_url + resource,
+                json=payload,
+                headers=headers,
+                timeout=180,
+            )
+            return response
+        except requests.exceptions.RequestException:
+            logging.error(f"Account creation API request error: {str(response.json())}")
+            return Response(
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @staticmethod
+    def UpgradeToTier2(
+        wallet_id,
+        userPhoto,
+        idType,
+        idNumber,
+        idIssueDate,
+        idCardFront,
+        houseNumber,
+        streetName,
+        city,
+        pep,
+        customerSignature,
+    ):
+        resource = "wallet/upgrade"
+        payload = {
+            "wallet_id": wallet_id,
+            "userPhoto": userPhoto,
+            "idType": idType,
+            "idNumber": idNumber,
+            "idIssueDate": idIssueDate,
+            "idCardFront": idCardFront,
+            "houseNumber": houseNumber,
+            "streetName": streetName,
+            "city": city,
+            "pep": pep,
+            "customerSignature": customerSignature,
+        }
+
+        bearer_token = authenticate()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
         }
 
         try:
@@ -62,65 +211,27 @@ class BVN:
                 url=base_url + resource,
                 json=payload,
                 headers=headers,
+                timeout=180,
             )
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"BVN API request error: {str(e)}")
+        except requests.exceptions.RequestException:
+            logging.error(f"Wallet upgrade API request error: {str(response.json())}")
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
-class Account:
     @staticmethod
-    def Open(
-        addr,
-        tc,
-        acc_type,
-        religion,
-        ms,
-        gn,
-        branch,
-        bvn,
-        state,
-        lga,
-        country,
-        altEmail,
-        altPhone,
-        currentAddress,
-        passport,
-        identity,
-        utility,
-        signature,
-        nin,
-    ):
-        resource = "individual_account_api"
+    def UpgradefromTier2ToTier3(accountNumber, bvn, nin, proofOfAddressVerification):
+        resource = "walletUpgrade-tier3-multipart"
         payload = {
-            "address": addr,
-            "tc": tc,
-            "accountType": acc_type,
-            "religion": religion,
-            "ms": ms,
-            "gn": gn,
-            "branch": branch,
+            "accountNumber": accountNumber,
             "bvn": bvn,
-            "state": state,
-            "lga": lga,
-            "country": country,
-            "altEmail": altEmail,
-            "altPhone": altPhone,
-            "currentAddress": currentAddress,
-            "NIN": nin,
+            "nin": nin,
+            "proofOfAddressVerification": proofOfAddressVerification,
         }
 
-        files = {
-            "passport": (None, passport),
-            "identity": (None, identity),
-            "utility": (None, utility),
-            "signature": (None, signature),
-        }
-
-        bearer_token = login()
+        bearer_token = authenticate()
 
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
@@ -130,87 +241,142 @@ class Account:
             )
 
         headers = {
-            "accept": "application/json",
-            "Authorization": bearer_token,
+            "Content-Type": "multipart/form-data",
+            "Authorization": f"Bearer {bearer_token}",
         }
 
-        data = {"data": json.dumps(payload)}
-        logger.info(f"Account Creation Payload:\n{json.dumps(payload, indent=4)}")
         try:
             response = requests.post(
                 url=base_url + resource,
-                data=data,
+                data=payload,
                 headers=headers,
-                files=files,
                 timeout=180,
             )
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Account creation API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def Debit(debitAccount, amount, reason, transactionReference):
-        resource = "ProvidusFundTransfer"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "creditAccount": "6504533161",
-            "debitAccount": debitAccount,
-            "currencyCode": "NGN",
-            "transactionAmount": amount,
-            "narration": reason,
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
-        }
-
-        try:
-            response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
-            )
-            return response
-
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Debiting an account API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def Credit(acct_no, amount, reason, transactionReference):
-        resource = "ProvidusFundTransfer"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "creditAccount": acct_no,
-            "debitAccount": "6504533161",  # Picadailys account
-            "currencyCode": "NGN",
-            "transactionAmount": amount,
-            "narration": reason,
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
-        }
-
-        try:
-            response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
-            )
-            return response
-
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             logging.error(
-                f"Crediting a failed transaction account API request error: {str(e)}"
+                f"Wallet upgrade to tier 3 API request error: {str(response.json())}"
             )
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @staticmethod
+    def getWalletDetails(account_number):
+        resource = "wallet_enquiry"
+
+        bearer_token = authenticate()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payload = {
+            "accountNo": account_number,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
+        }
+
+        try:
+            response = requests.get(
+                url=base_url + resource,
+                headers=headers,
+                json=payload,
+            )
+            return response
+        except requests.exceptions.RequestException:
+            logging.error(
+                f"Get wallet details API request error: {str(response.json())}"
+            )
+            return Response(
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @staticmethod
+    def Debit(self, debitAccount, amount, reason, merchantFeeAmount):
+        bearer_token = authenticate()
+        tx_id = self._generate_transaction_id(prefix="PICA")
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return None
+        resource = "debit/transfer"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "accountNo": debitAccount,
+            "totalAmount": amount,
+            "transactionId": tx_id,
+            "narration": reason,
+            "merchant": {
+                "isFee": False,
+                "merchantFeeAccount": picadailys_merchant_account,
+                "merchantFeeAmount": merchantFeeAmount,
+            },
+            "transactionType": "DEBIT_WALLET",
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource, headers=headers, json=payload
+            )
+            return response
+
+        except requests.exceptions.RequestException:
+            logging.error(
+                f"Debiting an account API request error: {str(response.json())}"
+            )
+            return Response(
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @staticmethod
+    def Credit(self, acct_no, amount, reason):
+        bearer_token = authenticate()
+        tx_id = self._generate_transaction_id(prefix="PICA")
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return None
+        resource = "credit/transfer"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "accountNo": acct_no,
+            "totalAmount": amount,
+            "transactionId": tx_id,
+            "narration": reason,
+            "merchant": {
+                "isFee": False,
+                "merchantFeeAccount": "",
+                "merchantFeeAmount": "",
+            },
+            "transactionType": "CREDIT_WALLET",
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource, headers=headers, json=payload
+            )
+            return response
+
+        except requests.exceptions.RequestException:
+            logging.error(
+                f"Crediting a failed transaction account API request error: {str(response.json())}"
+            )
+            return Response(
+                {"error": str(response.json())},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -269,65 +435,45 @@ class Forex:
 class Transfers:
     @staticmethod
     def getAllBanks():
-        resource = "GetNIPBanks"
+        bearer_token = authenticate()
+        resource = "get_banks"
         headers = {
-            "Accept": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
-
         try:
             response = requests.get(
-                url=tf_base_url + resource,
+                url=base_url + resource,
                 headers=headers,
             )
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Get all banks API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def getProvidusAccount(acct_num):
-        resource = "GetProvidusAccount"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "accountNumber": acct_num,
-            "userName": tf_username,
-            "password": tf_password,
-        }
-
-        try:
-            response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
-            )
+        except requests.exceptions.RequestException:
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Get Providus account API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
     @staticmethod
     def getAccount(acct_num, bank_code):
-        resource = "GetNIPAccount"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
+        resource = "other_banks_enquiry"
         payload = {
-            "accountNumber": acct_num,
-            "beneficiaryBank": bank_code,
-            "userName": tf_username,
-            "password": tf_password,
+            "customer": {"account": {"bank": bank_code, "number": acct_num}},
+        }
+
+        bearer_token = authenticate()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -337,130 +483,107 @@ class Transfers:
             )
 
     @staticmethod
-    def Intra_bank_transfer(
-        creditAccount,
-        debitAccount,
-        transactionAmount,
-        narration,
-        transactionReference,
-    ):
-        resource = "ProvidusFundTransfer"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
+    def tx_requery(sessionID, accountNumber):
+        resource = "notification_requery"
         payload = {
-            "creditAccount": creditAccount,
-            "debitAccount": debitAccount,
-            "currencyCode": "NGN",
-            "transactionAmount": transactionAmount,
-            "narration": narration,
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
+            "accountNumber": accountNumber,
+            "sessionID": sessionID,
+        }
+
+        bearer_token = authenticate()
+
+        if not bearer_token:
+            logging.error("Bearer token is invalid or missing")
+            return Response(
+                {"error": "Bearer token missing or invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
         }
 
         try:
             response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(
-                f"Transfer from Picadailys to Picadailys API request error: {str(e)}"
+            logging.error(f"Get account API request error: {str(e)}")
+            return response
+
+    @staticmethod
+    def initiate_transfer(
+        bank,
+        account_number,
+        sender_account_number,
+        name,
+        sender_name,
+        amount,
+        description,
+        transactionType,
+        tx_ref,
+    ):
+        resource = "wallet_other_banks"
+        bearer_token = authenticate()
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "customer": {
+                "account": {
+                    "bank": bank,
+                    "number": account_number,
+                    "senderaccountnumber": sender_account_number,
+                    "name": name,
+                    "sendername": sender_name,
+                }
+            },
+            "order": {
+                "amount": amount,
+                "currency": "NGN",
+                "description": description,
+                "country": "NG",
+            },
+            "narration": description,
+            "transaction": {"reference": tx_ref},
+            "transactionType": transactionType,
+        }
+
+        try:
+            response = requests.post(
+                url=base_url + resource, headers=headers, json=payload
             )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Transfer API request error: {str(e)}")
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(response)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @staticmethod
-    def IntraBankStatus(
-        transactionReference,
+    def complete_transfer(
+        transactionId,
     ):
-        resource = "GetProvidusTransactionStatus"
+        resource = "wallet_other_banks"
+        bearer_token = authenticate()
         headers = {
-            "Accept": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
-        payload = {
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
-        }
+        payload = {"transactionId": transactionId}
 
         try:
             response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Get transfers status API request error: {str(e)}")
+            logging.error(f"Transfer API request error: {str(e)}")
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def Inter_bank_transfer(
-        beneficiaryAccountName,
-        transactionAmount,
-        narration,
-        beneficiaryBank,
-        transactionReference,
-        beneficiaryAccountNumber,
-    ):
-        resource = "NIPFundTransfer"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "beneficiaryAccountName": beneficiaryAccountName,
-            "transactionAmount": transactionAmount,
-            "currencyCode": "NGN",
-            "narration": narration,
-            "sourceAccountName": "Nnamdi Adebayo Hamzat",
-            "beneficiaryAccountNumber": beneficiaryAccountNumber,
-            "beneficiaryBank": beneficiaryBank,
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
-        }
-
-        try:
-            response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Transfer to other banks API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def InterBankStatus(
-        transactionReference,
-    ):
-        resource = "GetNIPTransactionStatus"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "transactionReference": transactionReference,
-            "userName": tf_username,
-            "password": tf_password,
-        }
-
-        try:
-            response = requests.post(
-                url=tf_base_url + resource, headers=headers, json=payload
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Get transfers status API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(response)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
