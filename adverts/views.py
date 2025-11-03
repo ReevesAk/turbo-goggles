@@ -27,8 +27,8 @@ from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdBudget
 from banking.helpers import Pin
-from banking.controllers import Account
-from banking.models import AccountCreation
+from banking.controllers import Wallet
+from banking.models import WalletModel
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 
@@ -480,8 +480,8 @@ class PromoteBrand(generics.CreateAPIView):
 
                     # Debit Account
                     price = payload.get("price")
-                    user_details = AccountCreation.objects.get(user=authenticated_user)
-                    debit_response = Account.Debit(
+                    user_details = WalletModel.objects.get(user=authenticated_user)
+                    debit_response = Wallet.Debit(
                         debitAccount=user_details.account_number,
                         amount=price,
                         description="Debit for brand promotion",

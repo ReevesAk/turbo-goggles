@@ -2,7 +2,10 @@ from django.urls import path
 
 from .views import (
     VerifYBVN,
-    CreateBankAccount,
+    VerifYNIN,
+    CreateUserWallet,
+    UpgradeToTier2Wallet,
+    UpgradeToTier3Wallet,
     SetWalletPin,
     ForgotWalletPin,
     PinResendOTP,
@@ -14,12 +17,9 @@ from .views import (
 )
 from .transfers import (
     GetAllBanks,
-    GetProvidusAccount,
-    GetAccount,
     IntraBankTransfer,
     InterBankTransfer,
-    InterBankTransactionStatus,
-    IntraBankTransactionStatus,
+    TransactionStatus,
     PayWithCard,
     FundWallet,
 )
@@ -29,6 +29,7 @@ from .webhooks import (
     CardDepositPaystackWebhook,
     VerifyCardPaymentTransaction,
     RedirectingPageView,
+    InflowsWebhookNotificationView,
 )
 
 
@@ -37,9 +38,21 @@ app_name = "banking"
 
 urlpatterns = [
     path("notification", NotificationView.as_view(), name="notification"),
+    path(
+        "webhook/transfer",
+        InflowsWebhookNotificationView.as_view(),
+        name="webhook_transfer",
+    ),
     path("account-details", GetAccountDetails.as_view(), name="account_details"),
     path("verify-bvn", VerifYBVN.as_view(), name="verify_bvn"),
-    path("open-account", CreateBankAccount.as_view(), name="open_account"),
+    path("verify-nin", VerifYNIN.as_view(), name="verify_nin"),
+    path("upgrade-to-tier2", UpgradeToTier2Wallet.as_view(), name="upgrade_to_tier2"),
+    path(
+        "upgrade-from-tier2-to-tier3",
+        UpgradeToTier3Wallet.as_view(),
+        name="upgrade_from_tier2_to_tier3",
+    ),
+    path("create-wallet", CreateUserWallet.as_view(), name="create_wallet"),
     path("set-wallet-pin", SetWalletPin.as_view(), name="set_wallet_pin"),
     path("forgot-wallet-pin", ForgotWalletPin.as_view(), name="forgot_wallet_pin"),
     path("resend-otp", PinResendOTP.as_view(), name="resend-otp"),
@@ -58,24 +71,13 @@ urlpatterns = [
     ),
     # Transfer Endpoints.
     path("transfers/get-all-banks", GetAllBanks.as_view(), name="get_all_banks"),
-    path(
-        "transfers/get-providus-account",
-        GetProvidusAccount.as_view(),
-        name="get_providus_account",
-    ),
-    path("transfers/get-account", GetAccount.as_view(), name="get_account"),
     path("transfers/intra-bank", IntraBankTransfer.as_view(), name="intra_bank"),
     path(
-        "transfers/intra-bank/<int:tx_reference>/status",
-        IntraBankTransactionStatus.as_view(),
+        "transfers/<int:tx_reference>/status",
+        TransactionStatus.as_view(),
         name="intra_bank_status",
     ),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
-    path(
-        "transfers/inter-bank/<int:tx_reference>/status",
-        InterBankTransactionStatus.as_view(),
-        name="inter_bank_status",
-    ),
     path("pay-with-card", PayWithCard.as_view(), name="fund_with_card"),
     path(
         "webhook/",

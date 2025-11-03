@@ -1,6 +1,8 @@
 import logging
+import string
+import random
+from datetime import datetime
 
-from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 
@@ -26,13 +28,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .helpers import Pin
 from accounts.models import TxModel, UserNotification, User
 from roles.models import ActivityModel
-from .controllers import Transfers, Paystack
-from .models import TransferModel, AccountCreation, FundWithCard
+from .controllers import Transfers, Paystack, Wallet
+from .models import TransferModel, WalletModel, FundWithCard
 from .serializers import (
-    GetProvidusAccountSerializer,
+    Get9PSBWalletSerializer,
     GetAccountSerializer,
     InterBankTransfersSerializer,
     IntraBankTransfersSerializer,
+    GetTransferStatusSerializer,
     PaymentURLSerializers,
     FundWalletSerializers,
 )
@@ -55,13 +58,13 @@ class GetAllBanks(APIView):
 
         # Call Transfers service to get all banks
         all_banks_resp = Transfers.getAllBanks()
-        if all_banks_resp.status_code == 200:
+        if all_banks_resp["status"] == "SUCCESS":
             logger.info("Successfully retrieved financial institutions data.")
 
             resp = {
                 "status": "success",
                 "message": "All financial institutions retrieved successfully.",
-                "data": all_banks_resp.json(),
+                "data": all_banks_resp.json()["data"],
             }
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         else:
@@ -72,32 +75,30 @@ class GetAllBanks(APIView):
             err_resp = {
                 "status": "fail",
                 "error": "Could not retrieve financial institution.",
-                "data": all_banks_resp.json(),
+                "data": all_banks_resp.json()["data"],
             }
             return Response(data=encrypt(err_resp), status=all_banks_resp.status_code)
 
 
-class GetProvidusAccount(generics.GenericAPIView):
+class Get9PSBWallet(generics.GenericAPIView):
     """
-    GetProvidusAccount handles the GET request of validating supplied account numbber
+    Get9PSBWallet handles the GET request of validating supplied account number
     It returns the account details upon success.
     """
 
-    serializer_class = GetProvidusAccountSerializer
+    serializer_class = Get9PSBWalletSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def post(self, request):
-        logger.info(
-            "Received request to validate and retrieve Providus account details."
-        )
+        logger.info("Received request to validate and retrieve 9PSB wallet details.")
 
         # Clean up and prepare payload
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        serializer = GetProvidusAccountSerializer(data=payload)
+        serializer = Get9PSBWalletSerializer(data=payload)
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
@@ -106,42 +107,30 @@ class GetProvidusAccount(generics.GenericAPIView):
             )
 
             # Call external service to retrieve account details
-            acc_resp = Transfers.getProvidusAccount(
-                acct_num=validated_data["account_number"]
+            acc_resp = Wallet.getWalletDetails(
+                account_number=validated_data["account_number"]
             )
 
-            if acc_resp.status_code == 200:
-                logger.info("Successfully retrieved Providus account details.")
-
-                resp = {
+            if acc_resp and acc_resp.get("status") == "SUCCESS":
+                serializer = Get9PSBWalletSerializer(acc_resp.get("data", {}))
+                response = {
                     "status": "success",
-                    "message": "Account retrieve operation successful.",
-                    "data": acc_resp.json(),
+                    "message": "Account details for supplied account number retrieved successfully.",
+                    "data": serializer.data,
                 }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
             else:
-                logger.error(
-                    f"Failed to retrieve Providus account details. Status code: {acc_resp.status_code}"
-                )
-
-                err_resp = {
+                response = {
                     "status": "fail",
-                    "error": "Account retrieve operation failed.",
-                    "data": acc_resp.json(),
+                    "message": "user does not have an. account with Picadailys.",
+                    "data": serializer.data,
                 }
-                return Response(data=encrypt(err_resp), status=acc_resp.status_code)
-        else:
-            logger.warning(
-                "Payload validation failed with errors: %s", serializer.errors
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-class GetAccount(generics.GenericAPIView):
+class ValidateAccountOfOtherBank(generics.GenericAPIView):
     """
-    GetAccount handles the GET request of validating supplied account numbber
+    ValidateAccountOfOtherBank handles the GET request of validating supplied account number
     and 3-digit bank code. It returns the account details upon success.
     """
 
@@ -209,6 +198,17 @@ class IntraBankTransfer(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
+    def _generate_transaction_id(prefix):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        rand_suffix = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=6)
+        )
+
+        # Combine all parts
+        tx_id = f"{prefix}{timestamp}{rand_suffix}"
+
+        return tx_id
+
     def post(self, request):
         authenticated_user = request.user
         logger.info(f"Received transfer request from user: {authenticated_user.id}")
@@ -224,7 +224,7 @@ class IntraBankTransfer(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            account = AccountCreation.objects.get(user=authenticated_user)
+            account = WalletModel.objects.get(user=authenticated_user)
             pin = payload.get("pin")
             biometrics = payload.get("use_biometrics")
 
@@ -245,32 +245,36 @@ class IntraBankTransfer(generics.CreateAPIView):
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
-            transfer_resp = Transfers.Intra_bank_transfer(
-                creditAccount=payload["credit_account"],
-                debitAccount=payload["debit_account"],
-                transactionAmount=payload["transaction_amount"],
-                narration=payload["narration"],
-                transactionReference=payload["transaction_reference"],
+            tx_id = self._generate_transaction_id(prefix="PICA")
+            transfer_resp = Transfers.initiate_transfer(
+                bank=payload.get("credit_account"),
+                account_number=payload.get("credit_account"),
+                name=payload.get(""),
+                sender_name=authenticated_user.full_name,
+                sender_account_number=payload.get("debit_account"),
+                amount=payload.get("transaction_amount"),
+                description=payload.get("narration"),
+                transactionType="INTRA_BANK",
+                tx_ref=tx_id,
             )
-            tx_id = generate_txId()
 
             if transfer_resp.status_code == 200:
                 logger.info("Transfer successful, recording transaction.")
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=payload["transaction_reference"],
+                    tx_reference=payload.get("transaction_reference"),
                     tx_type="Transfer to Providus Account",
                     tx_id=tx_id,
-                    amount=payload["transaction_amount"],
-                    description=payload["narration"],
+                    amount=payload.get("transaction_amount"),
+                    description=payload.get("narration"),
                 )
 
                 TransferModel.objects.create(
                     user=authenticated_user,
                     tx=tx,
-                    beneficiary_account_number=payload["credit_account"],
+                    beneficiary_account_number=payload.get("credit_account"),
                     source_account_name=authenticated_user.full_name,
-                    transaction_amount=payload["transaction_amount"],
+                    transaction_amount=payload.get("transaction_amount"),
                 )
 
                 # Notify user
@@ -320,7 +324,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     data=encrypt(err_resp), status=transfer_resp.status_code
                 )
 
-        except AccountCreation.DoesNotExist:
+        except WalletModel.DoesNotExist:
             logger.error(f"Account for user {authenticated_user.id} not found.")
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found"}),
@@ -349,108 +353,92 @@ class InterBankTransfer(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
+    def _generate_transaction_id(prefix):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        rand_suffix = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=6)
+        )
+
+        # Combine all parts
+        tx_id = f"{prefix}{timestamp}{rand_suffix}"
+
+        return tx_id
+
     def post(self, request):
         authenticated_user = request.user
-        logger.info(f"Initiating interbank transfer for user {authenticated_user.id}")
+        logger.info(f"Received transfer request from user: {authenticated_user.id}")
 
         decrypted_payload = decrypt(request.data)
-        # Prepare payload and strip whitespace from string values
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-
-        serializer = self.serializer_class(data=payload)
+        serializer = IntraBankTransfersSerializer(data=payload)
         if not serializer.is_valid():
-            logger.warning(
-                f"Invalid payload for user {authenticated_user.id}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+            logger.warning("Transfer request validation failed.")
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Retrieve user account details and PIN or biometric verification
-        account = AccountCreation.objects.get(user=authenticated_user)
-        pin = payload.get("pin")
-        biometrics = payload.get("use_biometrics")
-
-        # Verify user using biometrics or PIN
         try:
-            verification = (
-                Biometrics.authenticate(authenticated_user.phone_number)
-                if biometrics
-                else Pin.verify(
+            account = WalletModel.objects.get(user=authenticated_user)
+            pin = payload.get("pin")
+            biometrics = payload.get("use_biometrics")
+
+            if biometrics:
+                logger.info("Using biometrics for verification.")
+                verification = Biometrics.authenticate(authenticated_user.phone_number)
+            else:
+                logger.info("Using PIN for verification.")
+                verification = Pin.verify(
                     user=authenticated_user, pin=pin, hashed_pin=account.pin
                 )
-            )
+
             if not verification:
-                logger.error(f"Verification failed for user {authenticated_user.id}")
+                logger.error("Verification failed: Incorrect PIN or biometrics.")
                 return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Incorrect PIN or biometrics"}
-                    ),
+                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
-            logger.info(f"Verification successful for user {authenticated_user.id}")
-        except Exception as e:
-            logger.exception(
-                f"Error during verification for user {authenticated_user.id}: {e}"
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Verification error"}),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+            logger.info("Verification successful, proceeding with transfer.")
+            tx_id = self._generate_transaction_id(prefix="PICA")
+            transfer_resp = Transfers.initiate_transfer(
+                bank=payload.get("credit_account"),
+                account_number=payload.get("credit_account"),
+                name=payload.get(""),
+                sender_name=authenticated_user.full_name,
+                sender_account_number=payload.get("debit_account"),
+                amount=payload.get("transaction_amount"),
+                description=payload.get("narration"),
+                transactionType="INTER_BANK",
+                tx_ref=tx_id,
             )
 
-        # Attempt transfer
-        try:
-            logger.info(f"Processing transfer for user {authenticated_user.id}")
-            transfer_resp = Transfers.Inter_bank_transfer(
-                beneficiaryAccountName=payload["beneficiary_account_name"],
-                transactionAmount=payload["transaction_amount"],
-                narration=payload["narration"],
-                beneficiaryBank=payload["beneficiary_bank"],
-                transactionReference=payload["transaction_reference"],
-                beneficiaryAccountNumber=payload["beneficiary_account_number"],
-            )
-        except Exception as e:
-            logger.exception(
-                f"Transfer request failed for user {authenticated_user.id}: {e}"
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Transfer service error"}),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        if transfer_resp.status_code == 200:
-            tx_id = generate_txId()
-            try:
-                # Log transaction creation
-                logger.info(
-                    f"Creating transaction record for user {authenticated_user.id}"
-                )
+            if transfer_resp.status_code == 200:
+                logger.info("Transfer successful, recording transaction.")
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=payload["transaction_reference"],
-                    tx_type="Transfer to Bank Account",
+                    tx_reference=payload.get("transaction_reference"),
+                    tx_type="Transfer to Providus Account",
                     tx_id=tx_id,
-                    amount=payload["transaction_amount"],
-                    description=payload["narration"],
+                    amount=payload.get("transaction_amount"),
+                    description=payload.get("narration"),
                 )
 
                 TransferModel.objects.create(
                     user=authenticated_user,
                     tx=tx,
-                    beneficiary_account_name=payload["beneficiary_account_name"],
-                    beneficiary_account_number=payload["beneficiary_account_number"],
+                    beneficiary_account_number=payload.get("credit_account"),
                     source_account_name=authenticated_user.full_name,
-                    beneficiary_bank=payload["beneficiary_bank"],
-                    transaction_amount=payload["transaction_amount"],
+                    transaction_amount=payload.get("transaction_amount"),
                 )
 
-                # Notifications and logging
-                logger.info(f"Creating notifications for user {authenticated_user.id}")
-                amount = payload["transaction_amount"]
-                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+                # Notify user
+                account_balance = (
+                    TransferModel.objects.filter(user=authenticated_user)
+                    .first()
+                    .available_balance
+                )
+                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['transaction_amount']} has been confirmed. Your available balance is ₦{account_balance}."
 
                 UserNotification.objects.create(
                     user=authenticated_user,
@@ -460,58 +448,63 @@ class InterBankTransfer(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Bank Transfer",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{amount}. Available balance is ₦{account.available_balance}.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['transaction_amount']}. Available balance is ₦{account_balance}.",
                 )
 
-                # Successful response
+                logger.info(
+                    f"Transfer notification sent to user {authenticated_user.id}."
+                )
+
                 resp = {
                     "status": "success",
                     "message": "Transfer successful.",
                     "data": {
-                        "recipient_name": payload["beneficiary_account_name"],
-                        "beneficiary_account_number": payload[
-                            "beneficiary_account_number"
-                        ],
-                        "amount": payload["transaction_amount"],
-                        "narration": payload["narration"],
-                        "beneficiaryBank": payload["beneficiary_bank"],
+                        "credit_account": payload.get("credit_account"),
+                        "debit_account": payload.get("debit_account"),
+                        "amount": payload.get("transaction_amount"),
+                        "narration": payload.get("narration"),
+                        "beneficiaryBank": "Providus Bank",
                         "transactionReference": payload["transaction_reference"],
                     },
                 }
-                logger.info(
-                    f"Transfer completed successfully for user {authenticated_user.id}"
-                )
                 return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            except Exception as e:
-                logger.exception(
-                    f"Transaction record creation failed for user {authenticated_user.id}: {e}"
-                )
+            else:
+                logger.error("Transfer failed, received error from external service.")
+                err_resp = {
+                    "status": "fail",
+                    "error": "Transfer failed.",
+                    "data": transfer_resp.json(),
+                }
                 return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Internal transaction error"}
-                    ),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    data=encrypt(err_resp), status=transfer_resp.status_code
                 )
-        else:
-            err_resp = {
-                "status": "fail",
-                "error": "Transfer failed.",
-                "data": transfer_resp.json(),
-            }
-            logger.warning(
-                f"Transfer failed for user {authenticated_user.id}: {transfer_resp.json()}"
+
+        except WalletModel.DoesNotExist:
+            logger.error(f"Account for user {authenticated_user.id} not found.")
+            return Response(
+                data=encrypt({"status": "fail", "error": "Account not found"}),
+                status=status.HTTP_404_NOT_FOUND,
             )
-            return Response(data=encrypt(err_resp), status=transfer_resp.status_code)
+        except Exception as e:
+            logger.exception(f"Unexpected error during transfer: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "error": "An error occurred. Please try again later.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
-class IntraBankTransactionStatus(generics.GenericAPIView):
+class TransactionStatus(generics.GenericAPIView):
     """
-    IntraBankTransactionStatus handles the GET request of validating the supplied single
-    transaction reference and returns the current status of the transaction
-    between two Providus Accounts.
+    TransactionStatus handles the GET request of validating the supplied single
+    transaction reference and returns the current status of an inter-bank transaction.
     """
 
-    serializer_class = InterBankTransfersSerializer
+    serializer_class = GetTransferStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
@@ -527,81 +520,24 @@ class IntraBankTransactionStatus(generics.GenericAPIView):
             logger.warning(
                 f"Transaction reference not found in request by user {user_id}"
             )
-            raise Http404(encrypt("Transaction reference not found"))
-
-        # Attempt to retrieve transaction status
-        try:
-            status_resp = Transfers.IntraBankStatus(
-                transactionReference=tx_reference,
-            )
-            if status_resp.status_code == 200:
-                logger.info(
-                    f"Transaction status retrieved successfully for reference {tx_reference}"
-                )
-                resp = {
-                    "status": "success",
-                    "data": status_resp.json(),
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                # Log failed status retrieval
-                logger.error(
-                    f"Failed to retrieve transaction status for reference {tx_reference}. Status code: {status_resp.status_code}"
-                )
-                err_resp = {
-                    "status": "fail",
-                    "error": "Could not retrieve transaction status.",
-                    "data": status_resp.json(),
-                }
-                return Response(data=encrypt(err_resp), status=status_resp.status_code)
-        except Exception as e:
-            # Log exceptions that occur during the status retrieval
-            logger.exception(
-                f"Exception occurred while retrieving transaction status for reference {tx_reference}: {e}"
-            )
             return Response(
                 data=encrypt(
                     {
                         "status": "fail",
-                        "error": "Internal server error while retrieving status",
+                        "message": "Transaction reference not found",
                     }
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
-class InterBankTransactionStatus(generics.GenericAPIView):
-    """
-    InterBankTransactionStatus handles the GET request of validating the supplied single transaction
-    reference and returns the current status of the transaction.
-    """
-
-    serializer_class = InterBankTransfersSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
-
-    def get(self, request, *args, **kwargs):
-        tx_reference = kwargs.get("tx_reference")
-        user_id = request.user.id
-        logger.info(
-            f"User {user_id} requested status for interbank transaction with reference: {tx_reference}"
-        )
-
-        # Check if transaction reference is provided
-        if not tx_reference:
-            logger.warning(
-                f"Transaction reference not found in request by user {user_id}"
-            )
-            raise Http404(encrypt("Transaction reference not found"))
-
         # Attempt to retrieve transaction status
         try:
-            status_resp = Transfers.InterBankStatus(
-                transactionReference=tx_reference,
+            status_resp = Transfers.complete_transfer(
+                transactionId=tx_reference,
             )
-            if status_resp.status_code == 200:
+            if status_resp.get("status") == "SUCCESS":
                 logger.info(
-                    f"Transaction status successfully retrieved for reference {tx_reference}"
+                    f"Transaction status retrieved successfully for reference {tx_reference}"
                 )
                 resp = {
                     "status": "success",

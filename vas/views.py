@@ -27,8 +27,8 @@ from .serializers import (
     ProductStatusSerializer,
     WaecRegistrationSerializer,
 )
-from banking.models import AccountCreation
-from banking.controllers import Account
+from banking.models import WalletModel
+from banking.controllers import Wallet
 from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
 from gamification.points import Points
@@ -120,11 +120,11 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         try:
             if payment_option != "CARD":
-                account = AccountCreation.objects.get(user=user)
+                account = WalletModel.objects.get(user=user)
                 logger.info(
                     f"Account found for user {user.first_name} {user.last_name}."
                 )
-        except AccountCreation.DoesNotExist:
+        except WalletModel.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
             )
@@ -301,10 +301,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
-                user_details = AccountCreation.objects.get(user=user)
+                user_details = WalletModel.objects.get(user=user)
 
                 # Initiate a debit on the customer's account.
-                debit_response = Account.Debit(
+                debit_response = Wallet.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
                     reason="Debit for airtime recharge.",
@@ -759,11 +759,11 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         try:
             if payment_option != "CARD":
-                account = AccountCreation.objects.get(user=user)
+                account = WalletModel.objects.get(user=user)
                 logger.info(
                     f"Account found for user {user.first_name} {user.last_name}."
                 )
-        except AccountCreation.DoesNotExist:
+        except WalletModel.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
             )
@@ -947,13 +947,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                     rwd_amt = 0
 
                 new_amount = int(amount) - pts_amt - rwd_amt
-                user_details = AccountCreation.objects.get(user=user)
+                user_details = WalletModel.objects.get(user=user)
                 logger.info(
                     f"Initiating debit for user {user.first_name} {user.last_name}. New amount after points and rewards: {new_amount}."
                 )
 
                 # Initiate a debit on the customer's account.
-                debit_response = Account.Debit(
+                debit_response = Wallet.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
                     reason="Debit for data subscription.",
@@ -1415,11 +1415,11 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
         try:
             if payment_option != "CARD":
-                account = AccountCreation.objects.get(user=user)
+                account = WalletModel.objects.get(user=user)
                 logger.info(
                     f"Account found for user {user.first_name} {user.last_name}."
                 )
-        except AccountCreation.DoesNotExist:
+        except WalletModel.DoesNotExist:
             logger.error(
                 f"Account not found for user {user.first_name} {user.last_name}."
             )
@@ -1574,13 +1574,13 @@ class ElectrcityBillPayment(generics.GenericAPIView):
 
                 new_amount = int(amount) - pts_amt - rwd_amt
 
-                user_details = AccountCreation.objects.get(user=user)
+                user_details = WalletModel.objects.get(user=user)
                 logger.info(
                     f"Initiating debit for user {user.first_name} {user.last_name}. New amount after points and rewards: {new_amount}."
                 )
 
                 # Initiate a debit on the customer's account.
-                debit_response = Account.Debit(
+                debit_response = Wallet.Debit(
                     debitAccount=user_details.account_number,
                     amount=new_amount,
                     reason="Debit for electricity bill payment.",

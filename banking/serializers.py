@@ -5,8 +5,9 @@ from accounts.models import TxModel
 
 # In project imports.
 from .models import (
-    BVNData,
-    AccountCreation,
+    UserKYC,
+    WalletModel,
+    WalletUpgrade,
     BankingNotificationModel,
     TransferModel,
     FundWithCard,
@@ -25,53 +26,63 @@ class BVNSerializer(serializers.ModelSerializer):
     """Serailizers for our verify user bvn."""
 
     class Meta:
-        model = BVNData
+        model = UserKYC
         fields = [
             "id",
             "bvn",
-            "date_of_birth",
+            "bvn_phone",
         ]
 
 
-class BankAccountCreationSerializers(serializers.ModelSerializer):
-    """Serailizers for creating a bank account for users."""
-
-    passport = serializers.URLField(required=True)
-    identity = serializers.URLField(required=True)
-    utility = serializers.URLField(required=True)
-    signature = serializers.URLField(required=True)
-    tc = serializers.CharField(max_length=4, write_only=True, required=True)
-    gn = serializers.CharField(max_length=4, write_only=True, required=True)
-    bvn = serializers.CharField(max_length=20, write_only=True, required=True)
-    accountType = serializers.CharField(max_length=4, write_only=True, required=True)
-    ms = serializers.CharField(max_length=4, write_only=True, required=True)
-    country = serializers.CharField(max_length=100, write_only=True, required=True)
-    alt_email = serializers.CharField(max_length=100, write_only=True, required=True)
-    alt_phone = serializers.CharField(max_length=100, write_only=True, required=True)
+class NINSerializer(serializers.ModelSerializer):
+    """Serailizers for our verify user nin."""
 
     class Meta:
-        model = AccountCreation
+        model = UserKYC
         fields = [
             "id",
-            "lga",
-            "state",
-            "tc",
-            "bvn",
-            "gn",
-            "accountType",
-            "country",
-            "ms",
-            "alt_email",
-            "alt_phone",
-            "religion",
             "nin",
-            "sex",
-            "address",
-            "utility",
-            "passport",
-            "identity",
-            "signature",
+            "nin_dob",
         ]
+
+
+class WalletCreationSerializers(serializers.ModelSerializer):
+    """Serailizers for creating a bank account for users."""
+
+    class Meta:
+        model = WalletModel
+        fields = ["id", "accountName", "gender", "dateOfBirth", "email", "bvn"]
+
+
+class Tier2WalletUpgradeSerializers(serializers.ModelSerializer):
+    """Serailizers for upgrading wallet to tier2."""
+
+    class Meta:
+        model = WalletUpgrade
+        fields = [
+            "id" "lga",
+            "state",
+            "nin",
+            "tier",
+            "userPhoto",
+            "idType",
+            "idNumber",
+            "idIssueDate",
+            "idCardFront",
+            "houseNumber",
+            "streetName",
+            "city",
+            "pep",
+            "customerSignature",
+        ]
+
+
+class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
+    """Serailizers for upgrading wallet to a tier3."""
+
+    class Meta:
+        model = WalletUpgrade
+        fields = ["id", "proofOfAddressVerification"]
 
 
 class CreateWalletPinSerializer(serializers.ModelSerializer):
@@ -80,7 +91,7 @@ class CreateWalletPinSerializer(serializers.ModelSerializer):
     pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = ["id", "pin", "pin2"]
 
 
@@ -93,7 +104,7 @@ class ResetPinSerializer(serializers.ModelSerializer):
     pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = ("otp", "pin", "pin2")
 
 
@@ -125,22 +136,35 @@ class BankNtfnSerializer(serializers.ModelSerializer):
         ]
 
 
-class AccountDetailsSerializer(serializers.ModelSerializer):
+class Get9PSBWalletSerializer(serializers.Serializer):
+    class Meta:
+        model = WalletModel
+        fields = [
+            "account_number",
+        ]
+
+
+class WalletEnquirySerializer(serializers.Serializer):
+    acct_name = serializers.CharField(source="name")
+    account_number = serializers.CharField(source="nuban")
+    customer_number = serializers.CharField(source="number")
+    balance = serializers.DecimalField(
+        source="availableBalance", max_digits=12, decimal_places=2
+    )
+    tier = serializers.CharField()
+
+
+class WalletDetailsSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        model = AccountCreation
-        fields = [
-            "acct_name",
-            "account_number",
-            "customer_numnber",
-            "balance",
-        ]
+        model = WalletModel
+        fields = ["acct_name", "account_number", "customer_numnber", "balance", "tier"]
 
 
 class GetProvidusAccountSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = [
             "account_number",
         ]
@@ -160,7 +184,7 @@ class GetAccountSerializer(serializers.ModelSerializer):
     bankCode = serializers.CharField(min_length=3, write_only=True, required=True)
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = ["account_number", "bankCode"]
 
     def validate_accountNumber(self, value):
@@ -202,8 +226,9 @@ class IntraBankTransfersSerializer(serializers.ModelSerializer):
             "id",
             "pin",
             "use_biometrics",
-            "credit_account",
-            "debit_account",
+            "beneficiary_bank_code",
+            "beneficiary_account_number",
+            "sender_account_number",
             "narration",
             "transaction_amount",
             "transaction_reference",
@@ -211,13 +236,6 @@ class IntraBankTransfersSerializer(serializers.ModelSerializer):
 
 
 class InterBankTransfersSerializer(serializers.ModelSerializer):
-    transaction_reference = serializers.CharField(
-        max_length=50, write_only=True, required=True
-    )
-    narration = serializers.CharField(max_length=50, write_only=True, required=True)
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    use_biometrics = serializers.BooleanField(required=False)
-
     class Meta:
         model = TransferModel
         fields = [
@@ -245,7 +263,7 @@ class WalletStatusSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = [
             "account_number",
             "acct_name",
@@ -293,6 +311,21 @@ class DataSerializer(serializers.Serializer):
 class WebhookSerializer(serializers.Serializer):
     event = serializers.CharField()
     data = DataSerializer()
+
+
+class NotificationWebhookSerializer(serializers.Serializer):
+    merchant = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    sourceaccount = serializers.CharField()
+    sourcebank = serializers.CharField()
+    sendername = serializers.CharField()
+    narration = serializers.CharField()
+    nipsessionid = serializers.CharField()
+    transactionref = serializers.CharField()
+    accountnumber = serializers.CharField()
+    orderref = serializers.CharField()
+    code = serializers.CharField()
+    message = serializers.CharField()
 
 
 class FundWalletSerializers(serializers.Serializer):

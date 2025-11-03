@@ -5,7 +5,6 @@ from decouple import config
 from accounts.otp import otp_manager
 from permissions import (
     IsPartnerUserOrMember,
-    IsPartnerUserOrMemberBrandAdOrSuperAdmin,
     IsGuestWithValidId,
 )
 from commons import Messaging
@@ -28,22 +27,26 @@ from drf_spectacular.utils import extend_schema
 # In-projects imports.
 from .serializers import (
     BVNSerializer,
-    BankAccountCreationSerializers,
+    NINSerializer,
+    WalletCreationSerializers,
+    Tier2WalletUpgradeSerializers,
+    Tier3WalletUpgradeSerializers,
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
     ResetPinSerializer,
     BankNtfnSerializer,
     BankingStatusSerializer,
-    AccountDetailsSerializer,
     RefundSerializers,
+    WalletDetailsSerializer,
+    WalletEnquirySerializer,
 )
 from accounts.models import UserNotification
 from roles.models import ActivityModel
 from .models import (
-    AccountCreation,
-    BVNData,
+    WalletModel,
+    UserKYC,
 )
-from .controllers import BVN, Account, Paystack
+from .controllers import KYC, Wallet, Paystack
 from security import encrypt, decrypt
 from sms import Message
 
@@ -67,7 +70,7 @@ class PaginationStyle(PageNumberPagination):
 class VerifYBVN(generics.GenericAPIView):
     """
     VerifYBVN handles the POST request of verifying a
-    customer's bvn. It accepts DOB in this format: 30-Dec-1650.
+    customer's bvn. It accepts bvn registered phone number and bvn as inputs.
     """
 
     serializer_class = BVNSerializer
@@ -91,93 +94,244 @@ class VerifYBVN(generics.GenericAPIView):
         #         status=status.HTTP_202_ACCEPTED,
         #     )
         try:
-            bvn = BVNData.objects.get(user=authenticated_user)
-        except BVNData.DoesNotExist:
-            bvn = BVNData.objects.create(user=authenticated_user)
+            kyc = UserKYC.objects.get(user=authenticated_user)
+        except UserKYC.DoesNotExist:
+            kyc = UserKYC.objects.create(user=authenticated_user)
 
         serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            number = BVNData.objects.filter(bvn=user_data.get("bvn")).exists()
-            num = user_data.get("bvn")
-            if number:
-                resp = {
-                    "status": "fail",
-                    "message": f"User with this bvn: {num} already exist",
-                }
-                encrypt_resp = encrypt(resp)
-                return Response(
-                    data=encrypt_resp,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # Verify the user's BVN.
-            bvn_response = BVN.verify(bvn=user_data.get("bvn"))
-            bvn_status_code = bvn_response.status_code
-
-            if bvn_status_code != 200:
-                response = {
-                    "status": "fail",
-                    "message": "Bvn verification was failed, bvn is either wrong or incomplete.",
-                }
-                encrypt_resp = encrypt(response)
-                return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
-
-            if bvn_status_code == 200:
-                bvn_data = bvn_response.json()
-                logging.debug(f"Bvn response: {bvn_data}")
-
-                # Update the user's BVN instance with the new data.
-                bvn.number = user_data.get("bvn")
-                bvn.save()
-
-                # authenticated_user.is_bvn_verified = True
-                # authenticated_user.save()
-
-                serializer = BVNSerializer(data=user_data)
-
-                UserNotification.objects.create(
-                    user=authenticated_user,
-                    title="BVN Verification.",
-                    message="Your BVN Verifiction is successful.",
-                )
-
-                ActivityModel.objects.create(
-                    user=authenticated_user,
-                    title="BVN Verification.",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully.",
-                )
-
-                response = {
-                    "status": "success",
-                    "message": "Bvn verification was successful",
-                    "bvn data": {
-                        "first_name": bvn_data["FirstName"],
-                        "last_name": bvn_data["LastName"],
-                        "date_of_birth": bvn_data["DOB"],
-                        "phone_number": bvn_data["Phone"],
-                        "bvn": user_data.get("bvn"),
-                    },
-                }
-                encrypt_resp = encrypt(response)
-                return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
-            else:
-                return Response(
-                    data=encrypt(bvn_response.json()), status=bvn_status_code
-                )
-        else:
+        if not serializer.is_valid(raise_exception=True):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
+        number = UserKYC.objects.filter(bvn=user_data.get("bvn")).exists()
+        num = user_data.get("bvn")
+        if number:
+            resp = {
+                "status": "fail",
+                "message": f"User with this bvn: {num} already exist",
+            }
+            encrypt_resp = encrypt(resp)
+            return Response(
+                data=encrypt_resp,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Verify the user's BVN.
+        bvn_response = KYC.verify_bvn(bvn=user_data.get("bvn"))
+        bvn_status_code = bvn_response.status_code
 
-class CreateBankAccount(generics.GenericAPIView):
+        if bvn_status_code != 200:
+            response = {
+                "status": "fail",
+                "message": "Bvn verification was failed, bvn is either wrong or incomplete.",
+            }
+            encrypt_resp = encrypt(response)
+            return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
+
+        if bvn_status_code == 200:
+            try:
+                bvn_data = bvn_response.json()
+                if bvn_data.get("phone_number1") == user_data.get("bvn_phone"):
+                    logging.debug(f"BVN verification successful: {bvn_data}")
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "success",
+                                "message": "BVN verification successful.",
+                                "bvn data": bvn_data,
+                            }
+                        ),
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    response = {
+                        "status": "fail",
+                        "message": "BVN verification failed, phone number does not match.",
+                    }
+                    encrypt_resp = encrypt(response)
+                    return Response(
+                        data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ValueError:
+                bvn_data = bvn_response.json()
+                logging.error(f"BVN verification failed: {bvn_data}")
+
+            # Update the user's BVN instance with the new data.
+            kyc.bvn = user_data.get("bvn")
+            kyc.bvn_verified = True
+            kyc.bvn_phone = user_data.get("bvn_phone")
+            kyc.save()
+
+            authenticated_user.is_nin_verified = True
+            authenticated_user.save()
+
+            serializer = BVNSerializer(data=user_data)
+
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="BVN Verification.",
+                message="Your BVN Verifiction is successful.",
+            )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="BVN Verification.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully.",
+            )
+
+            response = {
+                "status": "success",
+                "message": "Bvn verification was successful",
+                "bvn data": {
+                    "first_name": bvn_data.get("first_name"),
+                    "last_name": bvn_data.get("last_name"),
+                    "date_of_birth": bvn_data.get("date_of_birth"),
+                    "phone_number": bvn_data.get("phone_number"),
+                    "bvn": user_data.get("bvn"),
+                },
+            }
+            encrypt_resp = encrypt(response)
+            return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
+        else:
+            return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
+
+
+class VerifYNIN(generics.GenericAPIView):
     """
-    CreateBankAccount handles the POST request of receiving a
-    customer's transaction detail.
+    VerifYNIN handles the POST request of verifying a
+    customer's nin. It accepts DOB and user NIN in this format: 1650-12-30.
     """
 
-    serializer_class = BankAccountCreationSerializers
+    serializer_class = NINSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsPartnerUserOrMemberBrandAdOrSuperAdmin]
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        authenticated_user = request.user
+
+        # if authenticated_user.is_bvn_verified:
+        #     return Response(
+        #         data=encrypt({
+        #             "status": "success",
+        #             "message": "User has already verified BVN",
+        #         }),
+        #         status=status.HTTP_202_ACCEPTED,
+        #     )
+        try:
+            kyc = UserKYC.objects.get(user=authenticated_user)
+        except UserKYC.DoesNotExist:
+            kyc = UserKYC.objects.create(user=authenticated_user)
+
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        number = UserKYC.objects.filter(nin=user_data.get("nin")).exists()
+        num = user_data.get("nin")
+        if number:
+            resp = {
+                "status": "fail",
+                "message": f"User with this nin: {num} already exist",
+            }
+            encrypt_resp = encrypt(resp)
+            return Response(
+                data=encrypt_resp,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Verify the user's BVN.
+        nin_response = KYC.verify_nin(nin=user_data.get("nin"))
+        nin_status_code = nin_response.status_code
+
+        if nin_status_code != 200:
+            response = {
+                "status": "fail",
+                "message": "NIN verification was failed, NIN is either wrong or incomplete.",
+            }
+            encrypt_resp = encrypt(response)
+            return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
+
+        if nin_status_code == 200:
+            try:
+                nin_data = nin_response.json()
+                if nin_data.get("date_of_birth") == user_data.get("nin_dob"):
+                    logging.debug(f"NIN verification successful: {nin_data}")
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "success",
+                                "message": "NIN verification successful.",
+                                "nin data": nin_data,
+                            }
+                        ),
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    response = {
+                        "status": "fail",
+                        "message": "NIN verification failed, date of birth does not match.",
+                    }
+                    encrypt_resp = encrypt(response)
+                    return Response(
+                        data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ValueError:
+                nin_data = nin_response.json()
+                logging.error(f"NIN verification failed: {nin_data}")
+
+            # Update the user's NIN instance with the new data.
+            kyc.nin = user_data.get("nin")
+            kyc.nin_dob = user_data.get("nin_dob")
+            kyc.save()
+
+            authenticated_user.is_nin_verified = True
+            authenticated_user.save()
+
+            serializer = NINSerializer(data=user_data)
+
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="NIN Verification.",
+                message="Your NIN Verification is successful.",
+            )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="NIN Verification.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their NIN successfully.",
+            )
+
+            response = {
+                "status": "success",
+                "message": "NIN verification was successful",
+                "nin data": {
+                    "first_name": nin_data.get("first_name"),
+                    "last_name": nin_data.get("last_name"),
+                    "date_of_birth": nin_data.get("date_of_birth"),
+                    "nin": user_data.get("nin"),
+                },
+            }
+            encrypt_resp = encrypt(response)
+            return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
+        else:
+            return Response(data=encrypt(nin_response.json()), status=nin_status_code)
+
+
+class CreateUserWallet(generics.GenericAPIView):
+    """
+    CreateUserWallet handles the POST request of creating a
+    wallet for individuals(Members and BrandAds).
+    """
+
+    serializer_class = WalletCreationSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         current_user = request.user
@@ -186,86 +340,55 @@ class CreateBankAccount(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.info(f"Account Creation Payload:\n{json.dumps(payload, indent=4)}")
+        logger.info(f"Wallet Creation Payload:\n{json.dumps(payload, indent=4)}")
 
-        passport = request.FILES.get("passport")
-        identity = request.FILES.get("identity")
-        utility = request.FILES.get("utility")
-        signature = request.FILES.get("signature")
-
-        serializer = BankAccountCreationSerializers(data=payload)
+        serializer = WalletCreationSerializers(data=payload)
         if not serializer.is_valid():
             logging.error(f"Validation Errors: {serializer.errors}")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
+        unique_code = Wallet.generate_unique_code()
         try:
-            acc_response = Account.Open(
-                addr=payload.get("address"),
-                tc=payload.get("tc"),
-                acc_type="65",
-                religion=payload.get("religion"),
-                ms=payload.get("ms"),
-                gn=payload.get("gn"),
-                branch="203",
+            wallet_response = Wallet.Open(
+                transactionTrackingRef=unique_code,
+                lastName=current_user.last_name,
+                otherNames=current_user.first_name,
+                accountName=payload.get("accountName"),
+                gender=payload.get("gender"),
                 bvn=payload.get("bvn"),
-                state=payload.get("state"),
-                lga=payload.get("lga"),
-                country=payload.get("country"),
-                altEmail=payload.get("alt_email"),
-                altPhone=payload.get("alt_phone"),
-                currentAddress=payload.get("address"),
-                nin=payload.get("NIN"),
-                passport=passport,
-                identity=identity,
-                utility=utility,
-                signature=signature,
+                dateOfBirth=payload.get("dateOfBirth"),
+                email=current_user.email,
+                phoneNo=current_user.phone_number,
             )
-            response_data = acc_response.json()
-            response_code = response_data.get("ResponseCode")
+
+            response_data = wallet_response.json()
+            response_message = response_data.get("message")
+            wallet_status = wallet_response.get("status")
 
             # Handle different response codes explicitly
-            if response_code == "7799":
-                logging.error(
-                    f"Error {response_code}: {response_data['ResponseDetInfo']}"
-                )
-                error_message = "The operation has timed out. Please try again later."
-                resp = {
-                    "status": "fail",
-                    "error": error_message,
-                    "details": response_data["ResponseDetInfo"],
-                }
-                encrypted_repsonse = encrypt(resp)
-                return Response(
-                    data=encrypted_repsonse,
-                    status=status.HTTP_408_REQUEST_TIMEOUT,
-                )
-
-            elif acc_response.status_code == 200:
-                user_acc = AccountCreation.objects.create(
+            if (
+                response_message == "Account Opening successful"
+                and wallet_status == "SUCCESS"
+            ):
+                user_acc = WalletModel.objects.create(
                     user=current_user,
-                    account_number=acc_response.json()["AccountNUBAN"],
-                    customer_numnber=acc_response.json()["CustomerNumber"],
-                    acct_name=acc_response.json()["AccountName"],
-                    sex=payload.get("gn"),
-                    title=payload.get("tc"),
-                    marital_status=payload.get("ms"),
-                    lga=payload.get("lga"),
-                    state=payload.get("state"),
-                    religion=payload.get("religion"),
-                    nin=payload.get("NIN"),
+                    account_number=wallet_response.json()["data"]["accountNumber"],
+                    customer_numnber=unique_code,
+                    acct_name=wallet_response.json()["data"]["fullName"],
                     address=payload.get("address"),
+                    walletType="INDIVIDUAL",
                 )
                 UserNotification.objects.create(
                     user=current_user,
-                    title="Virtual Account Creation 🎉",
-                    message="Congratulations! 🎊🎉 Your virtual account has been created successfully. 🥳",
+                    title="Wallet Creation 🎉🎉🎉",
+                    message="Congratulations! 🎊🎉🎊🎉 Your wallet has been created successfully. 🥳🥳🥳",
                 )
 
                 ActivityModel.objects.create(
                     user=current_user,
-                    title="Virtual Account Creation.",
+                    title="Wallet Creation",
                     description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉.",
                 )
 
@@ -280,19 +403,171 @@ class CreateBankAccount(generics.GenericAPIView):
                 resp = {
                     "status": "success",
                     "message": "Open Account Operation was successful!",
-                    "accountNumber": acc_response.json()["AccountNUBAN"],
-                    "accountName": acc_response.json()["AccountName"],
-                    "CustomerNumber": acc_response.json()["CustomerNumber"],
+                    "account_number": wallet_response.json()["data"]["accountNumber"],
+                    "customer_number": unique_code,
+                    "acct_name": wallet_response.json()["data"]["fullName"],
                 }
                 return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             else:
                 return Response(
-                    data=encrypt(acc_response.json()), status=acc_response.status_code
+                    data=encrypt(wallet_response.json()),
+                    status=wallet_response.status_code,
                 )
         except requests.exceptions.RequestException as e:
-            logging.error(f"Account creation API request error: {str(e)}")
+            logging.error(f"Wallet creation API request error: {str(e)}")
             return Response(
                 encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class UpgradeToTier2Wallet(generics.GenericAPIView):
+    """UpgradeToTier2Wallet Handles the POST request upgrade of a wallet to Tier 2."""
+
+    serializer_class = Tier2WalletUpgradeSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        current_user = request.user
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
+
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_kyc = UserKYC.objects.filter(user=current_user).first()
+        if user_kyc.nin_verified is False:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "You have to verify your NIN before upgrade.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        user_wallet = WalletModel.objects.filter(user=current_user).first()
+        if user_wallet.tier_level >= 2:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet is already at Tier 2.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        # Perform the upgrade logic here
+        try:
+            upgrade_response = Wallet.UpgradeToTier2(
+                user=current_user,
+                wallet_id=payload.get("wallet_id"),
+                userPhoto=payload.get("userPhoto"),
+                idType=payload.get("idType"),
+                idNumber=payload.get("idNumber"),
+                idIssueDate=payload.get("idIssueDate"),
+                idCardFront=payload.get("idCardFront"),
+                houseNumber=payload.get("houseNumber"),
+                streetName=payload.get("streetName"),
+                city=payload.get("city"),
+                pep=payload.get("pep"),
+                customerSignature=payload.get("customerSignature"),
+            )
+            response_data = upgrade_response.json()
+            if upgrade_response.status_code != 200:
+                logging.error(f"Wallet upgrade to tier 2 failed: {response_data}")
+                return Response(
+                    data=encrypt(response_data),
+                    status=upgrade_response.status_code,
+                )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet upgraded to Tier 2 successfully.",
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Wallet upgrade to tier 2 API request error: {str(e)}")
+            return Response(
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class UpgradeToTier3Wallet(generics.GenericAPIView):
+    """UpgradeToTier3Wallet Handles the POST request upgrade of a wallet to Tier 3."""
+
+    serializer_class = Tier3WalletUpgradeSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        current_user = request.user
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
+
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_wallet = WalletModel.objects.filter(user=current_user).first()
+        if user_wallet.tier_level >= 2:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet is already at Tier 2.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        user_kyc = UserKYC.objects.filter(user=current_user).first()
+        # Perform the upgrade logic here
+        try:
+            upgrade_response = Wallet.UpgradefromTier2ToTier3(
+                accountNumber=user_wallet.account_number,
+                bvn=user_kyc.bvn,
+                nin=user_kyc.nin,
+                proofOfAddressVerification=user_wallet.proof_of_address_verification,
+            )
+            response_data = upgrade_response.json()
+            if upgrade_response.status_code != 200:
+                logging.error(f"Wallet upgrade to tier 2 failed: {response_data}")
+                return Response(
+                    data=encrypt(response_data),
+                    status=upgrade_response.status_code,
+                )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet upgraded to Tier 2 successfully.",
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Wallet upgrade to tier 2 API request error: {str(e)}")
+            return Response(
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -316,8 +591,8 @@ class NotificationView(generics.CreateAPIView):
         date_time = user_data.get("dateTime")
 
         try:
-            user = AccountCreation.objects.get(account_number=account_number)
-        except AccountCreation.DoesNotExist:
+            user = WalletModel.objects.get(account_number=account_number)
+        except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt(
                     {"error": "User with this account number does not exist."}
@@ -407,7 +682,7 @@ class GetAccountDetails(generics.GenericAPIView):
     customer's account details.
     """
 
-    serializer_class = AccountDetailsSerializer
+    serializer_class = WalletEnquirySerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
@@ -415,19 +690,38 @@ class GetAccountDetails(generics.GenericAPIView):
         user = request.user
 
         try:
-            acct_details = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
+            acct_details = WalletModel.objects.get(user=user)
+        except WalletModel.DoesNotExist:
             resp = {
                 "status": "fail",
-                "message": "Customer does not have an account.",
+                "message": "User does not have an account.",
             }
             return Response(data=encrypt(resp), status=status.HTTP_404_NOT_FOUND)
-        serializer = AccountDetailsSerializer(acct_details)
-        response = {
-            "status": "success",
-            "message": "Account details retrieve operation succesful.",
-            "data": serializer.data,
-        }
+
+        # Try live enquiry
+        wallet_details = Wallet.getWalletDetails(
+            account_number=acct_details.account_number
+        )
+
+        if wallet_details and wallet_details.get("status") == "SUCCESS":
+            live_data = wallet_details.get("data", {})
+            serializer = WalletEnquirySerializer(live_data)
+            response = {
+                "status": "success",
+                "message": "Account details retrieved successfully.",
+                "data": serializer.data,
+            }
+        else:
+            # Fallback to DB data, but do not show stale balance
+            serializer = WalletDetailsSerializer(acct_details)
+            response = {
+                "status": "warning",
+                "message": "Balance temporarily unavailable. Please refresh.",
+                "data": serializer.data,
+            }
+            response["data"]["balance"] = None  # hide stale balance
+            response["data"]["live_enquiry_failed"] = True
+
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
@@ -451,8 +745,8 @@ class SetWalletPin(generics.CreateAPIView):
         authenticated_user = request.user
 
         try:
-            user = AccountCreation.objects.get(user=authenticated_user)
-        except AccountCreation.DoesNotExist:
+            user = WalletModel.objects.get(user=authenticated_user)
+        except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"error": "Wallet not found for the authenticated user."}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -481,13 +775,13 @@ class SetWalletPin(generics.CreateAPIView):
 
             UserNotification.objects.create(
                 user=authenticated_user,
-                title="Wallet Pin.",
+                title="Wallet Pin",
                 message="Wallet pin created successfully.",
             )
 
             ActivityModel.objects.create(
                 user=authenticated_user,
-                title="Wallet.",
+                title="Wallet",
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
@@ -544,7 +838,7 @@ class ForgotWalletPin(generics.GenericAPIView):
 
                 ActivityModel.objects.create(
                     user=user,
-                    title="Wallet Pin.",
+                    title="Wallet Pin",
                     description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
                 )
 
@@ -661,8 +955,8 @@ class ResetPin(generics.CreateAPIView):
         serializer = self.get_serializer(data=user_data)
 
         try:
-            user = AccountCreation.objects.get(user=authenticated_user)
-        except AccountCreation.DoesNotExist:
+            user = WalletModel.objects.get(user=authenticated_user)
+        except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"error": "Wallet not found for the authenticated user."}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -692,13 +986,13 @@ class ResetPin(generics.CreateAPIView):
 
             UserNotification.objects.create(
                 user=authenticated_user,
-                title="Reset Wallet Pin.",
+                title="Reset Wallet Pin",
                 message="Wallet pin reset was successful.",
             )
 
             ActivityModel.objects.create(
                 user=user,
-                title="Reset Wallet Pin.",
+                title="Reset Wallet Pin",
                 description=f"{user.first_name} {user.last_name} has reset their wallet pin.",
             )
 

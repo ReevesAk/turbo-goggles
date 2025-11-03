@@ -3,7 +3,8 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
-from banking.models import AccountCreation
+
+from banking.models import WalletModel
 
 from adverts.models import CreateAd
 
@@ -403,7 +404,7 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
     userTypes = serializers.SerializerMethodField()
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = [
             "acct_name",
             "balance",
@@ -452,7 +453,7 @@ class AdminBankAccountCreationSerializers(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = AccountCreation
+        model = WalletModel
         fields = [
             "id",
             "lga",

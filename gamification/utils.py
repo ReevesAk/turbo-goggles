@@ -6,12 +6,9 @@ import logging
 import requests
 from decouple import config as conf
 
-from django.db import transaction
-
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Points
 
 logger = logging.getLogger(__name__)
 

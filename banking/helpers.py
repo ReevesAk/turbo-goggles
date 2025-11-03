@@ -1,6 +1,6 @@
 from django.contrib.auth.hashers import check_password
 
-from .models import AccountCreation
+from .models import WalletModel
 
 # Third party imports.
 from rest_framework.response import Response
@@ -11,8 +11,8 @@ class Pin:
     @staticmethod
     def verify(user, pin, hashed_pin):
         try:
-            wallet = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
+            wallet = WalletModel.objects.get(user=user)
+        except WalletModel.DoesNotExist:
             return Response(
                 data={"message": "Invalid wallet ID"},
                 status=status.HTTP_400_BAD_REQUEST,

@@ -3,80 +3,10 @@ from basemodel import BaseModel
 from decimal import Decimal
 
 from django.db import models
+from django.utils import timezone
 
 from accounts.models import User, TxModel
 
-TITLE = (
-    ("0", "OTHERS"),
-    ("1", "MR"),
-    ("2", "MRS"),
-    ("3", "MESSRS"),
-    ("4", "MISS"),
-    ("5", "MS"),
-    ("6", "PROF"),
-    ("7", "JUSTICE"),
-    ("8", "JUDGE"),
-    ("9", "DR"),
-    ("10", "ENG."),
-    ("11", "HAJ"),
-    ("12", "SHEIKH"),
-    ("13", "ALHAJI"),
-    ("14", "OBA"),
-    ("15", "ARCH"),
-    ("16", "BARRISTER"),
-    ("17", "REVEREND"),
-    ("18", "MONSIGNOR"),
-    ("19", "HIS BISHOP"),
-    ("20", "PATRIARCH"),
-    ("21", "BROTHER"),
-    ("22", "HER MAJESTY"),
-    ("23", "H.R.H."),
-    ("24", "HONOURABLE"),
-    ("25", "SENATOR"),
-    ("26", "H.EX."),
-    ("27", "HIS MAJESTY"),
-    ("28", "MR & MRS"),
-    ("29", "REV FR"),
-    ("30", "AIR VICE MASHAL"),
-    ("31", "ARC"),
-    ("32", "ARCH BISHOP"),
-    ("33", "BISHOP"),
-    ("34", "CAPTAIN"),
-    ("35", "CHIEF"),
-    ("36", "CHIEF (DR)"),
-    ("37", "CHIEF (MRS)"),
-    ("38", "COLONEL"),
-    ("39", "DAME"),
-    ("40", "DEACON"),
-    ("41", "DEACONESS"),
-    ("42", "GENERAL"),
-    ("43", "HIGH PRIEST"),
-    ("44", "KING"),
-    ("45", "LADY"),
-    ("46", "LOLO"),
-    ("47", "MAJOR"),
-    ("48", "MALLAM"),
-    ("49", "OTUNBA"),
-    ("50", "PASTOR"),
-    ("51", "PASTOR (MRS)"),
-    ("52", "PRINCE"),
-    ("53", "PRINCESS"),
-    ("54", "QUEEN"),
-    ("55", "SIR"),
-    ("56", "SIR & LADY"),
-    ("57", "ENGR DR."),
-    ("58", "CARDINAL"),
-    ("99", "OTHERS"),
-)
-
-MARITAL_STATUS = (
-    ("1", "Single"),
-    ("2", "Married"),
-    ("3", "Divorced"),
-    ("4", "Widow"),
-    ("4", "Widower"),
-    ("5", "Seperated"),
-)
 
 NGN_ID_TYPE = (
     ("NIN", "NIN"),
@@ -85,7 +15,7 @@ NGN_ID_TYPE = (
     ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
 )
 
-USD_ID_TYPE = (
+ID_TYPE = (
     ("PASSPORT", "PASSPORT"),
     ("VOTERS_CARD", "VOTERS_CARD"),
     ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
@@ -99,48 +29,62 @@ CURRENCY = (
 )
 
 SEX = (
-    ("1", "Male"),
-    ("2", "Female"),
+    ("0", "Male"),
+    ("1", "Female"),
 )
 
-ACCOUNT_TYPE = (
-    ("SAVINGS", "SAVINGS"),
-    ("CURRENT", "CURRENT"),
-)
 
-RELIGION = (("1", "Christianity"), ("2", "Islam"), ("3", "Others"), ("4", "Hindu"))
-
-
-class BVNData(models.Model):
-    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
-    bvn = models.CharField(max_length=155, null=True, unique=True)
-    first_name = models.CharField(max_length=155, null=True)
-    last_name = models.CharField(max_length=155, null=True)
-    date_of_birth = models.CharField(max_length=155, null=True)
-    phone_number = models.CharField(max_length=15, null=True)
+class UserKYC(models.Model):
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    bvn = models.CharField(max_length=100, null=True, unique=True)
+    bvn_verified = models.BooleanField(default=False, null=True)
+    nin = models.CharField(max_length=100, null=True, unique=True)
+    nin_verified = models.BooleanField(default=False, null=True)
+    nin_dob = models.CharField(max_length=40, null=True)
+    bvn_phone = models.CharField(max_length=15, null=True)
 
 
-class AccountCreation(models.Model):
+class WalletModel(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
-    customer_numnber = models.CharField(max_length=50, null=True)
+    transactionTrackingRef = models.CharField(max_length=50, null=True)
     account_number = models.CharField(max_length=100, null=True)
-    acc_type = models.CharField(max_length=150, choices=ACCOUNT_TYPE, null=True)
-    active_role_on_creation = models.CharField(max_length=50, null=True)
+    otherNames = models.CharField(max_length=100, null=True)
+    lastName = models.CharField(max_length=100, null=True)
+    phoneNo = models.CharField(max_length=100, null=True)
     acct_name = models.CharField(max_length=100, null=True)
-    sex = models.CharField(max_length=6, choices=SEX, null=True)
-    title = models.CharField(max_length=50, choices=TITLE, null=True)
-    marital_status = models.CharField(max_length=50, choices=MARITAL_STATUS, null=True)
-    lga = models.CharField(max_length=100, null=True)
-    state = models.CharField(max_length=100, null=True)
-    religion = models.CharField(max_length=100, choices=RELIGION, null=True)
-    nin = models.CharField(max_length=100, null=True)
+    walletType = models.CharField(max_length=100, null=True)
+    gender = models.CharField(max_length=6, choices=SEX, null=True)
+    email = models.CharField(max_length=100, null=True)
+    dateOfBirth = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=150, null=True)
+    active_role_on_creation = models.CharField(max_length=50, null=True)
     pin = models.CharField(max_length=155, null=True)
     balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00"), null=True
     )
     status = models.BooleanField(default=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class WalletUpgrade(WalletModel):
+    wallet = models.ForeignKey(
+        WalletModel, on_delete=models.CASCADE, related_name="wallet_upgrade", null=True
+    )
+    lga = models.CharField(max_length=100, null=True)
+    state = models.CharField(max_length=100, null=True)
+    nin = models.CharField(max_length=100, null=True)
+    tier = models.CharField(max_length=5, null=True)
+    userPhoto = models.CharField(max_length=150, null=True)
+    idType = models.CharField(max_length=50, choices=ID_TYPE, null=True)
+    idNumber = models.CharField(max_length=100, null=True)
+    idIssueDate = models.DateField(null=True)
+    idCardFront = models.CharField(max_length=150, null=True)
+    houseNumber = models.CharField(max_length=100, null=True)
+    streetName = models.CharField(max_length=100, null=True)
+    city = models.CharField(max_length=100, null=True)
+    pep = models.BooleanField(default=False, null=True)
+    customerSignature = models.CharField(max_length=150, null=True)
+    proofOfAddressVerification = models.CharField(max_length=150, null=True)
 
 
 class ForexModel(models.Model):
@@ -157,6 +101,13 @@ class ForexModel(models.Model):
 
 
 class BankingNotificationModel(models.Model):
+    wallet = models.ForeignKey(
+        WalletModel,
+        on_delete=models.CASCADE,
+        related_name="wallet_ntfn",
+        null=True,
+        blank=True,
+    )
     accountNumber = models.CharField(max_length=100, null=True)
     reference = models.CharField(max_length=150, null=True)
     narration = models.TextField(null=True)
@@ -167,18 +118,56 @@ class BankingNotificationModel(models.Model):
 
 
 class TransferModel(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    tx = models.ForeignKey(to=TxModel, on_delete=models.SET_NULL, null=True, blank=True)
-    beneficiary_account_name = models.CharField(max_length=100, null=True)
-    beneficiary_account_number = models.CharField(max_length=100, null=True)
-    source_account_name = models.CharField(max_length=150, null=True)
-    beneficiary_bank = models.CharField(max_length=50, null=True)
-    transaction_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="transfers"
     )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transfers",
+    )
+
+    # Customer info
+    beneficiary_bank_code = models.CharField(
+        max_length=100, null=True, blank=True
+    )  # "bank"
+    beneficiary_account_number = models.CharField(
+        max_length=30, null=True, blank=True
+    )  # "number"
+    sender_account_number = models.CharField(
+        max_length=30, null=True, blank=True
+    )  # "senderaccountnumber"
+    beneficiary_name = models.CharField(max_length=150, null=True, blank=True)  # "name"
+    sender_name = models.CharField(
+        max_length=150, null=True, blank=True
+    )  # "sendername"
+
+    # Order info
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )  # "order.amount"
+    currency = models.CharField(max_length=10, default="NGN")  # "order.currency"
+    description = models.TextField(null=True, blank=True)  # "order.description"
+    country = models.CharField(max_length=5, default="NG")  # "order.country"
+
+    # Transaction info
+    tx_reference = models.CharField(
+        max_length=100, unique=True, null=True
+    )  # "transaction.reference"
+    transaction_type = models.CharField(max_length=50, default="INTRA_BANK")
+    narration = models.TextField(null=True, blank=True)
+
+    # Balance tracking (optional)
     available_balance = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00")
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
+
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Transfer {self.tx_reference} - {self.beneficiary_name or 'Unknown'}"
 
 
 class FundWithCard(BaseModel):

@@ -15,9 +15,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification
-from banking.models import AccountCreation, BVNData
+from banking.models import WalletModel, UserKYC
 from banking.serializers import WalletStatusSerializer
-from banking.controllers import Account, BVN
+from banking.controllers import Wallet, KYC
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt
 
@@ -28,7 +28,7 @@ class GetallWalletUsers(generics.ListAPIView):
     of all wallet owners.
     """
 
-    queryset = AccountCreation.objects.all().order_by("created_at")
+    queryset = WalletModel.objects.all().order_by("created_at")
     serializer_class = ListWalletUsersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [
@@ -134,9 +134,9 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                     )
 
                 try:
-                    bvn = BVNData.objects.get(user=user)
-                except BVNData.DoesNotExist:
-                    bvn = BVNData.objects.create(user=user)
+                    bvn = UserKYC.objects.get(user=user)
+                except UserKYC.DoesNotExist:
+                    bvn = UserKYC.objects.create(user=user)
 
                 # Update the user's BVN instance with the new data.
                 bvn.first_name = bvn_data["FirstName"]
@@ -206,7 +206,7 @@ class CreateBankAccountForUser(generics.GenericAPIView):
                 )
 
             elif acc_response.status_code == 200:
-                user_acc = AccountCreation.objects.create(
+                user_acc = WalletModel.objects.create(
                     user=user,
                     account_number=acc_response.json()["AccountNUBAN"],
                     customer_numnber=acc_response.json()["CustomerNumber"],
@@ -281,10 +281,10 @@ class WalletSearch(generics.ListAPIView):
         keyword = kwargs.get("search_term")
 
         if keyword.isdigit():
-            accounts = AccountCreation.objects.filter(account_number__icontains=keyword)
+            accounts = WalletModel.objects.filter(account_number__icontains=keyword)
         # Otherwise, search by account name
         else:
-            accounts = AccountCreation.objects.filter(acct_name__icontains=keyword)
+            accounts = WalletModel.objects.filter(acct_name__icontains=keyword)
 
         serializer = self.get_serializer(accounts, many=True)
         response_data = {

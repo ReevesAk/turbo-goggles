@@ -415,3 +415,18 @@ class IsAgent(permissions.BasePermission):
                 raise ValidationError("Only agents users can perform this action.")
 
         raise ValidationError("Authentication is required to access this resource.")
+
+
+class IsMemberOrBrandAd(permissions.BasePermission):
+    """
+    Allows access only to users whose active_role is either 'Member' or 'BrandAd'.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            raise ValidationError(encrypt("Authentication is required to access this resource."))
+
+        if request.user.active_role in ["Member", "BrandAd"]:
+            return True
+
+        raise ValidationError(encrypt("Only Members and BrandAds can perform this action."))
