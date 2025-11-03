@@ -29,8 +29,8 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
     serializer_class = NotificationWebhookSerializer
 
     # Credentials you registered with 9PSB
-    EXPECTED_USERNAME = config("9PSB_WEBHOOK_USERNAME")
-    EXPECTED_PASSWORD = config("9PSB_WEBHOOK_PASSWORD")
+    EXPECTED_USERNAME = config("NINE_PSB_WEBHOOK_USERNAME")
+    EXPECTED_PASSWORD = config("NINE_PSB_WEBHOOK_PASSWORD")
 
     def verify_basic_auth(self, request):
         """Validate Basic Auth header."""
