@@ -210,42 +210,7 @@ class GetAccountSerializer(serializers.ModelSerializer):
         return value
 
 
-class IntraBankTransfersSerializer(serializers.ModelSerializer):
-    transaction_reference = serializers.CharField(
-        max_length=50, write_only=True, required=True
-    )
-    narration = serializers.CharField(max_length=50, write_only=True, required=True)
-    credit_account = serializers.CharField(
-        max_length=50, write_only=True, required=True
-    )
-    debit_account = serializers.CharField(max_length=50, write_only=True, required=True)
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    use_biometrics = serializers.BooleanField(required=False)
-
-    class Meta:
-        model = TransferModel
-        fields = [
-            "id",
-            "pin",
-            "use_biometrics",
-            "beneficiary_bank_code",
-            "beneficiary_account_number",
-            "sender_account_number",
-            "narration",
-            "transaction_amount",
-            "transaction_reference",
-        ]
-
-
-class InterBankTransfersSerializer(serializers.ModelSerializer):
-    transaction_reference = serializers.CharField(
-        max_length=50, write_only=True, required=True
-    )
-    narration = serializers.CharField(max_length=50, write_only=True, required=True)
-    credit_account = serializers.CharField(
-        max_length=50, write_only=True, required=True
-    )
-    debit_account = serializers.CharField(max_length=50, write_only=True, required=True)
+class BankTransfersSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=4, write_only=True, required=True)
     use_biometrics = serializers.BooleanField(required=False)
 
@@ -257,12 +222,10 @@ class InterBankTransfersSerializer(serializers.ModelSerializer):
             "use_biometrics",
             "beneficiary_name",
             "beneficiary_account_number",
-            "beneficiary_bank",
-            "debit_account",
-            "credit_account",
-            "narration",
-            "transaction_amount",
-            "transaction_reference",
+            "beneficiary_bank_code",
+            "sender_account_number",
+            "description",
+            "amount",
         ]
 
 

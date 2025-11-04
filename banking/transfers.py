@@ -33,8 +33,7 @@ from .models import TransferModel, WalletModel, FundWithCard
 from .serializers import (
     Get9PSBWalletSerializer,
     GetAccountSerializer,
-    InterBankTransfersSerializer,
-    IntraBankTransfersSerializer,
+    BankTransfersSerializer,
     GetTransferStatusSerializer,
     PaymentURLSerializers,
     FundWalletSerializers,
@@ -194,7 +193,7 @@ class IntraBankTransfer(generics.CreateAPIView):
     picadailys customers.
     """
 
-    serializer_class = IntraBankTransfersSerializer
+    serializer_class = BankTransfersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
@@ -218,7 +217,7 @@ class IntraBankTransfer(generics.CreateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        serializer = IntraBankTransfersSerializer(data=payload)
+        serializer = BankTransfersSerializer(data=payload)
         if not serializer.is_valid():
             logger.warning("Transfer request validation failed.")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -247,13 +246,13 @@ class IntraBankTransfer(generics.CreateAPIView):
             logger.info("Verification successful, proceeding with transfer.")
             tx_id = self._generate_transaction_id(prefix="PICA")
             transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("bank_code"),
-                account_number=payload.get("credit_account"),
+                bank=payload.get("beneficiary_bank_code"),
+                account_number=payload.get("beneficiary_account_number"),
                 name=payload.get("beneficiary_name"),
-                sender_name=authenticated_user.full_name,
-                sender_account_number=payload.get("debit_account"),
-                amount=payload.get("transaction_amount"),
-                description=payload.get("narration"),
+                sender_name=account.acct_name,
+                sender_account_number=payload.get("sender_account_number"),
+                amount=payload.get("amount"),
+                description=payload.get("description"),
                 transactionType="INTRA_BANK",
                 tx_ref=tx_id,
             )
@@ -349,7 +348,7 @@ class InterBankTransfer(generics.CreateAPIView):
     banks other than Picadialys/Providus users.
     """
 
-    serializer_class = InterBankTransfersSerializer
+    serializer_class = BankTransfersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
@@ -373,7 +372,7 @@ class InterBankTransfer(generics.CreateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        serializer = IntraBankTransfersSerializer(data=payload)
+        serializer = BankTransfersSerializer(data=payload)
         if not serializer.is_valid():
             logger.warning("Transfer request validation failed.")
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -402,14 +401,14 @@ class InterBankTransfer(generics.CreateAPIView):
             logger.info("Verification successful, proceeding with transfer.")
             tx_id = self._generate_transaction_id(prefix="PICA")
             transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("bank_code"),
-                account_number=payload.get("credit_account"),
+                bank=payload.get("beneficiary_bank_code"),
+                account_number=payload.get("beneficiary_account_number"),
                 name=payload.get("beneficiary_name"),
-                sender_name=authenticated_user.full_name,
-                sender_account_number=payload.get("debit_account"),
-                amount=payload.get("transaction_amount"),
-                description=payload.get("narration"),
-                transactionType="INTER_BANK",
+                sender_name=account.acct_name,
+                sender_account_number=payload.get("sender_account_number"),
+                amount=payload.get("amount"),
+                description=payload.get("description"),
+                transactionType="INTRA_BANK",
                 tx_ref=tx_id,
             )
 
