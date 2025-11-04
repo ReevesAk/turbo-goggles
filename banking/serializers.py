@@ -62,7 +62,8 @@ class Tier2WalletUpgradeSerializers(serializers.ModelSerializer):
     class Meta:
         model = WalletUpgrade
         fields = [
-            "id" "lga",
+            "id",
+            "lga",
             "state",
             "nin",
             "tier",
