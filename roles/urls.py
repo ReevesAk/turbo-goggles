@@ -39,7 +39,7 @@ from .tasks import (
     GetSingleStepCampaign,
     CampaignParticipantListView,
 )
-from .wallets import GetallWalletUsers, CreateBankAccountForUser, WalletSearch
+from .wallets import GetallWalletUsers, WalletSearch
 
 from .partners import (
     GetAllPartnersUsers,
@@ -204,10 +204,5 @@ urlpatterns = [
         name="get_all_wallet_users",
     ),
     path("get-wallet-status", GetAllWalletStatus.as_view(), name="get_wallet_status"),
-    path("wallets/<str:search_term>/", WalletSearch.as_view(), name="wallet_search"),
-    path(
-        "create-wallet-for-users",
-        CreateBankAccountForUser.as_view(),
-        name="create_wallet_for_users",
-    ),
+    path("wallets/<str:search_term>/", WalletSearch.as_view(), name="wallet_search")
 ]
