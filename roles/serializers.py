@@ -430,4 +430,3 @@ class GetAllActivityLogsSerializer(serializers.Serializer):
             "description",
             "date",
         ]
-

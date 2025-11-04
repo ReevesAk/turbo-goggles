@@ -4,7 +4,7 @@ import requests
 from django.core.cache import cache
 
 # In project imports.
-from .serializers import ListWalletUsersSerializer, AdminBankAccountCreationSerializers
+from .serializers import ListWalletUsersSerializer
 from .models import ActivityModel
 
 # Third party imports.
