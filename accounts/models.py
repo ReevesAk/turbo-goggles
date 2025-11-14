@@ -169,7 +169,6 @@ class TxModel(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     tx_reference = models.CharField(max_length=100, null=True)
     tx_type = models.CharField(choices=TRANSACTION_TYPE, max_length=200, null=True)
-    tx_id = models.CharField(max_length=255, null=True)
     amount = models.FloatField(default=Decimal("0.00"), null=True)
     description = models.CharField(max_length=255, null=True)
     rwd = models.FloatField(null=True)

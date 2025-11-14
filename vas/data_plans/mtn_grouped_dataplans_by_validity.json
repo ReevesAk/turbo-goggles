@@ -1,0 +1,1226 @@
+{
+    "Night": [],
+    "Daily": [
+        {
+            "productId": "MTN-25MB Opera-20",
+            "dataBundle": "25MB Opera",
+            "amount": "20",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-25MB WhatsApp-25",
+            "dataBundle": "25MB WhatsApp",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-25MB Facebo-25",
+            "dataBundle": "25MB Facebo",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-25MB Ayoba-25",
+            "dataBundle": "25MB Ayoba",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-25MB 2Go-25",
+            "dataBundle": "25MB 2Go",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-25MB Wechat-25",
+            "dataBundle": "25MB Wechat",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-100MB WhatsAPP+FB-25",
+            "dataBundle": "100MB WhatsAPP+FB",
+            "amount": "25",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-150MB All Social-50",
+            "dataBundle": "150MB All Social",
+            "amount": "50",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-200MB TikTok-50",
+            "dataBundle": "200MB TikTok",
+            "amount": "50",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-250MB Insta-100",
+            "dataBundle": "250MB Insta",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-350MB Youtube+IG+TikT",
+            "dataBundle": "350MB Youtube+IG+TikTok Bundle",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-110MB-11",
+            "dataBundle": "110MB",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-110MB-100",
+            "dataBundle": "110MB",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-100MB -100",
+            "dataBundle": "100MB ",
+            "amount": "100",
+            "validity": " Daily Plan"
+        },
+        {
+            "productId": "MTN-75MB-100",
+            "dataBundle": "75MB",
+            "amount": "100",
+            "validity": " Daily Plan"
+        },
+        {
+            "productId": "MTN-200MB-2",
+            "dataBundle": "230MB",
+            "amount": "200",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-500MB-350",
+            "dataBundle": "500MB",
+            "amount": "350",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-500MB-35",
+            "dataBundle": "500MB",
+            "amount": "350",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-1GB-11",
+            "dataBundle": "1GB Daily Plan + 1.5mins.",
+            "amount": "500",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-1GB Daily Plan + 1.5m",
+            "dataBundle": "1GB Daily Plan + 1.5mins",
+            "amount": "500",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-1.5GB-21",
+            "dataBundle": "1.5GB + 100MB YouTube Music ",
+            "amount": "600",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-2.5GB Daily Plan-750",
+            "dataBundle": "2.5GB Daily Plan",
+            "amount": "750",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-2.5GB-D12",
+            "dataBundle": "2.5GB Daily Plan",
+            "amount": "750",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "MTN-230MB-200",
+            "dataBundle": "230MB",
+            "amount": "200",
+            "validity": "1-day Plan"
+        }
+    ],
+    "Weekly": [
+        {
+            "productId": "MTN-50MB WhatsA-50",
+            "dataBundle": "50MB WhatsA",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-50MB Facebo-50",
+            "dataBundle": "50MB Facebo",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-50MB Ayoba-50",
+            "dataBundle": "50MB Ayoba",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-50MB 2Go-50",
+            "dataBundle": "50MB 2Go",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-100MB Opera-50",
+            "dataBundle": "100MB Opera",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-200MB WhatsApp+FBK-50",
+            "dataBundle": "200MB WhatsApp+FBK",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-50MB 2Go-50",
+            "dataBundle": "50MB 2Go",
+            "amount": "50",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-350MB All Social-100",
+            "dataBundle": "350MB All Social",
+            "amount": "100",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-1GB Social -300",
+            "dataBundle": "1GB Social ",
+            "amount": "300",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-350MB-300",
+            "dataBundle": "350MB",
+            "amount": "300",
+            "validity": " Weekly Pla"
+        },
+        {
+            "productId": "MTN-350MB-300",
+            "dataBundle": "350MB",
+            "amount": "300",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-2GB TikTok-350",
+            "dataBundle": "2GB TikTok",
+            "amount": "350",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-500MB + 1GB YouTube N",
+            "dataBundle": "500MB + 1GB YouTube Night + 100MB YouTube Music",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-600MB-5",
+            "dataBundle": "500MB + 1GB YouTube Night + 100MB YouTube Music",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-XD500-46",
+            "dataBundle": "600MB + 2mins + 2 SMS",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-750MB-500",
+            "dataBundle": "750MB",
+            "amount": "500",
+            "validity": " Weekly Pla"
+        },
+        {
+            "productId": "MTN-750MB-500",
+            "dataBundle": "750MB",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-600MB + 2mins + 2 SMS",
+            "dataBundle": "600MB + 2mins + 2 SMS",
+            "amount": "500",
+            "validity": "Weekly plan"
+        },
+        {
+            "productId": "MTN-1GB-26",
+            "dataBundle": "1GB + 1GB YouTube Night + 100MB YouTube Music",
+            "amount": "800",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-1GB Weekly Plan-800",
+            "dataBundle": "1GB Weekly Plan",
+            "amount": "800",
+            "validity": " Weekly Pla"
+        },
+        {
+            "productId": "MTN-1.5GB-31",
+            "dataBundle": "1.5GB + 1GB YouTube Night + 100MB YouTube Music",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-1.5GB + 1GB YouTube N",
+            "dataBundle": "1.5GB + 1GB YouTube Night + 100MB YouTube Music",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-3.5GB-1500",
+            "dataBundle": "3.5GB",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-XD1000-47",
+            "dataBundle": "1.8GB + 6mins + 5 SMS",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-3.5GB-15",
+            "dataBundle": "3.5GB",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-6GB-29",
+            "dataBundle": "6GB Weekly Plan",
+            "amount": "2500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-6GB Weekly Plan-2500",
+            "dataBundle": "6GB Weekly Plan",
+            "amount": "2500",
+            "validity": " Weekly Pla"
+        },
+        {
+            "productId": "MTN-6GB Weekly Plan-2500",
+            "dataBundle": "6GB Weekly Plan",
+            "amount": "2500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-11GB Weekly Bundle-35",
+            "dataBundle": "11GB Weekly Bundle",
+            "amount": "3500",
+            "validity": "Weekly Plan"
+        },
+        {
+            "productId": "MTN-7GB-73",
+            "dataBundle": "11GB Weekly Bundle",
+            "amount": "3500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-30GB Marble-5000",
+            "dataBundle": "30GB Marble",
+            "amount": "5000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-20GB Weekly Plan-5000",
+            "dataBundle": "20GB Weekly Plan",
+            "amount": "5000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-20GB-71",
+            "dataBundle": "20GB Weekly Plan",
+            "amount": "5000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-XD5000-49",
+            "dataBundle": "12.5GB + 36mins + 15 SMS",
+            "amount": "5500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "MTN-350MB-300",
+            "dataBundle": "350MB",
+            "amount": "300",
+            "validity": "XD 300Weekl"
+        },
+        {
+            "productId": "MTN-50MB-1500",
+            "dataBundle": "50MB",
+            "amount": "1500",
+            "validity": "XT 300Weekl"
+        },
+        {
+            "productId": "MTN-100MB-2500",
+            "dataBundle": "100MB",
+            "amount": "2500",
+            "validity": "XT 500Weekl"
+        }
+    ],
+    "Monthly": [
+        {
+            "productId": "MTN-300MB Opera-100",
+            "dataBundle": "300MB Opera",
+            "amount": "100",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150MB Whats-150",
+            "dataBundle": "150MB Whats",
+            "amount": "150",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150MB Faceb-150",
+            "dataBundle": "150MB Faceb",
+            "amount": "150",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150MB Ayoba-150",
+            "dataBundle": "150MB Ayoba",
+            "amount": "150",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150MB 2Go-150",
+            "dataBundle": "150MB 2Go",
+            "amount": "150",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-160MB-150",
+            "dataBundle": "160MB",
+            "amount": "150",
+            "validity": "2GO_30days"
+        },
+        {
+            "productId": "MTN-1GB All Soc-250",
+            "dataBundle": "1GB All Soc",
+            "amount": "250",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-1.5GB-4",
+            "dataBundle": "2GB + 2mins + 2GB All Night Streaming + 200MB YouTube Music",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-2GB+2mins Monthly Pla",
+            "dataBundle": "2GB+2mins Monthly Plan",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-2GB+2mins Monthly Pla",
+            "dataBundle": "2GB+2mins Monthly Plan",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-2GB-20",
+            "dataBundle": "2.7GB + 2mins + 2GB All Night Streaming + 200MB YouTube Music",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-2.7GB+2mins Monthly P",
+            "dataBundle": "2.7GB+2mins Monthly Plan",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-2.7GB+2mins Monthly P",
+            "dataBundle": "2.7GB+2mins Monthly Plan",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-3GB-5",
+            "dataBundle": "3.5GB + 5mins + 2GB All Night Streaming + 200MB YouTube Music",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-3.5GB+5mins Monthly P",
+            "dataBundle": "3.5GB+5mins Monthly Plan",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-3.5GB+5mins Monthly P",
+            "dataBundle": "3.5GB+5mins Monthly Plan",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-XD2000-48",
+            "dataBundle": " 2.7GB+15mins",
+            "amount": "3000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN- 2.7GB+15mins-3000",
+            "dataBundle": " 2.7GB+15mins",
+            "amount": "3000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-4.5GB-6",
+            "dataBundle": "7GB + 2GB All Night Streaming",
+            "amount": "3500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-5.5GB Monthly Plan-35",
+            "dataBundle": "5.5GB Monthly Plan",
+            "amount": "3500",
+            "validity": " 1 Month al"
+        },
+        {
+            "productId": "MTN-7GB Monthly Plan-3500",
+            "dataBundle": "7GB Monthly Plan",
+            "amount": "3500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-12GB+3500 talktime-35",
+            "dataBundle": "12GB+3500 talktime",
+            "amount": "3500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-6GB-21",
+            "dataBundle": "10GB + 10mins + 2GB All Night Streaming + 200MB YouTube Music",
+            "amount": "4500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-10GB+10mins Monthly P",
+            "dataBundle": "10GB+10mins Monthly Plan",
+            "amount": "4500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-25GB-5000",
+            "dataBundle": "25GB",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-10GB-22",
+            "dataBundle": "12.5GB + 2GB All Night Streaming + 300MB YouTube Music",
+            "amount": "5500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-12.5GB Monthly Plan-5",
+            "dataBundle": "12.5GB Monthly Plan",
+            "amount": "5500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-12.5GB + 36mins + 15 ",
+            "dataBundle": "12.5GB + 36mins + 15 SMS",
+            "amount": "5500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-12GB-12",
+            "dataBundle": "16.5GB + 10mins + 2GB All Night Streaming + 300MB YouTube Music",
+            "amount": "6500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-20GB Monthly Plan-750",
+            "dataBundle": "20GB Monthly Plan",
+            "amount": "7500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-20GB-7",
+            "dataBundle": "20GB+2GB YouTube Night+300MB YouTube Music + 25mins.",
+            "amount": "7500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-25GB-61",
+            "dataBundle": "25GB + 4GB All Night Streaming",
+            "amount": "9000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-30GB Broadb-9000",
+            "dataBundle": "30GB Broadb",
+            "amount": "9000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-BR30-30",
+            "dataBundle": "30GB Broadband Router only",
+            "amount": "9000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-25GB-10000",
+            "dataBundle": "25GB",
+            "amount": "10000",
+            "validity": "SME_30days"
+        },
+        {
+            "productId": "MTN-36GB Monthly Plan-110",
+            "dataBundle": "36GB Monthly Plan",
+            "amount": "11000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-40GB-9",
+            "dataBundle": "36GB",
+            "amount": "11000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-60GB Monthly Broadban",
+            "dataBundle": "60GB Monthly Broadband Plan ",
+            "amount": "14500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-BR45-30",
+            "dataBundle": "60GB Monthly Broadband Plan",
+            "amount": "14500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-65GB-16000",
+            "dataBundle": "65GB",
+            "amount": "16000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-65GB-16",
+            "dataBundle": "65GB",
+            "amount": "16000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-75GB-18000",
+            "dataBundle": "75GB",
+            "amount": "18000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-100GB Broad-18000",
+            "dataBundle": "100GB Broad",
+            "amount": "18000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-75GB-13",
+            "dataBundle": "75GB",
+            "amount": "18000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150GB Silve-20000",
+            "dataBundle": "150GB Silve",
+            "amount": "20000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-120GB + 5GB Youtube/M",
+            "dataBundle": "120GB + 5GB Youtube/MS Teams/Zoom",
+            "amount": "24000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-BR120GB-24",
+            "dataBundle": "120GB + 5GB Youtube/MS Teams/Zoom (Broadband)",
+            "amount": "24000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-200GB Broad-25000",
+            "dataBundle": "200GB Broad",
+            "amount": "25000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-300GB Ruby -30000",
+            "dataBundle": "300GB Ruby ",
+            "amount": "30000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150GB + 2GB daily upo",
+            "dataBundle": "150GB + 2GB daily upon exhausting main bundle",
+            "amount": "30000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-150GB-60",
+            "dataBundle": "150GB + 2GB daily upon exhausting main bundle",
+            "amount": "30000",
+            "validity": "30DAYS"
+        },
+        {
+            "productId": "MTN-165GB Monthly Plan-35",
+            "dataBundle": "165GB Monthly Plan",
+            "amount": "35000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-110GB-30",
+            "dataBundle": "165GB",
+            "amount": "35000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-200GB + 5GB Youtube/M",
+            "dataBundle": "200GB + 5GB Youtube/MSTeams/Zoom",
+            "amount": "37500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-200GB-61",
+            "dataBundle": "200GB + 5GB Youtube/MSTeams/Zoom",
+            "amount": "37500",
+            "validity": "30days"
+        },
+        {
+            "productId": "MTN-400GB Gold -45000",
+            "dataBundle": "400GB Gold ",
+            "amount": "45000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-260GB + 2GB daily upo",
+            "dataBundle": "260GB + 2GB daily upon exhausting main bundle",
+            "amount": "45000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-260GB-60",
+            "dataBundle": "260GB + 2GB daily upon exhausting main bundle",
+            "amount": "45000",
+            "validity": "30DAYS"
+        },
+        {
+            "productId": "MTN-550GB Diamo-60000",
+            "dataBundle": "550GB Diamo",
+            "amount": "60000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "MTN-750MB-500",
+            "dataBundle": "750MB",
+            "amount": "500",
+            "validity": " 2-Week pla"
+        },
+        {
+            "productId": "MTN-2.5GB -900",
+            "dataBundle": "2.5GB ",
+            "amount": "900",
+            "validity": " 2_Day Plan"
+        },
+        {
+            "productId": "MTN-1.8GB + 6mins + 5 SMS",
+            "dataBundle": "1.8GB + 6mins + 5 SMS",
+            "amount": "1500",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-11GB-3500",
+            "dataBundle": "11GB",
+            "amount": "3500",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "MTN-13GB-4000",
+            "dataBundle": "13GB",
+            "amount": "4000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "MTN-10GB+10mins Monthly P",
+            "dataBundle": "10GB+10mins Monthly Plan",
+            "amount": "4500",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-12.5GB Monthly Plan-5",
+            "dataBundle": "12.5GB Monthly Plan",
+            "amount": "5500",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-22GB-5500",
+            "dataBundle": "22GB",
+            "amount": "5500",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "MTN-16.5GB+10mins Monthly",
+            "dataBundle": "16.5GB+10mins Monthly Plan",
+            "amount": "6500",
+            "validity": " Month Plan"
+        },
+        {
+            "productId": "MTN-27GB-6500",
+            "dataBundle": "27GB",
+            "amount": "6500",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "MTN-20GB Monthly Plan-750",
+            "dataBundle": "20GB Monthly Plan",
+            "amount": "7500",
+            "validity": " Month Plan"
+        },
+        {
+            "productId": "MTN-25GB Monthly Plan-900",
+            "dataBundle": "25GB Monthly Plan",
+            "amount": "9000",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-32GB+70 mins-11000",
+            "dataBundle": "32GB+70 mins",
+            "amount": "11000",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-36GB Monthly Plan-110",
+            "dataBundle": "36GB Monthly Plan",
+            "amount": "11000",
+            "validity": " Month Plan"
+        },
+        {
+            "productId": "MTN-75GB Monthly Plan-180",
+            "dataBundle": "75GB Monthly Plan",
+            "amount": "18000",
+            "validity": " Month Plan"
+        },
+        {
+            "productId": "MTN-165GB Monthly Plan-35",
+            "dataBundle": "165GB Monthly Plan",
+            "amount": "35000",
+            "validity": " Monthly Pl"
+        },
+        {
+            "productId": "MTN-150GB 2-Month Plan-40",
+            "dataBundle": "150GB 2-Month Plan",
+            "amount": "40000",
+            "validity": " 2_Month Pl"
+        },
+        {
+            "productId": "MTN-200GB 2-Month Plan-50",
+            "dataBundle": "200GB 2-Month Plan",
+            "amount": "50000",
+            "validity": " 2_Month Pl"
+        },
+        {
+            "productId": "MTN-600GB-75000",
+            "dataBundle": "600GB",
+            "amount": "75000",
+            "validity": " 3_Month Pl"
+        },
+        {
+            "productId": "MTN-480GB 3-Month Plan-90",
+            "dataBundle": "480GB 3-Month Plan",
+            "amount": "90000",
+            "validity": " 3_Month Pl"
+        },
+        {
+            "productId": "MTN-325GB-100000",
+            "dataBundle": "325GB",
+            "amount": "100000",
+            "validity": " 6_Months P"
+        },
+        {
+            "productId": "MTN-400GB-120000",
+            "dataBundle": "400GB",
+            "amount": "120000",
+            "validity": " Yearly Pla"
+        },
+        {
+            "productId": "MTN-1000GB-300000",
+            "dataBundle": "1000GB",
+            "amount": "300000",
+            "validity": " 1_Year Pla"
+        },
+        {
+            "productId": "MTN-4.5TB-450000",
+            "dataBundle": "4.5TB",
+            "amount": "450000",
+            "validity": " 1_Year Pla"
+        }
+    ],
+    "2 Months": [
+        {
+            "productId": "MTN-30GB-8000",
+            "dataBundle": "30GB",
+            "amount": "8000",
+            "validity": "60 Days"
+        },
+        {
+            "productId": "MTN-300GB Broad-36000",
+            "dataBundle": "300GB Broad",
+            "amount": "36000",
+            "validity": "60 Days"
+        },
+        {
+            "productId": "MTN-150GB 2-Month Plan-40",
+            "dataBundle": "150GB 2-Month Plan",
+            "amount": "40000",
+            "validity": "60 Days"
+        },
+        {
+            "productId": "MTN-75GB-14",
+            "dataBundle": "150GB 2-Month Plan",
+            "amount": "40000",
+            "validity": "60 Days"
+        },
+        {
+            "productId": "MTN-200GB 2-Month Plan-50",
+            "dataBundle": "200GB 2-Month Plan",
+            "amount": "50000",
+            "validity": "60 Days"
+        }
+    ],
+    "3 Months": [
+        {
+            "productId": "MTN-400GB Broad-45000",
+            "dataBundle": "400GB Broad",
+            "amount": "45000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "MTN-250GB-75000",
+            "dataBundle": "250GB",
+            "amount": "75000",
+            "validity": "90 days"
+        },
+        {
+            "productId": "MTN-BR400-3",
+            "dataBundle": "450GB Broadband Plan",
+            "amount": "75000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "MTN-480GB 3-Month Plan-90",
+            "dataBundle": "480GB 3-Month Plan",
+            "amount": "90000",
+            "validity": "90 days"
+        },
+        {
+            "productId": "MTN-150GB-16",
+            "dataBundle": "480GB 3-Month Plan",
+            "amount": "90000",
+            "validity": "90 Days"
+        }
+    ],
+    "4 Months": [],
+    "6 Months": [
+        {
+            "productId": "MTN-325GB-100000",
+            "dataBundle": "325GB",
+            "amount": "100000",
+            "validity": "180 days"
+        },
+        {
+            "productId": "MTN-1TB Broadba-100000",
+            "dataBundle": "1TB Broadba",
+            "amount": "100000",
+            "validity": "180 Days"
+        },
+        {
+            "productId": "MTN-1.5TB Plati-165000",
+            "dataBundle": "1.5TB Plati",
+            "amount": "165000",
+            "validity": "180 Days"
+        }
+    ],
+    "Annual": [
+        {
+            "productId": "MTN-1TB-100000",
+            "dataBundle": "1TB",
+            "amount": "100000",
+            "validity": "365 days"
+        },
+        {
+            "productId": "MTN-400GB-120000",
+            "dataBundle": "400GB",
+            "amount": "120000",
+            "validity": "365 days"
+        },
+        {
+            "productId": "MTN-1.5TB Broad-150000",
+            "dataBundle": "1.5TB Broad",
+            "amount": "150000",
+            "validity": "365 Days"
+        },
+        {
+            "productId": "MTN-1.5TB-225000",
+            "dataBundle": "1.5TB",
+            "amount": "225000",
+            "validity": "365 Days"
+        },
+        {
+            "productId": "MTN-1000GB-300000",
+            "dataBundle": "1000GB",
+            "amount": "300000",
+            "validity": "365 days"
+        },
+        {
+            "productId": "MTN-2000GB-450000",
+            "dataBundle": "2000GB",
+            "amount": "450000",
+            "validity": "365 days"
+        },
+        {
+            "productId": "MTN-1500GB-450000",
+            "dataBundle": "1500GB",
+            "amount": "450000",
+            "validity": "365 days"
+        }
+    ],
+    "Others": [
+        {
+            "productId": "MTN-250MB-200",
+            "dataBundle": "250MB",
+            "amount": "200",
+            "validity": "2 days"
+        },
+        {
+            "productId": "MTN-2GB-500",
+            "dataBundle": "2GB",
+            "amount": "500",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-1.5GB Daily Plan + 10",
+            "dataBundle": "1.5GB Daily Plan + 100MB for YouTube Music.",
+            "amount": "600",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-2GB-750",
+            "dataBundle": "2GB",
+            "amount": "750",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-2GB 2-75",
+            "dataBundle": "2GB",
+            "amount": "750",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-2.5GB-27",
+            "dataBundle": "2.5GB",
+            "amount": "900",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-2.5GB-900",
+            "dataBundle": "2.5GB",
+            "amount": "900",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-3GB-72",
+            "dataBundle": "3.2GB",
+            "amount": "1000",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-7GB 2-Days Plan-1800",
+            "dataBundle": "7GB 2-Days Plan",
+            "amount": "1800",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-7GB-63",
+            "dataBundle": "7GB",
+            "amount": "1800",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "MTN-200MB-200",
+            "dataBundle": "200MB",
+            "amount": "200",
+            "validity": "XD200-3Days"
+        },
+        {
+            "productId": "MTN-1GB Instagr-200",
+            "dataBundle": "1GB Instagr",
+            "amount": "200",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "MTN-750MB Socia-200",
+            "dataBundle": "750MB Socia",
+            "amount": "200",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "MTN-750MB-500",
+            "dataBundle": "750MB",
+            "amount": "500",
+            "validity": "14 Days"
+        },
+        {
+            "productId": "MTN-20MB-1000",
+            "dataBundle": "20MB",
+            "amount": "1000",
+            "validity": "XT200-3Days"
+        },
+        {
+            "productId": "MTN-50MB-50",
+            "dataBundle": "50MB",
+            "amount": "50",
+            "validity": "2GO_7days"
+        },
+        {
+            "productId": "MTN-500MB WhatsApp+FBK-10",
+            "dataBundle": "500MB WhatsApp+FBK",
+            "amount": "100",
+            "validity": "30 Day"
+        },
+        {
+            "productId": "MTN-165GB-50000",
+            "dataBundle": "165GB",
+            "amount": "50000",
+            "validity": "SME_60days"
+        },
+        {
+            "productId": "MTN-150GB-50000",
+            "dataBundle": "150GB",
+            "amount": "50000",
+            "validity": "SME 90days"
+        },
+        {
+            "productId": "MTN-360GB-100000",
+            "dataBundle": "360GB",
+            "amount": "100000",
+            "validity": "SME_90days"
+        },
+        {
+            "productId": "MTN-1TB-350000",
+            "dataBundle": "1TB",
+            "amount": "350000",
+            "validity": "SME_90days"
+        },
+        {
+            "productId": "MTN-1500GB-63",
+            "dataBundle": "1.5TB",
+            "amount": "225000",
+            "validity": "365DAYS"
+        },
+        {
+            "productId": "MTN-2.5TB-250000",
+            "dataBundle": "2.5TB",
+            "amount": "250000",
+            "validity": "365Days"
+        },
+        {
+            "productId": "MTN-3.2GB-1000",
+            "dataBundle": "3.2GB",
+            "amount": "1000",
+            "validity": "2-Days"
+        },
+        {
+            "productId": "MTN-300MB-5000",
+            "dataBundle": "300MB",
+            "amount": "5000",
+            "validity": "XT 1000Mont"
+        },
+        {
+            "productId": "MTN-2.5GB-10000",
+            "dataBundle": "2.5GB",
+            "amount": "10000",
+            "validity": "XT 10000Mon"
+        },
+        {
+            "productId": "MTN-650MB-10000",
+            "dataBundle": "650MB",
+            "amount": "10000",
+            "validity": "XT 2000Mont"
+        },
+        {
+            "productId": "MTN-35GB-13500",
+            "dataBundle": "35GB",
+            "amount": "13500",
+            "validity": "SME"
+        },
+        {
+            "productId": "MTN-35GB-13500",
+            "dataBundle": "35GB",
+            "amount": "13500",
+            "validity": " SME Share "
+        },
+        {
+            "productId": "MTN-3.5GB-15000",
+            "dataBundle": "3.5GB",
+            "amount": "15000",
+            "validity": "XT 15000Mon"
+        },
+        {
+            "productId": "MTN-50GB-15000",
+            "dataBundle": "50GB",
+            "amount": "15000",
+            "validity": "XD 15000Mon"
+        },
+        {
+            "productId": "MTN-50GB-15000",
+            "dataBundle": "50GB",
+            "amount": "15000",
+            "validity": "XD 15000Mon"
+        },
+        {
+            "productId": "MTN-70GB-20000",
+            "dataBundle": "70GB",
+            "amount": "20000",
+            "validity": "XD 20000Mon"
+        },
+        {
+            "productId": "MTN-1.5GB-25000",
+            "dataBundle": "1.5GB",
+            "amount": "25000",
+            "validity": "XT 5000Mont"
+        },
+        {
+            "productId": "MTN-90GB-40000",
+            "dataBundle": "90GB",
+            "amount": "40000",
+            "validity": "SME"
+        },
+        {
+            "productId": "MTN-90GB-40000",
+            "dataBundle": "90GB",
+            "amount": "40000",
+            "validity": " SME Share "
+        },
+        {
+            "productId": "MTN-4.5GB-100000",
+            "dataBundle": "4.5GB",
+            "amount": "100000",
+            "validity": "XT 20000Mon"
+        }
+    ]
+}

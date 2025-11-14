@@ -230,16 +230,19 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Picadailys API Documentation",
-    "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing "
-    "online intermediary services, e.g" "```Value Added Servies(VAS)```",
-    "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": True,
-    "USE_SESSION_AUTH": False,
-    "SECURITY_DEFINITIONS": None,
-    "DOC_EXPANSION": "none",
-    "DEFAULT_MODEL_RENDERING": "example",
-    "DEFAULT_MODEL_DEPTH": 1,
+    'TITLE': 'Banking API',
+    'DESCRIPTION': 'API documentation for Banking operations including wallet management, transfers, and transactions',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'KYC', 'description': 'Know Your Customer verification endpoints'},
+        {'name': 'Wallet', 'description': 'Wallet management and operations'},
+        {'name': 'Transfers', 'description': 'Inter-bank and Intra-bank transfers'},
+        {'name': 'Transactions', 'description': 'Transaction history and status'},
+        {'name': 'Cards', 'description': 'Card payment and management'},
+        {'name': 'Webhooks', 'description': 'Payment gateway webhook endpoints'},
+    ],
 }
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))

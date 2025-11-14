@@ -140,9 +140,7 @@ class TransferModel(models.Model):
         max_length=30, null=True, blank=True
     )  # "senderaccountnumber"
     beneficiary_name = models.CharField(max_length=150, null=True, blank=True)  # "name"
-    sender_name = models.CharField(
-        max_length=150, null=True, blank=True
-    )
+    sender_name = models.CharField(max_length=150, null=True, blank=True)
 
     # Order info
     amount = models.DecimalField(
@@ -153,9 +151,7 @@ class TransferModel(models.Model):
     country = models.CharField(max_length=5, default="NG")
 
     # Transaction info
-    tx_reference = models.CharField(
-        max_length=100, unique=True, null=True
-    )
+    tx_reference = models.CharField(max_length=100, unique=True, null=True)
     transaction_type = models.CharField(max_length=50, default="INTRA_BANK")
     narration = models.TextField(null=True, blank=True)
 

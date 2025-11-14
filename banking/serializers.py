@@ -53,7 +53,7 @@ class WalletCreationSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = WalletModel
-        fields = ["id", "account_number", "gender", "dateOfBirth", "email", "bvn"]
+        fields = ["id", "account_name", "gender", "dateOfBirth", "email", "bvn"]
 
 
 class Tier2WalletUpgradeSerializers(serializers.ModelSerializer):

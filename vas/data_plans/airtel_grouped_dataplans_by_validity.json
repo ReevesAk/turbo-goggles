@@ -1,0 +1,908 @@
+{
+    "Night": [
+        {
+            "productId": "AIR-250MB-43",
+            "dataBundle": "250MB",
+            "amount": "50",
+            "validity": "Night 12am "
+        },
+        {
+            "productId": "AIR-250MB-50",
+            "dataBundle": "250MB",
+            "amount": "50",
+            "validity": "Night 12am "
+        }
+    ],
+    "Daily": [
+        {
+            "productId": "AIR-40MB-50",
+            "dataBundle": "40MB",
+            "amount": "50",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "AIR-40MB-1",
+            "dataBundle": "75MB ",
+            "amount": "75",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "AIR-75MB -75",
+            "dataBundle": "75MB ",
+            "amount": "75",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "AIR-100MB-2",
+            "dataBundle": "100MB",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "AIR-100MB-100",
+            "dataBundle": "100MB",
+            "amount": "100",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "AIR-100MB-100",
+            "dataBundle": "100MB",
+            "amount": "100",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "AIR-1GB-350",
+            "dataBundle": "1GB",
+            "amount": "350",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "AIR-1GB-16",
+            "dataBundle": "1GB",
+            "amount": "500",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "AIR-1GB-500",
+            "dataBundle": "1GB",
+            "amount": "500",
+            "validity": "1 Day Plan"
+        }
+    ],
+    "Weekly": [
+        {
+            "productId": "AIR-TM20-200",
+            "dataBundle": "Talkmore 20mins ",
+            "amount": "200",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-Talkmore 20mins-200",
+            "dataBundle": "Talkmore 20mins",
+            "amount": "200",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-300MB-300",
+            "dataBundle": "300MB",
+            "amount": "300",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-TM30-300",
+            "dataBundle": "Talkmore 30mins",
+            "amount": "300",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-Talkmore 30mins-300",
+            "dataBundle": "Talkmore 30mins",
+            "amount": "300",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-350MB-350",
+            "dataBundle": "350MB",
+            "amount": "350",
+            "validity": "Weekly Plan"
+        },
+        {
+            "productId": "AIR-750MB-5",
+            "dataBundle": "500MB",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-750MB-500",
+            "dataBundle": "750MB",
+            "amount": "500",
+            "validity": "7 days Plan"
+        },
+        {
+            "productId": "AIR-FX10-500",
+            "dataBundle": "Flexi 10mins + 400MB + 5 SMS",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-Flexi 10mins + 400MB ",
+            "dataBundle": "Flexi 10mins + 400MB +5 sms",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-SC500-502",
+            "dataBundle": "Social Media Plan 1.5GB",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-500MB-500",
+            "dataBundle": "500MB",
+            "amount": "500",
+            "validity": "7 Days Plan"
+        },
+        {
+            "productId": "AIR-Social Media Plan 1.5",
+            "dataBundle": "Social Media Plan 1.5GB",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-1GB-800",
+            "dataBundle": "1GB",
+            "amount": "800",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-SM1GB-1",
+            "dataBundle": "1GB",
+            "amount": "800",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-FX20-1000",
+            "dataBundle": "Flexi 20mins + 1.2GB + 5 SMS",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-Flexi 20mins + 1.2GB ",
+            "dataBundle": "Flexi 20mins + 1.2GB +5 sms",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-1.5GB + 2GB Youtube N",
+            "dataBundle": "1.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-SM1.5GB-2",
+            "dataBundle": "1.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-5GB-1500",
+            "dataBundle": "5GB",
+            "amount": "1500",
+            "validity": "Weekly Plan"
+        },
+        {
+            "productId": "AIR-2GB-19",
+            "dataBundle": "3.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-3.5GB + 2GB Youtube N",
+            "dataBundle": "3.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok",
+            "amount": "1500",
+            "validity": "7 Days Plan"
+        },
+        {
+            "productId": "AIR-4.5GB-10",
+            "dataBundle": "6GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "2500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-6GB + 2GB Youtube Nig",
+            "dataBundle": "6GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "2500",
+            "validity": "7 Days Plan"
+        },
+        {
+            "productId": "AIR-SM7GB-3",
+            "dataBundle": "10GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "3000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-10GB + 2GB Youtube Ni",
+            "dataBundle": "10GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "3000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-SM25GB-4",
+            "dataBundle": "18GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "5000",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "AIR-18GB + 2GB Youtube Ni",
+            "dataBundle": "18GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "5000",
+            "validity": "7 Days"
+        }
+    ],
+    "Monthly": [
+        {
+            "productId": "AIR-200MB-200",
+            "dataBundle": "200MB",
+            "amount": "200",
+            "validity": "2 Days Plan"
+        },
+        {
+            "productId": "AIR-300MB-300",
+            "dataBundle": "300MB",
+            "amount": "300",
+            "validity": "2 Days Plan"
+        },
+        {
+            "productId": "AIR-2GB + 400MB for youtu",
+            "dataBundle": "2GB + 400MB for youtube music and spotify",
+            "amount": "500",
+            "validity": "2 days Plan"
+        },
+        {
+            "productId": "AIR-5GB + 2GB Youtube Nig",
+            "dataBundle": "5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1500",
+            "validity": "2 Days Plan"
+        },
+        {
+            "productId": "AIR-200MB-200",
+            "dataBundle": "200MB",
+            "amount": "200",
+            "validity": "3 Days Plan"
+        },
+        {
+            "productId": "AIR-500MB-500",
+            "dataBundle": "500MB",
+            "amount": "500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-1GB-800",
+            "dataBundle": "1GB",
+            "amount": "800",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-1.2GB-1000",
+            "dataBundle": "1.2GB",
+            "amount": "1000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-Talkmore 100mins-1000",
+            "dataBundle": "Talkmore 100mins",
+            "amount": "1000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-1.5GB-1200",
+            "dataBundle": "1.5GB",
+            "amount": "1200",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-2GB-1300",
+            "dataBundle": "2GB",
+            "amount": "1300",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-3GB-1500",
+            "dataBundle": "3GB",
+            "amount": "1500",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-TM150-1500",
+            "dataBundle": "Talkmore 150mins",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-Talkmore 150mins-1500",
+            "dataBundle": "Talkmore 150mins",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-1.5GB-6",
+            "dataBundle": "2GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-2GB + 2GB Youtube Nig",
+            "dataBundle": "2GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1500",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-3GB-7",
+            "dataBundle": "3GB",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-FX40-2000",
+            "dataBundle": "Flexi 40mins + 2.5GB + 5 SMS",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-4.5GB-2000",
+            "dataBundle": "4.5GB",
+            "amount": "2000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-Flexi 40mins + 2.5GB ",
+            "dataBundle": "Flexi 40mins + 2.5GB +5 sms",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-3GB-G3",
+            "dataBundle": "3GB",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-3GB-2",
+            "dataBundle": "3GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-3GB + 2GB Youtube Nig",
+            "dataBundle": "3GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "2000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-5GB-2100",
+            "dataBundle": "5GB",
+            "amount": "2100",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-6GB-8",
+            "dataBundle": "4GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-6GB-2500",
+            "dataBundle": "6GB",
+            "amount": "2500",
+            "validity": "Monthly PLa"
+        },
+        {
+            "productId": "AIR-4GB + 2GB Youtube Nig",
+            "dataBundle": "4GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "2500",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-10GB-9",
+            "dataBundle": "8GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "3000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-10GB-3000",
+            "dataBundle": "10GB",
+            "amount": "3000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-8GB + 2GB Youtube Nig",
+            "dataBundle": "8GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "3000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-15GB-4000",
+            "dataBundle": "15GB",
+            "amount": "4000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-11GB-11",
+            "dataBundle": "10GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "4000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-10GB + 2GB Youtube Ni",
+            "dataBundle": "10GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "4000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-FX100-5000",
+            "dataBundle": "Flexi 100mins + 12GB + 5 SMS",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-Flexi 100mins + 12GB ",
+            "dataBundle": "Flexi 100mins + 12GB +5 sms",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-18GB-5000",
+            "dataBundle": "18GB",
+            "amount": "5000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-MF5-30",
+            "dataBundle": "MIFI Only 13GB + 1GB daily after 13GB is used up",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-20GB-12",
+            "dataBundle": "13GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-13GB + 2GB Youtube Ni",
+            "dataBundle": "13GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "5000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-MIFI Only 13GB + 1GB ",
+            "dataBundle": "MIFI Only 13GB + 1GB daily after 13GB is used up",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-SM23GB-7",
+            "dataBundle": "18GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "6000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-18GB + 2GB Youtube Ni",
+            "dataBundle": "18GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "6000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-30GB-17",
+            "dataBundle": "25GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "8000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-25GB-8000",
+            "dataBundle": "25GB",
+            "amount": "8000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-25GB + 2GB Youtube Ni",
+            "dataBundle": "25GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "8000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-40GB-13",
+            "dataBundle": "35GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "10000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-40GB-10000",
+            "dataBundle": "40GB",
+            "amount": "10000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-MF10-30",
+            "dataBundle": "MIFI Only 35GB + 2 daily after 13GB is used up",
+            "amount": "10000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-MIFI Only 35GB + 2 da",
+            "dataBundle": "MIFI Only 35GB + 2 daily after 13GB is used up",
+            "amount": "10000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-35GB + 2GB Youtube Ni",
+            "dataBundle": "35GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "10000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-75GB-14",
+            "dataBundle": "60GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "15000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-75GB-15000",
+            "dataBundle": "75GB",
+            "amount": "15000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-MF15-30",
+            "dataBundle": "MIFI Only 60 GB+ 2GB daily after 13GB is used up",
+            "amount": "15000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-MIFI Only 60 GB+ 2GB ",
+            "dataBundle": "MIFI Only 60 GB+ 2GB daily after 13GB is used up",
+            "amount": "15000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-60GB + 2GB Youtube Ni",
+            "dataBundle": "60GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok)",
+            "amount": "15000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-120GB-15",
+            "dataBundle": "100GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "20000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-RT20k-15",
+            "dataBundle": "Router Only 100GB + 2GB daily  afer 100GB is used up",
+            "amount": "20000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-120GB-20000",
+            "dataBundle": "120GB",
+            "amount": "20000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-Router Only 100GB + 2",
+            "dataBundle": "Router Only 100GB + 2GB daily  afer 100GB is used ",
+            "amount": "20000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-100GB + 2GB Youtube N",
+            "dataBundle": "100GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok",
+            "amount": "20000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-240GB-18",
+            "dataBundle": "160GB",
+            "amount": "30000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-RT30k-16",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "30000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-200GB-30000",
+            "dataBundle": "200GB",
+            "amount": "30000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-Router Only UNLIMITED",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "30000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-160GB-30000",
+            "dataBundle": "160GB",
+            "amount": "30000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-280GB-36000",
+            "dataBundle": "280GB",
+            "amount": "36000",
+            "validity": "Monthly Pla"
+        },
+        {
+            "productId": "AIR-280GB-19",
+            "dataBundle": "210GB",
+            "amount": "40000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-210GB-40000",
+            "dataBundle": "210GB",
+            "amount": "40000",
+            "validity": "30 Days Pla"
+        },
+        {
+            "productId": "AIR-RT50k-17",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "50000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-Router Only UNLIMITED",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "50000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "AIR-1TB-100000",
+            "dataBundle": "1TB",
+            "amount": "100000",
+            "validity": "A year Plan"
+        },
+        {
+            "productId": "AIR-2GB + 2GB Youtube Nig",
+            "dataBundle": "2GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "750",
+            "validity": "2 Day Plan"
+        },
+        {
+            "productId": "AIR-1.2GB-6",
+            "dataBundle": "1.2GB",
+            "amount": "1000",
+            "validity": "30days"
+        },
+        {
+            "productId": "AIR-1.5GB-19",
+            "dataBundle": "1.5GB",
+            "amount": "1200",
+            "validity": "30days"
+        },
+        {
+            "productId": "AIR-15GB-11",
+            "dataBundle": "15GB",
+            "amount": "4000",
+            "validity": "30days"
+        },
+        {
+            "productId": "AIR-18GB-12",
+            "dataBundle": "18GB",
+            "amount": "5000",
+            "validity": "30days"
+        },
+        {
+            "productId": "AIR-400GB-50000",
+            "dataBundle": "400GB",
+            "amount": "50000",
+            "validity": "90 Days Pla"
+        }
+    ],
+    "3 Months": [
+        {
+            "productId": "AIR-400GB-20",
+            "dataBundle": "300GB",
+            "amount": "50000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "AIR-400GB-50000",
+            "dataBundle": "400GB",
+            "amount": "50000",
+            "validity": "3 Months Pl"
+        },
+        {
+            "productId": "AIR-300GB-50000",
+            "dataBundle": "300GB",
+            "amount": "50000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "AIR-Router Only UNLIMITED",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "80000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "AIR-Router Only UNLIMITED",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "135000",
+            "validity": "90 Days"
+        }
+    ],
+    "4 Months": [
+        {
+            "productId": "AIR-350GB-60000",
+            "dataBundle": "350GB",
+            "amount": "60000",
+            "validity": "120 Days Pl"
+        },
+        {
+            "productId": "AIR-500GB-21",
+            "dataBundle": "350GB",
+            "amount": "60000",
+            "validity": "120 Days"
+        },
+        {
+            "productId": "AIR-500GB-60000",
+            "dataBundle": "500GB",
+            "amount": "60000",
+            "validity": "4 Months Pl"
+        }
+    ],
+    "6 Months": [
+        {
+            "productId": "AIR-RT150k-20",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "150000",
+            "validity": "180 Days"
+        },
+        {
+            "productId": "AIR-Router Only UNLIMITED",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "150000",
+            "validity": "180 Days"
+        }
+    ],
+    "Annual": [
+        {
+            "productId": "AIR-650GB-100000",
+            "dataBundle": "650GB",
+            "amount": "100000",
+            "validity": "365 Days Pl"
+        },
+        {
+            "productId": "AIR-1TB-22",
+            "dataBundle": "650GB",
+            "amount": "100000",
+            "validity": "365 Days"
+        }
+    ],
+    "Others": [
+        {
+            "productId": "AIR-SC200-500",
+            "dataBundle": "Social Media Plan 200MB",
+            "amount": "100",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-Social Media Plan 200",
+            "dataBundle": "Social Media Plan 200MB",
+            "amount": "100",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-200MB-3",
+            "dataBundle": "200MB",
+            "amount": "200",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-350MB-4",
+            "dataBundle": "300MB",
+            "amount": "300",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-SM1.5GB-5",
+            "dataBundle": "1.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "600",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-1.5GB + 2GB Youtube N",
+            "dataBundle": "1.5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok",
+            "amount": "600",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-2GB-17",
+            "dataBundle": "2GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "750",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-SM3.5GB-6",
+            "dataBundle": "3GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1000",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-3GB + 2GB Youtube Nig",
+            "dataBundle": "3GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1000",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-6GB-18",
+            "dataBundle": "5GB + 2GB Youtube Night + 200MB (YT, IG & Tiktok) ",
+            "amount": "1500",
+            "validity": "2 Days"
+        },
+        {
+            "productId": "AIR-TM10-100",
+            "dataBundle": "Talkmore 10mins",
+            "amount": "100",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "AIR-Talkmore 10mins-100",
+            "dataBundle": "Talkmore 10mins",
+            "amount": "100",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "AIR-SC300-501",
+            "dataBundle": "Social Media Plan 1GB",
+            "amount": "300",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "AIR-Social Media Plan 1GB",
+            "dataBundle": "Social Media Plan 1GB",
+            "amount": "300",
+            "validity": "3 Days"
+        },
+        {
+            "productId": "AIR-5GB-18",
+            "dataBundle": "5GB",
+            "amount": "1500",
+            "validity": "7days"
+        },
+        {
+            "productId": "AIR-RT80k-18",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "80000",
+            "validity": "9 Days"
+        },
+        {
+            "productId": "AIR-RT135k-19",
+            "dataBundle": "Router Only UNLIMITED",
+            "amount": "135000",
+            "validity": "9 Days"
+        },
+        {
+            "productId": "AIR-TM50-500",
+            "dataBundle": "Talkmore 50mins",
+            "amount": "500",
+            "validity": "14 Days"
+        },
+        {
+            "productId": "AIR-Talkmore 50mins-500",
+            "dataBundle": "Talkmore 50mins",
+            "amount": "500",
+            "validity": "14 Days"
+        },
+        {
+            "productId": "AIR-TM100-1000",
+            "dataBundle": "Talkmore 100mins",
+            "amount": "1000",
+            "validity": "14 Days"
+        }
+    ]
+}

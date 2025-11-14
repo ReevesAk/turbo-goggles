@@ -1,4 +1,7 @@
+import sys
 import logging
+import random
+import string
 import requests
 from decouple import config
 
@@ -6,28 +9,84 @@ from rest_framework import status
 from rest_framework.response import Response
 
 
-vtpass_url = config("VT_PASS_BASE_URL")
-x_secret = config("VT_PASS_SECRET_KEY")
-api_key = config("VT_PASS_API_KEY")
-x_token = config("VT_PASS_PUBLIC_KEY")
-
-headers = {"secret-key": x_secret, "api-key": api_key}
+vas_username = config("VAS_USERNAME")
+vas_password = config("VAS_PASSWORD")
+vas_base_url = config("VAS_BASE_URL")
 
 
 class VAS:
     @staticmethod
-    def aritime(service_id, req_id, amount, phone):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "amount": amount,
-            "phone": phone,
+    def generate_unique_code(prefix="Pica"):
+        min_length = 18
+        max_length = 25
+
+        # Calculate available length for the random part
+        prefix_part = f"{prefix}-"
+        remaining_length = random.randint(min_length, max_length) - len(prefix_part)
+        remaining_length = max(1, remaining_length)
+
+        random_part = "".join(random.choices(string.digits, k=remaining_length))
+
+        return f"{prefix_part}{random_part}"
+
+    @staticmethod
+    def authenticate():
+        PAYLOAD = {
+            "username": vas_username,
+            "password": vas_password,
+        }
+        HEADERS = {"Content-Type": "application/json"}
+        AUTH_URL = "http://102.216.128.75:9090/identity/api/v1/authenticate"
+
+        try:
+            resp = requests.post(
+                url=AUTH_URL, json=PAYLOAD, headers=HEADERS, timeout=10
+            )
+            resp.raise_for_status()
+            if resp.json().get("message") == "successful":
+                token = resp.json().get("accessToken")
+                return token
+        except requests.RequestException as e:
+            logging.error("Request failed: %s", e)
+            sys.exit(1)
+
+    @staticmethod
+    def status(tx_ref, bearer_token):
+        resource = f"topup/status?transReference={tx_ref}"
+
+        HEADERS = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
         }
 
         try:
+            resp = requests.get(
+                url=vas_base_url + resource, headers=HEADERS, timeout=10
+            )
+            return resp
+        except requests.RequestException as e:
+            logging.error("Request failed: %s", e)
+            sys.exit(1)
+
+    @staticmethod
+    def airtime_topup(
+        network, bearer_token, amount, debitAccount, phone_number, tx_ref
+    ):
+        resource = "topup/airtime"
+        payload = {
+            "network": network,
+            "debitAccount": debitAccount,
+            "amount": amount,
+            "phoneNumber": phone_number,
+            "transactionReference": tx_ref,
+        }
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        try:
             response = requests.post(
-                url=vtpass_url + resource,
+                url=vas_base_url + resource,
                 json=payload,
                 headers=headers,
             )
@@ -37,199 +96,131 @@ class VAS:
             return response
 
     @staticmethod
-    def data(service_id, req_id, amount, phone, billersCode, variation_code):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "amount": amount,
-            "phone": phone,
-            "billersCode": billersCode,
-            "variation_code": variation_code,
-        }
-
-        try:
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Data subscription API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def electricity(service_id, req_id, amount, phone, billersCode, variation_code):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "amount": amount,
-            "phone": phone,
-            "billersCode": billersCode,
-            "variation_code": variation_code,
-        }
-
-        try:
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Tv subscription API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def newTvSub(
-        service_id,
-        amount,
-        req_id,
-        phone,
-        billersCode,
-        variation_code,
-        quantity,
-        subscription_type,
+    def data(
+        network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref
     ):
-        resource = "pay"
+        resource = "topup/data"
         payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
+            "network": network,
+            "debitAccount": debitAccount,
             "amount": amount,
-            "phone": phone,
-            "billersCode": billersCode,
-            "variation_code": variation_code,
-            "subscription_type": subscription_type,
-            "quantity": quantity,
+            "phoneNumber": phone_number,
+            "productId": productId,
+            "transactionReference": tx_ref,
         }
-
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
         try:
             response = requests.post(
-                url=vtpass_url + resource,
+                url=vas_base_url + resource,
                 json=payload,
                 headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Data subscription API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def renewTvSub(service_id, req_id, amount, phone, billersCode, subscription_type):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "amount": amount,
-            "phone": phone,
-            "billersCode": billersCode,
-            "subscription_type": subscription_type,
-        }
-
-        try:
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=headers,
-            )
+            logging.error(f"Airtime topup API request error: {str(e)}")
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Data subscription API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
     @staticmethod
-    def intl_topup(
-        service_id,
-        req_id,
-        amount,
-        phone,
-        billersCode,
-        operator_id,
-        variation_code,
-        country_code,
-        email,
-        product_type_id,
-    ):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "amount": amount,
-            "phone": phone,
-            "billersCode": billersCode,
-            "operator_id": operator_id,
-            "variation_code": variation_code,
-            "country_code": country_code,
-            "email": email,
-            "product_type_id": product_type_id,
-        }
-
-        try:
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"International topup API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def waec_reg(service_id, req_id, phone, variation_code, quantity):
-        resource = "pay"
-        payload = {
-            "request_id": req_id,
-            "serviceID": service_id,
-            "variation_code": variation_code,
-            "quantity": quantity,
-            "phone": phone,
-        }
-
-        try:
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Waec registration API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def check_status(req_id):
-        resource = "requery"
-        payload = {
-            "request_id": req_id,
-        }
-
-        status_headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "secret-key": x_secret,
+    def bill_payment_categories(bearer_token, category_id):
+        resource = f"billspayment/billers/{category_id}"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
         }
         try:
             response = requests.get(
-                url=vtpass_url + resource, headers=status_headers, json=payload
+                url=vas_base_url + resource,
+                headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f" API request error: {str(e)}")
+            logging.error(f"Biller Payment categories API request error: {str(e)}")
+            return response
+
+    @staticmethod
+    def billers_categories(bearer_token, biller_id):
+        resource = f"billspayment/fields/{biller_id}"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = requests.get(
+                url=vas_base_url + resource,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Billers categories API request error: {str(e)}")
+            return response
+
+    @staticmethod
+    def verify_bill_payer(bearer_token, billerId, customerId, itemId, itemName, amount):
+        resource = "billspayment/validate"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "billerId": billerId,
+            "customerId": customerId,
+            "itemId": itemId,
+            "itemName": itemName,
+            "amount": amount,
+        }
+        try:
+            response = requests.get(
+                url=vas_base_url + resource,
+                headers=headers,
+                json=payload,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Verify bill payer API request error: {str(e)}")
+            return response
+
+    @staticmethod
+    def bill_payment(
+        bearer_token,
+        customerId,
+        billerId,
+        itemId,
+        amount,
+        customerPhone,
+        customerName,
+        otherField,
+        debitAccount,
+        transactionReference,
+    ):
+        resource = "billspayment/pay"
+        payload = {
+            "customerId": customerId,
+            "billerId": billerId,
+            "itemId": itemId,
+            "customerPhone": customerPhone,
+            "customerName": customerName,
+            "otherField": otherField,
+            "amount": amount,
+            "debitAccount": debitAccount,
+            "transactionReference": transactionReference,
+        }
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.post(
+                url=vas_base_url + resource,
+                json=payload,
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Electricity Purchase API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

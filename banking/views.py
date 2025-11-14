@@ -22,7 +22,8 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 # In-projects imports.
 from .serializers import (
@@ -67,6 +68,25 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
+@extend_schema(
+    summary="Verify BVN",
+    description="Verify a user's Bank Verification Number (BVN)",
+    tags=["KYC"],
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "bvn": {"type": "string", "description": "Bank Verification Number"},
+            },
+            "required": ["bvn"],
+        }
+    },
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: OpenApiTypes.OBJECT,
+        401: OpenApiTypes.OBJECT,
+    },
+)
 class VerifYBVN(generics.GenericAPIView):
     """
     VerifYBVN handles the POST request of verifying a
@@ -196,6 +216,28 @@ class VerifYBVN(generics.GenericAPIView):
             return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
 
 
+@extend_schema(
+    summary="Verify NIN",
+    description="Verify a user's National Identification Number (NIN)",
+    tags=["KYC"],
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "nin": {
+                    "type": "string",
+                    "description": "National Identification Number",
+                },
+            },
+            "required": ["nin"],
+        }
+    },
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: OpenApiTypes.OBJECT,
+        401: OpenApiTypes.OBJECT,
+    },
+)
 class VerifYNIN(generics.GenericAPIView):
     """
     VerifYNIN handles the POST request of verifying a
@@ -355,7 +397,7 @@ class CreateUserWallet(generics.GenericAPIView):
                 transactionTrackingRef=unique_code,
                 lastName=current_user.last_name,
                 otherNames=current_user.first_name,
-                accountName=payload.get("account_number"),
+                accountName=payload.get("account_name"),
                 gender=payload.get("gender"),
                 bvn=payload.get("bvn"),
                 dateOfBirth=payload.get("dateOfBirth"),

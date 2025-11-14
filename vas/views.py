@@ -3,12 +3,15 @@ import json
 import logging
 import requests
 from decouple import config
+
 from django.conf import settings
+from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+
+# from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from drf_spectacular.utils import (
@@ -18,37 +21,27 @@ from drf_spectacular.utils import (
 
 from .serializers import (
     VasStatusSerializer,
-    VerifyMeterSerializer,
+    VerifyBillerSerializer,
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
-    ElectricityBillSerializer,
-    VerifyCardNumberSerializer,
-    TvSubscriptionSerializer,
-    ProductStatusSerializer,
-    WaecRegistrationSerializer,
+    BillPaymentSerializer,
 )
+from accounts.models import TxModel
 from banking.models import WalletModel
 from banking.controllers import Wallet
-from permissions import VasPermission, IsAuthenticatedOrGuestWithValidId
+from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin
 from gamification.points import Points
 from gamification.utils import NextBee
-from .controllers import (
-    airtime,
-    data,
-    electricity,
-    NewTvSub,
-    RenewTvSub,
-    waec_reg,
-)
+
 from .utility import (
     create_activity,
     create_notification,
-    send_token,
-    send_token_to_guest_users,
+    # send_token,
+    # send_token_to_guest_users,
 )
 from .helpers import VAS
-from .models import ELECTRICITY_SERVICE_ID_CHOICES, TV_SERVICE_ID_CHOICES
+from .models import ValueAddedServices
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
 
@@ -63,39 +56,156 @@ logger = logging.getLogger(__name__)
 
 class AirTimeTopUp(generics.GenericAPIView):
     """
-    AirTimeTopUp is a POST request handler for purchasing airtime for
-    service providers in Nigeria.
+    Handles POST requests for airtime purchase for service providers in Nigeria.
     """
 
     serializer_class = AirtimeTopupSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
+    # Private Helper: Success
+    def _handle_airtime_success(
+        self,
+        user=None,
+        guest_id=None,
+        phone=None,
+        amount=None,
+        network=None,
+        tx_reference=None,
+    ):
+        """Handle successful airtime purchase."""
+        response_data = {
+            "status": "success",
+            "message": f"Airtime purchase of {amount} was successful.",
+            "bonus balance": getattr(user, "welcome_bonus", 0),
+        }
+
+        logger.info(
+            f"User {user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"successfully purchased airtime of {amount} for {phone}."
+        )
+
+        title = "Airtime purchase"
+        message = f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"has made a purchase of {amount} naira airtime on {phone}."
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+            try:
+                with transaction.atomic():
+                    # Create a new transaction entry
+                    TxModel.objects.create(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Airtime",
+                        amount=amount,
+                        description=title,
+                    )
+
+                    ValueAddedServices.objects.create(
+                        user=user if user else None,
+                        guest_id=guest_id if not user else None,
+                        phone_number=phone,
+                        network=network,
+                        tx_reference=tx_reference,
+                        amount=amount,
+                    )
+
+            except Exception as e:
+                logging.error(f"Database query error: {str(e)}")
+        else:
+            create_activity(guest_id=None, title=title, description=description)
+
+        if user.has_done_survey:
+            # Calculate points for service purchase activity
+            logger.info(
+                "Calculating points for user %s service purchase activity.",
+                user.phone_number,
+            )
+            points = Points.determine(
+                activity_type="service_purchase", level=user.level
+            )
+            NextBee.member_activity(
+                member_email=user.email, activityId="8474", numericValue=str(points)
+            )
+            Points.refresh_user_points(user)
+        else:
+            pass
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+    # Private Helper: Failure
+    def _handle_airtime_failure(
+        self,
+        user=None,
+        guest_id=None,
+        phone=None,
+        amount=None,
+        airtime_response=None,
+        reason="",
+    ):
+        """Handle failed airtime purchase."""
+        title = "Failed airtime purchase"
+        message = f"Airtime purchase of {amount} on {phone} failed."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"failed to purchase airtime of {amount} on {phone}. {reason}"
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+        elif guest_id:
+            create_activity(guest_id=guest_id, title=title, description=description)
+
+        logger.warning(description)
+
+        response_data = {
+            "status": "fail",
+            "message": f"Airtime purchase failed. {reason}",
+            "error": airtime_response or {},
+        }
+
+        return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
+
+    # Main POST Method
     def post(self, request):
         decrypted_payload = decrypt(request.data)
         user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
         }
-        user = request.user if request.user.is_authenticated else None
 
+        user = request.user if request.user.is_authenticated else None
         guest_id = request.headers.get("X-Guest-ID")
 
-        pin = decrypted_payload.get("pin")
-        payment_option = decrypted_payload.get("payment_option")
+        tx_reference = VAS.generate_unique_code("PICA")
+        vas_token = VAS.authenticate()
+
+        # Extract fields
+        pin = user_data.get("pin")
+        payment_option = user_data.get("payment_option")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
-        phone = user_data.get("phone")
         use_rewards = user_data.get("use_rewards")
+        phone = user_data.get("phone")
         amount = user_data.get("amount")
+        network = user_data.get("network")
+        biometrics = user_data.get("use_biometrics")
 
-        if not user:  # Guest user flow
+        user_wallet = WalletModel.objects.get(user=user)
+
+        # Guest validations
+        if not user:
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if payment_option != "CARD":
                 return Response(
                     data=encrypt(
@@ -107,60 +217,38 @@ class AirTimeTopUp(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Validate payload
         serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer.is_valid(raise_exception=True)
 
-        biometrics = decrypted_payload.get("use_biometrics")
-
-        try:
-            if payment_option != "CARD":
+        # Wallet validation (if not card)
+        if payment_option != "CARD":
+            try:
                 account = WalletModel.objects.get(user=user)
-                logger.info(
-                    f"Account found for user {user.first_name} {user.last_name}."
-                )
-        except WalletModel.DoesNotExist:
-            logger.error(
-                f"Account not found for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Account not found for user"}),
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if payment_option == "WALLET":
-            if biometrics:
-                verification = Biometrics.authenticate(user.phone_number)
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(
-                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
-                )
-            else:
-                logger.error(
-                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
-                )
+            except WalletModel.DoesNotExist:
                 return Response(
                     data=encrypt(
-                        {
-                            "status": "fail",
-                            "error": "Account or PIN not found for user",
-                        }
+                        {"status": "fail", "error": "Account not found for user"}
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
-        else:
-            verification = True
+
+        # Authentication
+        verification = True
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
+            elif account and account.pin:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "error": "Account or PIN not found"}
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
-            logger.warning(
-                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
-            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -168,441 +256,134 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         airtime_response = None
 
+        # USE BONUS
         if use_bonus:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is attempting to use bonus for purchase."
-            )
             if user.welcome_bonus >= float(amount):
-                airtime_response = airtime(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for airtime recharge.",
-                    user_data=user_data,
+                airtime_response = VAS.airtime_topup(
+                    network=network,
+                    bearer_token=vas_token,
+                    amount=amount,
+                    debitAccount=user_wallet.account_number,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
                 )
-                if airtime_response["code"] == "000":
-                    response_data = {
-                        "status": "success",
-                        "message": f"Airtime purchase of {float(amount)} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "airtime_response": airtime_response,
-                    }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased airtime using bonus."
+                status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                status_resp = status_query.json()["data"]
+                if (
+                    status_resp.get("transactionStatus") == "success"
+                    and status_resp.get("responseCode") == 200
+                ):
+                    return self._handle_airtime_success(
+                        user=user,
+                        guest_id=guest_id,
+                        phone=phone,
+                        amount=amount,
+                        network=network,
+                        tx_reference=tx_reference,
                     )
-                    title = ("Airtime purchase",)
-                    message = (
-                        f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                    )
-                    description = (
-                        f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                    )
-                    create_notification(user=request.user, title=title, message=message)
-                    create_activity(
-                        user=request.user, title=title, description=description
-                    )
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-                elif airtime_response["code"] == "014":
-                    request_id = airtime_response.get("requestId")
-                    if request_id:
-                        status_query = VAS.check_status(req_id=request_id)
-                        if (
-                            status_query["content"]["transactions"]["status"]
-                            == "delivered"
-                        ):
-                            response_data = {
-                                "status": "success",
-                                "message": f"Airtime purchase of {amount} was successful.",
-                                "bonus balance": user.welcome_bonus,
-                                "airtime_response": airtime_response,
-                            }
-                            create_notification(
-                                user=request.user,
-                                title="Airtime purchase",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Airtime purchase",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                            )
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                    else:
-                        response_data = {
-                            "status": "fail",
-                            "message": airtime_response["response_description"],
-                        }
-                        return Response(
-                            data=encrypt(response_data),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-            logger.warning(
-                f"Airtime top-up failed for user {user.first_name} {user.last_name} due to insufficient bonus."
-            )
-            create_notification(
-                user=request.user,
-                title="Airtime purchase",
-                message=f"This is to inform you the purchase of {amount} naira airtime on {phone} failed due to insufficient bonus.",
-            )
-            create_activity(
-                user=request.user,
-                title="Airtime purchase",
-                description=f"{user.first_name} {user.last_name}'s purchase of {amount} naira airtime on {phone} failed due to insufficient bonus.",
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Airtime top-up failed due to insufficient bonus.",
-                        "error": airtime_response,
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
+
+            return self._handle_airtime_failure(
+                user=user,
+                phone=phone,
+                amount=amount,
+                airtime_response=airtime_response.json(),
+                reason="Insufficient bonus balance.",
             )
 
+        # PAYMENT OPTIONS
         match payment_option:
             case "WALLET":
-                if biometrics:
-                    verification = Biometrics.authenticate(user.phone_number)
-                elif account and account.pin is not None:
-                    verification = Pin.verify(
-                        user=user, pin=pin, hashed_pin=account.pin
-                    )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Account or PIN not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                pts_amt = Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
+                rwd_amt = (
+                    Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
                 )
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used points amounting to {pts_amt}."
-                    )
-                else:
-                    pts_amt = 0
-
-                if use_rewards:
-                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used rewards amounting to {rwd_amt}."
-                    )
-                else:
-                    rwd_amt = 0
-
                 new_amount = int(amount) - pts_amt - rwd_amt
-                user_details = WalletModel.objects.get(user=user)
 
-                # Initiate a debit on the customer's account.
                 debit_response = Wallet.Debit(
-                    debitAccount=user_details.account_number,
+                    debitAccount=user_wallet.account_number,
                     amount=new_amount,
                     reason="Debit for airtime recharge.",
-                    transactionReference="",
+                    merchantFeeAmount="",
                 )
 
                 if debit_response.status_code == 200:
-                    airtime_response = airtime(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for airtime recharge",
-                        user_data=user_data,
-                    )
-                    if airtime_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Airtime purchase of {new_amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "airtime_response": airtime_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Airtime purchase",
-                            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Airtime purchase",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                        )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif airtime_response["code"] == "014":
-                        request_id = airtime_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"Airtime purchase of {new_amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "airtime_response": airtime_response,
-                                }
-                                logger.info(
-                                    f"User {user.first_name} {user.last_name} successfully purchased airtime with WALLET option."
-                                )
-                                create_notification(
-                                    user=request.user,
-                                    title="Airtime purchase",
-                                    message=f"This is to inform you that you have made a purchase of {new_amount} naira airtime on {phone}.",
-                                )
-                                create_activity(
-                                    user=request.user,
-                                    title="Airtime purchase",
-                                    description=f"{user.first_name} {user.last_name} has made a purchase of {new_amount} naira airtime on {phone}.",
-                                )
-                                return Response(
-                                    data=encrypt(response_data),
-                                    status=status.HTTP_200_OK,
-                                )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": airtime_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Airtime top-up failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": "Airtime top-up failed due to insufficient balance.",
-                                    "error": airtime_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.error(
-                        f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
-                    )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
-            case "CARD":
-                verification = True
-                if user:
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    airtime_response = VAS.airtime_topup(
+                        network=network,
+                        bearer_token=vas_token,
+                        amount=amount,
+                        debitAccount=user_wallet.account_number,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
 
-                    airtime_response = airtime(
+                    airtime_data = airtime_response.json()
+                    status_resp = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_data = status_resp.json().get("data", {})
+                    if (
+                        status_data.get("transactionStatus") == "success"
+                        and status_data.get("responseCode") == 200
+                    ):
+                        return self._handle_airtime_success(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                        )
+                    else:
+                        return self._handle_airtime_failure(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            airtime_response=airtime_data,
+                            reason="Airtime top-up failed.",
+                        )
+
+                return Response(
+                    data=encrypt(debit_response.json()),
+                    status=debit_response.status_code,
+                )
+
+            case "CARD":
+                debit_account = user_wallet.account_number if user else None
+                airtime_response = VAS.airtime_topup(
+                    network=network,
+                    bearer_token=vas_token,
+                    amount=amount,
+                    debitAccount=debit_account,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
+                )
+
+                airtime_data = airtime_response.json()
+                if (
+                    user
+                    and airtime_data.get("status") == "success"
+                    and airtime_data.get("responseCode") == 200
+                ):
+                    return self._handle_airtime_success(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        network=network,
+                        tx_reference=tx_reference,
+                    )
+                else:
+                    # Failure (user or guest)
+                    return self._handle_airtime_failure(
                         user=user,
                         guest_id=guest_id,
-                        serializer=serializer,
-                        reason="Debit for airtime recharge.",
-                        user_data=user_data,
+                        phone=phone,
+                        amount=amount,
+                        airtime_response=airtime_response,
+                        reason=airtime_response.get(
+                            "response_description", "Transaction failed"
+                        ),
                     )
-                    if airtime_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Airtime purchase of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "airtime_response": airtime_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
-                        )
 
-                        create_notification(
-                            user=request.user,
-                            title="Airtime purchase",
-                            message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Airtime purchase",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                        )
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif airtime_response["code"] == "014":
-                        request_id = airtime_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"Airtime purchase of {amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "airtime_response": airtime_response,
-                                }
-
-                                logger.info(
-                                    f"User {user.first_name} {user.last_name} successfully purchased airtime with CARD option."
-                                )
-                                create_notification(
-                                    user=request.user,
-                                    title="Airtime purchase",
-                                    message=f"This is to inform you that you have made a purchase of {amount} naira airtime on {phone}.",
-                                )
-                                create_activity(
-                                    user=request.user,
-                                    title="Airtime purchase",
-                                    description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira airtime on {phone}.",
-                                )
-                                return Response(
-                                    data=encrypt(response_data),
-                                    status=status.HTTP_200_OK,
-                                )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": airtime_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Airtime top-up failed for user {user.first_name} {user.last_name} with CARD option."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": "Airtime top-up failed.",
-                                    "error": airtime_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    try:
-                        airtime_response = airtime(
-                            user=None,
-                            guest_id=guest_id,
-                            serializer=serializer,
-                            reason="Guest airtime purchase",
-                            user_data=user_data,
-                        )
-
-                        if airtime_response["code"] == "000":
-                            logger.info(f"Guest {guest_id} purchase successful")
-                            create_activity(
-                                user=None,
-                                guest_id=guest_id,
-                                title="Airtime purchase",
-                                description=f"Guest {guest_id} purchased {user_data['amount']} airtime",
-                            )
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "success",
-                                        "message": f"Airtime purchase of {user_data['amount']} was successful",
-                                        "airtime_response": airtime_response,
-                                    }
-                                ),
-                                status=status.HTTP_200_OK,
-                            )
-
-                        elif airtime_response["code"] == "014":
-                            request_id = airtime_response.get("requestId")
-                            if (
-                                request_id
-                                and VAS.check_status(req_id=request_id)["content"][
-                                    "transactions"
-                                ]["status"]
-                                == "delivered"
-                            ):
-                                logger.info(
-                                    f"Guest {guest_id} purchase eventually succeeded"
-                                )
-                                create_activity(
-                                    user=None,
-                                    guest_id=guest_id,
-                                    title="Airtime purchase",
-                                    description=f"Guest {guest_id} purchased {user_data['amount']} airtime",
-                                )
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "success",
-                                            "message": "Airtime purchase was successful",
-                                            "airtime_response": airtime_response,
-                                        }
-                                    ),
-                                    status=status.HTTP_200_OK,
-                                )
-
-                        logger.warning(
-                            f"Guest {guest_id} purchase failed: {airtime_response}"
-                        )
-                        create_activity(
-                            user=None,
-                            guest_id=guest_id,
-                            title="Failed airtime purchase",
-                            description=f"Guest {guest_id} failed to purchase airtime",
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": airtime_response.get(
-                                        "response_description", "Purchase failed"
-                                    ),
-                                    "error": airtime_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    except Exception as e:
-                        logger.error(f"Guest {guest_id} processing error: {str(e)}")
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "error",
-                                    "message": "Processing error occurred",
-                                }
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
             case _:
-                logger.error(
-                    f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
-                )
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid payment option"}
@@ -611,32 +392,33 @@ class AirTimeTopUp(generics.GenericAPIView):
                 )
 
 
-class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
+class GetNetworkProvider(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
 
     # Map full service IDs to their corresponding filenames
     SERVICE_MAPPINGS = {
-        "mtn-data": "mtn-data_sorted.json",
-        "airtel-data": "airtel-data_sorted.json",
-        "glo-data": "glo-data_sorted.json",
-        "etisalat-data": "etisalat-data_sorted.json",
+        "MTN": "mtn_grouped_dataplans_by_validity.json",
+        "AIRTEL": "airtel_grouped_dataplans_by_validity.json",
+        "GLO": "glo_grouped_data_set.json",
+        "9MOBILE": "nine_mobile_grouped_dataplans_by_validity.json",
     }
 
     @extend_schema(
         description="Retrieve variation codes for network providers",
         responses={
-            200: OpenApiResponse(description="Successfully retrieved variation codes"),
-            400: OpenApiResponse(description="Invalid service ID provided"),
-            404: OpenApiResponse(description="Variation codes file not found"),
+            200: OpenApiResponse(description="Successfully retrieved data plans"),
+            400: OpenApiResponse(description="Invalid data plans provided"),
+            404: OpenApiResponse(description="Data plans file not found"),
             500: OpenApiResponse(description="Server error processing request"),
         },
     )
     def get(self, request, *args, **kwargs):
         # Get the full service ID (e.g. 'mtn-data', 'etisalat-data')
-        service_id = kwargs.get("service_ID", "").lower().strip()
+        service_id = kwargs.get("network", "").lower().strip()
 
-        # Use the full service ID to get filename (don't split on '-')
-        filename = self.SERVICE_MAPPINGS.get(service_id)
+        # derive provider token and normalize to mapping keys (MTN, AIRTEL, GLO, 9MOBILE)
+        provider = service_id.split("-")[0].upper() if service_id else ""
+        filename = self.SERVICE_MAPPINGS.get(provider)
 
         if not filename:
             return Response(
@@ -661,7 +443,7 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
                     data=encrypt(
                         {
                             "status": "error",
-                            "message": f"Variation codes file not found for {service_id}",
+                            "message": f"Network data plans file not found for {service_id}",
                             "expected_filename": filename,
                         }
                     ),
@@ -684,16 +466,16 @@ class GetNetworkProvidersVariationCodes(generics.RetrieveAPIView):
                 data=encrypt(
                     {
                         "status": "error",
-                        "message": "Invalid data format in variation codes file",
+                        "message": "Invalid data format in data plans file",
                     }
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         except Exception as e:
-            logger.error(f"Error loading variation codes: {str(e)}")
+            logger.error(f"Error loading data plans: {str(e)}")
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": "Failed to load variation codes"}
+                    {"status": "error", "message": "Failed to load data plans"}
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -708,6 +490,103 @@ class DataSubscriptionView(generics.GenericAPIView):
     serializer_class = DataSubscriptionSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
+
+    # Private Helper: Success
+    def _handle_data_success(
+        self,
+        user=None,
+        guest_id=None,
+        phone=None,
+        productId=None,
+        amount=None,
+        network=None,
+        tx_reference=None,
+    ):
+        """Handle successful airtime/data purchase."""
+        response_data = {
+            "status": "success",
+            "message": f"Data purchase of {amount} was successful.",
+            "bonus balance": getattr(user, "welcome_bonus", 0),
+        }
+
+        title = "Data purchase"
+        message = f"This is to inform you that you have made a data purchase of {amount} naira data on {phone}."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"has made a purchase of {amount} naira data on {phone}."
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+            try:
+                with transaction.atomic():
+                    TxModel.objects.create(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Data",
+                        amount=amount,
+                        description=title,
+                    )
+
+                    ValueAddedServices.objects.create(
+                        user=user if user else None,
+                        guest_id=guest_id if not user else None,
+                        phone_number=phone,
+                        productId=productId,
+                        network=network,
+                        tx_reference=tx_reference,
+                        amount=amount,
+                    )
+            except Exception as e:
+                logger.error(f"Database query error: {str(e)}")
+        else:
+            create_activity(guest_id=guest_id, title=title, description=description)
+
+        if user and getattr(user, "has_done_survey", False):
+            points = Points.determine(
+                activity_type="service_purchase", level=user.level
+            )
+            NextBee.member_activity(
+                member_email=user.email, activityId="8474", numericValue=str(points)
+            )
+            Points.refresh_user_points(user)
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+    # Private Helper: Failure
+    def _handle_data_failure(
+        self,
+        user=None,
+        guest_id=None,
+        phone=None,
+        amount=None,
+        data_response=None,
+        reason="",
+    ):
+        """Handle failed Data purchase."""
+        title = "Failed data purchase"
+        message = f"Data purchase of {amount} on {phone} failed."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"failed to purchase data of {amount} on {phone}. {reason}"
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+        elif guest_id:
+            create_activity(guest_id=guest_id, title=title, description=description)
+
+        logger.warning(description)
+
+        response_data = {
+            "status": "fail",
+            "message": f"Data purchase failed. {reason}",
+            "error": data_response or {},
+        }
+
+        return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
         guest_id = request.headers.get("X-Guest-ID")
@@ -725,14 +604,22 @@ class DataSubscriptionView(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         payment_option = user_data.get("payment_option")
+        network = user_data.get("network")
+        product_id = user_data.get("productId")
+        biometrics = user_data.get("use_biometrics")
 
-        if not user:  # Guest user flow
+        user_wallet = WalletModel.objects.get(user=user)
+
+        tx_reference = VAS.generate_unique_code("PICA")
+        vas_token = VAS.authenticate()
+
+        # Guest validations
+        if not user:
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if payment_option != "CARD":
                 return Response(
                     data=encrypt(
@@ -744,65 +631,35 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info(f"Guest {guest_id} attempting data subscription")
-
         serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer.is_valid(raise_exception=True)
 
-        biometrics = user_data.get("use_biometrics")
-
-        try:
-            if payment_option != "CARD":
+        if payment_option != "CARD":
+            try:
                 account = WalletModel.objects.get(user=user)
-                logger.info(
-                    f"Account found for user {user.first_name} {user.last_name}."
-                )
-        except WalletModel.DoesNotExist:
-            logger.error(
-                f"Account not found for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Account not found for user"}),
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if payment_option == "WALLET":
-            if biometrics:
-                verification = Biometrics.authenticate(user.phone_number)
-                logger.info(
-                    f"User {user.first_name} {user.last_name} is using biometrics for authentication."
-                )
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(
-                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
-                )
-            else:
-                logger.error(
-                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
-                )
+            except WalletModel.DoesNotExist:
                 return Response(
                     data=encrypt(
-                        {
-                            "status": "fail",
-                            "error": "Account or PIN not found for user",
-                        }
+                        {"status": "fail", "error": "Account not found for user"}
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
-        else:
-            verification = True
+
+        verification = True
+        if payment_option == "WALLET":
+            if biometrics:
+                verification = Biometrics.authenticate(user.phone_number)
+            elif account and account.pin is not None:
+                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+            else:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "error": "Account or PIN not found"}
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         if not verification:
-            logger.warning(
-                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
-            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -810,444 +667,146 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         data_response = None
 
+        # Use bonus flow
         if use_bonus:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is attempting to use bonus for data purchase."
-            )
-            if user.welcome_bonus >= float(amount):
-                data_response = data(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for data subscription.",
-                    user_data=user_data,
+            if user and user.welcome_bonus >= float(amount):
+                data_response = VAS.data(
+                    network=network,
+                    bearer_token=vas_token,
+                    amount=amount,
+                    debitAccount=user_wallet.account_number,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
                 )
-                if data_response["code"] == "000":
-                    logger.debug(f"response data: {data_response}")
-                    response_data = {
-                        "status": "success",
-                        "message": f"Data purchase of {float(amount)} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "data_response": data_response,
-                    }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
+                status_resp = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                status_data = status_resp.json().get("data", {})
+                if (
+                    status_data.get("transactionStatus") == "success"
+                    and status_resp.get("responseCode") == 200
+                ):
+                    return self._handle_data_success(
+                        user=user,
+                        guest_id=guest_id,
+                        phone=phone,
+                        amount=amount,
+                        network=network,
+                        tx_reference=tx_reference,
                     )
-                    create_notification(
-                        user=request.user,
-                        title="Data subscription",
-                        message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Data subscription",
-                        description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                    )
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-                elif data_response["code"] == "014":
-                    logger.debug(f"response data: {data_response}")
-                    request_id = data_response.get("requestId")
-                    if request_id:
-                        status_query = VAS.check_status(req_id=request_id)
-                        if (
-                            status_query["content"]["transactions"]["status"]
-                            == "delivered"
-                        ):
-                            response_data = {
-                                "status": "pending",
-                                "message": f"Data purchase of {float(amount)} was successful.",
-                                "bonus balance": user.welcome_bonus,
-                                "data_response": data_response,
-                            }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased data using bonus."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Data subscription",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Data subscription",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                    else:
-                        response_data = {
-                            "status": "fail",
-                            "data_response": data_response,
-                        }
-                        return Response(
-                            data=encrypt(response_data),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    response_data = {
-                        "status": "fail",
-                        "message": f"Data purchase of {float(amount)} failed.",
-                        "bonus balance": user.welcome_bonus,
-                        "data_response": data_response,
-                    }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} purchase of data using bonus failed."
-                    )
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST
-                    )
-            logger.warning(
-                f"Data subscription failed for user {user.first_name} {user.last_name} due to insufficient bonus."
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Data subscription failed due to insufficient bonus.",
-                        "error": data_response,
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
+
+            return self._handle_data_failure(
+                user=user,
+                phone=phone,
+                amount=amount,
+                data_response=data_response.json(),
+                reason="Insufficient bonus balance.",
             )
 
+        # Payment option flows
         match payment_option:
             case "WALLET":
-                if biometrics:
-                    verification = Biometrics.authenticate(user.phone_number)
-                elif account and account.pin is not None:
-                    verification = Pin.verify(
-                        user=user, pin=pin, hashed_pin=account.pin
-                    )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Account or PIN not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                pts_amt = Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
+                rwd_amt = (
+                    Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
                 )
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used points amounting to {pts_amt}."
-                    )
-                else:
-                    pts_amt = 0
-
-                if use_rewards:
-                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used rewards amounting to {rwd_amt}."
-                    )
-                else:
-                    rwd_amt = 0
-
                 new_amount = int(amount) - pts_amt - rwd_amt
-                user_details = WalletModel.objects.get(user=user)
-                logger.info(
-                    f"Initiating debit for user {user.first_name} {user.last_name}. New amount after points and rewards: {new_amount}."
-                )
 
-                # Initiate a debit on the customer's account.
                 debit_response = Wallet.Debit(
-                    debitAccount=user_details.account_number,
+                    debitAccount=account.account_number,
                     amount=new_amount,
                     reason="Debit for data subscription.",
                     transactionReference="",
                 )
 
                 if debit_response.status_code == 200:
-                    data_response = data(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for data subscription.",
-                        user_data=user_data,
-                    )
-                    if data_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Data purchase of {new_amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "data_response": data_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Data subscription",
-                            message=f"This is to inform you that you have made a purchase of {new_amount} naira data subscription on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Data subscription",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {new_amount} naira data subscription on {phone}",
-                        )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    if data_response["code"] == "014":
-                        request_id = data_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "pending",
-                                    "message": f"Data purchase of {new_amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "data_response": data_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Data subscription",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Data subscription",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": data_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Data subscription failed for user {user.first_name} {user.last_name} with WALLET option due to insufficient balance."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": "Data subscription failed due to insufficient balance.",
-                                    "error": data_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.error(
-                        f"Debit failed for user {user.first_name} {user.last_name} with WALLET option: {debit_response.json()}."
-                    )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
-            case "CARD":
-                verification = True
-                if user:
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
+                    data_response = VAS.data(
+                        network=network,
+                        bearer_token=vas_token,
+                        amount=amount,
+                        productId=product_id,
+                        debitAccount=user_wallet.account_number,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
 
-                    data_response = data(
-                        user=user,
-                        guest_id=guest_id,
-                        serializer=serializer,
-                        reason="Debit for data subscription.",
-                        user_data=user_data,
+                    data_topup = data_response.json()
+                    status_resp = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
                     )
-                    if data_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Data purchase of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "data_response": data_response,
-                        }
-
-                        create_notification(
-                            user=request.user,
-                            title="Data subscription",
-                            message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Data subscription",
-                            description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                        )
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    if data_response["code"] == "014":
-                        request_id = data_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "pending",
-                                    "message": f"Data purchase of {amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "data_response": data_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased data with WALLET payment option."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Data subscription",
-                                message=f"This is to inform you that you have made a purchase of {amount} naira data subscription on {phone}.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Data subscription",
-                                description=f"{user.first_name} {user.last_name} has made a purchase of {amount} naira data subscription on {phone}",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": data_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Data subscription failed for user {user.first_name} {user.last_name} with CARD option."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": "Data subscription failed.",
-                                    "error": data_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    try:
-                        data_response = data(
-                            user=None,
+                    status_data = status_resp.json().get("data", {})
+                    if (
+                        status_data.get("transactionStatus") == "success"
+                        and status_data.get("responseCode") == 200
+                    ):
+                        return self._handle_data_success(
+                            user=user,
                             guest_id=guest_id,
-                            serializer=serializer,
-                            reason="Guest data subscription",
-                            user_data=user_data,
+                            phone=phone,
+                            productId=product_id,
+                            amount=new_amount,
+                            network=network,
+                            tx_reference=tx_reference,
                         )
-
-                        if data_response["code"] == "000":
-                            logger.info(
-                                f"Guest {guest_id} data subscription successful"
-                            )
-                            create_activity(
-                                user=None,
-                                guest_id=guest_id,
-                                title="Data subscription",
-                                description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan",
-                            )
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "success",
-                                        "message": f"Data subscription of {user_data['amount']} was successful",
-                                        "data_response": data_response,
-                                    }
-                                ),
-                                status=status.HTTP_200_OK,
-                            )
-
-                        elif data_response["code"] == "014":
-                            request_id = data_response.get("requestId")
-                            if (
-                                request_id
-                                and VAS.check_status(req_id=request_id)["content"][
-                                    "transactions"
-                                ]["status"]
-                                == "delivered"
-                            ):
-                                logger.info(
-                                    f"Guest {guest_id} subscription eventually succeeded"
-                                )
-                                create_activity(
-                                    user=None,
-                                    guest_id=guest_id,
-                                    title="Data subscription",
-                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} data plan",
-                                )
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "success",
-                                            "message": "Data subscription was successful",
-                                            "data_response": data_response,
-                                        }
-                                    ),
-                                    status=status.HTTP_200_OK,
-                                )
-
-                        logger.warning(
-                            f"Guest {guest_id} subscription failed: {data_response}"
+                    else:
+                        return self._handle_data_failure(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            data_response=data_topup,
+                            reason="Data subscription failed after wallet debit.",
                         )
-                        create_activity(
-                            user=None,
-                            guest_id=guest_id,
-                            title="Failed data subscription",
-                            description=f"Guest {guest_id} failed to subscribe to data plan",
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": data_response.get(
-                                        "response_description", "Subscription failed"
-                                    ),
-                                    "error": data_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    except Exception as e:
-                        logger.error(f"Guest {guest_id} processing error: {str(e)}")
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "error",
-                                    "message": "Processing error occurred",
-                                }
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
-            case _:
-                logger.error(
-                    f"Invalid payment option selected by user {user.first_name} {user.last_name}: {payment_option}."
+                return Response(
+                    data=encrypt(debit_response.json()),
+                    status=debit_response.status_code,
                 )
+
+            case "CARD":
+                # Card flow for authenticated users and guests
+                try:
+                    data_response = VAS.data(
+                        network=network,
+                        bearer_token=vas_token,
+                        amount=amount,
+                        productId=product_id,
+                        debitAccount=user_wallet.account_number,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
+                    )
+                    data_topup = data_response.json()
+                    status_resp = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_data = status_resp.json().get("data", {})
+                    if (
+                        status_data.get("transactionStatus") == "success"
+                        and status_data.get("responseCode") == 200
+                    ):
+                        return self._handle_data_success(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            productId=product_id,
+                            amount=new_amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                        )
+                    else:
+                        return self._handle_data_failure(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            data_response=data_topup,
+                            reason="Data subscription failed after card debit.",
+                        )
+                except Exception as e:
+                    logger.error(f"Card processing error: {str(e)}")
+                    return Response(
+                        data=encrypt(
+                            {"status": "error", "message": "Processing error occurred"}
+                        ),
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+            case _:
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid payment option"}
@@ -1256,40 +815,67 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
 
 
-class ElectricityServiceIDListView(APIView):
+class BillPaymentCategoriesView(APIView):
     """
-    ElectricityServiceIDListView is the GET request handler that returns a list of electricity service ids.
+    BillPaymentCategoriesView is the GET request handler that returns a list of
+    bill payment categories.
     """
 
     def get(self, request):
-        electricity_service_ids = [
-            service_id[1] for service_id in ELECTRICITY_SERVICE_ID_CHOICES
-        ]
+        token = VAS.authenticate()
+        categories_resp = VAS.bill_payment_categories(
+            bearer_token=token, category_id=request.query_params.get("category_id")
+        )
+        categories = categories_resp.json().get("data", [])
+
         return Response(
             data=encrypt(
                 {
                     "status": "success.",
-                    "message": "Electricity service Ids retrieved successfully.",
-                    "categories": electricity_service_ids,
+                    "message": "Bill payment categories retrieved successfully.",
+                    "categories": categories,
                 }
             ),
             status=status.HTTP_200_OK,
         )
 
 
-class VerifyMeterNumber(generics.RetrieveAPIView):
+class BillersCategoriesView(APIView):
     """
-    VerifySmartCardNumber is a POST request handler for verifying
-    electricity meter number.
+    BillersCategoriesView is the GET request handler that returns a list of
+    billers categories.
     """
 
-    serializer_class = VerifyMeterSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
+    def get(self, request):
+        token = VAS.authenticate()
+        billers_resp = VAS.billers_categories(
+            bearer_token=token, biller_id=request.query_params.get("billers_id")
+        )
+        billers = billers_resp.json().get("data", [])
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success.",
+                    "message": "Billers categories retrieved successfully.",
+                    "categories": billers,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+class VerifyBillerAccountView(generics.RetrieveAPIView):
+    """
+    VerifyBillerAccountView is a POST request handler for verifying
+    biller account number.
+    """
+
+    serializer_class = VerifyBillerSerializer
 
     @extend_schema(
-        description="Meter number",
-        responses={200: {"description": "Verify meter number"}},
+        description="Biller account",
+        responses={200: {"description": "Verify biller account"}},
     )
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1299,46 +885,41 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
         }
 
         logger.info(
-            f"User {request.user.first_name} {request.user.last_name} is attempting to verify meter number with data: {user_data}"
+            f"User {request.user.first_name} {request.user.last_name} is attempting to verify biller account number with data: {user_data}"
         )
 
-        resource = "merchant-verify"
-        payload = {
-            "serviceID": user_data["serviceID"],
-            "type": user_data["type"],
-            "billersCode": user_data["billersCode"],
-        }
-
-        verify_meter_headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-
         try:
-            logger.info(
-                f"Sending POST request to {vtpass_url + resource} with payload: {payload}"
-            )
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=verify_meter_headers,
+            token = VAS.authenticate()
+            verify_biller = VAS.verify_biller_account(
+                bearer_token=token,
+                billerId=user_data.get("billerId"),
+                customerId=user_data.get("customerId"),
+                itemId=user_data.get("itemId"),
+                itemName=user_data.get("itemName"),
+                amount=user_data.get("amount"),
             )
 
-            if response.status_code == 200:
+            biller_response = verify_biller.json()
+            logger.debug(f"Biller verification response: {biller_response}")
+
+            if (
+                verify_biller.get("status") == "success"
+                and verify_biller.get("responseCode") == 200
+            ):
                 response_data = {
-                    "data": response.json(),
+                    "data": biller_response,
                 }
                 logger.info(
-                    f"Meter verification successful for user {request.user.first_name} {request.user.last_name}: {response_data}"
+                    f"Biller account verification successful for user {request.user.first_name} {request.user.last_name}: {response_data}"
                 )
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             else:
                 logger.warning(
-                    f"Meter verification failed for user {request.user.first_name} {request.user.last_name}: {response.json()}"
+                    f"Biller account verification failed for user {request.user.first_name} {request.user.last_name}: {biller_response}"
                 )
                 return Response(
-                    data=encrypt(response.json()), status=response.status_code
+                    data=encrypt(biller_response),
+                    status=verify_biller.get("responseCode"),
                 )
 
         except requests.exceptions.RequestException as e:
@@ -1351,16 +932,159 @@ class VerifyMeterNumber(generics.RetrieveAPIView):
             )
 
 
-class ElectrcityBillPayment(generics.GenericAPIView):
+class BillPaymentView(generics.GenericAPIView):
     """
-    ElectrcityBillPayment is a POST request handler for payment of electricity
-    bills for both prepaid and postpaid account types.
+    Unified BillPaymentView for both Electricity and Cable subscriptions.
+    Service type is detected from VAS response: if VAS response data includes
+    a 'token' field, the service is Electricity (token returned). Otherwise it's Cable.
     """
 
-    serializer_class = ElectricityBillSerializer
+    serializer_class = BillPaymentSerializer  # same serializer for both services
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
+    # --- helpers (reuse your existing handlers) ---
+    def _handle_success(
+        self,
+        user=None,
+        guest_id=None,
+        customerId=None,
+        billerId=None,
+        itemId=None,
+        amount=None,
+        customerPhone=None,
+        customerName=None,
+        otherField=None,
+        vas_response=None,
+        tx_reference=None,
+    ):
+        """
+        Central success handler for both Electricity (token) and Cable.
+        vas_response is the requests.Response object returned from VAS.* call.
+        """
+        # Pull VAS response data safely
+        vas_json = {}
+        try:
+            vas_json = (
+                vas_response.json()
+                if hasattr(vas_response, "json")
+                else vas_response or {}
+            )
+        except Exception:
+            vas_json = vas_response or {}
+
+        vas_data = vas_json.get("data", {}) if isinstance(vas_json, dict) else {}
+
+        # Determine if electricity by presence of token
+        token = vas_data.get("token")
+        is_electricity = bool(token)
+
+        response_data = {
+            "status": "success",
+            "message": f"Purchase of {amount} was successful.",
+            "bonus balance": getattr(user, "welcome_bonus", 0),
+        }
+
+        # If electricity include token details
+        if is_electricity:
+            response_data["token_details"] = vas_data.get("token", {})
+            response_data["units_bought"] = vas_data.get("otherField", "")
+
+        # Add raw vas_data for tracing (optional)
+        response_data["service_response"] = vas_data
+
+        title = "Bill Payment"
+        message = f"This is to inform you that you have made a payment of {amount} naira on {customerPhone}."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"has made a payment of {amount} naira on {customerPhone}."
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+            try:
+                with transaction.atomic():
+                    TxModel.objects.create(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Bill Payment",
+                        amount=amount,
+                        description=title,
+                    )
+
+                    ValueAddedServices.objects.create(
+                        user=user if user else None,
+                        guest_id=guest_id if not user else None,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=amount,
+                        customerPhone=customerPhone,
+                        customerName=customerName,
+                        otherField=otherField,
+                        tx_reference=tx_reference,
+                    )
+            except Exception as e:
+                logger.error(f"Database query error: {str(e)}")
+        else:
+            create_activity(guest_id=guest_id, title=title, description=description)
+
+        # Award points if applicable (registered users)
+        if user and getattr(user, "has_done_survey", False):
+            points = Points.determine(
+                activity_type="service_purchase", level=user.level
+            )
+            NextBee.member_activity(
+                member_email=user.email, activityId="8474", numericValue=str(points)
+            )
+            Points.refresh_user_points(user)
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+    def _handle_failure(
+        self,
+        user=None,
+        guest_id=None,
+        phone=None,
+        amount=None,
+        vas_response=None,
+        reason="",
+    ):
+        """Central failure handler for both Electricity and Cable payment failures."""
+        # Attempt to parse vas_response for debugging
+        vas_json = None
+        try:
+            vas_json = (
+                vas_response.json() if hasattr(vas_response, "json") else vas_response
+            )
+        except Exception:
+            vas_json = vas_response
+
+        title = "Failed Bill Payment"
+        message = f"Bill payment of {amount} on {phone} failed."
+        description = (
+            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
+            f"failed to make a payment of {amount} on {phone}. {reason}"
+        )
+
+        if user:
+            create_notification(user=user, title=title, message=message)
+            create_activity(user=user, title=title, description=description)
+        elif guest_id:
+            create_activity(guest_id=guest_id, title=title, description=description)
+
+        logger.warning(description)
+
+        response_data = {
+            "status": "fail",
+            "message": f"Bill payment failed. {reason}",
+            "error": vas_json or {},
+        }
+
+        return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
+
+    # --- POST flow (mirrors DataSubscription flow) ---
     def post(self, request):
         guest_id = request.headers.get("X-Guest-ID")
         decrypted_payload = decrypt(request.data)
@@ -1370,25 +1094,32 @@ class ElectrcityBillPayment(generics.GenericAPIView):
         }
         user = request.user if request.user.is_authenticated else None
 
+        # Extract fields
         pin = user_data.get("pin")
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
         use_rewards = user_data.get("use_rewards")
         payment_option = user_data.get("payment_option")
+        customerId = user_data.get("customerId")
+        billerId = user_data.get("billerId")
+        customerPhone = user_data.get("customerPhone")
+        customerName = user_data.get("customerName")
+        itemId = user_data.get("itemId")
+        otherField = user_data.get("otherField")
+        biometrics = user_data.get("use_biometrics")
 
-        if user:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is attempting to make an electricity payment of {amount}."
-            )
+        # Generate transaction reference and authenticate VAS
+        tx_reference = VAS.generate_unique_code("PICA")
+        vas_token = VAS.authenticate()
 
+        # Guest validations (guests only allowed CARD)
         if not user:
             if not guest_id:
                 return Response(
                     data=encrypt({"status": "fail", "message": "Guest ID required"}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if payment_option != "CARD":
                 return Response(
                     data=encrypt(
@@ -1400,1777 +1131,261 @@ class ElectrcityBillPayment(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info(f"Guest {guest_id} attempting electricity payment")
-
+        # Validate payload with serializer
         serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer.is_valid(raise_exception=True)
 
-        biometrics = user_data.get("use_biometrics")
-
-        try:
-            if payment_option != "CARD":
+        # If wallet flows will be used, ensure we can get the account
+        if payment_option != "CARD":
+            try:
                 account = WalletModel.objects.get(user=user)
-                logger.info(
-                    f"Account found for user {user.first_name} {user.last_name}."
+            except WalletModel.DoesNotExist:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "error": "Account not found for user"}
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
                 )
-        except WalletModel.DoesNotExist:
-            logger.error(
-                f"Account not found for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Account not found for user"}),
-                status=status.HTTP_404_NOT_FOUND,
-            )
 
+        # Authentication / verification step (PIN or biometrics) for WALLET option
+        verification = True
         if payment_option == "WALLET":
             if biometrics:
                 verification = Biometrics.authenticate(user.phone_number)
-            if account and account.pin is not None:
+            elif account and account.pin is not None:
                 verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(
-                    f"User {user.first_name}  {user.last_name} is using PIN for authentication."
-                )
             else:
-                logger.error(
-                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
-                )
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
-            verification = True
-
-        if not verification:
-            logger.warning(
-                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        electricity_response = None
-
-        if use_bonus:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is attempting to use bonus for electricity payment."
-            )
-            if user.welcome_bonus >= float(amount):
-                electricity_response = electricity(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for electricity bill payment.",
-                    user_data=user_data,
-                )
-                if electricity_response["code"] == "000":
-                    response_data = {
-                        "status": "success",
-                        "message": f"Electricity purchase of {float(amount)} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "electricity_response": electricity_response,
-                    }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
-                    )
-
-                    token = electricity_response.get("purchased_code")
-                    send_token(user=user, msg=f"Token purchase was successful. {token}")
-                    create_notification(
-                        user=request.user,
-                        title="Electricity payment",
-                        message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Electricity payment",
-                        description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                    )
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-                elif electricity_response["code"] == "014":
-                    request_id = electricity_response.get("requestId")
-                    status_query = VAS.check_status(req_id=request_id)
-                    if status_query["content"]["transactions"]["status"] == "delivered":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Request for Electricity purchase of {float(amount)} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "electricity_response": electricity_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased electricity using bonus."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Electricity payment",
-                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Electricity payment",
-                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                        )
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-            logger.warning(
-                f"Electricity purchase failed for user {user.first_name} {user.last_name} due to insufficient bonus."
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Electricity purchase failed due to insufficient bonus.",
-                        "error": electricity_response,
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        match payment_option:
-            case "WALLET":
-                if biometrics:
-                    verification = Biometrics.authenticate(user.phone_number)
-                elif account and account.pin is not None:
-                    verification = Pin.verify(
-                        user=user, pin=pin, hashed_pin=account.pin
-                    )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Account or PIN not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
-                )
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used points amounting to {pts_amt}."
-                    )
-                else:
-                    pts_amt = 0
-
-                if use_rewards:
-                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used rewards amounting to {rwd_amt}."
-                    )
-                else:
-                    rwd_amt = 0
-
-                new_amount = int(amount) - pts_amt - rwd_amt
-
-                user_details = WalletModel.objects.get(user=user)
-                logger.info(
-                    f"Initiating debit for user {user.first_name} {user.last_name}. New amount after points and rewards: {new_amount}."
-                )
-
-                # Initiate a debit on the customer's account.
-                debit_response = Wallet.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=new_amount,
-                    reason="Debit for electricity bill payment.",
-                    transactionReference="",
-                )
-
-                if debit_response.status_code == 200:
-                    electricity_response = electricity(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for electricity bill payment.",
-                        user_data=user_data,
-                    )
-                    if electricity_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Electricity purchase of {new_amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "electricity_response": electricity_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
-                        )
-
-                        token = electricity_response.get("purchased_code")
-                        send_token(
-                            user=user, msg=f"Token purchase was successful. {token}"
-                        )
-
-                        create_notification(
-                            user=request.user,
-                            title="Electricity payment",
-                            message=f"This is to inform you that your payment of {new_amount} for electricity is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Electricity payment",
-                            description=f"{user.first_name} {user.last_name} has made a payment of {new_amount} for electricity bill.",
-                        )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif electricity_response["code"] == "014":
-                        request_id = electricity_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"Electricity purchase of {new_amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "electricity_response": electricity_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased electricity with WALLET option."
-                            )
-
-                            token = electricity_response.get("purchased_code")
-                            send_token(
-                                user=user, msg=f"Token purchase was successful. {token}"
-                            )
-
-                            create_notification(
-                                user=request.user,
-                                title="Electricity payment",
-                                message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Electricity payment",
-                                description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": electricity_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Electricity purchase failed for user {user.first_name} {user.last_name}."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": electricity_response[
-                                        "response_description"
-                                    ],
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.error(
-                        f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
-                    )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
-
-            case "CARD":
-                verification = True
-                if user:
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                    )
-                    electricity_response = electricity(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for electricity bill payment.",
-                        user_data=user_data,
-                    )
-                    logger.debug(f"response data: {electricity_response}")
-                    if electricity_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"Electricity purchase of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "electricity_response": electricity_response,
-                        }
-                        token = electricity_response.get("purchased_code")
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                        )
-
-                        # Send token to user's email and phone number
-                        send_token(
-                            user=user,
-                            msg=f"Electricity token purchase was successful. {token}",
-                        )
-
-                        create_notification(
-                            user=request.user,
-                            title="Electricity payment",
-                            message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Electricity payment",
-                            description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                        )
-
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif electricity_response["code"] == "014":
-                        request_id = electricity_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"Electricity purchase of {amount} was successful.",
-                                    "bonus balance": user.welcome_bonus,
-                                    "electricity_response": electricity_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased electricity with CARD option."
-                            )
-
-                            token = electricity_response.get("purchased_code")
-                            send_token(
-                                user=user, msg=f"Token purchase was successful. {token}"
-                            )
-
-                            create_notification(
-                                user=request.user,
-                                title="Electricity payment",
-                                message=f"This is to inform you that your payment of {amount} for electricity is successful.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Electricity payment",
-                                description=f"{user.first_name} {user.last_name} has made a payment of {amount} for electricity bill.",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": electricity_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"Electricity purchase failed for user {user.first_name} {user.last_name}."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": electricity_response[
-                                        "response_description"
-                                    ],
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:  # Guest user processing
-                    try:
-                        electricity_response = electricity(
-                            user=None,
-                            guest_id=guest_id,
-                            serializer=serializer,
-                            reason="Guest electricity payment",
-                            user_data=user_data,
-                        )
-
-                        if electricity_response["code"] == "000":
-                            token = electricity_response.get("purchased_code")
-                            logger.info(f"Guest {guest_id} payment successful")
-
-                            # Send token to guest
-                            send_token_to_guest_users(
-                                guest_phone=user_data.get("phone"),
-                                msg=f"Electricity token: {token}",
-                            )
-
-                            create_activity(
-                                user=None,
-                                guest_id=guest_id,
-                                title="Electricity payment",
-                                description=f"Guest {guest_id} paid {user_data['amount']} for electricity",
-                            )
-
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "success",
-                                        "message": f"Electricity payment of {user_data['amount']} was successful",
-                                        "token": token,
-                                        "electricity_response": electricity_response,
-                                    }
-                                ),
-                                status=status.HTTP_200_OK,
-                            )
-
-                        elif electricity_response["code"] == "014":
-                            request_id = electricity_response.get("requestId")
-                            if (
-                                request_id
-                                and VAS.check_status(req_id=request_id)["content"][
-                                    "transactions"
-                                ]["status"]
-                                == "delivered"
-                            ):
-                                token = electricity_response.get("purchased_code")
-                                send_token_to_guest_users(
-                                    guest_phone=user_data.get("phone"),
-                                    msg=f"Electricity token: {token}",
-                                )
-
-                                create_activity(
-                                    user=None,
-                                    guest_id=guest_id,
-                                    title="Electricity payment",
-                                    description=f"Guest {guest_id} paid {user_data['amount']} for electricity",
-                                )
-
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "success",
-                                            "message": "Electricity payment was successful",
-                                            "token": token,
-                                            "electricity_response": electricity_response,
-                                        }
-                                    ),
-                                    status=status.HTTP_200_OK,
-                                )
-
-                        # If payment failed
-                        logger.warning(
-                            f"Guest {guest_id} payment failed: {electricity_response}"
-                        )
-                        create_activity(
-                            user=None,
-                            guest_id=guest_id,
-                            title="Failed electricity payment",
-                            description=f"Guest {guest_id} failed electricity payment",
-                        )
-
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": electricity_response.get(
-                                        "response_description", "Payment failed"
-                                    ),
-                                    "error": electricity_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    except Exception as e:
-                        logger.error(f"Guest {guest_id} processing error: {str(e)}")
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "error",
-                                    "message": "Processing error occurred",
-                                }
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
-            case _:
-                logger.warning(
-                    f"Invalid payment option selected by user {user.first_name} {user.last_name}."
-                )
                 return Response(
                     data=encrypt(
-                        {"status": "fail", "message": "Invalid payment option"}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-
-class CableServiceIDListView(APIView):
-    """
-    CableServiceIDListView is the GET request handler that returns a list of cable TV service ids.
-    """
-
-    def get(self, request):
-        cableTv_service_ids = [service_id[1] for service_id in TV_SERVICE_ID_CHOICES]
-        return Response(
-            data=encrypt(
-                {
-                    "status": "success.",
-                    "message": "Cable Tv service Ids retrieved successfully.",
-                    "categories": cableTv_service_ids,
-                }
-            ),
-            status=status.HTTP_200_OK,
-        )
-
-
-class ProductStatus(APIView):
-    """
-    ProductStatus is the POST request handler for checking the status
-    of any Value Added Services product purchased. It takes in the
-    request_id of the request and returns the status.
-    """
-
-    serializer_class = ProductStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Product status",
-        responses={200: {"description": "Get product purchase status"}},
-    )
-    def post(self, request):
-        user = self.request.user
-        user_data = request.data
-
-        logger.info(
-            f"User {user.first_name} {user.last_name} is attempting to requery with request_id: {user_data['request_id']}"
-        )
-
-        resource = "requery"
-        payload = {
-            "request_id": user_data.get("request_id"),
-        }
-
-        status_headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-        try:
-            response = requests.get(
-                url=vtpass_url + resource, headers=status_headers, json=payload
-            )
-            logger.info(
-                f"API call to {vtpass_url + resource} made by user {user.first_name} {user.last_name}."
-            )
-            if response.status_code == 200:
-                resp = response.json()
-                logger.info(
-                    f"Successful response received for user {user.first_name} {user.last_name}: {resp}"
-                )
-                response_data = {
-                    "data": resp,
-                }
-                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-            else:
-                logger.error(
-                    f"Failed response for user {user.first_name} {user.last_name}: {response.status_code} - {response.text}"
-                )
-                return Response(
-                    data=encrypt({"error": "Failed to retrieve data"}),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"RequestException for user {user.first_name} {user.last_name}: {str(e)}"
-            )
-            return Response(
-                data=encrypt({"error": str(e)}),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class GetTvVariationCodes(generics.RetrieveAPIView):
-    """
-    Retrieves variation codes for TV subscriptions (supports both authenticated users and guests)
-    """
-
-    serializer_class = VasStatusSerializer
-
-    @extend_schema(
-        description="Retrieve TV subscription variation codes",
-        responses={
-            200: OpenApiResponse(description="Successfully retrieved variation codes"),
-            400: OpenApiResponse(description="Invalid service ID"),
-            401: OpenApiResponse(description="Unauthorized"),
-            500: OpenApiResponse(description="Server error processing request"),
-        },
-    )
-    def get(self, request, *args, **kwargs):
-        param_value = kwargs.get("service_ID")
-
-        # # Log appropriate message based on user type
-        # if user:
-        #     logger.info(
-        #         f"User {user.first_name} {user.last_name} requesting TV variations for service ID: {param_value}"
-        #     )
-        # elif guest_id:
-        #     logger.info(
-        #         f"Guest user (ID: {guest_id}) requesting TV variations for service ID: {param_value}"
-        #     )
-
-        if not param_value:
-            return Response(
-                data=encrypt(
-                    {"status": "error", "message": "service_ID parameter is required"}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        resource = f"https://vtpass.com/api/service-variations?serviceID={param_value}"
-        headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-
-        try:
-            logger.info(f"Sending GET request to {resource}")
-            response = requests.get(url=resource, headers=headers)
-
-            if response.status_code == 200:
-                resp = response.json().get("content", [])
-                response_data = {
-                    "status": "success",
-                    "service": param_value,
-                    "data": resp,
-                }
-
-                # # Log success based on user type
-                # if user:
-                #     logger.info(
-                #         f"Successfully fetched TV variations for user {user.first_name} {user.last_name}"
-                #     )
-                # elif guest_id:
-                #     logger.info(
-                #         f"Successfully fetched TV variations for guest user: {guest_id}"
-                #     )
-
-                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-            else:
-                error_msg = response.json()
-                logger.error(f"Failed to fetch TV variations: {error_msg}")
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "error",
-                            "message": "Failed to fetch variations",
-                            "details": error_msg,
-                        }
-                    ),
-                    status=response.status_code,
-                )
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"RequestException occurred: {str(e)}")
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "error",
-                        "message": "Service temporarily unavailable",
-                        "details": str(e),
-                    }
-                ),
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            return Response(
-                data=encrypt({"status": "error", "message": "Internal server error"}),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class VerifySmartCardNumber(generics.GenericAPIView):
-    """
-    VerifySmartCardNumber is a POST request handler for verifying smart
-    card or registration number for tv operators(e.g dstv, gotv).
-    """
-
-    serializer_class = VerifyCardNumberSerializer
-
-    def get_queryset(self):
-        return None
-
-    @extend_schema(
-        description="Smart card",
-        responses={200: {"description": "Verify smart cards"}},
-    )
-    def post(self, request):
-        decrypted_payload = decrypt(request.data)
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
-        }
-
-        logger.info(f"User is attempting to verify smart card with data: {user_data}")
-
-        resource = "merchant-verify"
-        payload = {
-            "serviceID": user_data["serviceID"],
-            "billersCode": user_data["billersCode"],
-        }
-
-        verify_smart_card_headers = {
-            "accept": "application/json",
-            "api-key": api_key,
-            "secret-key": x_secret,
-        }
-
-        try:
-            logger.info(
-                f"Sending POST request to {vtpass_url + resource} with payload: {payload}"
-            )
-            response = requests.post(
-                url=vtpass_url + resource,
-                json=payload,
-                headers=verify_smart_card_headers,
-            )
-
-            if response.status_code == 200:
-                response_data = {
-                    "data": response.json(),
-                }
-                logger.info(f"Smart card verification successful: {response_data}")
-                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-            else:
-                logger.warning(f"Smart card verification failed: {response.json()}")
-                return Response(
-                    data=encrypt(response.json()), status=response.status_code
-                )
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"RequestException occurred: {str(e)}")
-            return Response(
-                data=encrypt({"error": str(e)}),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class NewTvSubscription(generics.GenericAPIView):
-    """
-    NewTvSubscription is a POST request handler for new
-    tv plan subscription.
-    """
-
-    serializer_class = TvSubscriptionSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticatedOrGuestWithValidId,)
-
-    def post(self, request):
-        guest_id = request.headers.get("X-Guest-ID")
-        decrypted_payload = decrypt(request.data)
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
-        }
-        user = request.user if request.user.is_authenticated else None
-
-        pin = user_data.get("pin")
-        use_points = user_data.get("use_points")
-        use_rewards = user_data.get("use_rewards")
-        amount = user_data.get("amount")
-        payment_option = user_data.get("payment_option")
-
-        if not user:
-            if not guest_id:
-                return Response(
-                    data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            if payment_option != "CARD":
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Guests can only use card payments",
-                        }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            logger.info(f"Guest {guest_id} attempting TV subscription")
-        else:
-            logger.info(
-                f"User {user.first_name} {user.last_name} attempting TV subscription"
-            )
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        biometrics = user_data.get("use_biometrics")
-
-        try:
-            if payment_option != "CARD":
-                account = AccountCreation.objects.get(user=user)
-                logger.info(
-                    f"Account found for user {user.first_name} {user.last_name}."
-                )
-        except AccountCreation.DoesNotExist:
-            logger.error(
-                f"Account not found for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Account not found for user"}),
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if payment_option == "WALLET":
-            if biometrics:
-                verification = Biometrics.authenticate(user.phone_number)
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-                logger.info(
-                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
-                )
-            else:
-                logger.error(
-                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "error": "Account or PIN not found for user",
-                        }
+                        {"status": "fail", "error": "Account or PIN not found"}
                     ),
                     status=status.HTTP_404_NOT_FOUND,
                 )
-        else:
-            verification = True
 
         if not verification:
-            logger.warning(
-                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        new_tv_response = None
-
-        match payment_option:
-            case "WALLET":
-                if biometrics:
-                    verification = Biometrics.authenticate(user.phone_number)
-                elif account and account.pin is not None:
-                    verification = Pin.verify(
-                        user=user, pin=pin, hashed_pin=account.pin
-                    )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Account or PIN not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
-                )
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used points amounting to {pts_amt}."
-                    )
-                else:
-                    pts_amt = 0
-
-                if use_rewards:
-                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used rewards amounting to {rwd_amt}."
-                    )
-                else:
-                    rwd_amt = 0
-
-                new_amount = int(amount) - pts_amt - rwd_amt
-                logger.info(
-                    f"New amount after applying points and rewards for user {user.first_name} {user.last_name}: {new_amount}"
-                )
-
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=new_amount,
-                    reason="Debit for TV subscription.",
-                    transactionReference="",
-                )
-
-                if debit_response.status_code == 200:
-                    new_tv_response = NewTvSub(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for TV subscription.",
-                        user_data=user_data,
-                    )
-                    if new_tv_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"TV subscription purchase of {new_amount} was successful.",
-                            "cable_tv_response": new_tv_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="New TV subscription",
-                            message=f"This is to inform you that your payment of {new_amount} for TV subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="New TV subscription",
-                            description=f"{user.first_name} {user.last_name} made a payment of {new_amount} for a new Cable TV subscription.",
-                        )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif new_tv_response["code"] == "014":
-                        request_id = new_tv_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"TV subscription purchase of {new_amount} was successful.",
-                                    "cable_tv_response": new_tv_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="New TV subscription",
-                                message=f"This is to inform you that your payment of {new_amount} for TV subscription is successful.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="New TV subscription",
-                                description=f"{user.first_name} {user.last_name} made a payment of {new_amount} for a new Cable TV subscription.",
-                            )
-                            if user.has_done_survey:
-                                # Calculate points for service purchase activity
-                                points = Points.calculate_points(
-                                    activity_type="service_purchase", level=user.level
-                                )
-                                NextBee.member_activity(
-                                    member_email=user.email,
-                                    activityId="8474",
-                                    numericValue=str(points),
-                                )
-                            else:
-                                pass
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "message": new_tv_response["response_description"],
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"TV subscription purchase failed for user {user.first_name} {user.last_name}."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": new_tv_response["response_description"],
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.error(
-                        f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
-                    )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
-
-            case "CARD":
-                verification = True
-                if user:
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                    )
-
-                    new_tv_response = NewTvSub(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for TV subscription.",
-                        user_data=user_data,
-                    )
-                    if new_tv_response["code"] == "000":
-                        logger.info(f"Tv response: {new_tv_response}")
-                        response_data = {
-                            "status": "success",
-                            "message": f"TV subscription purchase of {amount} was successful.",
-                            "cable_tv_response": new_tv_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="New TV subscription",
-                            message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="New TV subscription",
-                            description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                        )
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    elif new_tv_response["code"] == "014":
-                        logger.info(f"Tv response: {new_tv_response}")
-                        request_id = new_tv_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"TV subscription purchase of {new_amount} was successful.",
-                                    "cable_tv_response": new_tv_response,
-                                }
-
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully purchased TV subscription."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="New TV subscription",
-                                message=f"This is to inform you that your payment of {amount} for TV subscription is successful.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="New TV subscription",
-                                description=f"{user.first_name} {user.last_name} made a payment of {amount} for a new Cable TV subscription.",
-                            )
-
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "cable_tv_response": new_tv_response,
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                    else:
-                        logger.warning(
-                            f"TV subscription purchase failed for user {user.first_name} {user.last_name} via CARD."
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": new_tv_response["response_description"],
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:  # Guest user processing
-                    try:
-                        new_tv_response = NewTvSub(
-                            user=None,
-                            guest_id=guest_id,
-                            serializer=serializer,
-                            reason="Guest TV subscription",
-                            user_data=user_data,
-                        )
-
-                        if new_tv_response["code"] == "000":
-                            logger.info(f"Guest {guest_id} TV subscription successful")
-                            create_activity(
-                                user=None,
-                                guest_id=guest_id,
-                                title="TV subscription",
-                                description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan",
-                            )
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "success",
-                                        "message": f"TV subscription of {user_data['amount']} was successful",
-                                        "cable_tv_response": new_tv_response,
-                                    }
-                                ),
-                                status=status.HTTP_200_OK,
-                            )
-
-                        elif new_tv_response["code"] == "014":
-                            request_id = new_tv_response.get("requestId")
-                            if (
-                                request_id
-                                and VAS.check_status(req_id=request_id)["content"][
-                                    "transactions"
-                                ]["status"]
-                                == "delivered"
-                            ):
-                                logger.info(
-                                    f"Guest {guest_id} subscription eventually succeeded"
-                                )
-                                create_activity(
-                                    user=None,
-                                    guest_id=guest_id,
-                                    title="TV subscription",
-                                    description=f"Guest {guest_id} subscribed to {user_data['amount']} TV plan",
-                                )
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "success",
-                                            "message": "TV subscription was successful",
-                                            "cable_tv_response": new_tv_response,
-                                        }
-                                    ),
-                                    status=status.HTTP_200_OK,
-                                )
-
-                        # If subscription failed
-                        logger.warning(
-                            f"Guest {guest_id} subscription failed: {new_tv_response}"
-                        )
-                        create_activity(
-                            user=None,
-                            guest_id=guest_id,
-                            title="Failed TV subscription",
-                            description=f"Guest {guest_id} failed to subscribe to TV plan",
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": new_tv_response.get(
-                                        "response_description", "Subscription failed"
-                                    ),
-                                    "error": new_tv_response,
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    except Exception as e:
-                        logger.error(f"Guest {guest_id} processing error: {str(e)}")
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "error",
-                                    "message": "Processing error occurred",
-                                }
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
-            case _:
-                logger.error(
-                    f"Invalid payment option selected by user {user.first_name} {user.last_name}."
-                )
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "message": "Invalid payment option"}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-
-class RenewTvSubscription(generics.GenericAPIView):
-    """
-    RenewTvSubscription is a POST request handler for
-    tv plan subscription renewal.
-    """
-
-    serializer_class = TvSubscriptionSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    def post(self, request):
-        decrypted_data = decrypt(request.data)
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_data.items()
-        }
-        user = request.user if request.user.is_authenticated else None
-
-        pin = user_data.get("pin")
-        use_points = user_data.get("use_points")
-        use_rewards = user_data.get("use_rewards")
-        amount = user_data.get("amount")
-        billersCode = user_data.get("billersCode")
-        payment_option = user_data.get("payment_option")
-
-        logger.info(
-            f"User {user.first_name} {user.last_name} attempting TV subscription renewal"
-        )
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-        biometrics = user_data.get("use_biometrics")
-
-        try:
-            if payment_option != "CARD":
-                account = AccountCreation.objects.get(user=user)
-                logger.info(
-                    f"Account found for user {user.first_name} {user.last_name}."
-                )
-        except AccountCreation.DoesNotExist:
-            logger.error(
-                f"Account not found for user {user.first_name} {user.last_name}."
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Account not found for user"}),
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if biometrics:
-            logger.info(
-                f"User {user.first_name} {user.last_name} is using biometrics for authentication."
-            )
-            verification = Biometrics.authenticate(user.phone_number)
-        elif payment_option == "WALLET":
-            if account and account.pin is not None:
-                logger.info(
-                    f"User {user.first_name} {user.last_name} is using PIN for authentication."
-                )
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                logger.error(
-                    f"Account or PIN not found for user {user.first_name} {user.last_name}."
-                )
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "error": "Account or PIN not found for user",
-                        }
-                    ),
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
-            verification = True
-
-        if not verification:
-            logger.warning(
-                f"Invalid credentials provided for user {user.first_name} {user.last_name}."
-            )
             return Response(
                 data=encrypt({"status": "fail", "error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        renew_tv_response = None
-        logger.info(
-            f"User {user.first_name} {user.last_name} selected payment option: {payment_option}"
-        )
+        vas_response = None
 
+        # --- Use bonus flow (only for authenticated users) ---
+        if use_bonus:
+            if user and user.welcome_bonus >= float(amount):
+                try:
+                    vas_response = VAS.bill_payment(
+                        bearer_token=vas_token,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=amount,
+                        customerPhone=customerPhone,
+                        customerName=customerName,
+                        otherField=otherField,
+                        debitAccount=user.wallet.account_number,
+                        transactionReference=tx_reference,
+                    )
+                except Exception as e:
+                    logger.error(f"VAS electricity call error (bonus): {e}")
+                    return self._handle_failure(
+                        user=user,
+                        guest_id=guest_id,
+                        phone=customerPhone,
+                        amount=amount,
+                        vas_response=None,
+                        reason="Provider call error",
+                    )
+
+                # Check VAS status (same mapping as your Data endpoint)
+                try:
+                    status_resp = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_data = status_resp.json().get("data", {})
+                except Exception:
+                    status_data = {}
+
+                if (
+                    status_data.get("transactionStatus") == "success"
+                    and status_data.get("responseCode") == 200
+                ):
+                    return self._handle_success(
+                        user=user,
+                        guest_id=guest_id,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=amount,
+                        customerPhone=customerPhone,
+                        customerName=customerName,
+                        otherField=otherField,
+                        vas_response=vas_response,
+                        tx_reference=tx_reference,
+                    )
+
+            # If we reach here, bonus flow failed (insufficient bonus or VAS failure)
+            return self._handle_failure(
+                user=user,
+                guest_id=guest_id,
+                phone=customerPhone,
+                amount=amount,
+                vas_response=(vas_response.json() if vas_response else None),
+                reason="Insufficient bonus balance.",
+            )
+
+        # --- Normal payment flows (WALLET or CARD) ---
         match payment_option:
             case "WALLET":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected WALLET as payment option."
+                pts_amt = Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
+                rwd_amt = (
+                    Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
                 )
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used points amounting to {pts_amt}."
-                    )
-                else:
-                    pts_amt = 0
-
-                if use_rewards:
-                    _, rwd_amt = Pay.with_rwd(user=user, amount=amount)
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} used rewards amounting to {rwd_amt}."
-                    )
-                else:
-                    rwd_amt = 0
-
                 new_amount = int(amount) - pts_amt - rwd_amt
-                logger.info(
-                    f"New amount after applying points and rewards for user {user.first_name} {user.last_name}: {new_amount}"
-                )
 
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
+                # Debit user's account
+                debit_response = Wallet.Debit(
+                    debitAccount=account.account_number,
                     amount=new_amount,
-                    reason="Debit for TV subscription renewal.",
+                    reason="Debit for bill payment.",
                     transactionReference="",
                 )
 
                 if debit_response.status_code == 200:
-                    renew_tv_response = RenewTvSub(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for TV subscription renewal.",
-                        user_data=user_data,
-                    )
-                    if renew_tv_response["code"] == "000":
-                        response_data = {
-                            "status": "success",
-                            "message": f"TV subscription purchase of {new_amount} was successful.",
-                            "cable_tv_response": renew_tv_response,
-                        }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                    try:
+                        vas_response = VAS.bill_payment(
+                            bearer_token=vas_token,
+                            customerId=customerId,
+                            billerId=billerId,
+                            itemId=itemId,
+                            amount=new_amount,
+                            customerPhone=customerPhone,
+                            customerName=customerName,
+                            otherField=otherField,
+                            debitAccount=user.wallet.account_number,
+                            transactionReference=tx_reference,
                         )
-                        create_notification(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            message=f"This is to inform you that your payment of {new_amount} to renew tv subscription is successful.",
+                    except Exception as e:
+                        logger.error(f"VAS electricity call error (wallet): {e}")
+                        # refund debit? (depends on your debit implementation)
+                        return self._handle_failure(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=customerPhone,
+                            amount=new_amount,
+                            vas_response=None,
+                            reason="Provider call error",
                         )
-                        create_activity(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            description=f"{user.first_name} {user.last_name} just made a payment of {new_amount} for Cable TV renewal on {billersCode}.",
+
+                    # Check VAS status
+                    try:
+                        status_resp = VAS.status(
+                            bearer_token=vas_token, tx_ref=tx_reference
                         )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
+                        status_data = status_resp.json().get("data", {})
+                    except Exception:
+                        status_data = {}
+
+                    if (
+                        status_data.get("transactionStatus") == "success"
+                        and status_data.get("responseCode") == 200
+                    ):
+                        return self._handle_success(
+                            user=user,
+                            guest_id=guest_id,
+                            customerId=customerId,
+                            billerId=billerId,
+                            itemId=itemId,
+                            amount=new_amount,
+                            customerPhone=customerPhone,
+                            customerName=customerName,
+                            otherField=otherField,
+                            vas_response=vas_response,
+                            tx_reference=tx_reference,
                         )
-                    elif renew_tv_response["code"] == "014":
-                        request_id = renew_tv_response.get("requestId")
-                        if request_id:
-                            status_query = VAS.check_status(req_id=request_id)
-                            if (
-                                status_query["content"]["transactions"]["status"]
-                                == "delivered"
-                            ):
-                                response_data = {
-                                    "status": "success",
-                                    "message": f"TV subscription purchase of {new_amount} was successful.",
-                                    "cable_tv_response": renew_tv_response,
-                                }
-                            logger.info(
-                                f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                            )
-                            create_notification(
-                                user=request.user,
-                                title="Renew Tv subscription",
-                                message=f"This is to inform you that your payment of {new_amount} to renew tv subscription is successful.",
-                            )
-                            create_activity(
-                                user=request.user,
-                                title="Renew Tv subscription",
-                                description=f"{user.first_name} {user.last_name} just made a payment of {new_amount} for Cable TV renewal on {billersCode}.",
-                            )
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
-                        else:
-                            response_data = {
-                                "status": "fail",
-                                "cable_tv_response": renew_tv_response,
-                            }
-                            return Response(
-                                data=encrypt(response_data),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
                     else:
-                        logger.warning(
-                            f"TV subscription renewal failed for user {user.first_name} {user.last_name}."
+                        # VAS failed after debit
+                        vas_data = vas_response.json() if vas_response else {}
+                        return self._handle_failure(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=customerPhone,
+                            amount=new_amount,
+                            vas_response=vas_data,
+                            reason="Bill payment failed after wallet debit.",
                         )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": renew_tv_response[
-                                        "response_description"
-                                    ],
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.error(
-                        f"Debit failed for user {user.first_name} {user.last_name}: {debit_response.json()}"
-                    )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
+
+                # debit_response not 200 -> pass the debit response back
+                return Response(
+                    data=encrypt(debit_response.json()),
+                    status=debit_response.status_code,
+                )
 
             case "CARD":
-                logger.info(
-                    f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                )
-                renew_tv_response = RenewTvSub(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for TV subscription renewal.",
-                    user_data=user_data,
-                )
-                if renew_tv_response["code"] == "000":
-                    response_data = {
-                        "status": "success",
-                        "message": f"TV subscription purchase of {amount} was successful.",
-                        "cable_tv_response": renew_tv_response,
-                    }
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
+                # Card flow for both authenticated users and guests
+                try:
+                    vas_response = VAS.bill_payment(
+                        bearer_token=vas_token,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=amount,
+                        customerPhone=customerPhone,
+                        customerName=customerName,
+                        otherField=otherField,
+                        debitAccount=(user.wallet.account_number if user else None),
+                        transactionReference=tx_reference,
                     )
-                    create_notification(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                    )
-                    create_activity(
-                        user=request.user,
-                        title="Renew Tv subscription",
-                        description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                    )
-
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-                elif renew_tv_response["code"] == "014":
-                    request_id = renew_tv_response.get("requestId")
-                    if request_id:
-                        status_query = VAS.check_status(req_id=request_id)
-                        if (
-                            status_query["content"]["transactions"]["status"]
-                            == "delivered"
-                        ):
-                            response_data = {
-                                "status": "success",
-                                "message": f"TV subscription purchase of {amount} was successful.",
-                                "cable_tv_response": renew_tv_response,
-                            }
-                        logger.info(
-                            f"User {user.first_name} {user.last_name} successfully renewed TV subscription."
-                        )
-                        create_notification(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            message=f"This is to inform you that your payment of {amount} to renew tv subscription is successful.",
-                        )
-                        create_activity(
-                            user=request.user,
-                            title="Renew Tv subscription",
-                            description=f"{user.first_name} {user.last_name} just made a payment of {amount} for Cable TV renewal on {billersCode}.",
-                        )
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(
-                            data=encrypt(response_data), status=status.HTTP_200_OK
-                        )
-                    else:
-                        response_data = {
-                            "status": "fail",
-                            "message": renew_tv_response["response_description"],
-                        }
-                        return Response(
-                            data=encrypt(response_data),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                else:
-                    logger.warning(
-                        f"TV subscription renewal failed for user {user.first_name} {user.last_name} via CARD."
-                    )
+                except Exception as e:
+                    logger.error(f"Card VAS call error: {e}")
                     return Response(
                         data=encrypt(
-                            {
-                                "status": "fail",
-                                "message": renew_tv_response["response_description"],
-                            }
+                            {"status": "error", "message": "Processing error occurred"}
                         ),
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+                vas_data_raw = vas_response.json() if vas_response else {}
+                # Check VAS status
+                try:
+                    status_resp = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_data = status_resp.json().get("data", {})
+                except Exception:
+                    status_data = {}
+
+                if (
+                    status_data.get("transactionStatus") == "success"
+                    and status_data.get("responseCode") == 200
+                ):
+                    return self._handle_success(
+                        user=user,
+                        guest_id=guest_id,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=amount,
+                        customerPhone=customerPhone,
+                        customerName=customerName,
+                        otherField=otherField,
+                        vas_response=vas_response,
+                        tx_reference=tx_reference,
+                    )
+                else:
+                    return self._handle_failure(
+                        user=user,
+                        guest_id=guest_id,
+                        phone=customerPhone,
+                        amount=amount,
+                        vas_response=vas_data_raw,
+                        reason="Bill payment failed after card processing.",
                     )
 
             case _:
-                logger.error(
-                    f"Invalid payment option selected by user {user.first_name} {user.last_name}."
-                )
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid payment option"}
                     ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-
-class GetWaecVaritaionCodes(generics.RetrieveAPIView):
-    """
-    GetWaecVaritaionCodes is the GET request handler for
-    retrieving the variation codes for WAEC registration.
-    Take key note of the variation codes as they
-    are required to chose a registration plan.
-    """
-
-    serializer_class = VasStatusSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    @extend_schema(
-        description="Variation codes",
-        responses={200: {"description": "Waec Varitaion Codes"}},
-    )
-    def get(self, request):
-        user = request.user  # Get the authenticated user.
-
-        if user:
-            resource = "service-variations?serviceID=waec-registration"
-            waec_variation_codes_headers = {
-                "accept": "application/json",
-                "api-key": api_key,
-                "secret-key": x_secret,
-            }
-
-            try:
-                response = requests.get(
-                    url=vtpass_url + resource,
-                    headers=waec_variation_codes_headers,
-                )
-                if response.status_code == 200:
-                    resp = response.json()["content"]
-                    response_data = {
-                        "data": resp,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-            except requests.exceptions.RequestException as e:
-                return Response(
-                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-
-class WaecRegistration(generics.GenericAPIView):
-    """
-    WaecRegistration is the POST request handler for WAEC
-    registration.
-    """
-
-    serializer_class = WaecRegistrationSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, VasPermission)
-
-    def post(self, request):
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-        user = request.user if request.user.is_authenticated else None
-
-        pin = user_data.get("pin")
-        guest_id = user_data.get("guest_id")
-        payment_option = request.data.get("payment_option")
-        amount = user_data.get("amount")
-
-        serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        biometrics = request.data.get("use_biometrics")
-
-        try:
-            account = AccountCreation.objects.get(user=user)
-        except AccountCreation.DoesNotExist:
-            return Response(
-                data={"status": "fail", "error": "Account not found for user"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if biometrics:
-            verification = Biometrics.authenticate(user.phone_number)
-        else:
-            if account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data={
-                        "status": "fail",
-                        "error": "Account or PIN not found for user",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-        if not verification:
-            return Response(
-                data={"status": "fail", "error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        waec_response = None
-
-        payment_option = request.data.get("payment_option")
-        match payment_option:
-            case "WALLET":
-                user_details = AccountCreation.objects.get(user=user)
-                debit_response = Account.Debit(
-                    debitAccount=user_details.account_number,
-                    amount=amount,
-                    reason="Debit for waec registration.",
-                    transactionReference="",
-                )
-                if debit_response.status_code == 200:
-                    waec_response = waec_reg(
-                        user=user,
-                        serializer=serializer,
-                        reason="Debit for waec registration.",
-                        user_data=user_data,
-                    )
-                    if waec_response["code"] == 200:
-                        response_data = {
-                            "status": "success",
-                            "message": f"Waec registration of {amount} was successful.",
-                            "bonus balance": user.welcome_bonus,
-                            "waec_response": waec_response,
-                        }
-                        if user.has_done_survey:
-                            # Calculate points for service purchase activity
-                            points = Points.calculate_points(
-                                activity_type="service_purchase", level=user.level
-                            )
-                            NextBee.member_activity(
-                                member_email=user.email,
-                                activityId="8474",
-                                numericValue=str(points),
-                            )
-                        else:
-                            pass
-                        return Response(data=response_data, status=status.HTTP_200_OK)
-                    return Response(
-                        data={
-                            "status": "fail",
-                            "message": "Waec registration failed due to insufficient balance.",
-                            "error": waec_response,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                else:
-                    return Response(
-                        data=debit_response.json(),
-                        status=debit_response.status_code,
-                    )
-            case "CARD":
-                if user:
-                    logger.info(
-                        f"User {user.first_name} {user.last_name} selected CARD as payment option."
-                    )
-                elif guest_id:
-                    logger.info(
-                        f"Guest user with ID {guest_id} selected CARD as payment option."
-                    )
-                waec_response = waec_reg(
-                    user=user,
-                    serializer=serializer,
-                    reason="Debit for waec registration.",
-                    user_data=user_data,
-                )
-                if waec_response["code"] == 200:
-                    response_data = {
-                        "status": "success",
-                        "message": f"Waec registration of {amount} was successful.",
-                        "bonus balance": user.welcome_bonus,
-                        "waec_response": waec_response,
-                    }
-                    return Response(data=response_data, status=status.HTTP_200_OK)
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Waec registration failed.",
-                        "error": waec_response,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            case _:
-                return Response(
-                    data={"status": "fail", "message": "Invalid payment option"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
