@@ -8,17 +8,13 @@ from rest_framework.pagination import PageNumberPagination
 
 # In-projects imports.
 from accounts.models import TxModel
-from vas.models import (
-    AirtimeTopup,
-    DataSubscription,
-    TvSubscription,
-)
+from vas.models import ValueAddedServices
 
 from banking.serializers import TxModelSerializer
 from vas.serializers import (
     AirtimeTopupSerializer,
     DataSubscriptionSerializer,
-    TvSubscriptionSerializer,
+    BillPaymentSerializer,
 )
 from security import encrypt
 
@@ -59,7 +55,7 @@ class RetrieveTransaction(generics.GenericAPIView):
 
         try:
             # Attempt to retrieve from AirtimeTopup
-            airtime_instance = AirtimeTopup.objects.filter(
+            airtime_instance = ValueAddedServices.objects.filter(
                 user=user, tx_reference=tx_reference
             ).first()
             if airtime_instance:
@@ -76,7 +72,7 @@ class RetrieveTransaction(generics.GenericAPIView):
                 )
 
             # Attempt to retrieve from DataSubscription
-            data_instance = DataSubscription.objects.filter(
+            data_instance = ValueAddedServices.objects.filter(
                 user=user, tx_reference=tx_reference
             ).first()
             if data_instance:
@@ -93,11 +89,11 @@ class RetrieveTransaction(generics.GenericAPIView):
                 )
 
             # Attempt to retrieve from TvSubscription.
-            tvSub_instance = TvSubscription.objects.filter(
+            tvSub_instance = ValueAddedServices.objects.filter(
                 user=user, tx_reference=tx_reference
             ).first()
             if tvSub_instance:
-                serializer = TvSubscriptionSerializer(tvSub_instance)
+                serializer = BillPaymentSerializer(tvSub_instance)
                 resp = {
                     "status": "success",
                     "message:": f"Transaction for {tx_reference} found!",

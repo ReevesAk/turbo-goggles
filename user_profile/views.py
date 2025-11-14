@@ -52,13 +52,7 @@ from self_service.models import (
     Hotels,
     RestaurantBooking,
 )
-from vas.models import (
-    AirtimeTopup,
-    DataSubscription,
-    TvSubscription,
-    WaecRegistration,
-    ElectricityBill,
-)
+from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 
@@ -1117,11 +1111,10 @@ class AddToFavourite(generics.CreateAPIView):
             # Map model_name to actual model classes
             model_mapping = {
                 "Product": Product,
-                "AirtimeTopup": AirtimeTopup,
-                "DataSubscription": DataSubscription,
-                "ElectricityBill": ElectricityBill,
-                "TvSubscription": TvSubscription,
-                "WaecRegistration": WaecRegistration,
+                "AirtimeTopup": ValueAddedServices,
+                "DataSubscription": ValueAddedServices,
+                "ElectricityBill": ValueAddedServices,
+                "TvSubscription": ValueAddedServices,
                 "RestaurantBooking": RestaurantBooking,
                 "GymSubcription": GymSubcription,
                 "CinemaBooking": CinemaBooking,

@@ -1,0 +1,412 @@
+{
+    "Daily": [
+        {
+            "productId": "9MO-25MB-50",
+            "dataBundle": "25MB",
+            "amount": "50",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-40MB-50",
+            "dataBundle": "40MB",
+            "amount": "50",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-25MB-15",
+            "dataBundle": "40MB",
+            "amount": "50",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-83MB-100",
+            "dataBundle": "83MB",
+            "amount": "100",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-83MB + 50MB Socials-1",
+            "dataBundle": "83MB + 50MB Socials",
+            "amount": "100",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-100MB-1",
+            "dataBundle": "83MB + 50MB Socials",
+            "amount": "100",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-300MB-17",
+            "dataBundle": "150MB + 100MB Night data",
+            "amount": "150",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-150MB + 100MB Night d",
+            "dataBundle": "150MB + 100MB Night data",
+            "amount": "150",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-650MB-200",
+            "dataBundle": "650MB",
+            "amount": "200",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-650MB-200",
+            "dataBundle": "650MB",
+            "amount": "200",
+            "validity": "Daily Plan"
+        },
+        {
+            "productId": "9MO-250MB-200",
+            "dataBundle": "250MB",
+            "amount": "200",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-1GB-19",
+            "dataBundle": "1GB+100MB S",
+            "amount": "300",
+            "validity": "1day"
+        },
+        {
+            "productId": "9MO-1GB+100MB S-300",
+            "dataBundle": "1GB+100MB S",
+            "amount": "300",
+            "validity": "1 Day"
+        },
+        {
+            "productId": "9MO-2GB-20",
+            "dataBundle": "2GB+100MB S",
+            "amount": "500",
+            "validity": "3days"
+        },
+        {
+            "productId": "9MO-2GB+100MB S-500",
+            "dataBundle": "2GB+100MB S",
+            "amount": "500",
+            "validity": "3 Days"
+        }
+    ],
+    "Weekly": [
+        {
+            "productId": "9MO-650MB-2",
+            "dataBundle": "650MB + 100MB Socials",
+            "amount": "500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "9MO-7GB-1500",
+            "dataBundle": "7GB",
+            "amount": "1500",
+            "validity": "WeeklyPlan"
+        },
+        {
+            "productId": "9MO-7GB-1500",
+            "dataBundle": "7GB",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "9MO-7GB-16",
+            "dataBundle": "3.4GB Special Plan",
+            "amount": "1500",
+            "validity": "7 Days"
+        },
+        {
+            "productId": "9MO-3.4GB Special Plan-15",
+            "dataBundle": "3.4GB Special Plan",
+            "amount": "1500",
+            "validity": "7 Days"
+        }
+    ],
+    "Monthly": [
+        {
+            "productId": "9MO-500MB-500",
+            "dataBundle": "500MB",
+            "amount": "500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-1.5GB-1000",
+            "dataBundle": "1.5GB",
+            "amount": "1000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-1.5GB-3",
+            "dataBundle": "1.5GB",
+            "amount": "1000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-2GB-4",
+            "dataBundle": "2GB",
+            "amount": "1000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-2GB-1000",
+            "dataBundle": "2GB",
+            "amount": "1000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-2GB-1200",
+            "dataBundle": "2GB",
+            "amount": "1200",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-2.3GB-1200",
+            "dataBundle": "2.3GB",
+            "amount": "1200",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-4.5GB-2000",
+            "dataBundle": "4.5GB",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-4.5GB-5",
+            "dataBundle": "4.5GB",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-4.5GB-2000",
+            "dataBundle": "4.5GB",
+            "amount": "2000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-11GB((7GB+ 4GBNight)-",
+            "dataBundle": "11GB((7GB+ 4GBNight)",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-5.2GB-2500",
+            "dataBundle": "5.2GB",
+            "amount": "2500",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-12GB-23",
+            "dataBundle": "6.2GB",
+            "amount": "3000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-12GB-3000",
+            "dataBundle": "12GB",
+            "amount": "3000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-6.2GB-3000",
+            "dataBundle": "6.2GB",
+            "amount": "3000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-11GB-4000",
+            "dataBundle": "11GB",
+            "amount": "4000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-11GB-7",
+            "dataBundle": "8.4GB",
+            "amount": "4000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-8.4GB-4000",
+            "dataBundle": "8.4GB",
+            "amount": "4000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-15GB-5000",
+            "dataBundle": "15GB",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-15GB-6",
+            "dataBundle": "11.4GB",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-11.4GB-5000",
+            "dataBundle": "11.4GB",
+            "amount": "5000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-35GB-7000",
+            "dataBundle": "35GB",
+            "amount": "7000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-40GB-10000",
+            "dataBundle": "40GB",
+            "amount": "10000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-40GB-9",
+            "dataBundle": "40GB",
+            "amount": "10000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-75GB-15000",
+            "dataBundle": "75GB",
+            "amount": "15000",
+            "validity": "30 Days"
+        },
+        {
+            "productId": "9MO-75GB-10",
+            "dataBundle": "75GB",
+            "amount": "15000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-125GB-24",
+            "dataBundle": "125GB",
+            "amount": "20000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-125GB-20000",
+            "dataBundle": "125GB",
+            "amount": "20000",
+            "validity": "30days"
+        },
+        {
+            "productId": "9MO-1.5GB-1000",
+            "dataBundle": "1.5GB",
+            "amount": "1000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-2GB-1200",
+            "dataBundle": "2GB",
+            "amount": "1200",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-4.5GB-2000",
+            "dataBundle": "4.5GB",
+            "amount": "2000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-11GB-4000",
+            "dataBundle": "11GB",
+            "amount": "4000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-15GB-5000",
+            "dataBundle": "15GB",
+            "amount": "5000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-40GB-10000",
+            "dataBundle": "40GB",
+            "amount": "10000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-75GB-15000",
+            "dataBundle": "75GB",
+            "amount": "15000",
+            "validity": "MonthlyPlan"
+        },
+        {
+            "productId": "9MO-120GB-110000",
+            "dataBundle": "120GB",
+            "amount": "110000",
+            "validity": "YearlyPlan"
+        }
+    ],
+    "3 Months": [
+        {
+            "productId": "9MO-75GB-25000",
+            "dataBundle": "75GB",
+            "amount": "25000",
+            "validity": "90 Days"
+        },
+        {
+            "productId": "9MO-30GB-27500",
+            "dataBundle": "30GB",
+            "amount": "27500",
+            "validity": "3-Month Pla"
+        }
+    ],
+    "6 Months": [
+        {
+            "productId": "9MO-165GB-50000",
+            "dataBundle": "165GB",
+            "amount": "50000",
+            "validity": "180 Days"
+        },
+        {
+            "productId": "9MO-60GB-55000",
+            "dataBundle": "60GB",
+            "amount": "55000",
+            "validity": "6-Month-Pla"
+        }
+    ],
+    "Annual": [
+        {
+            "productId": "9MO-100GB-100000",
+            "dataBundle": "100GB",
+            "amount": "100000",
+            "validity": "365 Days"
+        }
+    ],
+    "Others": [
+        {
+            "productId": "9MO-650MB + 100MB Socials",
+            "dataBundle": "650MB + 100MB Socials",
+            "amount": "500",
+            "validity": "7days"
+        },
+        {
+            "productId": "9MO-100GB-84992.00",
+            "dataBundle": "100GB",
+            "amount": "84992",
+            "validity": "100 Days Pl"
+        },
+        {
+            "productId": "9MO-100GB-84992",
+            "dataBundle": "100GB",
+            "amount": "84992",
+            "validity": "100 Days"
+        },
+        {
+            "productId": "9MO-100GB-13",
+            "dataBundle": "100GB",
+            "amount": "84992",
+            "validity": "100days"
+        },
+        {
+            "productId": "9MO-165GB-12",
+            "dataBundle": "165GB",
+            "amount": "50000",
+            "validity": "180days"
+        }
+    ]
+}

@@ -4,13 +4,11 @@ import uuid
 from basemodel import ItemPurchaseBaseModel
 from accounts.models import User
 
-
-AIRTIME_SERVICE_ID_CHOICES = (
-    ("MTN", "mtn"),
-    ("Glo", "glo"),
-    ("Airtel", "airtel"),
-    ("Etisalat", "etisalat"),
-    ("International recharge", "foreign-airtime"),
+NETWORK_CHOICES = (
+    ("MTN", "MTN"),
+    ("GLO", "GLO"),
+    ("AIRTEL", "AIRTEL"),
+    ("9MOBILE", "9MOBILE"),
 )
 
 DATA_SERVICE_ID_CHOICES = (
@@ -48,73 +46,21 @@ ELECTRICITY_SERVICE_ID_CHOICES = (
 )
 
 
-class AirtimeTopup(ItemPurchaseBaseModel):
+class ValueAddedServices(ItemPurchaseBaseModel):
     user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
     guest_id = models.UUIDField(null=True, blank=True)
+    phone_number = models.CharField(max_length=150, null=True, blank=True)
+    debit_account = models.CharField(max_length=20, null=True)
+    network = models.CharField(choices=NETWORK_CHOICES, max_length=150, null=True)
     tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(
-        choices=AIRTIME_SERVICE_ID_CHOICES, max_length=150, null=True
-    )
     amount = models.CharField(max_length=150, null=True)
-    product_type_id = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-
-
-class DataSubscription(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    guest_id = models.UUIDField(null=True, blank=True)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(
-        choices=DATA_SERVICE_ID_CHOICES, max_length=150, null=True
-    )
-    billersCode = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    amount = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-
-
-class ElectricityBill(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    guest_id = models.UUIDField(null=True, blank=True)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(
-        choices=ELECTRICITY_SERVICE_ID_CHOICES, max_length=150, null=True
-    )
-    billersCode = models.CharField(max_length=150, null=True)
-    type = models.CharField(choices=METER_TYPE_CHOICES, max_length=150, null=True)
-    variation_code = models.CharField(
-        choices=METER_TYPE_CHOICES, max_length=150, null=True
-    )
-    amount = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-
-
-class TvSubscription(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    guest_id = models.UUIDField(null=True, blank=True)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(
-        choices=TV_SERVICE_ID_CHOICES, max_length=150, null=True
-    )
-    billersCode = models.CharField(max_length=150, null=True)
-    subscription_type = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    quantity = models.CharField(max_length=150, null=True)
-    amount = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
-
-
-class WaecRegistration(ItemPurchaseBaseModel):
-    user = models.ForeignKey(to=User, null=True, on_delete=models.CASCADE)
-    guest_id = models.UUIDField(null=True, blank=True)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
-    request_id = models.CharField(max_length=150, null=True)
-    serviceID = models.CharField(max_length=150, null=True)
-    amount = models.CharField(max_length=150, null=True)
-    variation_code = models.CharField(max_length=150, null=True)
-    quantity = models.CharField(max_length=150, null=True)
-    phone = models.CharField(max_length=150, null=True)
+    product_id = models.CharField(max_length=150, null=True)
+    categoryId = models.CharField(max_length=5, null=True)
+    itemId = models.CharField(max_length=100, null=True)
+    itemName = models.CharField(max_length=200, null=True)
+    customerName = models.CharField(max_length=255, null=True)
+    customerId = models.CharField(max_length=100, null=True)
+    billerId = models.CharField(max_length=100, null=True)
+    category_name = models.CharField(max_length=100, null=True)
+    otherField = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=50, default="pending", null=True)
