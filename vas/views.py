@@ -952,7 +952,7 @@ class BillPaymentView(generics.GenericAPIView):
         billerId=None,
         itemId=None,
         amount=None,
-        customerPhone=None,
+        phone_number=None,
         customerName=None,
         otherField=None,
         vas_response=None,
@@ -994,10 +994,10 @@ class BillPaymentView(generics.GenericAPIView):
         response_data["service_response"] = vas_data
 
         title = "Bill Payment"
-        message = f"This is to inform you that you have made a payment of {amount} naira on {customerPhone}."
+        message = f"This is to inform you that you have made a payment of {amount} naira."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
-            f"has made a payment of {amount} naira on {customerPhone}."
+            f"has made a payment of {amount} naira."
         )
 
         if user:
@@ -1020,7 +1020,7 @@ class BillPaymentView(generics.GenericAPIView):
                         billerId=billerId,
                         itemId=itemId,
                         amount=amount,
-                        customerPhone=customerPhone,
+                        phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
                         tx_reference=tx_reference,
@@ -1046,7 +1046,7 @@ class BillPaymentView(generics.GenericAPIView):
         self,
         user=None,
         guest_id=None,
-        phone=None,
+        phone_number=None,
         amount=None,
         vas_response=None,
         reason="",
@@ -1062,10 +1062,10 @@ class BillPaymentView(generics.GenericAPIView):
             vas_json = vas_response
 
         title = "Failed Bill Payment"
-        message = f"Bill payment of {amount} on {phone} failed."
+        message = f"Bill payment of {amount} on {phone_number} failed."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
-            f"failed to make a payment of {amount} on {phone}. {reason}"
+            f"failed to make a payment of {amount} for {reason}"
         )
 
         if user:
@@ -1103,7 +1103,7 @@ class BillPaymentView(generics.GenericAPIView):
         payment_option = user_data.get("payment_option")
         customerId = user_data.get("customerId")
         billerId = user_data.get("billerId")
-        customerPhone = user_data.get("customerPhone")
+        phone_number = user_data.get("phone_number")
         customerName = user_data.get("customerName")
         itemId = user_data.get("itemId")
         otherField = user_data.get("otherField")
@@ -1180,7 +1180,7 @@ class BillPaymentView(generics.GenericAPIView):
                         billerId=billerId,
                         itemId=itemId,
                         amount=amount,
-                        customerPhone=customerPhone,
+                        phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
                         debitAccount=user.wallet.account_number,
@@ -1191,7 +1191,7 @@ class BillPaymentView(generics.GenericAPIView):
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
-                        phone=customerPhone,
+                        phone_number=phone_number,
                         amount=amount,
                         vas_response=None,
                         reason="Provider call error",
@@ -1217,7 +1217,7 @@ class BillPaymentView(generics.GenericAPIView):
                         billerId=billerId,
                         itemId=itemId,
                         amount=amount,
-                        customerPhone=customerPhone,
+                        phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
                         vas_response=vas_response,
@@ -1228,7 +1228,7 @@ class BillPaymentView(generics.GenericAPIView):
             return self._handle_failure(
                 user=user,
                 guest_id=guest_id,
-                phone=customerPhone,
+                phone_number=phone_number,
                 amount=amount,
                 vas_response=(vas_response.json() if vas_response else None),
                 reason="Insufficient bonus balance.",
@@ -1259,7 +1259,7 @@ class BillPaymentView(generics.GenericAPIView):
                             billerId=billerId,
                             itemId=itemId,
                             amount=new_amount,
-                            customerPhone=customerPhone,
+                            phone_number=phone_number,
                             customerName=customerName,
                             otherField=otherField,
                             debitAccount=user.wallet.account_number,
@@ -1271,7 +1271,7 @@ class BillPaymentView(generics.GenericAPIView):
                         return self._handle_failure(
                             user=user,
                             guest_id=guest_id,
-                            phone=customerPhone,
+                            phone_number=phone_number,
                             amount=new_amount,
                             vas_response=None,
                             reason="Provider call error",
@@ -1297,7 +1297,7 @@ class BillPaymentView(generics.GenericAPIView):
                             billerId=billerId,
                             itemId=itemId,
                             amount=new_amount,
-                            customerPhone=customerPhone,
+                            phone_number=phone_number,
                             customerName=customerName,
                             otherField=otherField,
                             vas_response=vas_response,
@@ -1309,7 +1309,7 @@ class BillPaymentView(generics.GenericAPIView):
                         return self._handle_failure(
                             user=user,
                             guest_id=guest_id,
-                            phone=customerPhone,
+                            phone_number=phone_number,
                             amount=new_amount,
                             vas_response=vas_data,
                             reason="Bill payment failed after wallet debit.",
@@ -1330,7 +1330,7 @@ class BillPaymentView(generics.GenericAPIView):
                         billerId=billerId,
                         itemId=itemId,
                         amount=amount,
-                        customerPhone=customerPhone,
+                        phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
                         debitAccount=(user.wallet.account_number if user else None),
@@ -1366,7 +1366,7 @@ class BillPaymentView(generics.GenericAPIView):
                         billerId=billerId,
                         itemId=itemId,
                         amount=amount,
-                        customerPhone=customerPhone,
+                        phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
                         vas_response=vas_response,
@@ -1376,7 +1376,7 @@ class BillPaymentView(generics.GenericAPIView):
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
-                        phone=customerPhone,
+                        phone_number=phone_number,
                         amount=amount,
                         vas_response=vas_data_raw,
                         reason="Bill payment failed after card processing.",

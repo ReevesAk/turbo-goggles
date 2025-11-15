@@ -102,7 +102,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "billerId",
             "itemId",
             "amount",
-            "customerPhone",
+            "phone_number",
             "customerName",
             "otherField",
             "use_bonus",
