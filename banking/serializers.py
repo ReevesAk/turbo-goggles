@@ -117,7 +117,6 @@ class TxModelSerializer(serializers.ModelSerializer):
         fields = [
             "tx_reference",
             "tx_type",
-            "tx_id",
             "amount",
             "description",
             "rwd",
