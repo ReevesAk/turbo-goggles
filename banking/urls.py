@@ -125,12 +125,5 @@ account_urlpatterns = [
 
 # ============ Combine All URL Patterns ============
 urlpatterns = (
-    kyc_urlpatterns
-    + wallet_urlpatterns
-    + transfer_urlpatterns
-    + card_urlpatterns
-    + transaction_urlpatterns
-    + fx_urlpatterns
-    + webhook_urlpatterns
-    + account_urlpatterns
+    kyc_urlpatterns + wallet_urlpatterns + transfer_urlpatterns + card_urlpatterns + transaction_urlpatterns + fx_urlpatterns + webhook_urlpatterns + account_urlpatterns
 )

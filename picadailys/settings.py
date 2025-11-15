@@ -231,7 +231,9 @@ SIMPLE_JWT = {
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Banking API',
-    'DESCRIPTION': 'API documentation for Banking operations including wallet management, transfers, and transactions',
+    'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
+    "online intermediary services, e.g" "```Value Added Servies(VAS)```",
+    "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
