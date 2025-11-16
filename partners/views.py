@@ -19,7 +19,7 @@ from .serializers import (
     PartnerServiceSerializer,
     PartnerProfileSerializer,
     UpdateProfileSerializer,
-    VerifyCacSerializers,
+    VerifyPartnerSerializers,
     PartnerServicePhotosSerializer,
     PartnerServiceGymPhotosSerializer,
     UpdatePartnerServiceSerializer,
@@ -30,9 +30,8 @@ from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
-    VerifyCAC,
 )
-from .controllers import CAC
+from banking.controllers import Transfers
 from permissions import (
     IsPartner,
     IsPartnerAdmin,
@@ -840,14 +839,14 @@ class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
-class VerifyCACView(generics.GenericAPIView):
+class VerifyPartnerBusinessView(generics.GenericAPIView):
     """
-    VerifyCACView is a POST request handler for verifying a
-    registered partner business It takes in the business name and
-    RC number as payload.
+    VerifyPartnerBusinessView is a POST request handler for verifying a
+    registered partner business It takes in the business name,
+    account number and bank institution.
     """
 
-    serializer_class = VerifyCacSerializers
+    serializer_class = VerifyPartnerSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)
 
@@ -868,21 +867,18 @@ class VerifyCACView(generics.GenericAPIView):
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
 
-                rc_number = serializer.validated_data.get("rc_number")
+                acct_num = serializer.validated_data.get("account_number")
                 business = serializer.validated_data.get("business_name")
-                logger.info(
-                    f"Serialized data saved. RC Number: {rc_number}, Business Name: {business}."
-                )
 
-                verify_cac_response = CAC.verify(
-                    rc_number=rc_number, business_name=business
+                verify_partner_acct = Transfers.getAccount(
+                    acct_num=acct_num, business_name=business
                 )
                 logger.info(
-                    f"CAC verification response received. Status Code: {verify_cac_response.status_code}."
+                    f"CAC verification response received. Status Code: {verify_partner_acct.status_code}."
                 )
 
-                if verify_cac_response.status_code == 200:
-                    resp = verify_cac_response.json()["entity"]
+                if verify_partner_acct.status_code == 200:
+                    resp = verify_partner_acct.json()["entity"]
 
                     # Normalize and compare business names
                     submitted_business_name = "".join(business.split()).upper()
@@ -897,20 +893,9 @@ class VerifyCACView(generics.GenericAPIView):
 
                         # Update user details
                         current_user.business_verified = True
-                        current_user.is_cac_approved = True
                         current_user.save()
                         logger.info(
                             f"User {current_user.id}'s business verification status updated."
-                        )
-
-                        # Create VerifyCAC entry
-                        VerifyCAC.objects.create(
-                            users=current_user,
-                            rc_number=rc_number,
-                            business_name=verified_business_name,
-                        )
-                        logger.info(
-                            f"VerifyCAC entry created for user {current_user.id}."
                         )
 
                         # Create UserNotification and ActivityModel entries
@@ -949,7 +934,7 @@ class VerifyCACView(generics.GenericAPIView):
                             status=status.HTTP_404_NOT_FOUND,
                         )
                 else:
-                    error_details = verify_cac_response.json().get(
+                    error_details = verify_partner_acct.json().get(
                         "message", "Unknown error"
                     )
                     logger.error(
@@ -962,7 +947,7 @@ class VerifyCACView(generics.GenericAPIView):
                     }
                     return Response(
                         data=encrypt(error_response),
-                        status=verify_cac_response.status_code,
+                        status=verify_partner_acct.status_code,
                     )
 
             logger.error(

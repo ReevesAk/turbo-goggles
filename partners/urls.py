@@ -9,7 +9,7 @@ from .views import (
     AllPartnersServiceList,
     GetPartnerDetails,
     UpdatePartnerProfile,
-    VerifyCACView,
+    VerifyPartnerBusinessView,
     PartnerServicePhotosList,
     PartnerServiceGymTrainersPhotosList,
     PartnerServiceDetailView,
@@ -22,7 +22,7 @@ app_name = "partners"
 urlpatterns = [
     path("create-partners", CreatePartner.as_view(), name="create_partners"),
     path("partner-profile", GetPartnerDetails.as_view(), name="get_partner_profile"),
-    path("verify-cac", VerifyCACView.as_view(), name="verify_cac"),
+    path("verify-partner", VerifyPartnerBusinessView.as_view(), name="verify_partner"),
     path("list-all-partners", ListAllPartners.as_view(), name="all_partners"),
     path(
         "partner-service",

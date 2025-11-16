@@ -7,8 +7,8 @@ from .models import (
     PartnerServices,
     PartnerServicePhotos,
     AvailablePartnerGymTrainers,
-    VerifyCAC,
 )
+from banking.models import WalletModel
 
 from security import encrypt
 
@@ -171,12 +171,23 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         ]
 
 
-class VerifyCacSerializers(serializers.ModelSerializer):
+class VerifyPartnerSerializers(serializers.ModelSerializer):
     """Serializers for our Partners' business verification."""
 
+    bank_code = serializers.CharField(
+        required=False, default=2000000.00, read_only=True
+    )
+    business_name = serializers.CharField(
+        required=False, default=2000000.00, read_only=True
+    )
+    account_number = serializers.CharField(
+        required=False, default=2000000.00, read_only=True
+    )
+
     class Meta:
-        model = VerifyCAC
+        model = WalletModel
         fields = [
-            "rc_number",
             "business_name",
+            "bank_code",
+            "account_number",
         ]
