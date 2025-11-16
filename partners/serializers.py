@@ -148,7 +148,6 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "business_verified",
-            "is_cac_approved",
             "has_created_pin",
             "welcome_bonus",
             "has_card",
