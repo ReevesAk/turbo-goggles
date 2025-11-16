@@ -173,15 +173,9 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 class VerifyPartnerSerializers(serializers.ModelSerializer):
     """Serializers for our Partners' business verification."""
 
-    bank_code = serializers.CharField(
-        required=False, default=2000000.00, read_only=True
-    )
-    business_name = serializers.CharField(
-        required=False, default=2000000.00, read_only=True
-    )
-    account_number = serializers.CharField(
-        required=False, default=2000000.00, read_only=True
-    )
+    bank_code = serializers.CharField(required=False, read_only=True)
+    business_name = serializers.CharField(required=False, read_only=True)
+    account_number = serializers.CharField(required=False, read_only=True)
 
     class Meta:
         model = WalletModel
