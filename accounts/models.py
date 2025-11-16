@@ -107,7 +107,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     website = models.CharField(max_length=255, null=True)
     business_category = models.CharField(max_length=255, null=True)
     business_verified = models.BooleanField(default=False)
-    is_cac_approved = models.BooleanField(default=False, null=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_disabled = models.BooleanField(default=False, null=True)
