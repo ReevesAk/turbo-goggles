@@ -230,7 +230,7 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Banking API',
+    'TITLE': 'Picadailys API',
     'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
     "online intermediary services, e.g" "```Value Added Servies(VAS)```",
     "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
@@ -240,9 +240,10 @@ SPECTACULAR_SETTINGS = {
     'TAGS': [
         {'name': 'KYC', 'description': 'Know Your Customer verification endpoints'},
         {'name': 'Wallet', 'description': 'Wallet management and operations'},
-        {'name': 'Transfers', 'description': 'Inter-bank and Intra-bank transfers'},
-        {'name': 'Transactions', 'description': 'Transaction history and status'},
-        {'name': 'Cards', 'description': 'Card payment and management'},
+        {'name': 'Banking', 'description': 'All banking-related operations (transfers, cards, transactions)'},
+        {'name': 'VAS', 'description': 'Airtime, Data, TV, Electricity and all value-added services'},
+        {'name': 'Partner Services', 'description': 'Services provided by partner organizations'},
+        {'name': 'Brand Ads', 'description': 'Brand marketing, advertisement and promotions'},
         {'name': 'Webhooks', 'description': 'Payment gateway webhook endpoints'},
     ],
 }
