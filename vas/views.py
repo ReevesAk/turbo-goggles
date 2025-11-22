@@ -994,7 +994,9 @@ class BillPaymentView(generics.GenericAPIView):
         response_data["service_response"] = vas_data
 
         title = "Bill Payment"
-        message = f"This is to inform you that you have made a payment of {amount} naira."
+        message = (
+            f"This is to inform you that you have made a payment of {amount} naira."
+        )
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
             f"has made a payment of {amount} naira."

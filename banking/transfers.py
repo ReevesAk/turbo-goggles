@@ -1,7 +1,7 @@
 import logging
 import string
 import random
-from datetime import datetime
+import time
 
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -57,7 +57,7 @@ class GetAllBanks(APIView):
 
         # Call Transfers service to get all banks
         all_banks_resp = Transfers.getAllBanks()
-        if all_banks_resp["status"] == "SUCCESS":
+        if all_banks_resp.json().get("status") == "SUCCESS":
             logger.info("Successfully retrieved financial institutions data.")
 
             resp = {
@@ -197,16 +197,13 @@ class IntraBankTransfer(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
+    @staticmethod
     def _generate_transaction_id(prefix):
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = str(int(time.time()))[-10:]
         rand_suffix = "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=6)
+            random.choices(string.ascii_uppercase + string.digits, k=4)
         )
-
-        # Combine all parts
-        tx_id = f"{prefix}{timestamp}{rand_suffix}"
-
-        return tx_id
+        return f"{prefix}{timestamp}{rand_suffix}"
 
     def post(self, request):
         authenticated_user = request.user
@@ -244,9 +241,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
-            tx_id = self._generate_transaction_id(prefix="PICA")
+            tx_id = self._generate_transaction_id(prefix="TRA")
             transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("beneficiary_bank_code"),
+                bank_code=payload.get("beneficiary_bank_code"),
                 account_number=payload.get("beneficiary_account_number"),
                 name=payload.get("beneficiary_name"),
                 sender_name=account.acct_name,
@@ -261,19 +258,20 @@ class IntraBankTransfer(generics.CreateAPIView):
                 logger.info("Transfer successful, recording transaction.")
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=payload.get("transaction_reference"),
-                    tx_type="Transfer to Providus Account",
-                    tx_id=tx_id,
-                    amount=payload.get("transaction_amount"),
-                    description=payload.get("narration"),
+                    tx_reference=tx_id,
+                    tx_type="Intra-Bank Transfer",
+                    amount=payload.get("amount"),
+                    description=payload.get("description"),
                 )
 
                 TransferModel.objects.create(
                     user=authenticated_user,
                     tx=tx,
-                    beneficiary_account_number=payload.get("credit_account"),
-                    source_account_name=authenticated_user.full_name,
-                    transaction_amount=payload.get("transaction_amount"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
+                    sender_name=authenticated_user.full_name,
+                    amount=payload.get("amount"),
                 )
 
                 # Notify user
@@ -282,7 +280,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     .first()
                     .available_balance
                 )
-                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['transaction_amount']} has been confirmed. Your available balance is ₦{account_balance}."
+                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account_balance}."
 
                 UserNotification.objects.create(
                     user=authenticated_user,
@@ -292,7 +290,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Bank Transfer",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['transaction_amount']}. Available balance is ₦{account_balance}.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account_balance}.",
                 )
 
                 logger.info(
@@ -303,12 +301,12 @@ class IntraBankTransfer(generics.CreateAPIView):
                     "status": "success",
                     "message": "Transfer successful.",
                     "data": {
-                        "credit_account": payload["credit_account"],
-                        "debit_account": payload["debit_account"],
-                        "amount": payload["transaction_amount"],
-                        "narration": payload["narration"],
-                        "beneficiaryBank": "Providus Bank",
-                        "transactionReference": payload["transaction_reference"],
+                        "credit_account": payload.get("beneficiary_account_number"),
+                        "debit_account": payload.get("sender_account_number"),
+                        "amount": payload.get("amount"),
+                        "narration": payload.get("description"),
+                        "beneficiaryBank": "Picadailys/9PSB",
+                        "transactionReference": tx_id,
                     },
                 }
                 return Response(data=encrypt(resp), status=status.HTTP_200_OK)
@@ -352,16 +350,13 @@ class InterBankTransfer(generics.CreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
+    @staticmethod
     def _generate_transaction_id(prefix):
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = str(int(time.time()))[-10:]
         rand_suffix = "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=6)
+            random.choices(string.ascii_uppercase + string.digits, k=4)
         )
-
-        # Combine all parts
-        tx_id = f"{prefix}{timestamp}{rand_suffix}"
-
-        return tx_id
+        return f"{prefix}{timestamp}{rand_suffix}"
 
     def post(self, request):
         authenticated_user = request.user
@@ -399,7 +394,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
-            tx_id = self._generate_transaction_id(prefix="PICA")
+            tx_id = self._generate_transaction_id(prefix="TRA")
             transfer_resp = Transfers.initiate_transfer(
                 bank=payload.get("beneficiary_bank_code"),
                 account_number=payload.get("beneficiary_account_number"),
@@ -408,7 +403,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 sender_account_number=payload.get("sender_account_number"),
                 amount=payload.get("amount"),
                 description=payload.get("description"),
-                transactionType="INTRA_BANK",
+                transactionType="INTER_BANK",
                 tx_ref=tx_id,
             )
 
@@ -416,19 +411,20 @@ class InterBankTransfer(generics.CreateAPIView):
                 logger.info("Transfer successful, recording transaction.")
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=payload.get("transaction_reference"),
-                    tx_type="Transfer to Providus Account",
-                    tx_id=tx_id,
-                    amount=payload.get("transaction_amount"),
-                    description=payload.get("narration"),
+                    tx_reference=tx_id,
+                    tx_type="Inter-Bank Transfer",
+                    amount=payload.get("amount"),
+                    description=payload.get("description"),
                 )
 
                 TransferModel.objects.create(
                     user=authenticated_user,
                     tx=tx,
-                    beneficiary_account_number=payload.get("credit_account"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
                     source_account_name=authenticated_user.full_name,
-                    transaction_amount=payload.get("transaction_amount"),
+                    amount=payload.get("amount"),
                 )
 
                 # Notify user
@@ -437,7 +433,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     .first()
                     .available_balance
                 )
-                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['transaction_amount']} has been confirmed. Your available balance is ₦{account_balance}."
+                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account_balance}."
 
                 UserNotification.objects.create(
                     user=authenticated_user,
@@ -447,7 +443,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 ActivityModel.objects.create(
                     user=authenticated_user,
                     title="Bank Transfer",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['transaction_amount']}. Available balance is ₦{account_balance}.",
+                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account_balance}.",
                 )
 
                 logger.info(
@@ -458,12 +454,12 @@ class InterBankTransfer(generics.CreateAPIView):
                     "status": "success",
                     "message": "Transfer successful.",
                     "data": {
-                        "credit_account": payload.get("credit_account"),
-                        "debit_account": payload.get("debit_account"),
-                        "amount": payload.get("transaction_amount"),
-                        "narration": payload.get("narration"),
-                        "beneficiaryBank": "Providus Bank",
-                        "transactionReference": payload["transaction_reference"],
+                        "credit_account": payload.get("beneficiary_account_number"),
+                        "debit_account": payload.get("sender_account_number"),
+                        "amount": payload.get("amount"),
+                        "narration": payload.get("description"),
+                        "beneficiaryBank": payload.get("beneficiary_bank_code"),
+                        "transactionReference": tx_id,
                     },
                 }
                 return Response(data=encrypt(resp), status=status.HTTP_200_OK)

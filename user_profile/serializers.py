@@ -21,6 +21,7 @@ class GetUserSerializer(serializers.ModelSerializer):
 
     balance = serializers.SerializerMethodField()
     redeemable = serializers.SerializerMethodField()
+    tier = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
@@ -49,6 +50,9 @@ class GetUserSerializer(serializers.ModelSerializer):
             "has_card",
             "balance",
             "redeemable",
+            "is_bvn_verified",
+            "is_nin_verified",
+            "tier",
         ]
 
     def get_balance(self, obj):

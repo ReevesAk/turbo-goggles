@@ -161,7 +161,13 @@ class WalletDetailsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WalletModel
-        fields = ["acct_name", "account_number", "customer_numnber", "balance", "tier"]
+        fields = [
+            "acct_name",
+            "account_number",
+            "transactionTrackingRef",
+            "balance",
+            "tier_level",
+        ]
 
 
 class GetProvidusAccountSerializer(serializers.ModelSerializer):

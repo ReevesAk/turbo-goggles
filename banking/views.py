@@ -407,7 +407,7 @@ class CreateUserWallet(generics.GenericAPIView):
 
             response_data = wallet_response.json()
             response_message = response_data.get("message")
-            wallet_status = wallet_response.get("status")
+            wallet_status = response_data.get("status")
 
             # Handle different response codes explicitly
             if (
@@ -417,7 +417,7 @@ class CreateUserWallet(generics.GenericAPIView):
                 user_acc = WalletModel.objects.create(
                     user=current_user,
                     account_number=wallet_response.json()["data"]["accountNumber"],
-                    customer_numnber=unique_code,
+                    transactionTrackingRef=unique_code,
                     acct_name=wallet_response.json()["data"]["fullName"],
                     address=payload.get("address"),
                     walletType="INDIVIDUAL",

@@ -201,10 +201,18 @@ CSP_SCRIPT_SRC = (
 CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
 
 # Enable HTTP Strict Transport Security (HSTS)
-SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Apply HSTS to all subdomains
-SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
-SECURE_SSL_REDIRECT = True
+if conf("ENVIRONMENT") == "production":
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Apply HSTS to all subdomains
+    SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
+
+else:
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = ["https://api.picadailys.com", "http://localhost:5173", "https://miniature-waddle-k5bz.onrender.com"]

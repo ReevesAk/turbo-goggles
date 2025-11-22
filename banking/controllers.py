@@ -120,7 +120,7 @@ class Wallet:
         email,
         phoneNo,
     ):
-        resource = "individual_account_api"
+        resource = "open_wallet"
         payload = {
             "transactionTrackingRef": transactionTrackingRef,
             "lastName": lastName,

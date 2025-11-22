@@ -62,6 +62,7 @@ class WalletModel(models.Model):
     balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00"), null=True
     )
+    tier_level = models.CharField(default="1", max_length=5, null=True)
     status = models.BooleanField(default=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
