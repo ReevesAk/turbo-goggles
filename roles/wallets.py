@@ -1,23 +1,16 @@
-import logging
-import requests
-
 from django.core.cache import cache
 
 # In project imports.
 from .serializers import ListWalletUsersSerializer
-from .models import ActivityModel
 
 # Third party imports.
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.parsers import MultiPartParser, JSONParser
 
-from accounts.models import User, UserNotification
-from banking.models import WalletModel, UserKYC
+from banking.models import WalletModel
 from banking.serializers import WalletStatusSerializer
-from banking.controllers import Wallet, KYC
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt
 

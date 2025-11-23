@@ -747,7 +747,7 @@ class FundWallet(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        user_details = AccountCreation.objects.get(user=user)
+        user_details = WalletModel.objects.get(user=user)
 
         try:
             transfer_resp = Transfers.Intra_bank_transfer(

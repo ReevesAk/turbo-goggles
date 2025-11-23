@@ -380,56 +380,56 @@ class Wallet:
             )
 
 
-class Forex:
-    @staticmethod
-    def generate_quote():
-        resource = "fx/quote"
+# class Forex:
+#     @staticmethod
+#     def generate_quote():
+#         resource = "fx/quote"
 
-        payload = {"source_currency": "NGN", "target_currency": "USD", "amount": 10000}
-        bearer_token = login()
-        headers = {
-            "accept": "application/json",
-            "content-Type": "application/json",
-            "Authorization": bearer_token,
-        }
+#         payload = {"source_currency": "NGN", "target_currency": "USD", "amount": 10000}
+#         bearer_token = login()
+#         headers = {
+#             "accept": "application/json",
+#             "content-Type": "application/json",
+#             "Authorization": bearer_token,
+#         }
 
-        try:
-            response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Generate quote request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#         try:
+#             response = requests.post(
+#                 url=base_url + resource,
+#                 json=payload,
+#                 headers=headers,
+#             )
+#             return response
+#         except requests.exceptions.RequestException as e:
+#             logging.error(f"Generate quote request error: {str(e)}")
+#             return Response(
+#                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 
-    @staticmethod
-    def exchange(reference):
-        resource = "fx"
+#     @staticmethod
+#     def exchange(reference):
+#         resource = "fx"
 
-        payload = {"quote_reference": reference}
-        bearer_token = login()
-        headers = {
-            "accept": "application/json",
-            "content-Type": "application/json",
-            "Authorization": bearer_token,
-        }
+#         payload = {"quote_reference": reference}
+#         bearer_token = login()
+#         headers = {
+#             "accept": "application/json",
+#             "content-Type": "application/json",
+#             "Authorization": bearer_token,
+#         }
 
-        try:
-            response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Forex exchange request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#         try:
+#             response = requests.post(
+#                 url=base_url + resource,
+#                 json=payload,
+#                 headers=headers,
+#             )
+#             return response
+#         except requests.exceptions.RequestException as e:
+#             logging.error(f"Forex exchange request error: {str(e)}")
+#             return Response(
+#                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 
 
 class Transfers:
