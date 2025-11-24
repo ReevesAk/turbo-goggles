@@ -436,13 +436,16 @@ class GetAllActivityLogsSerializer(serializers.Serializer):
 
 
 class ChangeWalletStatusSerializer(serializers.ModelSerializer):
-    pin = serializers.SerializerMethodField()
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
 
     class Meta:
         model = WalletModel
         fields = [
             "account_number",
             "status",
+            "pin",
             "created_at",
         ]
 
