@@ -307,3 +307,65 @@ CACHES = {
         }
     }
 }
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    # Formatters
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+
+    # Handlers
+    'handlers': {
+        'console': {
+            'level': 'INFO',   # changed from DEBUG → INFO
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+
+    # Loggers
+    'loggers': {
+        # Django core logs (remove DEBUG noise)
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',    # changed from DEBUG → WARNING
+            'propagate': True,
+        },
+
+        # Remove SQL debug log noise
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+
+        # Suppress runserver & autoreloader debug spam
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+
+        # Your apps (unchanged — keep INFO)
+        'accounts': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'adverts': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'banking': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'fmcg': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'partners': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'roles': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'self_service': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'support': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'user_profile': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'vas': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+}
