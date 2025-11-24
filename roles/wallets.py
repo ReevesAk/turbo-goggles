@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import UserNotification, ActivityModel
+from accounts.models import UserNotification
+from roles.models import ActivityModel
 from banking.models import WalletModel
 from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
@@ -155,7 +156,9 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
             )
 
         if wallet.status == new_status:
-            logger.info(f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} is already {new_status}.")
+            logger.info(
+                f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} is already {new_status}."
+            )
             response_data = {
                 "status": "fail",
                 "message": f"Wallet is already {new_status}.",
@@ -164,7 +167,9 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
                 data=encrypt(response_data),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        logger.info(f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} has changed to {new_status}.")
+        logger.info(
+            f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} has changed to {new_status}."
+        )
 
         UserNotification.objects.create(
             user=wallet.user,
@@ -175,7 +180,7 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
         ActivityModel.objects.create(
             user=request.user,
             title="Wallet Status Change",
-            description=f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} has changed to {new_status}."
+            description=f"User wallet, {wallet.acct_name} with account number: {wallet.account_number} has changed to {new_status}.",
         )
 
         wallet.status = new_status

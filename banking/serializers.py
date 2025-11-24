@@ -243,7 +243,6 @@ class GetTransferStatusSerializer(serializers.Serializer):
 
 
 class WalletStatusSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = WalletModel
         fields = [
