@@ -300,9 +300,9 @@ class Wallet:
             )
 
     @staticmethod
-    def Debit(self, debitAccount, amount, reason, merchantFeeAmount):
+    def Debit(debitAccount, amount, reason, merchantFeeAmount):
         bearer_token = authenticate()
-        tx_id = self._generate_transaction_id(prefix="PICA")
+        tx_id = Wallet._generate_transaction_id(prefix="PICA")
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
             return None
@@ -340,9 +340,9 @@ class Wallet:
             )
 
     @staticmethod
-    def Credit(self, acct_no, amount, reason):
+    def Credit(acct_no, amount, reason):
         bearer_token = authenticate()
-        tx_id = self._generate_transaction_id(prefix="PICA")
+        tx_id = Wallet._generate_transaction_id(prefix="PICA")
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
             return None

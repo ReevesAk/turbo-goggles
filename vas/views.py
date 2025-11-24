@@ -185,6 +185,7 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         tx_reference = VAS.generate_unique_code("PICA")
         vas_token = VAS.authenticate()
+        logger.info(f"VAS token: {vas_token}")
 
         # Extract fields
         pin = user_data.get("pin")

@@ -43,8 +43,8 @@ class VAS:
                 url=AUTH_URL, json=PAYLOAD, headers=HEADERS, timeout=10
             )
             resp.raise_for_status()
-            if resp.json().get("message") == "successful":
-                token = resp.json().get("accessToken")
+            if resp.json().get("message") == "Authentication Successful":
+                token = resp.json()["data"].get("accessToken")
                 return token
         except requests.RequestException as e:
             logging.error("Request failed: %s", e)
