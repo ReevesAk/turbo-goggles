@@ -407,7 +407,10 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
         model = WalletModel
         fields = [
             "acct_name",
+            "transactionTrackingRef",
             "balance",
+            "account_number",
+            "tier_level",
             "userTypes",
             "status",
         ]
@@ -430,3 +433,21 @@ class GetAllActivityLogsSerializer(serializers.Serializer):
             "description",
             "date",
         ]
+
+
+class ChangeWalletStatusSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
+
+    class Meta:
+        model = WalletModel
+        fields = [
+            "account_number",
+            "status",
+            "pin",
+            "created_at",
+        ]
+
+    def get_status(self, obj):
+        return "STATUS" if obj.status else "SUSPENDED"

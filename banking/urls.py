@@ -25,7 +25,7 @@ from .transfers import (
     FundWallet,
 )
 
-from .fx import GetQuotation
+# from .fx import GetQuotation
 from .tx import AllTransactions, RetrieveTransaction
 
 from .webhooks import (
@@ -77,7 +77,7 @@ urlpatterns = [
         name="retrieve_transaction",
     ),
     # FX
-    path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
+    # path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
     # Webhooks
     path("webhook", CardDepositPaystackWebhook.as_view(), name="paystack_webhook"),
     path(
