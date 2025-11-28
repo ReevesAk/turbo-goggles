@@ -326,18 +326,31 @@ CRONJOBS = [
 ]
 
 if conf("ENVIRONMENT") == "production":
+    # CACHES = {
+    #     "default": {
+    #         "BACKEND": "django_redis.cache.RedisCache",
+    #         "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
+    #         "OPTIONS": {
+    #             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+    #             "CONNECTION_POOL_KWARGS": {
+    #                 "max_connections": 200,
+    #                 "retry_on_timeout": True
+    #             },
+    #             "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
+    #         }
+    #     }
+    # }
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
+            "LOCATION": REDIS_LOCATION,
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {
-                    "max_connections": 200,
-                    "retry_on_timeout": True
-                },
-                "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
-            }
+                "CONNECTION_POOL_KWARGS": {"max_connections": 200, "retry_on_timeout": True},
+                # SSL only if your Redis URL is rediss://
+                "SSL": REDIS_LOCATION.startswith("rediss://"),
+            },
+            "TIMEOUT": 300,
         }
     }
     DEFAULT_THROTTLE_CLASSES = [
