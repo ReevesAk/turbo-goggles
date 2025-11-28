@@ -187,6 +187,26 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
     "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "700/hour",
+        "anon": "50/hour",
+        "low_usage": "10/hour",
+        "high_usage": "500/hour",
+
+        # Custom per-endpoint scopes
+        "otp": "5/minute",
+        "otp_request": "3/minute",
+        "login": "5/minute",
+        "wallet_transfer": "10/hour",
+        "pin_change": "5/hour",
+        "password_change": "2/hour"
+    },
 }
 
 # CSP configuration.
@@ -305,16 +325,36 @@ CRONJOBS = [
     ("*/5 * * * *", "gamification.jobs.refresh_all_users_points")
 ]
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_LOCATION,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"max_connections": 100, "retry_on_timeout": True},
+if conf("ENVIRONMENT") == "production":
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 200,
+                    "retry_on_timeout": True
+                },
+                "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
+            }
         }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_LOCATION,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 100,
+                    "retry_on_timeout": True
+                },
+                "TIMEOUT": 300,
+            }
+        }
+    }
 
 LOGGING = {
     'version': 1,
