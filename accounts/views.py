@@ -192,6 +192,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
     permission_classes = (AllowAny,)
     serializer_class = VerifyOTPSerializer
+    throttle_scope = "otp"
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -488,6 +489,7 @@ class Login(APIView):
     """
 
     serializer_class = LoginSerializers
+    throttle_scope = "login"
 
     def post(self, request):
         print(request.data)
@@ -615,6 +617,7 @@ class ForgotPassword(generics.GenericAPIView):
     forgot password request.
     """
 
+    throttle_scope = "password_change"
     serializer_class = ForgotPasswordSerializer
 
     def post(self, request):

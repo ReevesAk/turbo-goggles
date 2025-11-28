@@ -196,6 +196,7 @@ class IntraBankTransfer(generics.CreateAPIView):
     serializer_class = BankTransfersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+    throttle_scope = "wallet_transfer"
 
     @staticmethod
     def _generate_transaction_id(prefix):
@@ -349,6 +350,7 @@ class InterBankTransfer(generics.CreateAPIView):
     serializer_class = BankTransfersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+    throttle_scope = "wallet_transfer"
 
     @staticmethod
     def _generate_transaction_id(prefix):

@@ -518,6 +518,7 @@ class ChangePassword(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
+    throttle_scope = "password_change"
 
     def update(self, request, *args, **kwargs):
         logger.info(
