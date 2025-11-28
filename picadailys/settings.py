@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     # Internal Project apps.
     "accounts",
     "adverts",
-    "roles",
+    "roles.apps.RolesConfig",
     "partners",
     "vas",
     "fmcg",
@@ -340,21 +340,20 @@ if conf("ENVIRONMENT") == "production":
             }
         }
     }
+    DEFAULT_THROTTLE_CLASSES = [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ]
 elif conf("ENVIRONMENT") == "development":
     CACHES = {
         "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_LOCATION,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {
-                    "max_connections": 100,
-                    "retry_on_timeout": True
-                },
-                "TIMEOUT": 300,
-            }
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
+            "TIMEOUT": 300,
         }
     }
+    DEFAULT_THROTTLE_CLASSES = [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ]
 
 LOGGING = {
     'version': 1,
