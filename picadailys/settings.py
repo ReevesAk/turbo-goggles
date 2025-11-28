@@ -340,7 +340,7 @@ if conf("ENVIRONMENT") == "production":
             }
         }
     }
-else:
+elif conf("ENVIRONMENT") == "development":
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
