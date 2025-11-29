@@ -1,3 +1,5 @@
+import logging
+
 # Third party imports.
 from rest_framework import serializers
 
@@ -16,6 +18,8 @@ from .models import (
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from security import encrypt
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterSuperAdminSerializer(serializers.ModelSerializer):
@@ -451,3 +455,32 @@ class ChangeWalletStatusSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         return "STATUS" if obj.status else "SUSPENDED"
+
+
+class ForgotPinSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(max_length=6, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("Forgot admin pin request for email: %s", email)
+        return attrs
+
+
+class ResetPinSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    admin_id = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ("admin_id", "password", "password2")
+
+    # def validate(self, attrs):
+    #     admin_id = attrs.get("admin_id")
+    #     user = User.objects.get(id=admin_id)
+    #     logger.info("OTP resend request for phone number: %s", user.phone_number)
+    #     return attrs

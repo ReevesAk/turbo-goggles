@@ -29,6 +29,8 @@ from .serializers import (
     CreateAdminPinSerializer,
     EnableAdminSerializer,
     GetAllActivityLogsSerializer,
+    ForgotPinSerializer,
+    ResetPinSerializer
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -40,7 +42,7 @@ from .models import Applications, ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
-from commons import Messaging
+from accounts.serializers import VerifyOTPSerializer
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -50,6 +52,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import ADMIN_TYPES
 
@@ -66,6 +69,7 @@ from permissions import (
     IsWalletAdminOrSuperAdmin,
 )
 from sms import Message
+from commons import Messaging
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -807,6 +811,229 @@ class SetAdminPin(generics.CreateAPIView):
                 data=encrypt({"status": "error", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class AdminForgotPin(generics.GenericAPIView):
+    """
+    AdminForgotPin handles the POST request of sending a
+    forgot pin request for an admin user.
+    """
+
+    throttle_scope = "password_change"
+    serializer_class = ForgotPinSerializer
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = user_data.get("email")
+        try:
+            user = User.objects.get(email=email)
+            logger.info(f"User found for email: {user.email}")
+        except User.DoesNotExist:
+            logger.warning(
+                f"No admin found with email: {email}"
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "detail": "An admin with this email does not exist",
+                    }
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your pin"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "+123 456 7890",
+            },
+        )
+
+        Messaging.send_email(
+            email=email,
+            html_content=text_content,
+            subject="Admin Pin Reset"
+        )
+        logger.info(f"OTP sent to email: {email}")
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Admin Pin Reset Request",
+            description=f"{user.first_name} {user.last_name} submitted a pin reset request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your mailbox for an OTP",
+        }
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
+
+
+class PinPhoneVerifyOTP(generics.GenericAPIView):
+    """
+    PinVerifyOTP handles the POST request of verifying an admin
+    user with valid email for pin reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        logger.debug("Received data for pin reset OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+
+        # Validate incoming data with serializer class.
+        if not serializer.is_valid(raise_exception=True):
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        received_otp = serializer.data["otp"]
+        logger.info("OTP received for pin reset: %s", received_otp)
+
+        # Validate OTP
+        user_id = otp_manager.validate_user_otp(received_otp)
+        if not user_id:
+            logger.warning(
+                "Invalid or expired OTP during pin reset: %s", received_otp
+            )
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Invalid or expired OTP"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.error(
+                "Admin user with id %s not found for pin reset verification.",
+                user_id,
+            )
+            return Response(
+                data=encrypt({"status": "fail", "message": "Admin user not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Send confirmation message to the user
+        msg = "User is verified... You can reset your pin now!"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "+123 456 7890",
+            },
+        )
+
+        Messaging.send_email(
+            email=user.email,
+            html_content=text_content,
+            subject="Admin Verify OTP"
+        )
+
+        # Log activity for verification
+        ActivityModel.objects.create(
+            user=user,
+            title="Verify Account",
+            description=f"{user.first_name} {user.last_name} verified OTP for pin reset.",
+        )
+        logger.info(
+            "Pin reset OTP verification activity logged for admin user %s.", user.id
+        )
+
+        verified_response = {
+            "status": "success",
+            "message": "Account is verified",
+            "user_id": user_id,
+        }
+        encrypted_response = encrypt(verified_response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+
+class ResetPassword(generics.CreateAPIView):
+    serializer_class = ResetPinSerializer
+
+    def create(self, request):
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_data = serializer.validated_data
+        admin_id = payload.get("admin_id")
+
+        try:
+            user = User.objects.get(id=admin_id)
+            logger.info(f"User found for ID: {user.id}")
+        except User.DoesNotExist:
+            logger.error(f"Admin not found with ID: {admin_id}")
+            return Response(
+                data=encrypt({"status": "fail", "message": "Admin not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_data.get("pin") != user_data.get("pin2"):
+            logger.warning("Pins do not match for Admin ID: %s", admin_id)
+            return Response(
+                data=encrypt({"error": "Pins do not match!"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data["password"]
+        user.password = make_password(password)
+
+        user_token = payload.get("refresh_token")
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {admin_id}")
+
+        user.save()
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Admin Pin Reset.",
+            description=f"{user.first_name} {user.last_name} reset their password.",
+        )
+
+        response = {"status": "success", "message": "Pin reset successfully"}
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class AddRoleToAdmin(generics.GenericAPIView):
