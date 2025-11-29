@@ -886,7 +886,7 @@ class AdminForgotPin(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
-class PinPhoneVerifyOTP(generics.GenericAPIView):
+class PinVerifyOTP(generics.GenericAPIView):
     """
     PinVerifyOTP handles the POST request of verifying an admin
     user with valid email for pin reset.
@@ -979,7 +979,7 @@ class PinPhoneVerifyOTP(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-class ResetPassword(generics.CreateAPIView):
+class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
 
     def create(self, request):

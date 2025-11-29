@@ -31,6 +31,9 @@ from .views import (
     GetAllAdminUsersTypes,
     GetAllWalletStatus,
     ActivityTitleListView,
+    AdminForgotPin,
+    PinVerifyOTP,
+    ResetPin
 )
 
 from .tasks import (
@@ -74,6 +77,9 @@ urlpatterns = [
         RemoveAdminRole.as_view(),
         name="remove_role_from_admin",
     ),
+    path("admin-forgot-pin", AdminForgotPin.as_view(), name="admin_forgot_pin"),
+    path("verify-pin-otp", PinVerifyOTP.as_view(), name="verify_pin_otp"),
+    path("reset-pin", ResetPin.as_view(), name="reset_pin"),
     path("list-admin-users", GetAllAdminUsers.as_view(), name="list_admin_users"),
     path(
         "list-admin-user-types",
