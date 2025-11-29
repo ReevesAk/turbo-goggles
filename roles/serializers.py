@@ -4,7 +4,7 @@ import logging
 from rest_framework import serializers
 
 # In project imports.
-from accounts.models import User
+from accounts.models import User, TxModel
 
 from banking.models import WalletModel
 
@@ -406,6 +406,7 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
 class ListWalletUsersSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
     userTypes = serializers.SerializerMethodField()
+    recentTransactions = serializers.SerializerMethodField()
 
     class Meta:
         model = WalletModel
@@ -416,14 +417,31 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
             "account_number",
             "tier_level",
             "userTypes",
+            "email",
+            "gender",
             "status",
+            "created_at",
+            "recentTransactions",   # 👈 NEW
         ]
 
     def get_userTypes(self, obj):
-        """
-        Get the list of user types for a wallet user from the AccountType model.
-        """
         return list(obj.user.account_types.values_list("user_type", flat=True))
+
+    def get_recentTransactions(self, obj):
+        """
+        Returns last 5 transactions using prefetched list (no DB hit).
+        """
+        tx_list = getattr(obj.user, "last_five_tx", [])
+
+        return [
+            {
+                "description": tx.description,
+                "amount": tx.amount,
+                "date": tx.date.isoformat(),
+                "status": tx.tx_type,
+            }
+            for tx in tx_list
+        ]
 
 
 class GetAllActivityLogsSerializer(serializers.Serializer):

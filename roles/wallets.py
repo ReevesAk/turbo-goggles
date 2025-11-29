@@ -1,6 +1,7 @@
 import logging
 from django.core.cache import cache
 from django.contrib.auth.hashers import check_password
+from django.db.models import Prefetch
 
 # In project imports.
 from .serializers import ListWalletUsersSerializer, ChangeWalletStatusSerializer
@@ -11,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import UserNotification
+from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
 from banking.models import WalletModel
 from banking.serializers import WalletStatusSerializer
@@ -23,11 +24,8 @@ logger = logging.getLogger(__name__)
 
 class GetallWalletUsers(generics.ListAPIView):
     """
-    GetallWalletUsers is the GET request to retrieve the count
-    of all wallet owners.
+    Retrieves all wallet users with their last 5 transactions.
     """
-
-    queryset = WalletModel.objects.all().order_by("created_at")
     serializer_class = ListWalletUsersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [
@@ -35,6 +33,24 @@ class GetallWalletUsers(generics.ListAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
+
+    def get_queryset(self):
+        """
+        Prefetch last 5 transactions per user efficiently.
+        No N+1 queries.
+        """
+        last_5_transactions = Prefetch(
+            "user__txmodel_set",
+            queryset=TxModel.objects.order_by("-date")[:5],
+            to_attr="last_five_tx"
+        )
+
+        return (
+            WalletModel.objects
+            .select_related("user")
+            .prefetch_related(last_5_transactions)
+            .order_by("created_at")
+        )
 
     def list(self, request, *args, **kwargs):
         cache_key = "wallet_users_list"
@@ -54,7 +70,7 @@ class GetallWalletUsers(generics.ListAPIView):
                 "num_of_wallet_owners": queryset.count(),
                 "wallet_owners": serialized_users.data,
             }
-            # Save to cache (short TTL)  # ✅ cache for 5 minutes
+            # Cache for 5 minutes
             return self.get_paginated_response(encrypt(data))
 
         serialized_users = self.get_serializer(queryset, many=True)
@@ -65,8 +81,8 @@ class GetallWalletUsers(generics.ListAPIView):
             "wallet_owners": serialized_users.data,
         }
 
-        # Save to cache (short TTL)
-        cache.set(cache_key, data, timeout=300)  # 5 minutes
+        # Cache for 5 minutes
+        cache.set(cache_key, data, timeout=300)
         return Response(encrypt(data), status=status.HTTP_200_OK)
 
 
