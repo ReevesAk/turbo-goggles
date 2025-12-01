@@ -33,6 +33,7 @@ from .models import (
 from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
 from banking.helpers import Pin
+from banking.models import WalletModel
 from commons import Biometrics
 from roles.models import ActivityModel
 from security import encrypt, decrypt
@@ -73,11 +74,11 @@ class TableBooking(generics.CreateAPIView):
                 biometrics = user_data.get("use_biometrics")
 
                 try:
-                    account = AccountCreation.objects.get(user=authenticated_user)
-                except AccountCreation.DoesNotExist:
+                    account = WalletModel.objects.get(user=authenticated_user)
+                except WalletModel.DoesNotExist:
                     return Response(
                         data=encrypt(
-                            {"status": "fail", "error": "Account not found for user"}
+                            {"status": "fail", "error": "Wallet not found for user"}
                         ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
@@ -257,13 +258,25 @@ class TableBookingList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Handle pagination manually so we can encrypt the whole response
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
+            paginated_data = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            encrypted = encrypt(paginated_data)
+            return Response(data=encrypted, status=status.HTTP_200_OK)
+
+        # Non-paginated response (rare case)
+        serializer = self.get_serializer(queryset, many=True)
+        encrypted = encrypt(serializer.data)
+        return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
 class TableBookingDetail(generics.RetrieveAPIView):
@@ -494,13 +507,25 @@ class GymBookingList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Handle pagination manually so we can encrypt the whole response
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
+            paginated_data = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            encrypted = encrypt(paginated_data)
+            return Response(data=encrypted, status=status.HTTP_200_OK)
+
+        # Non-paginated response (rare case)
+        serializer = self.get_serializer(queryset, many=True)
+        encrypted = encrypt(serializer.data)
+        return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
 class GymBookingDetail(generics.RetrieveAPIView):
@@ -718,24 +743,38 @@ class CinemaBookingList(generics.ListAPIView):
 
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated, IsMember | IsSuperAdmin]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = CinemaBooking.objects.filter(user=user)
-        return queryset
+        return (
+            CinemaBooking.objects
+            .filter(user=self.request.user)
+            .order_by("-id")  # Fix warning & ensure stable pagination
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Handle pagination manually so we can encrypt the whole response
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
+            paginated_data = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            encrypted = encrypt(paginated_data)
+            return Response(data=encrypted, status=status.HTTP_200_OK)
+
+        # Non-paginated response (rare case)
+        serializer = self.get_serializer(queryset, many=True)
+        encrypted = encrypt(serializer.data)
+        return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
 class CinemaBookingDetail(generics.RetrieveAPIView):
@@ -956,22 +995,33 @@ class CourierBookingList(generics.ListAPIView):
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    pagination_class = PaginationStyle
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = CourierService.objects.filter(user=user)
-        return queryset
+        return CourierService.objects.filter(user=self.request.user).order_by('-id')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Handle pagination manually so we can encrypt the whole response
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
+            paginated_data = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            encrypted = encrypt(paginated_data)
+            return Response(data=encrypted, status=status.HTTP_200_OK)
+
+        # Non-paginated response (rare case)
+        serializer = self.get_serializer(queryset, many=True)
+        encrypted = encrypt(serializer.data)
+        return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
 class CourierBookingDetail(generics.RetrieveAPIView):
@@ -1409,13 +1459,25 @@ class LandTripBookingList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Handle pagination manually so we can encrypt the whole response
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            paginated_data = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            encrypted = encrypt(paginated_data)
+            return Response(data=encrypted, status=status.HTTP_200_OK)
+
+        # Non-paginated response (rare case)
+        serializer = self.get_serializer(queryset, many=True)
+        encrypted = encrypt(serializer.data)
+        return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
 class BookHotel(generics.GenericAPIView):

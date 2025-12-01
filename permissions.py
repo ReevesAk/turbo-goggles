@@ -152,9 +152,9 @@ class IsMember(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only Users and Members can perform this action."))
+                raise ValidationError("Only Users and Members can perform this action.")
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError("Authentication is required to access this resource.")
 
 
 class IsBrandAd(permissions.BasePermission):
