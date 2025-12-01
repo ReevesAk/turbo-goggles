@@ -435,7 +435,7 @@ class GetNetworkProvider(generics.RetrieveAPIView):
 
         try:
             json_path = os.path.join(
-                settings.BASE_DIR, "vas", "variation_codes", filename
+                settings.BASE_DIR, "vas", "data_plans", filename
             )
             logger.debug(f"Checking for file at: {json_path}")
 
