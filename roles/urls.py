@@ -33,7 +33,7 @@ from .views import (
     ActivityTitleListView,
     AdminForgotPin,
     PinVerifyOTP,
-    ResetPin
+    ResetPin,
 )
 
 from .tasks import (

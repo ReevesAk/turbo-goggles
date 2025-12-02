@@ -30,7 +30,7 @@ from .serializers import (
     EnableAdminSerializer,
     GetAllActivityLogsSerializer,
     ForgotPinSerializer,
-    ResetPinSerializer
+    ResetPinSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -839,9 +839,7 @@ class AdminForgotPin(generics.GenericAPIView):
             user = User.objects.get(email=email)
             logger.info(f"User found for email: {user.email}")
         except User.DoesNotExist:
-            logger.warning(
-                f"No admin found with email: {email}"
-            )
+            logger.warning(f"No admin found with email: {email}")
             return Response(
                 data=encrypt(
                     {
@@ -866,9 +864,7 @@ class AdminForgotPin(generics.GenericAPIView):
         )
 
         Messaging.send_email(
-            email=email,
-            html_content=text_content,
-            subject="Admin Pin Reset"
+            email=email, html_content=text_content, subject="Admin Pin Reset"
         )
         logger.info(f"OTP sent to email: {email}")
 
@@ -920,13 +916,9 @@ class PinVerifyOTP(generics.GenericAPIView):
         # Validate OTP
         user_id = otp_manager.validate_user_otp(received_otp)
         if not user_id:
-            logger.warning(
-                "Invalid or expired OTP during pin reset: %s", received_otp
-            )
+            logger.warning("Invalid or expired OTP during pin reset: %s", received_otp)
             return Response(
-                data=encrypt(
-                    {"status": "fail", "message": "Invalid or expired OTP"}
-                ),
+                data=encrypt({"status": "fail", "message": "Invalid or expired OTP"}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -955,9 +947,7 @@ class PinVerifyOTP(generics.GenericAPIView):
         )
 
         Messaging.send_email(
-            email=user.email,
-            html_content=text_content,
-            subject="Admin Verify OTP"
+            email=user.email, html_content=text_content, subject="Admin Verify OTP"
         )
 
         # Log activity for verification

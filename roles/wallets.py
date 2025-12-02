@@ -26,6 +26,7 @@ class GetallWalletUsers(generics.ListAPIView):
     """
     Retrieves all wallet users with their last 5 transactions.
     """
+
     serializer_class = ListWalletUsersSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [
@@ -42,12 +43,12 @@ class GetallWalletUsers(generics.ListAPIView):
         last_5_transactions = Prefetch(
             "user__txmodel_set",
             queryset=TxModel.objects.order_by("-date")[:5],
-            to_attr="last_five_tx"
+            to_attr="last_five_tx",
         )
 
         return (
-            WalletModel.objects
-            .select_related("user")
+            WalletModel.objects.select_related("user")
+            .prefetch_related("user__kyc")
             .prefetch_related(last_5_transactions)
             .order_by("created_at")
         )

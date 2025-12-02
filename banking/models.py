@@ -35,7 +35,7 @@ SEX = (
 
 
 class UserKYC(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="kyc")
     bvn = models.CharField(max_length=100, null=True, unique=True)
     bvn_verified = models.BooleanField(default=False, null=True)
     nin = models.CharField(max_length=100, null=True, unique=True)

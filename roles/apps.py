@@ -6,4 +6,4 @@ class RolesConfig(AppConfig):
     name = "roles"
 
     def ready(self):
-        from . import signals # noqa
+        from . import signals  # noqa

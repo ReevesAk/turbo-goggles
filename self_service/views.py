@@ -747,11 +747,9 @@ class CinemaBookingList(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        return (
-            CinemaBooking.objects
-            .filter(user=self.request.user)
-            .order_by("-id")  # Fix warning & ensure stable pagination
-        )
+        return CinemaBooking.objects.filter(user=self.request.user).order_by(
+            "-id"
+        )  # Fix warning & ensure stable pagination
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -998,7 +996,7 @@ class CourierBookingList(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        return CourierService.objects.filter(user=self.request.user).order_by('-id')
+        return CourierService.objects.filter(user=self.request.user).order_by("-id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
