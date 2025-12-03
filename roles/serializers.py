@@ -501,7 +501,7 @@ class ResetPinSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("admin_id", "password", "password2")
+        fields = ("admin_id", "pin", "pin2")
 
     # def validate(self, attrs):
     #     admin_id = attrs.get("admin_id")
