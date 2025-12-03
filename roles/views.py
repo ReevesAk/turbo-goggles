@@ -1006,7 +1006,7 @@ class ResetPin(generics.CreateAPIView):
             )
 
         password = user_data.get("pin")
-        user.password = make_password(password)
+        user.admin_pin = make_password(password)
 
         user_token = payload.get("refresh_token")
         if user_token:
