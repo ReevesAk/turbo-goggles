@@ -1005,7 +1005,7 @@ class ResetPin(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        password = user_data["password"]
+        password = user_data.get("pin")
         user.password = make_password(password)
 
         user_token = payload.get("refresh_token")
@@ -1019,7 +1019,7 @@ class ResetPin(generics.CreateAPIView):
         ActivityModel.objects.create(
             user=user,
             title="Admin Pin Reset.",
-            description=f"{user.first_name} {user.last_name} reset their password.",
+            description=f"{user.first_name} {user.last_name} reset their pin.",
         )
 
         response = {"status": "success", "message": "Pin reset successfully"}
