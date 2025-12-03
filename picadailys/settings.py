@@ -205,7 +205,7 @@ REST_FRAMEWORK = {
         "login": "5/minute",
         "wallet_transfer": "10/hour",
         "pin_change": "5/hour",
-        "password_change": "2/hour"
+        "password_change": "5/hour"
     },
 }
 
