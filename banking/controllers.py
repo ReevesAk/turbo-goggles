@@ -53,7 +53,7 @@ def authenticate():
 class KYC:
     @staticmethod
     def verify_bvn(bvn):
-        resource = "https://sandbox.dojah.io/api/v1/kyc/bvn/full"
+        url = "https://sandbox.dojah.io/api/v1/kyc/bvn/full"
         payload = {"bvn": bvn}
         headers = {
             "AppId": app_id,
@@ -61,14 +61,17 @@ class KYC:
         }
 
         try:
-            response = requests.post(
-                url=resource,
-                json=payload,
+            response = requests.get(
+                url=url,
+                params=payload,
                 headers=headers,
+                timeout=20
             )
+
             return response
+
         except requests.exceptions.RequestException as e:
-            logging.error(f"BVN check API request error: {str(e)}")
+            logging.error(f"Dojah BVN Error: {str(e)}")
             return response
 
     @staticmethod
@@ -81,14 +84,14 @@ class KYC:
         }
 
         try:
-            response = requests.post(
+            response = requests.get(
                 url=resource,
-                json=payload,
+                params=payload,
                 headers=headers,
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"BVN check API request error: {str(e)}")
+            logging.error(f"NIN check API request error: {str(e)}")
             return response
 
 

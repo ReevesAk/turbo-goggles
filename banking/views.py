@@ -89,8 +89,8 @@ class PaginationStyle(PageNumberPagination):
 )
 class VerifYBVN(generics.GenericAPIView):
     """
-    VerifYBVN handles the POST request of verifying a
-    customer's bvn. It accepts bvn registered phone number and bvn as inputs.
+    Handles BVN verification using Dojah.
+    Removes heavy base64 image from response.
     """
 
     serializer_class = BVNSerializer
@@ -103,117 +103,105 @@ class VerifYBVN(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        authenticated_user = request.user
 
-        # if authenticated_user.is_bvn_verified:
-        #     return Response(
-        #         data=encrypt({
-        #             "status": "success",
-        #             "message": "User has already verified BVN",
-        #         }),
-        #         status=status.HTTP_202_ACCEPTED,
-        #     )
-        try:
-            kyc = UserKYC.objects.get(user=authenticated_user)
-        except UserKYC.DoesNotExist:
-            kyc = UserKYC.objects.create(user=authenticated_user)
+        user = request.user
 
+        # Ensure user has a KYC object
+        kyc, _ = UserKYC.objects.get_or_create(user=user)
+
+        # Validate serializer input
         serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
+        serializer.is_valid(raise_exception=True)
+
+        # Prevent duplicate BVNs
+        if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
             return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+                data=encrypt({
+                    "status": "fail",
+                    "message": f"User with this BVN {user_data['bvn']} already exists."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        number = UserKYC.objects.filter(bvn=user_data.get("bvn")).exists()
-        num = user_data.get("bvn")
-        if number:
-            resp = {
-                "status": "fail",
-                "message": f"User with this bvn: {num} already exist",
-            }
-            encrypt_resp = encrypt(resp)
+        # Call Dojah BVN verification API
+        bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
+        if not bvn_response:
             return Response(
-                data=encrypt_resp,
-                status=status.HTTP_400_BAD_REQUEST,
+                data=encrypt({
+                    "status": "fail",
+                    "message": "BVN verification service failed."
+                }),
+                status=status.HTTP_502_BAD_GATEWAY
             )
-        # Verify the user's BVN.
-        bvn_response = KYC.verify_bvn(bvn=user_data.get("bvn"))
-        bvn_status_code = bvn_response.status_code
 
-        if bvn_status_code != 200:
-            response = {
-                "status": "fail",
-                "message": "Bvn verification was failed, bvn is either wrong or incomplete.",
+        # Handle non-200 status
+        if bvn_response.status_code != 200:
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "BVN verification failed, BVN is wrong or incomplete."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # BVN success response
+        bvn_data = bvn_response.json()
+        entity = bvn_data.get("entity", {})
+
+        # Remove heavy base64 image
+        entity.pop("image", None)
+
+        # --- PHONE NUMBER VERIFICATION ---
+        doj_phone = entity.get("phone_number1")
+        supplied_phone = user_data.get("bvn_phone")
+
+        if doj_phone != supplied_phone:
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "BVN verification failed, phone number mismatch."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --- SUCCESS: Update records ---
+        kyc.bvn = user_data["bvn"]
+        kyc.bvn_phone = supplied_phone
+        kyc.save()
+
+        user.is_bvn_verified = True
+        user.save()
+
+        UserNotification.objects.create(
+            user=user,
+            title="BVN Verification",
+            message="Your BVN verification was successful."
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="BVN Verification",
+            description=f"{user.full_name} verified their BVN successfully."
+        )
+
+        response_data = {
+            "status": "success",
+            "message": "BVN verification successful.",
+            "bvn_data": {
+                "first_name": entity.get("first_name"),
+                "last_name": entity.get("last_name"),
+                "middle_name": entity.get("middle_name"),
+                "date_of_birth": entity.get("date_of_birth"),
+                "gender": entity.get("gender"),
+                "phone_number": entity.get("phone_number1"),
+                "bvn": user_data["bvn"],
             }
-            encrypt_resp = encrypt(response)
-            return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
+        }
 
-        if bvn_status_code == 200:
-            try:
-                bvn_data = bvn_response.json()
-                if bvn_data.get("phone_number1") == user_data.get("bvn_phone"):
-                    logging.debug(f"BVN verification successful: {bvn_data}")
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "success",
-                                "message": "BVN verification successful.",
-                                "bvn data": bvn_data,
-                            }
-                        ),
-                        status=status.HTTP_200_OK,
-                    )
-                else:
-                    response = {
-                        "status": "fail",
-                        "message": "BVN verification failed, phone number does not match.",
-                    }
-                    encrypt_resp = encrypt(response)
-                    return Response(
-                        data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST
-                    )
-            except ValueError:
-                bvn_data = bvn_response.json()
-                logging.error(f"BVN verification failed: {bvn_data}")
-
-            # Update the user's BVN instance with the new data.
-            kyc.bvn = user_data.get("bvn")
-            kyc.bvn_verified = True
-            kyc.bvn_phone = user_data.get("bvn_phone")
-            kyc.save()
-
-            authenticated_user.is_nin_verified = True
-            authenticated_user.save()
-
-            serializer = BVNSerializer(data=user_data)
-
-            UserNotification.objects.create(
-                user=authenticated_user,
-                title="BVN Verification.",
-                message="Your BVN Verifiction is successful.",
-            )
-
-            ActivityModel.objects.create(
-                user=authenticated_user,
-                title="BVN Verification.",
-                description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their BVN successfully.",
-            )
-
-            response = {
-                "status": "success",
-                "message": "Bvn verification was successful",
-                "bvn data": {
-                    "first_name": bvn_data.get("first_name"),
-                    "last_name": bvn_data.get("last_name"),
-                    "date_of_birth": bvn_data.get("date_of_birth"),
-                    "phone_number": bvn_data.get("phone_number"),
-                    "bvn": user_data.get("bvn"),
-                },
-            }
-            encrypt_resp = encrypt(response)
-            return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
-        else:
-            return Response(data=encrypt(bvn_response.json()), status=bvn_status_code)
+        return Response(
+            data=encrypt(response_data),
+            status=status.HTTP_200_OK
+        )
 
 
 @extend_schema(
