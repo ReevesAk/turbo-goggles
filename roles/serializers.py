@@ -495,8 +495,8 @@ class ForgotPinSerializer(serializers.ModelSerializer):
 
 
 class ResetPinSerializer(serializers.ModelSerializer):
-    pin = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    pin2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    pin = serializers.CharField(max_length=68, min_length=5, write_only=True)
+    pin2 = serializers.CharField(max_length=68, min_length=5, write_only=True)
     admin_id = serializers.CharField(max_length=68, write_only=True)
 
     class Meta:
