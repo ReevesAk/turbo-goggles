@@ -482,7 +482,7 @@ class ChangeWalletStatusSerializer(serializers.ModelSerializer):
 
 
 class ForgotPinSerializer(serializers.ModelSerializer):
-    email = serializers.CharField(max_length=6, min_length=6, write_only=True)
+    email = serializers.CharField(max_length=50, write_only=True)
 
     class Meta:
         model = User
