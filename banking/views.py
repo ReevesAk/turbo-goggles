@@ -88,9 +88,8 @@ class PaginationStyle(PageNumberPagination):
     },
 )
 class VerifYBVN(generics.GenericAPIView):
-    """
-    Handles BVN verification using Dojah.
-    Removes heavy base64 image from response.
+    """ VerifYBVN handles the POST request of verifying a customer's bvn.
+        It accepts bvn registered phone number and bvn as inputs.
     """
 
     serializer_class = BVNSerializer
@@ -227,9 +226,8 @@ class VerifYBVN(generics.GenericAPIView):
     },
 )
 class VerifYNIN(generics.GenericAPIView):
-    """
-    VerifYNIN handles the POST request of verifying a
-    customer's nin. It accepts DOB and user NIN in this format: 1650-12-30.
+    """ VerifYNIN handles the POST request of verifying a customer's nin.
+        It accepts DOB and user NIN in this format: 1650-12-30.
     """
 
     serializer_class = NINSerializer
@@ -242,115 +240,108 @@ class VerifYNIN(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        authenticated_user = request.user
 
-        # if authenticated_user.is_bvn_verified:
-        #     return Response(
-        #         data=encrypt({
-        #             "status": "success",
-        #             "message": "User has already verified BVN",
-        #         }),
-        #         status=status.HTTP_202_ACCEPTED,
-        #     )
-        try:
-            kyc = UserKYC.objects.get(user=authenticated_user)
-        except UserKYC.DoesNotExist:
-            kyc = UserKYC.objects.create(user=authenticated_user)
+        user = request.user
 
+        # Ensure the user has a KYC instance
+        kyc, _ = UserKYC.objects.get_or_create(user=user)
+
+        # Validate serializer
         serializer = self.serializer_class(data=user_data)
-        if not serializer.is_valid(raise_exception=True):
+        serializer.is_valid(raise_exception=True)
+
+        # Prevent duplicate NIN
+        if UserKYC.objects.filter(nin=user_data["nin"]).exists():
             return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+                data=encrypt({
+                    "status": "fail",
+                    "message": f"User with this NIN {user_data['nin']} already exists."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        number = UserKYC.objects.filter(nin=user_data.get("nin")).exists()
-        num = user_data.get("nin")
-        if number:
-            resp = {
-                "status": "fail",
-                "message": f"User with this nin: {num} already exist",
-            }
-            encrypt_resp = encrypt(resp)
+        # Call Dojah API
+        nin_response = KYC.verify_nin(nin=user_data["nin"])
+
+        if not nin_response:
             return Response(
-                data=encrypt_resp,
-                status=status.HTTP_400_BAD_REQUEST,
+                data=encrypt({
+                    "status": "fail",
+                    "message": "NIN verification service failed."
+                }),
+                status=status.HTTP_502_BAD_GATEWAY
             )
-        # Verify the user's BVN.
-        nin_response = KYC.verify_nin(nin=user_data.get("nin"))
-        nin_status_code = nin_response.status_code
 
-        if nin_status_code != 200:
-            response = {
-                "status": "fail",
-                "message": "NIN verification was failed, NIN is either wrong or incomplete.",
+        # If status is not 200
+        if nin_response.status_code != 200:
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "NIN verification failed. NIN is wrong or incomplete."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Parse valid response
+        nin_data = nin_response.json()
+
+        # Remove heavy image if present
+        nin_data.pop("photo", None)
+        nin_data.pop("image", None)
+
+        # DOB check
+        supplied_dob = user_data.get("nin_dob")
+        verified_dob = nin_data["entity"].get("date_of_birth")
+
+        if verified_dob != supplied_dob:
+            print(f"verified: {verified_dob}")
+            print(f"supplied: {supplied_dob}")
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "NIN verification failed. Date of birth mismatch."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # SUCCESS ---- update DB
+        kyc.nin = user_data["nin"]
+        kyc.nin_dob = supplied_dob
+        kyc.save()
+
+        user.is_nin_verified = True
+        user.save()
+
+        UserNotification.objects.create(
+            user=user,
+            title="NIN Verification",
+            message="Your NIN verification was successful."
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="NIN Verification",
+            description=f"{user.full_name} verified their NIN successfully."
+        )
+
+        # Clean response
+        response_data = {
+            "status": "success",
+            "message": "NIN verification successful.",
+            "nin_data": {
+                "first_name": nin_data["entity"].get("first_name"),
+                "last_name": nin_data["entity"].get("last_name"),
+                "middle_name": nin_data["entity"].get("middle_name"),
+                "date_of_birth": nin_data["entity"].get("date_of_birth"),
+                "gender": nin_data["entity"].get("gender"),
+                "nin": user_data["nin"],
             }
-            encrypt_resp = encrypt(response)
-            return Response(data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST)
+        }
 
-        if nin_status_code == 200:
-            try:
-                nin_data = nin_response.json()
-                if nin_data.get("date_of_birth") == user_data.get("nin_dob"):
-                    logging.debug(f"NIN verification successful: {nin_data}")
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "success",
-                                "message": "NIN verification successful.",
-                                "nin data": nin_data,
-                            }
-                        ),
-                        status=status.HTTP_200_OK,
-                    )
-                else:
-                    response = {
-                        "status": "fail",
-                        "message": "NIN verification failed, date of birth does not match.",
-                    }
-                    encrypt_resp = encrypt(response)
-                    return Response(
-                        data=encrypt_resp, status=status.HTTP_400_BAD_REQUEST
-                    )
-            except ValueError:
-                nin_data = nin_response.json()
-                logging.error(f"NIN verification failed: {nin_data}")
-
-            # Update the user's NIN instance with the new data.
-            kyc.nin = user_data.get("nin")
-            kyc.nin_dob = user_data.get("nin_dob")
-            kyc.save()
-
-            authenticated_user.is_nin_verified = True
-            authenticated_user.save()
-
-            serializer = NINSerializer(data=user_data)
-
-            UserNotification.objects.create(
-                user=authenticated_user,
-                title="NIN Verification.",
-                message="Your NIN Verification is successful.",
-            )
-
-            ActivityModel.objects.create(
-                user=authenticated_user,
-                title="NIN Verification.",
-                description=f"{authenticated_user.first_name} {authenticated_user.last_name} verified their NIN successfully.",
-            )
-
-            response = {
-                "status": "success",
-                "message": "NIN verification was successful",
-                "nin data": {
-                    "first_name": nin_data.get("first_name"),
-                    "last_name": nin_data.get("last_name"),
-                    "date_of_birth": nin_data.get("date_of_birth"),
-                    "nin": user_data.get("nin"),
-                },
-            }
-            encrypt_resp = encrypt(response)
-            return Response(data=encrypt_resp, status=status.HTTP_201_CREATED)
-        else:
-            return Response(data=encrypt(nin_response.json()), status=nin_status_code)
+        return Response(
+            data=encrypt(response_data),
+            status=status.HTTP_200_OK
+        )
 
 
 class CreateUserWallet(generics.GenericAPIView):

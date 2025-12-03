@@ -88,6 +88,7 @@ class KYC:
                 url=resource,
                 params=payload,
                 headers=headers,
+                timeout=20
             )
             return response
         except requests.exceptions.RequestException as e:
