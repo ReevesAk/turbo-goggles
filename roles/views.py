@@ -866,6 +866,7 @@ class AdminForgotPin(generics.GenericAPIView):
         Messaging.send_email(
             email=email, html_content=text_content, subject="Admin Pin Reset"
         )
+        logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
         ActivityModel.objects.create(
