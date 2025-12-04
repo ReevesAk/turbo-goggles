@@ -180,7 +180,7 @@ class VerifYBVN(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=user,
             title="BVN Verification",
-            description=f"{user.full_name} verified their BVN successfully."
+            description=f"{user.first_name}, {user.last_name} verified their BVN successfully."
         )
 
         response_data = {
@@ -321,7 +321,7 @@ class VerifYNIN(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=user,
             title="NIN Verification",
-            description=f"{user.full_name} verified their NIN successfully."
+            description=f"{user.first_name}, {user.last_name} verified their NIN successfully."
         )
 
         # Clean response
