@@ -951,11 +951,18 @@ class PinVerifyOTP(generics.GenericAPIView):
             email=user.email, html_content=text_content, subject="Admin Verify OTP"
         )
 
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+        
         # Log activity for verification
         ActivityModel.objects.create(
             user=user,
             title="Verify Account",
-            description=f"{user.first_name} {user.last_name} verified OTP for pin reset.",
+            description=f"{full_name} verified OTP for pin reset.",
         )
         logger.info(
             "Pin reset OTP verification activity logged for admin user %s.", user.id
@@ -1016,10 +1023,17 @@ class ResetPin(generics.CreateAPIView):
 
         user.save()
 
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+
         ActivityModel.objects.create(
             user=user,
             title="Admin Pin Reset.",
-            description=f"{user.first_name} {user.last_name} reset their pin.",
+            description=f"{full_name} reset their pin.",
         )
 
         response = {"status": "success", "message": "Pin reset successfully"}
