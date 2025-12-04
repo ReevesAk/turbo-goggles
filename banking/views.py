@@ -740,8 +740,9 @@ class GetAccountDetails(generics.GenericAPIView):
                 "message": "Balance temporarily unavailable. Please refresh.",
                 "data": serializer.data,
             }
-            response["data"]["balance"] = None  # hide stale balance
+            response["data"]["balance"] = serializer.data.get("balance")
             response["data"]["live_enquiry_failed"] = True
+            response["data"]["is_live_balance"] = False
 
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 

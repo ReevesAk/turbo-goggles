@@ -60,7 +60,7 @@ class WalletModel(models.Model):
     active_role_on_creation = models.CharField(max_length=50, null=True)
     pin = models.CharField(max_length=155, null=True)
     balance = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00"), null=True
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
     tier_level = models.CharField(default="1", max_length=5, null=True)
     status = models.BooleanField(default=True, null=True)
