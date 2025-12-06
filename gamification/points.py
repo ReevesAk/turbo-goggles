@@ -96,6 +96,10 @@ class Points:
 
             points_obj, _ = user.points_set.get_or_create(user=user)
 
+            # Update naira value of points.
+            user.points_naira_value = naira_value
+            user.save(update_fields=["points_naira_value"])
+
             with transaction.atomic():
                 points_obj.balance = available_points
                 points_obj.redeemable = redeemable_points

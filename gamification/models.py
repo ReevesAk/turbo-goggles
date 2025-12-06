@@ -31,8 +31,10 @@ class GamificationModel(models.Model):
 
 
 class Points(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    balance = models.IntegerField(null=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    balance = models.IntegerField(default=0)
+    tier = models.CharField(max_length=20, default="Starter")
+    naira_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     @property
     def redeemable(self):

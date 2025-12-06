@@ -52,6 +52,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "redeemable",
             "is_bvn_verified",
             "is_nin_verified",
+            "points_naira_value",
             "tier",
         ]
 

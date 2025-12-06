@@ -6,5 +6,5 @@ user = User
 
 
 def refresh_all_users_points():
-    for user in User.objects.all():
+    for user in User.objects.filter(account_types__user_type="member").distinct():
         Points.refresh_user_points(user)

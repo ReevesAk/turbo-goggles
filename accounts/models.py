@@ -70,6 +70,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_member = models.BooleanField(default=False)
     has_done_survey = models.BooleanField(default=False)
     total_points = models.IntegerField(default=0, null=True)
+    points_naira_value = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        null=True, blank=True,
+        help_text="Naira value of user's redeemable points"
+    ),
     level = models.CharField(max_length=20, default="Starter", null=True)
     welcome_bonus = models.FloatField(default=Decimal("0.00"))
     has_bonus = models.BooleanField(default=False)
