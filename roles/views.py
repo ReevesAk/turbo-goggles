@@ -957,7 +957,7 @@ class PinVerifyOTP(generics.GenericAPIView):
             or user.phone_number
             or user.email
         )
-        
+
         # Log activity for verification
         ActivityModel.objects.create(
             user=user,

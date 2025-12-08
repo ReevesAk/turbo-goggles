@@ -62,10 +62,7 @@ class KYC:
 
         try:
             response = requests.get(
-                url=url,
-                params=payload,
-                headers=headers,
-                timeout=20
+                url=url, params=payload, headers=headers, timeout=20
             )
 
             return response
@@ -85,10 +82,7 @@ class KYC:
 
         try:
             response = requests.get(
-                url=resource,
-                params=payload,
-                headers=headers,
-                timeout=20
+                url=resource, params=payload, headers=headers, timeout=20
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -170,6 +164,8 @@ class Wallet:
     @staticmethod
     def UpgradeToTier2(
         wallet_id,
+        bvn,
+        nin,
         userPhoto,
         idType,
         idNumber,
@@ -181,8 +177,10 @@ class Wallet:
         pep,
         customerSignature,
     ):
-        resource = "wallet/upgrade"
+        resource = "wallet_upgrade"
         payload = {
+            "bvn": bvn,
+            "nin": nin,
             "wallet_id": wallet_id,
             "userPhoto": userPhoto,
             "idType": idType,
@@ -210,6 +208,7 @@ class Wallet:
             "Authorization": f"Bearer {bearer_token}",
         }
 
+        print(base_url + resource)
         try:
             response = requests.post(
                 url=base_url + resource,
