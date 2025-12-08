@@ -7,19 +7,7 @@ from django.utils import timezone
 
 from accounts.models import User, TxModel
 
-
-NGN_ID_TYPE = (
-    ("NIN", "NIN"),
-    ("PASSPORT", "PASSPORT"),
-    ("VOTERS_CARD", "VOTERS_CARD"),
-    ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
-)
-
-ID_TYPE = (
-    ("PASSPORT", "PASSPORT"),
-    ("VOTERS_CARD", "VOTERS_CARD"),
-    ("DRIVERS_LICENSE", "DRIVERS_LICENSE"),
-)
+ID_TYPE = (("1", "NIN"),)
 
 CARD_BRAND = (("VISA", "VISA"), ("MASTERCARD", "MASTERCARD"), ("VERVE", "VERVE"))
 
@@ -37,9 +25,7 @@ SEX = (
 class UserKYC(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="kyc")
     bvn = models.CharField(max_length=100, null=True, unique=True)
-    bvn_verified = models.BooleanField(default=False, null=True)
     nin = models.CharField(max_length=100, null=True, unique=True)
-    nin_verified = models.BooleanField(default=False, null=True)
     nin_dob = models.CharField(max_length=40, null=True)
     bvn_phone = models.CharField(max_length=15, null=True)
 
@@ -62,7 +48,7 @@ class WalletModel(models.Model):
     balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
-    tier_level = models.CharField(default="1", max_length=5, null=True)
+    tier_level = models.IntegerField(default=1, null=True)
     status = models.BooleanField(default=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 

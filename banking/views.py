@@ -88,8 +88,8 @@ class PaginationStyle(PageNumberPagination):
     },
 )
 class VerifYBVN(generics.GenericAPIView):
-    """ VerifYBVN handles the POST request of verifying a customer's bvn.
-        It accepts bvn registered phone number and bvn as inputs.
+    """VerifYBVN handles the POST request of verifying a customer's bvn.
+    It accepts bvn registered phone number and bvn as inputs.
     """
 
     serializer_class = BVNSerializer
@@ -115,32 +115,35 @@ class VerifYBVN(generics.GenericAPIView):
         # Prevent duplicate BVNs
         if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": f"User with this BVN {user_data['bvn']} already exists."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"User with this BVN {user_data['bvn']} already exists.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Call Dojah BVN verification API
         bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
         if not bvn_response:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "BVN verification service failed."
-                }),
-                status=status.HTTP_502_BAD_GATEWAY
+                data=encrypt(
+                    {"status": "fail", "message": "BVN verification service failed."}
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
             )
 
         # Handle non-200 status
         if bvn_response.status_code != 200:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "BVN verification failed, BVN is wrong or incomplete."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed, BVN is wrong or incomplete.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # BVN success response
@@ -156,11 +159,13 @@ class VerifYBVN(generics.GenericAPIView):
 
         if doj_phone != supplied_phone:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "BVN verification failed, phone number mismatch."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed, phone number mismatch.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # --- SUCCESS: Update records ---
@@ -174,13 +179,13 @@ class VerifYBVN(generics.GenericAPIView):
         UserNotification.objects.create(
             user=user,
             title="BVN Verification",
-            message="Your BVN verification was successful."
+            message="Your BVN verification was successful.",
         )
 
         ActivityModel.objects.create(
             user=user,
             title="BVN Verification",
-            description=f"{user.first_name}, {user.last_name} verified their BVN successfully."
+            description=f"{user.first_name}, {user.last_name} verified their BVN successfully.",
         )
 
         response_data = {
@@ -194,13 +199,10 @@ class VerifYBVN(generics.GenericAPIView):
                 "gender": entity.get("gender"),
                 "phone_number": entity.get("phone_number1"),
                 "bvn": user_data["bvn"],
-            }
+            },
         }
 
-        return Response(
-            data=encrypt(response_data),
-            status=status.HTTP_200_OK
-        )
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -226,8 +228,8 @@ class VerifYBVN(generics.GenericAPIView):
     },
 )
 class VerifYNIN(generics.GenericAPIView):
-    """ VerifYNIN handles the POST request of verifying a customer's nin.
-        It accepts DOB and user NIN in this format: 1650-12-30.
+    """VerifYNIN handles the POST request of verifying a customer's nin.
+    It accepts DOB and user NIN in this format: 1650-12-30.
     """
 
     serializer_class = NINSerializer
@@ -253,11 +255,13 @@ class VerifYNIN(generics.GenericAPIView):
         # Prevent duplicate NIN
         if UserKYC.objects.filter(nin=user_data["nin"]).exists():
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": f"User with this NIN {user_data['nin']} already exists."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"User with this NIN {user_data['nin']} already exists.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Call Dojah API
@@ -265,21 +269,22 @@ class VerifYNIN(generics.GenericAPIView):
 
         if not nin_response:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "NIN verification service failed."
-                }),
-                status=status.HTTP_502_BAD_GATEWAY
+                data=encrypt(
+                    {"status": "fail", "message": "NIN verification service failed."}
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
             )
 
         # If status is not 200
         if nin_response.status_code != 200:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "NIN verification failed. NIN is wrong or incomplete."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "NIN verification failed. NIN is wrong or incomplete.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Parse valid response
@@ -297,11 +302,13 @@ class VerifYNIN(generics.GenericAPIView):
             print(f"verified: {verified_dob}")
             print(f"supplied: {supplied_dob}")
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "NIN verification failed. Date of birth mismatch."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "NIN verification failed. Date of birth mismatch.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # SUCCESS ---- update DB
@@ -315,13 +322,13 @@ class VerifYNIN(generics.GenericAPIView):
         UserNotification.objects.create(
             user=user,
             title="NIN Verification",
-            message="Your NIN verification was successful."
+            message="Your NIN verification was successful.",
         )
 
         ActivityModel.objects.create(
             user=user,
             title="NIN Verification",
-            description=f"{user.first_name}, {user.last_name} verified their NIN successfully."
+            description=f"{user.first_name}, {user.last_name} verified their NIN successfully.",
         )
 
         # Clean response
@@ -335,13 +342,10 @@ class VerifYNIN(generics.GenericAPIView):
                 "date_of_birth": nin_data["entity"].get("date_of_birth"),
                 "gender": nin_data["entity"].get("gender"),
                 "nin": user_data["nin"],
-            }
+            },
         }
 
-        return Response(
-            data=encrypt(response_data),
-            status=status.HTTP_200_OK
-        )
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 class CreateUserWallet(generics.GenericAPIView):
@@ -462,8 +466,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
-        user_kyc = UserKYC.objects.filter(user=current_user).first()
-        if user_kyc.nin_verified is False:
+        if current_user.is_nin_verified is False:
             return Response(
                 data=encrypt(
                     {
@@ -474,6 +477,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
+        user_kyc = UserKYC.objects.filter(user=current_user).first()
         user_wallet = WalletModel.objects.filter(user=current_user).first()
         if user_wallet.tier_level >= 2:
             return Response(
@@ -489,8 +493,9 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
         # Perform the upgrade logic here
         try:
             upgrade_response = Wallet.UpgradeToTier2(
-                user=current_user,
-                wallet_id=payload.get("wallet_id"),
+                wallet_id=user_wallet.transactionTrackingRef,
+                bvn=user_kyc.bvn,
+                nin=payload.get("nin"),
                 userPhoto=payload.get("userPhoto"),
                 idType=payload.get("idType"),
                 idNumber=payload.get("idNumber"),
