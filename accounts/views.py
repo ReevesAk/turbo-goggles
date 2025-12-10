@@ -101,6 +101,19 @@ class Register(generics.GenericAPIView):
             logger.info("Profile image: %s", profile_upload)
 
             user = serializer.save()
+
+            # if user_data.get("referral_code"):
+            #     logger.info(
+            #         "Referral code %s used during registration.",
+            #         user_data.get("referral_code"),
+            #     )
+
+            #     points = Points.determine(activity_type="referral", level=user.level)
+            #     NextBee.member_activity(
+            #         member_email=user.email, activityId="8474", numericValue=str(points)
+            #     )
+            #     Points.refresh_user_points(user)
+
             AccountType.objects.create(
                 user=user,
                 user_type="User",

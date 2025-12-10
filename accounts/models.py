@@ -60,6 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=20, unique=True, null=True)
     email = models.CharField(max_length=80, unique=True, null=True, blank=True)
     country = models.CharField(max_length=155, blank=False)
+    referral_code = models.CharField(max_length=50, null=True, blank=True)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)

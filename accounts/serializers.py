@@ -20,6 +20,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=68, min_length=6, write_only=True, style={"input_type": "password"}
     )
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    referral_code = serializers.CharField(
+        max_length=50, min_length=3, write_only=True, required=False
+    )
 
     class Meta:
         model = User
@@ -32,6 +35,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "phone_number",
             "password",
             "password2",
+            "referral_code",
             "profile_img_url",
         ]
         extra_kwargs = {

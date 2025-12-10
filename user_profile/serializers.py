@@ -54,6 +54,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "is_nin_verified",
             "points_naira_value",
             "tier",
+            "referral_code"
         ]
 
     def get_balance(self, obj):
