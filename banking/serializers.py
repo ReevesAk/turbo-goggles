@@ -56,28 +56,39 @@ class WalletCreationSerializers(serializers.ModelSerializer):
         fields = ["id", "acct_name", "gender", "dateOfBirth", "email", "bvn"]
 
 
-class Tier2WalletUpgradeSerializers(serializers.ModelSerializer):
-    """Serailizers for upgrading wallet to tier2."""
+class Tier2WalletUpgradeSerializer(serializers.Serializer):
+    # Database-sourced fields (optional from request)
+    accountNumber = serializers.CharField(required=False)
+    bvn = serializers.CharField(required=False)
+    accountName = serializers.CharField(required=False)
+    phoneNumber = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    nin = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
-    class Meta:
-        model = WalletUpgrade
-        fields = [
-            "id",
-            "lga",
-            "state",
-            "nin",
-            "tier",
-            "userPhoto",
-            "idType",
-            "idNumber",
-            "idIssueDate",
-            "idCardFront",
-            "houseNumber",
-            "streetName",
-            "city",
-            "pep",
-            "customerSignature",
-        ]
+    tier = serializers.CharField(default="2")
+    userPhoto = serializers.CharField()
+    idType = serializers.CharField()
+    idNumber = serializers.CharField()
+    idIssueDate = serializers.DateField()
+    idExpiryDate = serializers.DateField()
+    idCardFront = serializers.CharField()
+    idCardBack = serializers.CharField()
+
+    houseNumber = serializers.CharField()
+    streetName = serializers.CharField()
+    city = serializers.CharField()
+    state = serializers.CharField()
+    localGovernment = serializers.CharField()
+
+    pep = serializers.BooleanField()
+    utilityBill = serializers.CharField()
+
+    nearestLandmark = serializers.CharField()
+    placeOfBirth = serializers.CharField()
+    customerSignature = serializers.CharField()
+
+    pin = serializers.CharField(required=False, write_only=True)
+    use_biometrics = serializers.BooleanField(default=False, write_only=True)
 
 
 class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):

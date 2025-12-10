@@ -163,14 +163,24 @@ class Wallet:
 
     @staticmethod
     def UpgradeToTier2(
-        wallet_id,
+        acct_name,
+        phone_number,
+        email,
+        acct_no,
         bvn,
         nin,
         userPhoto,
         idType,
         idNumber,
         idIssueDate,
+        idExpiryDate,
         idCardFront,
+        idCardBack,
+        utilityBill,
+        nearestLandmark,
+        placeOfBirth,
+        state,
+        localGovernment,
         houseNumber,
         streetName,
         city,
@@ -179,22 +189,34 @@ class Wallet:
     ):
         resource = "wallet_upgrade"
         payload = {
+            "accountNumber": acct_no,
             "bvn": bvn,
             "nin": nin,
-            "wallet_id": wallet_id,
+            "tier": "2",
+            "accountName": acct_name,
+            "phoneNumber": phone_number,
+            "email": email,
             "userPhoto": userPhoto,
             "idType": idType,
             "idNumber": idNumber,
             "idIssueDate": idIssueDate,
+            "idExpiryDate": idExpiryDate,
             "idCardFront": idCardFront,
+            "idCardBack": idCardBack,
             "houseNumber": houseNumber,
             "streetName": streetName,
             "city": city,
+            "state": state,
+            "localGovernment": localGovernment,
             "pep": pep,
+            "utilityBill": utilityBill,
+            "nearestLandmark": nearestLandmark,
+            "placeOfBirth": placeOfBirth,
             "customerSignature": customerSignature,
         }
 
         bearer_token = authenticate()
+        print(bearer_token)
 
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
@@ -208,7 +230,6 @@ class Wallet:
             "Authorization": f"Bearer {bearer_token}",
         }
 
-        print(base_url + resource)
         try:
             response = requests.post(
                 url=base_url + resource,

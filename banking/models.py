@@ -57,21 +57,30 @@ class WalletUpgrade(WalletModel):
     wallet = models.ForeignKey(
         WalletModel, on_delete=models.CASCADE, related_name="wallet_upgrade", null=True
     )
-    lga = models.CharField(max_length=100, null=True)
-    state = models.CharField(max_length=100, null=True)
-    nin = models.CharField(max_length=100, null=True)
-    tier = models.CharField(max_length=5, null=True)
-    userPhoto = models.CharField(max_length=150, null=True)
+
+    nin = models.CharField(max_length=20, null=True)
+    tier = models.CharField(max_length=5, null=True, default="2")
+    userPhoto = models.CharField(max_length=200, null=True)
+
     idType = models.CharField(max_length=50, choices=ID_TYPE, null=True)
     idNumber = models.CharField(max_length=100, null=True)
     idIssueDate = models.DateField(null=True)
-    idCardFront = models.CharField(max_length=150, null=True)
+    idExpiryDate = models.DateField(null=True)
+
+    idCardFront = models.CharField(max_length=200, null=True)
+    idCardBack = models.CharField(max_length=200, null=True)
+
     houseNumber = models.CharField(max_length=100, null=True)
     streetName = models.CharField(max_length=100, null=True)
     city = models.CharField(max_length=100, null=True)
-    pep = models.BooleanField(default=False, null=True)
-    customerSignature = models.CharField(max_length=150, null=True)
-    proofOfAddressVerification = models.CharField(max_length=150, null=True)
+    state = models.CharField(max_length=100, null=True)
+    localGovernment = models.CharField(max_length=150, null=True)
+
+    pep = models.CharField(max_length=10, null=True)  # API expects YES/NO text
+    utilityBill = models.CharField(max_length=200, null=True)
+    nearestLandmark = models.CharField(max_length=200, null=True)
+    placeOfBirth = models.CharField(max_length=200, null=True)
+    customerSignature = models.CharField(max_length=200, null=True)
 
 
 class ForexModel(models.Model):

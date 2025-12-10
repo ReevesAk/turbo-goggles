@@ -10,6 +10,7 @@ from permissions import (
 from commons import Messaging
 
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password
 from django.template.loader import render_to_string
 
 # Third party imports.
@@ -30,7 +31,7 @@ from .serializers import (
     BVNSerializer,
     NINSerializer,
     WalletCreationSerializers,
-    Tier2WalletUpgradeSerializers,
+    Tier2WalletUpgradeSerializer,
     Tier3WalletUpgradeSerializers,
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
@@ -448,7 +449,7 @@ class CreateUserWallet(generics.GenericAPIView):
 class UpgradeToTier2Wallet(generics.GenericAPIView):
     """UpgradeToTier2Wallet Handles the POST request upgrade of a wallet to Tier 2."""
 
-    serializer_class = Tier2WalletUpgradeSerializers
+    serializer_class = Tier2WalletUpgradeSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -466,6 +467,31 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check authorization
+        pin = serializer.validated_data.get("pin")
+        use_biometrics = serializer.validated_data.get("use_biometrics", False)
+        user_wallet = WalletModel.objects.filter(user=current_user).first()
+
+        if pin:
+            if not check_password(pin, user_wallet.pin):
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Invalid PIN."}),
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        elif use_biometrics:
+            if not current_user.is_biometric_enabled:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "Biometric not enabled."}
+                    ),
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        else:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Authorization required."}),
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         if current_user.is_nin_verified is False:
             return Response(
                 data=encrypt(
@@ -478,7 +504,6 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
             )
 
         user_kyc = UserKYC.objects.filter(user=current_user).first()
-        user_wallet = WalletModel.objects.filter(user=current_user).first()
         if user_wallet.tier_level >= 2:
             return Response(
                 data=encrypt(
@@ -493,21 +518,35 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
         # Perform the upgrade logic here
         try:
             upgrade_response = Wallet.UpgradeToTier2(
-                wallet_id=user_wallet.transactionTrackingRef,
+                acct_name=user_wallet.acct_name,
+                phone_number=current_user.phone_number,
+                email=current_user.email,
+                acct_no=user_wallet.account_number,
                 bvn=user_kyc.bvn,
-                nin=payload.get("nin"),
+                nin=user_kyc.nin,
                 userPhoto=payload.get("userPhoto"),
                 idType=payload.get("idType"),
                 idNumber=payload.get("idNumber"),
                 idIssueDate=payload.get("idIssueDate"),
+                idExpiryDate=payload.get("idExpiryDate"),
                 idCardFront=payload.get("idCardFront"),
+                idCardBack=payload.get("idCardBack"),
+                utilityBill=payload.get("utilityBill"),
+                nearestLandmark=payload.get("nearestLandmark"),
+                placeOfBirth=payload.get("placeOfBirth"),
+                state=payload.get("state"),
+                localGovernment=payload.get("localGovernment"),
                 houseNumber=payload.get("houseNumber"),
                 streetName=payload.get("streetName"),
                 city=payload.get("city"),
                 pep=payload.get("pep"),
                 customerSignature=payload.get("customerSignature"),
             )
-            response_data = upgrade_response.json()
+            try:
+                response_data = upgrade_response.json()
+            except ValueError:
+                response_data = {"text": upgrade_response.text}
+
             if upgrade_response.status_code != 200:
                 logging.error(f"Wallet upgrade to tier 2 failed: {response_data}")
                 return Response(
