@@ -515,6 +515,7 @@ class Login(APIView):
         login = data.get("phone_number")
         password = data.get("password")
         biometrics = data.get("use_biometrics")
+        device_id = data.get("device_id")
 
         logger.info("Login attempt for phone number: %s", login)
 
@@ -548,7 +549,7 @@ class Login(APIView):
             )
 
         # Check device limit for password login only
-        if not biometrics and not self.check_device_limit(user):
+        if not biometrics and not self.check_device_limit(user, device_id):
             logger.warning(
                 "User %s has reached device limit. Deleting oldest device.", login
             )
@@ -564,21 +565,22 @@ class Login(APIView):
         # Successful login
         return self.handle_login_success(user)
 
-    # TODO Quick fix for device limit check
-    def check_device_limit(self, user):
-        existing_device_count = DeviceId.objects.filter(user=user).count()
-        if existing_device_count >= 2:
-            if existing_device_count >= 3:
-                oldest_device = DeviceId.objects.filter(user=user).earliest(
-                    "created_at"
-                )
-                logger.info(
-                    "Deleting oldest device %s for user %s",
-                    oldest_device.id,
-                    user.phone_number,
-                )
-                oldest_device.delete()
+    @staticmethod
+    def check_device_limit(user, device_id):
+        """
+        Check if the user is already logged in on a different device.
+        Only allow login if there is no other device.
+        """
+        existing_devices = DeviceId.objects.filter(user=user)
+
+        # If the same device is logging in again, allow
+        if existing_devices.filter(device_id=device_id).exists():
+            return True
+
+        # If there is any other device, reject
+        if existing_devices.exists():
             return False
+
         return True
 
     def handle_login_success(self, user):
