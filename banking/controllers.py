@@ -7,6 +7,8 @@ import uuid
 import requests
 from decouple import config
 
+from .helpers import cloudinary_to_base64
+
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -196,23 +198,23 @@ class Wallet:
             "accountName": acct_name,
             "phoneNumber": phone_number,
             "email": email,
-            "userPhoto": userPhoto,
+            "userPhoto": cloudinary_to_base64(userPhoto),
             "idType": idType,
             "idNumber": idNumber,
             "idIssueDate": idIssueDate,
             "idExpiryDate": idExpiryDate,
-            "idCardFront": idCardFront,
-            "idCardBack": idCardBack,
+            "idCardFront": cloudinary_to_base64(idCardFront),
+            "idCardBack": cloudinary_to_base64(idCardBack),
             "houseNumber": houseNumber,
             "streetName": streetName,
             "city": city,
             "state": state,
             "localGovernment": localGovernment,
             "pep": pep,
-            "utilityBill": utilityBill,
+            "utilityBill": cloudinary_to_base64(utilityBill),
             "nearestLandmark": nearestLandmark,
             "placeOfBirth": placeOfBirth,
-            "customerSignature": customerSignature,
+            "customerSignature": cloudinary_to_base64(customerSignature),
         }
 
         bearer_token = authenticate()
