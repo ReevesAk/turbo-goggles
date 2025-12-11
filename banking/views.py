@@ -523,7 +523,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 email=current_user.email,
                 acct_no=user_wallet.account_number,
                 bvn=user_kyc.bvn,
-                nin=user_kyc.nin,
+                nin=payload.get("nin"),
                 userPhoto=payload.get("userPhoto"),
                 idType=payload.get("idType"),
                 idNumber=payload.get("idNumber"),
