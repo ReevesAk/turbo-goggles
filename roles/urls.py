@@ -1,4 +1,5 @@
 from django.urls import path
+
 from .views import (
     RegisterSuperAdmin,
     AddAdmin,
@@ -10,10 +11,6 @@ from .views import (
     EnableAdminrole,
     GetAllAdminUsers,
     DeleteAdmin,
-    JobApplications,
-    JobApplicationList,
-    JobApplicationDetail,
-    DeleteJobApplication,
     VerifiedUsersCount,
     VerifiedBrandAdsCount,
     VerifiedPartnersCount,
@@ -146,23 +143,6 @@ urlpatterns = [
         "tasks/campaigns/with-participants",
         CampaignParticipantListView.as_view(),
         name="campaigns-with-participants",
-    ),
-    # Applications endpoints.
-    path("career/job-aplication", JobApplications.as_view(), name="job_aplications"),
-    path(
-        "career/get-applications",
-        JobApplicationList.as_view(),
-        name="application-list",
-    ),
-    path(
-        "career/applications/<str:email>/",
-        JobApplicationDetail.as_view(),
-        name="application-detail",
-    ),
-    path(
-        "career/applications/<int:pk>/delete/",
-        DeleteJobApplication.as_view(),
-        name="delete-application",
     ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.

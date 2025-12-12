@@ -4,14 +4,13 @@ import logging
 from rest_framework import serializers
 
 # In project imports.
-from accounts.models import User, TxModel
+from accounts.models import User
 
 from banking.models import WalletModel
 
 from adverts.models import CreateAd
 
 from .models import (
-    Applications,
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
     ActivityModel,
@@ -234,65 +233,6 @@ class ListAdminSerializer(serializers.ModelSerializer):
 
 class StatusSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
-
-
-# class GetAllTaskSerializer(serializers.Serializer):
-#     message = serializers.CharField(max_length=200)
-
-
-# class GetSingleTaskSerializer(serializers.Serializer):
-#     message = serializers.CharField(max_length=200)
-
-
-# class GetAllSubittedTasksSerializer(serializers.Serializer):
-#     class Meta:
-#         model = GamificationModel
-#         fields = [
-#             "task_url",
-#         ]
-
-
-# class GetSingleSubmittedTaskSerializer(serializers.Serializer):
-#     message = serializers.CharField(max_length=200)
-
-
-# class ReviewTaskSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = GamificationModel
-#         fields = ["user_id", "remarks", "pts"]
-
-
-class ApplicationsSerializers(serializers.ModelSerializer):
-    cover_letter = serializers.FileField(max_length=155)
-    certificates = serializers.FileField(max_length=155)
-    cv = serializers.FileField(max_length=155)
-
-    class Meta:
-        model = Applications
-        fields = [
-            "name",
-            "email",
-            "role",
-            "cover_letter",
-            "portfolio",
-            "certificates",
-            "cv",
-        ]
-
-
-class GetApplicationsSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = Applications
-        fields = [
-            "id",
-            "name",
-            "email",
-            "role",
-            "cover_letter",
-            "portfolio",
-            "certificates",
-            "cv",
-        ]
 
 
 class SwitchRolesSerializers(serializers.ModelSerializer):
