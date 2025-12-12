@@ -1,0 +1,230 @@
+import logging
+
+from django.shortcuts import get_object_or_404
+
+from .models import Applications
+
+# In project imports.
+from .serializers import (
+    ApplicationsSerializers,
+    GetApplicationsSerializers,
+)
+
+# Third party imports.
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.parsers import MultiPartParser, JSONParser
+from rest_framework.pagination import PageNumberPagination
+
+from cloudinary import uploader as cloud
+
+from permissions import (
+    IsAdmin,
+)
+from drf_spectacular.utils import extend_schema
+
+
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+logger = logging.getLogger(__name__)
+
+
+@extend_schema(
+    request={
+        'multipart/form-data': ApplicationsSerializers
+    }
+)
+class SubmitJobApplication(generics.CreateAPIView):
+    """
+    SubmitJobApplication handles the POST request of job applications to Picadailys.
+    """
+
+    serializer_class = ApplicationsSerializers
+    permission_classes = (AllowAny,)
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
+
+    def post(self, request):
+        serializer = ApplicationsSerializers(data=request.data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data={"status": "fail", "message": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            cv_upload = request.data.get("cv")
+            upload_cv = cloud.upload(cv_upload)
+            cv_url = upload_cv["url"]
+
+            try:
+                applications = Applications.objects.filter(
+                    email=request.data.get("email"),
+                    phone_number=request.data.get("phone_number"),
+                )
+                if applications.exists():
+                    return Response(
+                        data={
+                            "status": "fail",
+                            "message": "You have already applied for a job with this email.",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # Save the application data without the user field
+                application = Applications.objects.create(
+                    first_name=request.data.get("first_name"),
+                    last_name=request.data.get("last_name"),
+                    email=request.data.get("email"),
+                    phone_number=request.data.get("phone_number"),
+                    gender=request.data.get("gender"),
+                    state=request.data.get("state"),
+                    lga=request.data.get("lga"),
+                    address=request.data.get("address"),
+                    cv=cv_url,
+                )
+                application.save()
+            except Exception as e:
+                logger.error("Error saving application: %s", e)
+                return Response(
+                    data={
+                        "status": "error",
+                        "message": f"An error occurred while saving your application: {str(e)}.",
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            # send application to careers@picadailys.com.
+            # name = request.data.get("name", "N/A")
+            # email = request.data.get("email", "N/A")
+            # role = request.data.get("role", "N/A")
+
+            # content = f"""
+            #     name: {name},
+            #     email: {email},
+            #     CV: [View CV]({cv_url}),
+            #     cover letter: [View Cover Letter]({letter_url}),
+            #     certificates: {application.certificates}
+            # """
+
+            # sendMail(content=content, subject=role)
+
+            response = {
+                "status": "success",
+                "message": "Job application sent!",
+                "data": {
+                    "first_name": request.data.get("first_name"),
+                    "last_name": request.data.get("last_name"),
+                    "phone_number": request.data.get("phone_number"),
+                    "gender": request.data.get("gender"),
+                    "state": request.data.get("state"),
+                    "lga": request.data.get("lga"),
+                    "address": request.data.get("address"),
+                    "email": request.data.get("email"),
+                    "cv": cv_url,
+                },
+            }
+            return Response(data=response, status=status.HTTP_201_CREATED)
+
+        except Exception as err:
+            return Response(
+                {"error": "An error occurred: {}".format(err)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_doc_url = doc_image["url"]
+
+
+class DeleteJobApplication(generics.DestroyAPIView):
+    """
+    Deletes a single job application entry by ID.
+    """
+
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def delete(self, request, pk, *args, **kwargs):
+        application = get_object_or_404(Applications, pk=pk)
+
+        # Optionally, you could perform some logic before deletion
+        try:
+            application.delete()
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "Job application deleted successfully",
+                },
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        except Exception as err:
+            return Response(
+                data={
+                    "status": "error",
+                    "message": f"An error occurred: {err}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class JobApplicationDetail(generics.ListAPIView):
+    """
+    Retrieve a single job application based on the email.
+    """
+
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get_queryset(self):
+        email = self.kwargs.get("email")
+        email.lower()
+        if email is None:
+            return Response(
+                data={"error": "Email parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        applications = Applications.objects.filter(email=email)
+        if not applications.exists():
+            return Response(
+                data={"error": "No job applications with this email exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            data={
+                "status": "success",
+                "data": ApplicationsSerializers(applications, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class JobApplicationList(generics.ListAPIView):
+    """
+    List all job applications.
+    """
+
+    queryset = Applications.objects.all()
+    serializer_class = GetApplicationsSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        paginator = CustomPageNumberPagination()
+        applications = Applications.objects.all().order_by("-created_at")
+        result_page = paginator.paginate_queryset(applications, request)
+        serializer = GetApplicationsSerializers(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)

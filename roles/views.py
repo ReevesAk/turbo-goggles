@@ -1,12 +1,10 @@
 import logging
-from decouple import config
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.contrib.auth import authenticate
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.cache import cache
 
@@ -22,8 +20,6 @@ from .serializers import (
     RemoveRoleFromAdminSerializer,
     AdminDeletionSerializer,
     ListAdminSerializer,
-    ApplicationsSerializers,
-    GetApplicationsSerializers,
     DisableAdminSerializer,
     SwitchRolesSerializers,
     CreateAdminPinSerializer,
@@ -38,7 +34,7 @@ from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from banking.serializers import WalletStatusSerializer
 from banking.models import WalletModel
-from .models import Applications, ActivityModel
+from .models import ActivityModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
@@ -77,14 +73,6 @@ class CustomPageNumberPagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 100
 
-
-base_url = config("MAPLERAD_BASE_URL")
-secret_key = config("MAPLERAD_SECRET_KEY")
-headers = {
-    "accept": "application/json",
-    "content-Type": "application/json",
-    "Authorization": "Bearer " + secret_key,
-}
 
 logger = logging.getLogger(__name__)
 
@@ -1438,162 +1426,6 @@ class DeleteAdmin(generics.GenericAPIView):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
-
-
-class JobApplications(generics.CreateAPIView):
-    """
-    JobApplications handles the POST request of job applications to Picadailys.
-    """
-
-    serializer_class = ApplicationsSerializers
-    permission_classes = (AllowAny,)
-    parser_classes = (
-        MultiPartParser,
-        JSONParser,
-    )
-
-    def post(self, request):
-        serializer = ApplicationsSerializers(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            cert_uploads = request.data.getlist("certificates")
-
-            cert_urls = []
-
-            try:
-                for upload in cert_uploads:
-                    upload_result = cloud.upload(upload)
-                    cert_url = upload_result["url"]
-                    cert_urls.append(cert_url)
-
-                letter_upload = request.data.get("cover_letter")
-                upload_letter = cloud.upload(letter_upload)
-                letter_url = upload_letter["url"]
-
-                cv_upload = request.data.get("cv")
-                upload_cv = cloud.upload(cv_upload)
-                cv_url = upload_cv["url"]
-
-                # Save the application data without the user field
-                application = Applications.objects.create(
-                    name=request.data.get("name"),
-                    email=request.data.get("email"),
-                    role=request.data.get("role"),
-                    cover_letter=letter_url,
-                    portfolio=request.data.get("portfolio"),
-                    certificates=",".join(
-                        cert_urls
-                    ),  # Save as comma-separated string if multiple
-                    cv=cv_url,
-                )
-
-                # send application to careers@picadailys.com.
-                # name = request.data.get("name", "N/A")
-                # email = request.data.get("email", "N/A")
-                # role = request.data.get("role", "N/A")
-
-                # content = f"""
-                #     name: {name},
-                #     email: {email},
-                #     CV: [View CV]({cv_url}),
-                #     cover letter: [View Cover Letter]({letter_url}),
-                #     certificates: {application.certificates}
-                # """
-
-                # sendMail(content=content, subject=role)
-
-                # Update the certificates field after creating the instance
-                application.certificates = ",".join(cert_urls)
-                application.save()
-
-                response = {
-                    "status": "success",
-                    "message": "Job application sent!",
-                    "data": {
-                        "name": request.data.get("name"),
-                        "email": request.data.get("email"),
-                        "role": request.data.get("role"),
-                        "cover_letter": letter_url,
-                        "portfolio": request.data.get("portfolio"),
-                        "certificates": cert_urls,
-                        "cv": cv_url,
-                    },
-                }
-                return Response(data=response, status=status.HTTP_201_CREATED)
-
-            except Exception as err:
-                return Response(
-                    {"error": "An error occurred: {}".format(err)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-        else:
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def upload_image(self, image_data):
-        doc_image = cloud.upload(file=image_data)
-        self.uploaded_doc_url = doc_image["url"]
-
-
-class DeleteJobApplication(generics.DestroyAPIView):
-    """
-    Deletes a single job application entry by ID.
-    """
-
-    queryset = Applications.objects.all()
-    serializer_class = ApplicationsSerializers
-    permission_classes = (AllowAny,)
-
-    def delete(self, request, pk, *args, **kwargs):
-        application = get_object_or_404(Applications, pk=pk)
-
-        # Optionally, you could perform some logic before deletion
-        try:
-            application.delete()
-            return Response(
-                data={
-                    "status": "success",
-                    "message": "Job application deleted successfully",
-                },
-                status=status.HTTP_204_NO_CONTENT,
-            )
-        except Exception as err:
-            return Response(
-                {"error": f"An error occurred: {err}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class JobApplicationDetail(generics.ListAPIView):
-    """
-    Retrieve a single job application based on the email.
-    """
-
-    queryset = Applications.objects.all()
-    serializer_class = ApplicationsSerializers
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        email = self.kwargs.get("email")
-        email.lower()
-        if email is None:
-            raise exceptions.NotFound(encrypt("Email parameter is required."))
-
-        applications = Applications.objects.filter(email=email)
-        if not applications.exists():
-            raise exceptions.NotFound(
-                encrypt("No job applications with this email exist.")
-            )
-
-        return applications
-
-
-class JobApplicationList(generics.ListAPIView):
-    """
-    List all job applications.
-    """
-
-    queryset = Applications.objects.all()
-    serializer_class = GetApplicationsSerializers
-    permission_classes = [AllowAny]
 
 
 class VerifiedUsersCount(generics.ListAPIView):
