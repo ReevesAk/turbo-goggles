@@ -1,13 +1,15 @@
 import logging
 
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.hashers import check_password
 
-from .models import Applications
+from .models import Applications, JobModel
 
 # In project imports.
 from .serializers import (
     ApplicationsSerializers,
     GetApplicationsSerializers,
+    JobSerializer,
 )
 
 # Third party imports.
@@ -19,11 +21,11 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
 from cloudinary import uploader as cloud
+from security import encrypt, decrypt
 
 from permissions import (
     IsAdmin,
 )
-from drf_spectacular.utils import extend_schema
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -35,11 +37,198 @@ class CustomPageNumberPagination(PageNumberPagination):
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(
-    request={
-        'multipart/form-data': ApplicationsSerializers
-    }
-)
+class CreateJob(generics.CreateAPIView):
+    """
+    Create a new job posting.
+    """
+    serializer_class = JobSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+
+        serializer = self.serializer_class(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data={"status": "fail", "message": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_user = request.user
+        pin = payload.get("pin")
+        if not check_password(password=pin, encoded=current_user.admin_pin):
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Incorrect pin.",
+                }),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            job = JobModel.objects.filter(
+                title=request.data.get("title"),
+            )
+            if job.exists():
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "This job posting aready exists.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Save the job data.
+            job_instance = JobModel.objects.create(
+                title=request.data.get("title"),
+                description=request.data.get("description"),
+                location=request.data.get("location"),
+                salary=request.data.get("salary"),
+                is_active=request.data.get("is_active", True),
+            )
+            job_instance.save()
+        except Exception as e:
+            logger.error("Error saving job: %s", e)
+            return Response(
+                data={
+                    "status": "error",
+                    "message": f"An error occurred while saving your job: {str(e)}.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response = {
+            "status": "success",
+            "message": "Job Created!",
+            "data": {
+                "title": request.data.get("title"),
+                "description": request.data.get("description"),
+                "location": request.data.get("location"),
+                "salary": request.data.get("salary"),
+                "is_active": request.data.get("is_active", True),
+            },
+        }
+        return Response(
+            data=encrypt(response),
+            status=status.HTTP_201_CREATED
+        )
+
+
+class JobList(generics.ListAPIView):
+    """
+    List all job postings with custom response structure.
+    """
+
+    queryset = JobModel.objects.all().order_by("-created_at")
+    serializer_class = JobSerializer
+    permission_classes = ()
+    pagination_class = CustomPageNumberPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = self.pagination_class()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+        serializer = self.get_serializer(paginated_qs, many=True)
+
+        response = {
+            "status": "success",
+            "message": "Jobs retrieved successfully",
+            "data": serializer.data,
+        }
+
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class JobDetail(generics.RetrieveAPIView):
+    serializer_class = JobSerializer
+    queryset = JobModel.objects.all()
+    permission_classes = ()
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        job = self.get_object()
+        response = {
+            "status": "success",
+            "message": "Job details retrieved",
+            "data": JobSerializer(job).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class UpdateJob(generics.UpdateAPIView):
+    serializer_class = JobSerializer
+    queryset = JobModel.objects.all()
+    permission_classes = [IsAuthenticated, IsAdmin]
+    lookup_field = "id"
+
+    def update(self, request, *args, **kwargs):
+        job = self.get_object()
+        decrypted_payload = decrypt(request.data)
+
+        serializer = self.get_serializer(job, data=decrypted_payload, partial=True)
+        current_user = request.user
+        pin = decrypted_payload.get("pin")
+        if not check_password(password=pin, encoded=current_user.admin_pin):
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Incorrect pin.",
+                }),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response = {
+            "status": "success",
+            "message": "Job updated successfully",
+            "data": serializer.data,
+        }
+        return Response(
+            encrypt(response), status=status.HTTP_200_OK
+        )
+
+
+class DeleteJob(generics.DestroyAPIView):
+    queryset = JobModel.objects.all()
+    permission_classes = [IsAuthenticated, IsAdmin]
+    lookup_field = "id"
+
+    def destroy(self, request, *args, **kwargs):
+        job = self.get_object()
+        current_user = request.user
+
+        # Decrypt payload to get admin pin
+        decrypted_payload = decrypt(request.data)
+        pin = decrypted_payload.get("pin")
+
+        if not pin or not check_password(password=pin, encoded=current_user.admin_pin):
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Incorrect pin."
+                }),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        job.delete()
+
+        response = {
+            "status": "success",
+            "message": "Job deleted successfully"
+        }
+
+        return Response(
+            data=encrypt(response),
+            status=status.HTTP_200_OK
+        )
+
+
 class SubmitJobApplication(generics.CreateAPIView):
     """
     SubmitJobApplication handles the POST request of job applications to Picadailys.
@@ -157,15 +346,28 @@ class DeleteJobApplication(generics.DestroyAPIView):
     def delete(self, request, pk, *args, **kwargs):
         application = get_object_or_404(Applications, pk=pk)
 
-        # Optionally, you could perform some logic before deletion
+        decrypted_payload = decrypt(request.data)
+
+        serializer = self.get_serializer(job, data=decrypted_payload, partial=True)
+        current_user = request.user
+        pin = decrypted_payload.get("pin")
+        if not check_password(password=pin, encoded=current_user.admin_pin):
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Incorrect pin.",
+                }),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             application.delete()
             return Response(
-                data={
+                data=encrypt({
                     "status": "success",
                     "message": "Job application deleted successfully",
-                },
-                status=status.HTTP_204_NO_CONTENT,
+                }),
+                status=status.HTTP_200_OK,
             )
         except Exception as err:
             return Response(
