@@ -502,7 +502,6 @@ class Login(APIView):
     throttle_scope = "login"
 
     def post(self, request):
-        print(request.data)
         decrypted_payload = decrypt(request.data)
         logger.debug("Received login request data: %s", decrypted_payload)
         data = {

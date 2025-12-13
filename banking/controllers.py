@@ -219,7 +219,6 @@ class Wallet:
 
         logger.info(f"Wallet Upgrade Payload:\n{json.dumps(payload, indent=4)}")
         bearer_token = authenticate()
-        print(bearer_token)
 
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
@@ -255,7 +254,7 @@ class Wallet:
             "accountNumber": accountNumber,
             "bvn": bvn,
             "nin": nin,
-            "proofOfAddressVerification": proofOfAddressVerification,
+            "proofOfAddressVerification": cloudinary_to_base64(proofOfAddressVerification),
         }
 
         bearer_token = authenticate()

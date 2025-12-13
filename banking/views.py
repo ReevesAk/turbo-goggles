@@ -299,8 +299,6 @@ class VerifYNIN(generics.GenericAPIView):
         verified_dob = nin_data["entity"].get("date_of_birth")
 
         if verified_dob != supplied_dob:
-            print(f"verified: {verified_dob}")
-            print(f"supplied: {supplied_dob}")
             return Response(
                 data=encrypt(
                     {
@@ -609,7 +607,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 accountNumber=user_wallet.account_number,
                 bvn=user_kyc.bvn,
                 nin=user_kyc.nin,
-                proofOfAddressVerification=user_wallet.proof_of_address_verification,
+                proofOfAddressVerification=payload.get("proofOfAddressVerification"),
             )
             response_data = upgrade_response.json()
             if upgrade_response.status_code != 200:
@@ -622,7 +620,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 data=encrypt(
                     {
                         "status": "success",
-                        "message": "Wallet upgraded to Tier 2 successfully.",
+                        "message": "Wallet upgraded to Tier 3 successfully.",
                     }
                 ),
                 status=status.HTTP_200_OK,

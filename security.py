@@ -1,4 +1,5 @@
 import json
+import logging
 import binascii
 from base64 import b64decode, b64encode
 from Crypto.Cipher import AES
@@ -29,7 +30,7 @@ def decrypt(cipher_text):
             resp = json.loads(decrypted_data.decode("utf-8"))
             return resp
         except UnicodeDecodeError as e:
-            print(f"Error decoding to UTF-8: {e}")
+            logging.info(f"Error decoding to UTF-8: {e}")
             # Return raw bytes if decoding fails
             return decrypted_data
 

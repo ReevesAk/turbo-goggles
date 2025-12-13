@@ -70,7 +70,6 @@ class NextBee:
         """
 
         token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
-        print(f"Generated JWT token: {token}")
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": f"Bearer {token}"
