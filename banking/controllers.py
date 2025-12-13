@@ -217,6 +217,7 @@ class Wallet:
             "customerSignature": cloudinary_to_base64(customerSignature),
         }
 
+        logger.info(f"Wallet Upgrade Payload:\n{json.dumps(payload, indent=4)}")
         bearer_token = authenticate()
         print(bearer_token)
 
