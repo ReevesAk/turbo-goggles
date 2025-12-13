@@ -1,6 +1,7 @@
 import math
 import random
 import logging
+import requests
 
 import ElasticEmail
 from ElasticEmail import EmailsApi, ApiClient
@@ -19,6 +20,8 @@ from accounts.models import User
 from gamification.models import Points
 
 elastic_api_key = config("ELASTIC_API_KEY")
+yournotify_api_key = config("YOURNOTIFY_API_KEY")
+yournotify_base_url = config("YOURNOTIFY_BASE_URL")
 
 
 def generateOTP(OTP):
@@ -83,6 +86,28 @@ class Messaging:
                 logging.info(response)
             except Exception as e:
                 logging.error("Error occurred while sending email: %s", e)
+
+    @staticmethod
+    def send_sms(phone_number, msg):
+        url = yournotify_base_url + "campaigns/sms/"
+
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
+        phone = "234" + phone_number
+        payload = {
+            "name": "Picadailys SMS",
+            "from": "DANG",
+            "text": msg,
+            "status": "running",
+            "lists": [
+                phone
+            ],
+            "channel": "sms",
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
 
 
 class Allocate:

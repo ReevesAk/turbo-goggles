@@ -64,7 +64,7 @@ from permissions import (
     IsFmcgAdminOrSuperAdmin,
     IsWalletAdminOrSuperAdmin,
 )
-from sms import Message
+
 from commons import Messaging
 
 
@@ -128,10 +128,10 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 otp = otp_manager.create_otp(user_id=str(current_user.id))
                 logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
                 msg = f"Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {otp}."
-                recipient = current_user.phone_number
+                recipient = current_user.phone_number[1:]
 
                 # Send OTP message
-                Message.send_otp(msg=msg, to=recipient)
+                Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(f"OTP sent to phone number: {recipient}")
 
                 # Log the creation of the SuperUser

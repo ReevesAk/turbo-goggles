@@ -35,7 +35,6 @@ from permissions import (
     IsSuperAdmin, IsManagerOrSuperAdmin, IsAgent
 )
 from commons import Messaging
-from sms import Message
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +87,10 @@ class RegisterManager(generics.GenericAPIView):
                 otp = otp_manager.create_otp(user_id=str(current_user.id))
                 logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
                 msg = f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}."
-                recipient = current_user.phone_number
+                recipient = current_user.phone_number[1:]
 
                 # Send OTP message
-                Message.send_otp(msg=msg, to=recipient)
+                Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(f"OTP sent to phone number: {recipient}")
 
                 # Log the creation of the SuperUser
@@ -884,9 +883,9 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
 
             # Send welcome message to user
             msg = "Welcome to Picadailys Support... You are registration as the support manager was successful!."
-            recipient = user.phone_number
+            recipient = user.phone_number[1:]
 
-            Message.send_otp(msg=str(msg), to=recipient)
+            Messaging.send_sms(phone_number=recipient, msg=msg)
             logger.info("Welcome message sent to user %s at %s", user.id, recipient)
 
             # Render the template with values

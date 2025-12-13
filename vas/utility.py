@@ -5,7 +5,6 @@ from django.template.loader import render_to_string
 from accounts.models import UserNotification
 from roles.models import ActivityModel
 
-from sms import Message
 from commons import Messaging
 
 logger = logging.getLogger(__name__)
@@ -24,9 +23,9 @@ def create_activity(user, title, description):
 
 
 def send_token(user, msg):
-    recipient = user.phone_number
+    recipient = user.phone_number[1:]
 
-    Message.send_otp(msg=str(msg), to=recipient)
+    Messaging.send_sms(phone_number=recipient, msg=str(msg))
     logger.info(
         "Electricity token sent to user %s at %s and %s", user.id, recipient, user.email
     )
@@ -49,9 +48,9 @@ def send_token(user, msg):
 
 
 def send_token_to_guest_users(guest_phone, msg):
-    recipient = guest_phone
+    recipient = guest_phone[1:]
 
-    Message.send_otp(msg=str(msg), to=recipient)
+    Messaging.send_sms(phone_number=recipient, msg=str(msg))
     logger.info(
         "Electricity token sent to guest user with phone number %s",
         guest_phone,

@@ -50,7 +50,6 @@ from .models import (
 )
 from .controllers import KYC, Wallet, Paystack
 from security import encrypt, decrypt
-from sms import Message
 
 
 base_url = config("MAPLERAD_BASE_URL")
@@ -889,12 +888,14 @@ class ForgotWalletPin(generics.GenericAPIView):
     )
     def post(self, request):
         user = request.user
-        phone_no = user.phone_number
+        phone_no = user.phone_number[1:]
         # Create and send OTP.
         otp = otp_manager.create_otp(user_id=str(user.id))
-        msg = "Enter this OTP {} to verify your account and reset your pin".format(otp)
+        msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+            otp=otp
+        )
 
-        response = Message.send_otp(msg=str(msg), to=phone_no)
+        response = Messaging.send_sms(phone_number=phone_no, msg=msg)
         if response.status_code == 200:
             try:
                 resp = {
@@ -939,13 +940,15 @@ class PinResendOTP(generics.GenericAPIView):
     )
     def post(self, request):
         user = request.user
-        phone_number = user.phone_number
+        phone_number = user.phone_number[1:]
 
         # Generate otp.
         otp = otp_manager.create_otp(user_id=str(user.id))
-        msg = "To reset your pin, please enter this One Time Password {}.".format(otp)
+        msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+            otp=otp
+        )
 
-        response = Message.send_otp(msg=str(msg), to=phone_number)
+        response = Messaging.send_sms(phone_number=phone_number, msg=msg)
         if response.status_code == 200:
             resp = {
                 "status": "success",
@@ -986,20 +989,14 @@ class PinVerifyOTP(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Send welcome message to user.
-            msg = "User is verified... You can reset now your pin!"
-            recipient = user.phone_number
+            ActivityModel.objects.create(
+                user=user,
+                title="Wallet Pin.",
+                description=f"{user.first_name} {user.last_name} reset it.",
+            )
 
-            response = Message.send_msg(msg=str(msg), to=recipient)
-            if response.status_code == 200:
-                ActivityModel.objects.create(
-                    user=user,
-                    title="Wallet Pin.",
-                    description=f"{user.first_name} {user.last_name} reset it.",
-                )
-
-                data = {"status": "success", "message": "Account is verified"}
-                return Response(data=encrypt(data), status=status.HTTP_200_OK)
+            data = {"status": "success", "message": "Account is verified"}
+            return Response(data=encrypt(data), status=status.HTTP_200_OK)
         else:
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST

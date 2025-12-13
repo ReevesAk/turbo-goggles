@@ -348,7 +348,6 @@ class DeleteJobApplication(generics.DestroyAPIView):
 
         decrypted_payload = decrypt(request.data)
 
-        serializer = self.get_serializer(job, data=decrypted_payload, partial=True)
         current_user = request.user
         pin = decrypted_payload.get("pin")
         if not check_password(password=pin, encoded=current_user.admin_pin):

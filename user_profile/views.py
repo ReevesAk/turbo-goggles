@@ -1,6 +1,5 @@
 import logging
 
-from sms import Message
 from commons import Messaging
 from permissions import IsSuperAdmin, IsMember
 
@@ -813,10 +812,10 @@ class DeleteUser(generics.DestroyAPIView):
                 f"User {user.first_name} {user.last_name} has been deleted successfully."
             )
 
-            recipient = user.phone_number[1:]  # Assuming phone_number is a string
-            Message.send_msg(
+            recipient = user.phone_number[1:]
+            Messaging.send_sms(
+                phone_number=recipient,
                 msg="This is to inform you that your account Picadailys has been deleted. We regret to lose you, we hope to see you again soon.",
-                to=recipient,
             )
             response = {
                 "status": "success",
