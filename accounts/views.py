@@ -35,7 +35,6 @@ from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
 from gamification.utils import NextBee
 from gamification.points import Points
-from sms import Message
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
 
@@ -145,31 +144,29 @@ class Register(generics.GenericAPIView):
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
             logger.info("OTP for user: %s", otp)
-            msg = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
-                otp
+
+            msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+                otp=otp
             )
             recipient = serializer.data["phone_number"][1:]
 
-            Message.send_msg(msg=str(msg), to=recipient)
+            Messaging.send_sms(phone_number=recipient, msg=msg)
 
-            body = "Picadailys welcomes you aboard! To protect your account, please enter this {}.".format(
-                otp
-            )
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{body}.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": "+123 456 7890",
-                },
-            )
+            # # Render the template with values
+            # text_content = render_to_string(
+            #     template_name="empty_email.html",
+            #     context={
+            #         "custom_text": f"Dear {user.first_name},<br><br>{body}.",
+            #         "support_email": "support@picadailys.com",
+            #         "picadailys_phone": "+123 456 7890",
+            #     },
+            # )
 
-            Messaging.send_email(
-                email=user.email,
-                html_content=text_content,
-                subject="Picadailys Registration",
-            )
+            # Messaging.send_email(
+            #     email=user.email,
+            #     html_content=text_content,
+            #     subject="Picadailys Registration",
+            # )
 
             response = {
                 "status": "success",
@@ -242,9 +239,9 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             # Send welcome message to user
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard. Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
-            recipient = user.phone_number
+            recipient = user.phone_number[1:]
 
-            Message.send_otp(msg=str(msg), to=recipient)
+            Messaging.send_sms(phone_number=recipient, msg=msg)
             logger.info("Welcome message sent to user %s at %s", user.id, recipient)
 
             # Render the template with values
@@ -339,7 +336,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             # Send confirmation message to the user
             msg = "User is verified... You can reset your password now!"
             recipient = user.phone_number
-            Message.send_msg(msg=str(msg), to=recipient)
+            Messaging.send_sms(phone_number=recipient, msg=msg)
             logger.info(
                 "Password reset verification message sent to user %s at %s",
                 user.id,
@@ -407,10 +404,10 @@ class ResendOTP(generics.GenericAPIView):
             logger.info("Generated OTP %s for user ID %s", otp, user_id)
 
             # Send OTP message
-            msg = "Welcome aboard! To protect your account, please enter this OTP: {}.".format(
-                otp
+            msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+                otp=otp
             )
-            Message.send_otp(msg=str(msg), to=phone_number)
+            Messaging.send_sms(phone_number=phone_number, msg=msg)
             logger.info("OTP message sent to phone number %s", phone_number)
 
             # Prepare response
@@ -460,12 +457,12 @@ class PasswordResendOTP(generics.GenericAPIView):
                 otp = otp_manager.create_otp(user_id=str(user.id))
                 logger.info("Generated OTP: %s for user ID: %s", otp, user.id)
 
-                msg = "To reset your password, please enter this One Time Password {}.".format(
+                msg = "To reset your password, use this code {}.".format(
                     otp
                 )
 
                 # Send OTP
-                Message.send_otp(msg=str(msg), to=phone_number)
+                Messaging.send_sms(phone_number=phone_number, msg=msg)
                 logger.info("Sent OTP to phone number: %s", phone_number)
 
                 response = {
@@ -669,7 +666,7 @@ class ForgotPassword(generics.GenericAPIView):
         otp = otp_manager.create_otp(user_id=str(user_id))
         msg = f"Enter this {otp} to verify your account and reset your password"
 
-        Message.send_otp(msg=str(msg), to=phone_no)
+        Messaging.send_sms(phone_number=phone_no, msg=msg)
         logger.info(f"OTP sent to phone number: {phone_no}")
 
         UserNotification.objects.create(
