@@ -29,7 +29,7 @@ class JobSerializer(serializers.ModelSerializer):
             "id",
             "pin",
             "title",
-            "comapny",
+            "company",
             "job_summary",
             "key_responsibilities",
             "requirements",
