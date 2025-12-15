@@ -12,6 +12,9 @@ from .models import WalletModel
 from rest_framework.response import Response
 from rest_framework import status
 
+from commons import Biometrics
+from security import encrypt
+
 
 class Pin:
     @staticmethod
@@ -58,3 +61,34 @@ def cloudinary_to_base64(url, quality=40, max_size=(700, 700)):
 
     # encode to base64
     return base64.b64encode(buffer.read()).decode("utf-8")
+
+
+def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
+    if payment_option != "WALLET":
+        return True, None
+
+    account = WalletModel.objects.filter(user=user).first()
+
+    if use_biometrics:
+        verified = Biometrics.authenticate(user.phone_number)
+        if not verified:
+            return False, Response(
+                encrypt({"status": "fail", "error": "Biometric verification failed"}),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    elif account and account.pin:
+        verified = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+        if not verified:
+            return False, Response(
+                encrypt({"status": "fail", "error": "Invalid PIN"}),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    else:
+        return False, Response(
+            encrypt({"status": "fail", "error": "Account or PIN not found"}),
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return True, None

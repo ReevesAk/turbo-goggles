@@ -3,8 +3,13 @@ from django.db import models
 
 class JobModel(models.Model):
     title = models.CharField(max_length=255)
-    description = models.TextField()
     location = models.CharField(max_length=255)
+    company = models.CharField(max_length=255, null=True, blank=True)
+    job_summary = models.TextField(null=True, blank=True)
+
+    key_responsibilities = models.JSONField(default=list, blank=True)
+    requirements = models.JSONField(default=list, blank=True)
+
     salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

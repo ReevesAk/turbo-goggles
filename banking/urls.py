@@ -18,6 +18,8 @@ from .views import (
 
 from .transfers import (
     GetAllBanks,
+    Get9PSBWallet,
+    ValidateAccountOfOtherBank,
     IntraBankTransfer,
     InterBankTransfer,
     TransactionStatus,
@@ -56,6 +58,8 @@ urlpatterns = [
     path("reset-wallet-pin", ResetPin.as_view(), name="reset_wallet_pin"),
     # Transfers
     path("transfers/get-all-banks", GetAllBanks.as_view(), name="get_all_banks"),
+    path("transfers/get-9psb-wallet", Get9PSBWallet.as_view(), name="get_9psb_wallet"),
+    path("transfers/validate-account", ValidateAccountOfOtherBank.as_view(), name="validate_account"),
     path("transfers/intra-bank", IntraBankTransfer.as_view(), name="intra_bank"),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
     path(

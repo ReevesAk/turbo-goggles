@@ -26,7 +26,7 @@ from .serializers import (
 from accounts.models import User, UserNotification, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin
 from .models import CreateAd, AdBudget
-from banking.helpers import Pin
+from banking.helpers import verify_wallet_auth
 from banking.controllers import Wallet
 from banking.models import WalletModel
 from roles.models import ActivityModel
@@ -443,7 +443,7 @@ class PromoteBrand(generics.CreateAPIView):
         payment_option = payload.get("payment_option")
         pin = payload.get("pin")
         ad_id = kwargs.get("ad_id")
-        # biometrics = decrypted_data.get("use_biometrics")
+        biometrics = decrypted_data.get("use_biometrics")
 
         advert_id = CreateAd.objects.filter(id=ad_id).first()
 
@@ -461,33 +461,27 @@ class PromoteBrand(generics.CreateAPIView):
 
         match payment_option:
             case "WALLET":
-                pass
+                verified, error_response = verify_wallet_auth(
+                    user=authenticated_user,
+                    payment_option=payment_option,
+                    pin=pin,
+                    use_biometrics=biometrics,
+                )
+
+                if not verified:
+                    return error_response
+
+                # Debit Account
+                price = payload.get("price")
+                user_details = WalletModel.objects.get(user=authenticated_user)
+                debit_response = Wallet.Debit(
+                    debitAccount=user_details.account_number,
+                    amount=price,
+                    description="Debit for brand promotion",
+                    transactionReference="",
+                )
 
                 try:
-                    pin = payload.get("pin")
-
-                    # Verify PIN
-                    is_verified = Pin.verify_pin(user=authenticated_user, pin=pin)
-                    if not is_verified:
-                        logger.warning(
-                            "PIN verification failed for user %s",
-                            authenticated_user.email,
-                        )
-                        return Response(
-                            encrypt({"error": "Invalid PIN."}),
-                            status=status.HTTP_403_FORBIDDEN,
-                        )
-
-                    # Debit Account
-                    price = payload.get("price")
-                    user_details = WalletModel.objects.get(user=authenticated_user)
-                    debit_response = Wallet.Debit(
-                        debitAccount=user_details.account_number,
-                        amount=price,
-                        description="Debit for brand promotion",
-                        transactionReference="",
-                    )
-
                     # Check debit response
                     if debit_response == 200:
                         serializer.save()
@@ -530,17 +524,6 @@ class PromoteBrand(generics.CreateAPIView):
                         return Response(
                             data=encrypted_response, status=status.HTTP_400_BAD_REQUEST
                         )
-
-                # except AccountCreation.DoesNotExist:
-                #     logger.error(
-                #         "Account details not found for user %s", authenticated_user.email
-                #     )
-                #     resp = {"error": "Account details not found."}
-                #     encrypted_response = encrypt(resp)
-                #     return Response(
-                #         data=encrypted_response,
-                #         status=status.HTTP_404_NOT_FOUND,
-                #     )
 
                 except Exception as err:
                     logger.exception(

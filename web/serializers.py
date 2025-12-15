@@ -11,12 +11,28 @@ from .models import JobModel
 
 
 class JobSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(
+        max_length=4, min_length=4, required=False, allow_blank=True
+    )
+    key_responsibilities = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    requirements = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+
     class Meta:
         model = JobModel
         fields = [
             "id",
+            "pin",
             "title",
-            "description",
+            "comapny",
+            "job_summary",
+            "key_responsibilities",
+            "requirements",
             "location",
             "salary",
             "is_active",

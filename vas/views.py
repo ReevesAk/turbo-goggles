@@ -30,7 +30,7 @@ from accounts.models import TxModel
 from banking.models import WalletModel
 from banking.controllers import Wallet
 from permissions import IsAuthenticatedOrGuestWithValidId
-from banking.helpers import Pin
+from banking.helpers import Pin, verify_wallet_auth
 from gamification.points import Points
 from gamification.utils import NextBee
 
@@ -222,40 +222,16 @@ class AirTimeTopUp(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
-        # Wallet validation (if not card)
-        if payment_option != "CARD":
-            try:
-                account = WalletModel.objects.get(user=user)
-            except WalletModel.DoesNotExist:
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Account not found for user"}
-                    ),
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
         # Authentication
-        verification = True
-        if payment_option == "WALLET":
-            if biometrics:
-                verification = Biometrics.authenticate(user.phone_number)
-            elif account and account.pin:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Account or PIN not found"}
-                    ),
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+        is_verified, error_response = verify_wallet_auth(
+            user=user,
+            payment_option=payment_option,
+            pin=pin,
+            biometrics=biometrics,
+        )
 
-        if not verification:
-            return Response(
-                data=encrypt({"status": "fail", "error": "Invalid credentials"}),
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        airtime_response = None
+        if not is_verified:
+            return error_response
 
         # USE BONUS
         if use_bonus:
@@ -294,58 +270,68 @@ class AirTimeTopUp(generics.GenericAPIView):
         # PAYMENT OPTIONS
         match payment_option:
             case "WALLET":
-                pts_amt = Pay.with_pts(user=user, amount=amount)[1] if use_points else 0
-                rwd_amt = (
-                    Pay.with_rwd(user=user, amount=amount)[1] if use_rewards else 0
-                )
-                new_amount = int(amount) - pts_amt - rwd_amt
+                amount = int(amount)
+                pts_amt = 0
 
-                debit_response = Wallet.Debit(
-                    debitAccount=user_wallet.account_number,
-                    amount=new_amount,
-                    reason="Debit for airtime recharge.",
-                    merchantFeeAmount="",
-                )
+                if use_points:
+                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
 
-                if debit_response.status_code == 200:
-                    airtime_response = VAS.airtime_topup(
-                        network=network,
-                        bearer_token=vas_token,
-                        amount=amount,
+                # Determine wallet debit amount
+                if use_points and pts_amt >= amount:
+                    wallet_debit_amount = 0
+                elif use_points and pts_amt < amount:
+                    wallet_debit_amount = amount - pts_amt
+                else:
+                    wallet_debit_amount = amount
+
+                # Debit wallet only if required
+                if wallet_debit_amount > 0:
+                    debit_response = Wallet.Debit(
                         debitAccount=user_wallet.account_number,
-                        phone_number=phone,
-                        tx_ref=tx_reference,
+                        amount=wallet_debit_amount,
+                        reason="Debit for airtime recharge.",
+                        merchantFeeAmount="",
                     )
 
-                    airtime_data = airtime_response.json()
-                    status_resp = VAS.status(
-                        bearer_token=vas_token, tx_ref=tx_reference
-                    )
-                    status_data = status_resp.json().get("data", {})
-                    if (
-                        status_data.get("transactionStatus") == "success"
-                        and status_data.get("responseCode") == 200
-                    ):
-                        return self._handle_airtime_success(
-                            user=user,
-                            phone=phone,
-                            amount=amount,
+                    if debit_response.status_code == 200:
+                        airtime_response = VAS.airtime_topup(
                             network=network,
-                            tx_reference=tx_reference,
-                        )
-                    else:
-                        return self._handle_airtime_failure(
-                            user=user,
-                            phone=phone,
+                            bearer_token=vas_token,
                             amount=amount,
-                            airtime_response=airtime_data,
-                            reason="Airtime top-up failed.",
+                            debitAccount=user_wallet.account_number,
+                            phone_number=phone,
+                            tx_ref=tx_reference,
                         )
 
-                return Response(
-                    data=encrypt(debit_response.json()),
-                    status=debit_response.status_code,
-                )
+                        airtime_data = airtime_response.json()
+                        status_resp = VAS.status(
+                            bearer_token=vas_token, tx_ref=tx_reference
+                        )
+                        status_data = status_resp.json().get("data", {})
+                        if (
+                            status_data.get("transactionStatus") == "success"
+                            and status_data.get("responseCode") == 200
+                        ):
+                            return self._handle_airtime_success(
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                            )
+                        else:
+                            return self._handle_airtime_failure(
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                airtime_response=airtime_data,
+                                reason="Airtime top-up failed.",
+                            )
+
+                    return Response(
+                        data=encrypt(debit_response.json()),
+                        status=debit_response.status_code,
+                    )
 
             case "CARD":
                 debit_account = user_wallet.account_number if user else None

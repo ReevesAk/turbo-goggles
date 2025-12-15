@@ -119,41 +119,21 @@ class Allocate:
 
 class Pay:
     @staticmethod
-    def with_rwd(user, amount):
-        try:
-            rwd = Points.objects.get(user=user)
-        except Points.DoesNotExist:
-            return "Not Found", 0
-
-        deducted_amount = (0.30 * amount) * 0.5
-
-        if rwd.balance >= deducted_amount:
-            rwd.balance -= deducted_amount
-            rwd.save()
-            return "Enough", deducted_amount
-        else:
-            deducted_amount = rwd.balance
-            rwd.balance = 0
-            rwd.save()
-            return "Not Enough", deducted_amount
-
-    @staticmethod
     def with_pts(user, amount):
         try:
             pts = Points.objects.get(user=user)
         except Points.DoesNotExist:
             return "Not Found", 0
-        deducted_amount = 0.20 * amount
 
-        if pts.balance >= deducted_amount:
-            pts.balance -= deducted_amount
+        if pts.naira_value >= amount:
+            pts.balance -= amount
             pts.save()
-            return "Enough", deducted_amount
+            return "Enough", amount
         else:
-            deducted_amount = pts.balance
+            amount = pts.balance
             pts.balance = 0
             pts.save()
-            return "Not Enough", deducted_amount
+            return "Not Enough", amount
 
 
 # class CamelCaseJSONRenderer(JSONRenderer):

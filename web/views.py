@@ -38,89 +38,60 @@ logger = logging.getLogger(__name__)
 
 
 class CreateJob(generics.CreateAPIView):
-    """
-    Create a new job posting.
-    """
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
+
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
 
-        serializer = self.serializer_class(data=payload)
-        if not serializer.is_valid(raise_exception=True):
+        current_user = request.user
+        pin = payload.get("pin")
+
+        if not check_password(pin, current_user.admin_pin):
             return Response(
-                data={"status": "fail", "message": serializer.errors},
+                encrypt({"status": "fail", "message": "Incorrect pin."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        current_user = request.user
-        pin = payload.get("pin")
-        if not check_password(password=pin, encoded=current_user.admin_pin):
+        if JobModel.objects.filter(title=payload.get("title")).exists():
             return Response(
-                data=encrypt({
+                encrypt({
                     "status": "fail",
-                    "message": "Incorrect pin.",
+                    "message": "This job posting already exists.",
                 }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            job = JobModel.objects.filter(
-                title=request.data.get("title"),
-            )
-            if job.exists():
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "This job posting aready exists.",
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # Save the job data.
-            job_instance = JobModel.objects.create(
-                title=request.data.get("title"),
-                description=request.data.get("description"),
-                location=request.data.get("location"),
-                salary=request.data.get("salary"),
-                is_active=request.data.get("is_active", True),
-            )
-            job_instance.save()
-        except Exception as e:
-            logger.error("Error saving job: %s", e)
-            return Response(
-                data={
-                    "status": "error",
-                    "message": f"An error occurred while saving your job: {str(e)}.",
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        serializer = self.serializer_class(data=payload)
+        serializer.is_valid(raise_exception=True)
 
-        response = {
-            "status": "success",
-            "message": "Job Created!",
-            "data": {
-                "title": request.data.get("title"),
-                "description": request.data.get("description"),
-                "location": request.data.get("location"),
-                "salary": request.data.get("salary"),
-                "is_active": request.data.get("is_active", True),
-            },
-        }
+        job = serializer.save()
+
         return Response(
-            data=encrypt(response),
-            status=status.HTTP_201_CREATED
+            encrypt({
+                "status": "success",
+                "message": "Job Created!",
+                "data": {
+                    "id": job.id,
+                    "title": job.title,
+                    "location": job.location,
+                    "salary": job.salary,
+                    "is_active": job.is_active,
+                },
+            }),
+            status=status.HTTP_201_CREATED,
         )
 
 
 class JobList(generics.ListAPIView):
     """
-    List all job postings with custom response structure.
+    List all job postings.
     """
 
     queryset = JobModel.objects.all().order_by("-created_at")
