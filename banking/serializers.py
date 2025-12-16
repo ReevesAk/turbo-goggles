@@ -149,7 +149,7 @@ class BankNtfnSerializer(serializers.ModelSerializer):
         ]
 
 
-class Get9PSBWalletSerializer(serializers.Serializer):
+class Get9PSBWalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = WalletModel
         fields = [
