@@ -5,6 +5,7 @@ class JobModel(models.Model):
     title = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
     company = models.CharField(max_length=255, null=True, blank=True)
+    job_type = models.CharField(max_length=100, null=True, blank=True)
     job_summary = models.TextField(null=True, blank=True)
 
     key_responsibilities = models.JSONField(default=list, blank=True)
