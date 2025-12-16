@@ -269,6 +269,16 @@ class SubmitJobApplication(generics.CreateAPIView):
             address=request.data.get("address"),
             cv=cv_url,
         )
+        # TODO
+        # send application to careers@picadailys.com.
+        # name = request.data.get("name", "N/A")
+        # email = request.data.get("email", "N/A")
+        # role = request.data.get("role", "N/A")
+        # content = f""" # name: {name}, 
+        # # email: {email},
+        # CV: [View CV]({cv_url}), # cover letter: [View Cover Letter]({letter_url}),
+
+        # """ # sendMail(content=content, subject=role)
 
         return Response(
             {

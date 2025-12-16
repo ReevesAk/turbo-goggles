@@ -20,6 +20,13 @@ class JobModel(models.Model):
 
 
 class Applications(models.Model):
+    job = models.ForeignKey(
+        JobModel,
+        on_delete=models.CASCADE,
+        related_name="applications",
+        null=True,
+    )
+    job_title = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
     email = models.EmailField(max_length=255, null=True)
