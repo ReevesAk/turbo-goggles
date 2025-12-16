@@ -70,6 +70,7 @@ class CreateJob(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=payload)
         serializer.is_valid(raise_exception=True)
+        serializer.validated_data.pop("pin", None)
 
         job = serializer.save()
 
@@ -81,7 +82,7 @@ class CreateJob(generics.CreateAPIView):
                     "id": job.id,
                     "title": job.title,
                     "location": job.location,
-                    "salary": job.salary,
+                    "salary": str(job.salary),
                     "is_active": job.is_active,
                 },
             }),
