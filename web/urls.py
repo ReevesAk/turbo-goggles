@@ -20,7 +20,7 @@ urlpatterns = [
     path("jobs/<int:id>/", JobDetail.as_view(), name="job-detail"),
     path("jobs/<int:id>/update/", UpdateJob.as_view(), name="job-update"),
     path("jobs/<int:id>/delete/", DeleteJob.as_view(), name="job-delete"),
-    path("career/submit-application", SubmitJobApplication.as_view(), name="submit_application"),
+    path("career/<int:job_id>/submit-application", SubmitJobApplication.as_view(), name="submit_application"),
     # Applications endpoints.
     path(
         "career/get-applications",

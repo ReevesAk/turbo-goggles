@@ -213,92 +213,79 @@ class SubmitJobApplication(generics.CreateAPIView):
         JSONParser,
     )
 
-    def post(self, request):
-        serializer = ApplicationsSerializers(data=request.data)
-        if not serializer.is_valid(raise_exception=True):
+    def post(self, request, *args, **kwargs):
+        job_id = kwargs.get("job_id")
+
+        if not job_id:
             return Response(
-                data={"status": "fail", "message": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST,
+                {
+                    "status": "fail",
+                    "message": "job_id is required in the URL params."
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            cv_upload = request.data.get("cv")
-            upload_cv = cloud.upload(cv_upload)
-            cv_url = upload_cv["url"]
+            job = JobModel.objects.get(id=job_id)
+        except JobModel.DoesNotExist:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Invalid job ID."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-            try:
-                applications = Applications.objects.filter(
-                    email=request.data.get("email"),
-                    phone_number=request.data.get("phone_number"),
-                )
-                if applications.exists():
-                    return Response(
-                        data={
-                            "status": "fail",
-                            "message": "You have already applied for a job with this email.",
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                # Save the application data without the user field
-                application = Applications.objects.create(
-                    first_name=request.data.get("first_name"),
-                    last_name=request.data.get("last_name"),
-                    email=request.data.get("email"),
-                    phone_number=request.data.get("phone_number"),
-                    gender=request.data.get("gender"),
-                    state=request.data.get("state"),
-                    lga=request.data.get("lga"),
-                    address=request.data.get("address"),
-                    cv=cv_url,
-                )
-                application.save()
-            except Exception as e:
-                logger.error("Error saving application: %s", e)
-                return Response(
-                    data={
-                        "status": "error",
-                        "message": f"An error occurred while saving your application: {str(e)}.",
-                    },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+        serializer = ApplicationsSerializers(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-            # send application to careers@picadailys.com.
-            # name = request.data.get("name", "N/A")
-            # email = request.data.get("email", "N/A")
-            # role = request.data.get("role", "N/A")
+        cv_upload = request.data.get("cv")
+        upload_cv = cloud.upload(cv_upload)
+        cv_url = upload_cv["url"]
 
-            # content = f"""
-            #     name: {name},
-            #     email: {email},
-            #     CV: [View CV]({cv_url}),
-            #     cover letter: [View Cover Letter]({letter_url}),
-            #     certificates: {application.certificates}
-            # """
+        # Prevent duplicate application per job
+        if Applications.objects.filter(
+            email=request.data.get("email"),
+            job=job
+        ).exists():
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "You have already applied for this job."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            # sendMail(content=content, subject=role)
+        application = Applications.objects.create(
+            job=job,
+            job_title=job.title,   # ✅ from DB
+            first_name=request.data.get("first_name"),
+            last_name=request.data.get("last_name"),
+            email=request.data.get("email"),
+            phone_number=request.data.get("phone_number"),
+            gender=request.data.get("gender"),
+            state=request.data.get("state"),
+            lga=request.data.get("lga"),
+            address=request.data.get("address"),
+            cv=cv_url,
+        )
 
-            response = {
+        return Response(
+            {
                 "status": "success",
                 "message": "Job application sent!",
                 "data": {
-                    "first_name": request.data.get("first_name"),
-                    "last_name": request.data.get("last_name"),
-                    "phone_number": request.data.get("phone_number"),
-                    "gender": request.data.get("gender"),
-                    "state": request.data.get("state"),
-                    "lga": request.data.get("lga"),
-                    "address": request.data.get("address"),
-                    "email": request.data.get("email"),
+                    "job_id": job.id,
+                    "job_title": job.title,
+                    "first_name": application.first_name,
+                    "last_name": application.last_name,
+                    "email": application.email,
+                    "phone_number": application.phone_number,
                     "cv": cv_url,
                 },
-            }
-            return Response(data=response, status=status.HTTP_201_CREATED)
-
-        except Exception as err:
-            return Response(
-                {"error": "An error occurred: {}".format(err)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            },
+            status=status.HTTP_201_CREATED
+        )
 
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)
