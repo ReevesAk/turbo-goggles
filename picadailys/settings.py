@@ -84,6 +84,8 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
     "http://localhost:5173",
     "http://167.71.174.242",
     "https://api.picadailys.com",
