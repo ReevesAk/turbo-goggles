@@ -92,10 +92,11 @@ class Get9PSBWallet(generics.GenericAPIView):
     def post(self, request):
         logger.info("Received request to validate and retrieve 9PSB wallet details.")
 
-        # Clean up and prepare payload
+        # Decrypt, Clean up and prepare payload
+        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            for key, value in decrypted_payload.items()
         }
         serializer = Get9PSBWalletSerializer(data=payload)
 
@@ -115,15 +116,27 @@ class Get9PSBWallet(generics.GenericAPIView):
                 response = {
                     "status": "success",
                     "message": "Account details for supplied account number retrieved successfully.",
-                    "data": serializer.data,
+                    "data": acc_resp.get("data", {}),
                 }
             else:
-                response = {
-                    "status": "fail",
-                    "message": "user does not have an. account with Picadailys.",
-                    "data": serializer.data,
-                }
-
+                account_details = WalletModel.objects.filter(account_number=payload["account_number"]).first()
+                if account_details:
+                    logger.info("Account found in local database.")
+                    serializer = Get9PSBWalletSerializer(account_details)
+                    response = {
+                        "status": "success",
+                        "message": "Account details for supplied account number retrieved successfully.",
+                        "data": {
+                            "account_number": serializer.data["account_number"],
+                            "acc_name": account_details.acct_name,
+                        }
+                    }
+                else:
+                    response = {
+                        "status": "fail",
+                        "message": "user does not have an account with Picadailys.",
+                        "data": serializer.data,
+                    }
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
