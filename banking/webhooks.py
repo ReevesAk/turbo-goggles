@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class WebhookDispatcherView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
+        logger.info("Receiving a webhook from 9PSB.....")
         event = request.query_params.get("event")
 
         if not event:
