@@ -457,9 +457,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                 otp = otp_manager.create_otp(user_id=str(user.id))
                 logger.info("Generated OTP: %s for user ID: %s", otp, user.id)
 
-                msg = "To reset your password, use this code {}.".format(
-                    otp
-                )
+                msg = "To reset your password, use this code {}.".format(otp)
 
                 # Send OTP
                 Messaging.send_sms(phone_number=phone_number, msg=msg)

@@ -303,7 +303,7 @@ class WebhookSerializer(serializers.Serializer):
     data = DataSerializer()
 
 
-class NotificationWebhookSerializer(serializers.Serializer):
+class TransferNotificationWebhookSerializer(serializers.Serializer):
     merchant = serializers.CharField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     sourceaccount = serializers.CharField()
@@ -315,6 +315,12 @@ class NotificationWebhookSerializer(serializers.Serializer):
     accountnumber = serializers.CharField()
     orderref = serializers.CharField()
     code = serializers.CharField()
+    message = serializers.CharField()
+
+
+class UpgradeNotificationWebhookSerializer(serializers.Serializer):
+    accountnumber = serializers.CharField()
+    status = serializers.CharField()
     message = serializers.CharField()
 
 

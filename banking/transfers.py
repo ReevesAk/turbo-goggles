@@ -119,7 +119,9 @@ class Get9PSBWallet(generics.GenericAPIView):
                     "data": acc_resp.get("data", {}),
                 }
             else:
-                account_details = WalletModel.objects.filter(account_number=payload["account_number"]).first()
+                account_details = WalletModel.objects.filter(
+                    account_number=payload["account_number"]
+                ).first()
                 if account_details:
                     logger.info("Account found in local database.")
                     serializer = Get9PSBWalletSerializer(account_details)
@@ -129,7 +131,7 @@ class Get9PSBWallet(generics.GenericAPIView):
                         "data": {
                             "account_number": serializer.data["account_number"],
                             "acc_name": account_details.acct_name,
-                        }
+                        },
                     }
                 else:
                     response = {

@@ -1,3 +1,4 @@
+import re
 import logging
 import base64
 from decouple import config
@@ -15,7 +16,8 @@ from .controllers import Transfers
 from .serializers import (
     VerifyCardDepositSerializers,
     WebhookSerializer,
-    NotificationWebhookSerializer,
+    TransferNotificationWebhookSerializer,
+    UpgradeNotificationWebhookSerializer,
 )
 from accounts.models import UserNotification
 from roles.models import ActivityModel
@@ -26,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class InflowsWebhookNotificationView(generics.CreateAPIView):
-    serializer_class = NotificationWebhookSerializer
+    serializer_class = TransferNotificationWebhookSerializer
 
     # Credentials you registered with 9PSB
     EXPECTED_USERNAME = config("NINE_PSB_WEBHOOK_USERNAME")
@@ -141,6 +143,109 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
+    serializer_class = UpgradeNotificationWebhookSerializer
+
+    # Credentials you registered with 9PSB
+    EXPECTED_USERNAME = config("NINE_PSB_WEBHOOK_USERNAME")
+    EXPECTED_PASSWORD = config("NINE_PSB_WEBHOOK_PASSWORD")
+
+    def verify_basic_auth(self, request):
+        """Validate Basic Auth header."""
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header or not auth_header.startswith("Basic "):
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Missing or invalid Authorization header",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            encoded_credentials = auth_header.split(" ")[1]
+            decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
+            username, password = decoded_credentials.split(":", 1)
+        except Exception:
+            return Response(
+                {
+                    "success": False,
+                    "code": "400",
+                    "status": "FAILED",
+                    "message": "Invalid Basic Auth format or encoding",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if username != self.EXPECTED_USERNAME or password != self.EXPECTED_PASSWORD:
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Invalid username or password",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return None  # Auth passed
+
+    def post(self, request, *args, **kwargs):
+        # Step 1: Validate Basic Auth
+        auth_error = self.verify_basic_auth(request)
+        if auth_error:
+            return auth_error
+
+        # Step 2: Validate payload
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        webhook_data = serializer.validated_data
+
+        logger.info(f"Received 9PSB inflow webhook: {webhook_data}")
+
+        # Step 3: Extract key details (adjust to your serializer’s fields)
+        account_number = webhook_data.get("accountnumber")
+        status = webhook_data.get("status")
+        message = webhook_data.get("message")
+
+        if status == "Completed":
+            wallet = WalletModel.objects.filter(account_number=account_number).first()
+
+            if wallet:
+                # Record notification
+                UserNotification.objects.create(
+                    user=wallet.user,
+                    title="Account Upgrade",
+                    message=message,
+                )
+
+                tier = self.extract_tier(message)
+                ActivityModel.objects.create(
+                    user=wallet.user,
+                    title="Account Upgrade",
+                    description=f"{wallet.user.full_name}'s account has been upgraded to {tier}.",
+                )
+
+                logger.info(f"Wallet: {account_number} successfully upgraded.")
+
+        return Response(
+            {
+                "success": True,
+                "code": "00",
+                "status": "SUCCESS",
+                "message": "Acknowledged",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def extract_tier(message: str):
+        match = re.search(r"upgraded to\s+(\w+)", message, re.IGNORECASE)
+        return match.group(1) if match else None
 
 
 class CardDepositPaystackWebhook(generics.CreateAPIView):

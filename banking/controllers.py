@@ -254,7 +254,9 @@ class Wallet:
             "accountNumber": accountNumber,
             "bvn": bvn,
             "nin": nin,
-            "proofOfAddressVerification": cloudinary_to_base64(proofOfAddressVerification),
+            "proofOfAddressVerification": cloudinary_to_base64(
+                proofOfAddressVerification
+            ),
         }
 
         bearer_token = authenticate()

@@ -35,6 +35,7 @@ from .webhooks import (
     VerifyCardPaymentTransaction,
     RedirectingPageView,
     InflowsWebhookNotificationView,
+    AccountUpgradeWebhookNotificationView,
 )
 
 app_name = "banking"
@@ -59,7 +60,11 @@ urlpatterns = [
     # Transfers
     path("transfers/get-all-banks", GetAllBanks.as_view(), name="get_all_banks"),
     path("transfers/get-9psb-wallet", Get9PSBWallet.as_view(), name="get_9psb_wallet"),
-    path("transfers/validate-account", ValidateAccountOfOtherBank.as_view(), name="validate_account"),
+    path(
+        "transfers/validate-account",
+        ValidateAccountOfOtherBank.as_view(),
+        name="validate_account",
+    ),
     path("transfers/intra-bank", IntraBankTransfer.as_view(), name="intra_bank"),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
     path(
@@ -88,6 +93,11 @@ urlpatterns = [
         "webhook/transfer",
         InflowsWebhookNotificationView.as_view(),
         name="webhook_transfer",
+    ),
+    path(
+        "webhook/account-upgrade",
+        AccountUpgradeWebhookNotificationView.as_view(),
+        name="webhook_account_upgrade",
     ),
     path(
         "verify-card-deposit",
