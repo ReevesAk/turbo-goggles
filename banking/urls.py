@@ -34,6 +34,7 @@ from .webhooks import (
     CardDepositPaystackWebhook,
     VerifyCardPaymentTransaction,
     RedirectingPageView,
+    WebhookDispatcherView,
     InflowsWebhookNotificationView,
     AccountUpgradeWebhookNotificationView,
 )
@@ -88,7 +89,12 @@ urlpatterns = [
     # FX
     # path("fx/get-quotation", GetQuotation.as_view(), name="get_quotation"),
     # Webhooks
-    path("webhook", CardDepositPaystackWebhook.as_view(), name="paystack_webhook"),
+    path(
+        "paystack/webhook/",
+        CardDepositPaystackWebhook.as_view(),
+        name="paystack_webhook",
+    ),
+    path("webhook", WebhookDispatcherView.as_view(), name="webhook_dispatcher"),
     path(
         "webhook/transfer",
         InflowsWebhookNotificationView.as_view(),

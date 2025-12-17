@@ -27,6 +27,28 @@ from permissions import IsAuthenticatedOrGuestWithValidId
 logger = logging.getLogger(__name__)
 
 
+class WebhookDispatcherView(generics.GenericAPIView):
+    def post(self, request, *args, **kwargs):
+        event = request.query_params.get("event")
+
+        if not event:
+            return Response(
+                {"success": False, "message": "Missing event query parameter"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if event == "transfer":
+            return InflowsWebhookNotificationView.as_view()(request._request)
+
+        if event == "account_upgrade":
+            return AccountUpgradeWebhookNotificationView.as_view()(request._request)
+
+        return Response(
+            {"success": False, "message": f"Unsupported event type: {event}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
 class InflowsWebhookNotificationView(generics.CreateAPIView):
     serializer_class = TransferNotificationWebhookSerializer
 
@@ -206,7 +228,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         webhook_data = serializer.validated_data
 
-        logger.info(f"Received 9PSB inflow webhook: {webhook_data}")
+        logger.info(f"Received 9PSB account upgrade webhook: {webhook_data}")
 
         # Step 3: Extract key details (adjust to your serializer’s fields)
         account_number = webhook_data.get("accountnumber")
@@ -243,7 +265,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
             status=status.HTTP_200_OK,
         )
 
-    def extract_tier(message: str):
+    def extract_tier(self, message: str):
         match = re.search(r"upgraded to\s+(\w+)", message, re.IGNORECASE)
         return match.group(1) if match else None
 

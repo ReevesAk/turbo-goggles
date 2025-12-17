@@ -92,6 +92,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "http://localhost:5174",
+    "https://picadailys-landing.vercel.app",
     "https://miniature-waddle-k5bz.onrender.com",
     "https://admin-dashboard-jade-phi.vercel.app",
     "https://admin.picadailys.com",
