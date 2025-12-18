@@ -75,7 +75,11 @@ urlpatterns = [
     ),
     # Card Payments
     path("pay-with-card", PayWithCard.as_view(), name="fund_with_card"),
-    path("fund-wallet", FundWallet.as_view(), name="fund_wallet"),
+    path(
+        "fund-picadailys-wallet-with-other-cards-yesandyes",
+        FundWallet.as_view(),
+        name="fund_wallet",
+    ),
     path("create-refund", RefundFailedCardTransaction.as_view(), name="create_refund"),
     # Transactions
     path(

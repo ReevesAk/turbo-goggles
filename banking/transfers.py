@@ -8,6 +8,8 @@ from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
 
+from decouple import config
+
 from permissions import (
     IsPartnerUserOrMember,
     IsBrandAd,
@@ -765,13 +767,14 @@ class FundWallet(generics.GenericAPIView):
             )
 
         user_details = WalletModel.objects.get(user=user)
+        picadailys_account_number = config("MERCHANT_ACCOUNT")
 
         try:
             transfer_resp = Transfers.Intra_bank_transfer(
                 creditAccount=user_details.account_number,
-                debitAccount="7766713636",
+                debitAccount=picadailys_account_number,
                 transactionAmount=amount,
-                narration="You funded your wallet",
+                narration=f"You funded your wallet with ₦{amount} using paystack.",
                 transactionReference=tx_ref,
             )
             if transfer_resp.status_code == 200:
@@ -799,14 +802,14 @@ class FundWallet(generics.GenericAPIView):
 
                 UserNotification.objects.create(
                     user=user,
-                    title="Bank Transfer.",
+                    title="Wallet Funding",
                     message=f"Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}.",
                 )
                 logger.info("User notification created for user %s", user.id)
 
                 ActivityModel.objects.create(
                     user=user,
-                    title="Bank Transfer.",
+                    title="Wallet Funding",
                     description=f"{user.first_name} {user.last_name} funded their account with ₦{amount}. Available balance is ₦{account.available_balance}.",
                 )
                 logger.info("Activity log created for user %s", user.id)
