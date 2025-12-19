@@ -44,9 +44,6 @@ class WebhookDispatcherView(generics.GenericAPIView):
         if event == "account_upgrade":
             return AccountUpgradeWebhookNotificationView.as_view()(request._request)
 
-        if event == "charge.success" or event == "hook":
-            return CardDepositPaystackWebhook.as_view()(request._request)
-
         return Response(
             {"success": False, "message": f"Unsupported event type: {event}"},
             status=status.HTTP_400_BAD_REQUEST,
