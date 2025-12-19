@@ -182,6 +182,7 @@ class FundWithCard(BaseModel):
     email = models.EmailField(null=True)
     amount = models.DecimalField(
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        null=True
     )
     is_processed = models.BooleanField(default=False)
