@@ -8,8 +8,6 @@ from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
 
-from decouple import config
-
 from permissions import (
     IsPartnerUserOrMember,
     IsBrandAd,
@@ -767,15 +765,14 @@ class FundWallet(generics.GenericAPIView):
             )
 
         user_details = WalletModel.objects.get(user=user)
-        picadailys_account_number = config("MERCHANT_ACCOUNT")
 
         try:
-            transfer_resp = Transfers.Intra_bank_transfer(
-                creditAccount=user_details.account_number,
-                debitAccount=picadailys_account_number,
-                transactionAmount=amount,
-                narration=f"You funded your wallet with ₦{amount} using paystack.",
-                transactionReference=tx_ref,
+            print(user_details.account_number)
+            print(amount)
+            transfer_resp = Wallet.Credit(
+                acct_no=user_details.account_number,
+                amount=amount,
+                reason=f"You funded your wallet with ₦{amount} using paystack.",
             )
             if transfer_resp.status_code == 200:
                 tx_id = generate_txId()

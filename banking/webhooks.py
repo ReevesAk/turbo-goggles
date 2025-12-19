@@ -350,7 +350,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                     "message": "Transaction was successful.",
                     "transaction": {
                         "txn_reference": user_obj.txn_reference,
-                        "amount": user_obj.amount,
+                        "amount": str(user_obj.amount),
                         "email": user_obj.email,
                         "status": user_obj.status,
                     },

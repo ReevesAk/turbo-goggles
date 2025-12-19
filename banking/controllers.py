@@ -391,7 +391,7 @@ class Wallet:
             },
             "transactionType": "CREDIT_WALLET",
         }
-
+        print("Credit wallet payload:", payload)
         try:
             response = requests.post(
                 url=base_url + resource, headers=headers, json=payload
