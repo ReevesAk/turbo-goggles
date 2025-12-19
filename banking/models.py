@@ -164,8 +164,24 @@ class TransferModel(models.Model):
 
 
 class FundWithCard(BaseModel):
-    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True)
-    txn_reference = models.CharField(max_length=200, null=True)
-    status = models.CharField(max_length=100, null=True)
-    email = models.EmailField(max_length=100, null=True)
-    amount = models.FloatField(default=Decimal("0.00"))
+    txn_reference = models.CharField(
+        max_length=200,
+        unique=True,
+        null=True
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="card_fundings"
+    )
+    status = models.CharField(
+        max_length=100, null=True
+    )
+    email = models.EmailField(null=True)
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+    is_processed = models.BooleanField(default=False)
