@@ -537,6 +537,10 @@ class Login(APIView):
                     {
                         "status": "fail",
                         "message": "Please verify your account to login",
+                        "data": {
+                            "user_id": str(user.id),
+                            "is_verified": user.is_verified,
+                        }
                     }
                 ),
                 status=status.HTTP_401_UNAUTHORIZED,
