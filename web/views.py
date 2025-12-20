@@ -421,7 +421,7 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        logger.error(f"Newsletter subscription attempt failed: {email}")
+        logger.info(f"Newsletter subscription attempt successful: {email}")
 
         if NewsletterSubscribers.objects.filter(email=email).exists():
             return Response(
