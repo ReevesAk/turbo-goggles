@@ -618,6 +618,8 @@ class Login(APIView):
             "status": "success",
             "message": "Login successful",
             "active_role": user.active_role,
+            "user_id": str(user.id),
+            "is_verified": user.is_verified,
             "tokens": tokens,
         }
         encrypted_response = encrypt(response)

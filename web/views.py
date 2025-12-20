@@ -410,25 +410,25 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
     serializer_class = NewsletterSubscribersSerializer
 
     def post(self, request, *args, **kwargs):
-        decrypted_payload = decrypt(request.data)
-        email = decrypted_payload.get("email")
+        payload = request.data
+        email = payload.get("email")
 
         if not email:
             return Response(
-                encrypt({
+                data={
                     "status": "fail",
                     "message": "Email is required."
-                }),
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
         logger.error(f"Newsletter subscription attempt failed: {email}")
 
         if NewsletterSubscribers.objects.filter(email=email).exists():
             return Response(
-                encrypt({
+                data={
                     "status": "fail",
                     "message": "This email is already subscribed."
-                }),
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -436,10 +436,10 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
         logger.info(f"New newsletter subscription: {email}")
 
         return Response(
-            encrypt({
+            data={
                 "status": "success",
-                "message": "Subscribed to newsletter successfully."
-            }),
+                "message": "Subscribed to newsletter successfully.",
+            },
             status=status.HTTP_201_CREATED
         )
 
@@ -452,15 +452,15 @@ class NewsletterUnsubscribeView(generics.DestroyAPIView):
     permission_classes = (AllowAny,)
 
     def delete(self, request, *args, **kwargs):
-        decrypted_payload = decrypt(request.data)
-        email = decrypted_payload.get("email")
+        payload = request.data
+        email = payload.get("email")
 
         if not email:
             return Response(
-                encrypt({
+                data={
                     "status": "fail",
                     "message": "Email is required."
-                }),
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -469,19 +469,19 @@ class NewsletterUnsubscribeView(generics.DestroyAPIView):
             subscriber.delete()
             logger.info(f"Newsletter unsubscribed: {email}")
             return Response(
-                encrypt({
+                data={
                     "status": "success",
                     "message": "Unsubscribed from newsletter successfully."
-                }),
+                },
                 status=status.HTTP_200_OK
             )
         except NewsletterSubscribers.DoesNotExist:
             logger.error(f"Unsubscribe attempt failed - email not found: {email}")
             return Response(
-                encrypt({
+                data={
                     "status": "fail",
                     "message": "This email is not subscribed."
-                }),
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
