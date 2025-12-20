@@ -81,3 +81,9 @@ class NewsletterSubscribersSerializer(serializers.ModelSerializer):
         model = NewsletterSubscribers
         fields = ["id", "email", "subscribed_at"]
         read_only_fields = ["id", "subscribed_at"]
+
+
+class UnsubscribeNewsletterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsletterSubscribers
+        fields = ["token"]

@@ -10,7 +10,8 @@ from .serializers import (
     ApplicationsSerializers,
     GetApplicationsSerializers,
     JobSerializer,
-    NewsletterSubscribersSerializer
+    NewsletterSubscribersSerializer,
+    UnsubscribeNewsletterSerializer
 )
 
 # Third party imports.
@@ -444,45 +445,32 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
         )
 
 
-class NewsletterUnsubscribeView(generics.DestroyAPIView):
-    """
-    NewsletterUnsubscribeView handles the DELETE request to unsubscribe from the newsletter.
-    """
-
+class NewsletterUnsubscribeView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = UnsubscribeNewsletterSerializer
 
-    def delete(self, request, *args, **kwargs):
-        payload = request.data
-        email = payload.get("email")
+    def post(self, request):
+        token = request.data.get("token")
 
-        if not email:
+        if not token:
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "Email is required."
-                },
+                data={"status": "fail", "message": "Invalid unsubscribe request"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            subscriber = NewsletterSubscribers.objects.get(email=email)
+            subscriber = NewsletterSubscribers.objects.get(token=token)
             subscriber.delete()
-            logger.info(f"Newsletter unsubscribed: {email}")
+
             return Response(
-                data={
-                    "status": "success",
-                    "message": "Unsubscribed from newsletter successfully."
-                },
+                data={"status": "success", "message": "You’ve been unsubscribed successfully"},
                 status=status.HTTP_200_OK
             )
+
         except NewsletterSubscribers.DoesNotExist:
-            logger.error(f"Unsubscribe attempt failed - email not found: {email}")
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "This email is not subscribed."
-                },
-                status=status.HTTP_404_NOT_FOUND
+                data={"status": "fail", "message": "This unsubscribe link is invalid or expired"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 

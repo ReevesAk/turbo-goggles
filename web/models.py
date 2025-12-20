@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 
 class JobModel(models.Model):
@@ -40,4 +41,7 @@ class Applications(models.Model):
 
 class NewsletterSubscribers(models.Model):
     email = models.EmailField(max_length=255, unique=True)
+    token = models.UUIDField(
+        default=uuid.uuid4, editable=False, unique=True, null=True
+    )
     subscribed_at = models.DateTimeField(auto_now_add=True)
