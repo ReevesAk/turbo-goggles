@@ -3,13 +3,14 @@ import logging
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import check_password
 
-from .models import Applications, JobModel
+from .models import Applications, JobModel, NewsletterSubscribers
 
 # In project imports.
 from .serializers import (
     ApplicationsSerializers,
     GetApplicationsSerializers,
     JobSerializer,
+    NewsletterSubscribersSerializer
 )
 
 # Third party imports.
@@ -398,3 +399,114 @@ class JobApplicationList(generics.ListAPIView):
         result_page = paginator.paginate_queryset(applications, request)
         serializer = GetApplicationsSerializers(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class NewsletterSubscriptionView(generics.CreateAPIView):
+    """
+    NewsletterSubscriptionView handles the POST request to subscribe to the newsletter.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = NewsletterSubscribersSerializer
+
+    def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
+        email = decrypted_payload.get("email")
+
+        if not email:
+            return Response(
+                encrypt({
+                    "status": "fail",
+                    "message": "Email is required."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        logger.error(f"Newsletter subscription attempt failed: {email}")
+
+        if NewsletterSubscribers.objects.filter(email=email).exists():
+            return Response(
+                encrypt({
+                    "status": "fail",
+                    "message": "This email is already subscribed."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        NewsletterSubscribers.objects.create(email=email)
+        logger.info(f"New newsletter subscription: {email}")
+
+        return Response(
+            encrypt({
+                "status": "success",
+                "message": "Subscribed to newsletter successfully."
+            }),
+            status=status.HTTP_201_CREATED
+        )
+
+
+class NewsletterUnsubscribeView(generics.DestroyAPIView):
+    """
+    NewsletterUnsubscribeView handles the DELETE request to unsubscribe from the newsletter.
+    """
+
+    permission_classes = (AllowAny,)
+
+    def delete(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
+        email = decrypted_payload.get("email")
+
+        if not email:
+            return Response(
+                encrypt({
+                    "status": "fail",
+                    "message": "Email is required."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            subscriber = NewsletterSubscribers.objects.get(email=email)
+            subscriber.delete()
+            logger.info(f"Newsletter unsubscribed: {email}")
+            return Response(
+                encrypt({
+                    "status": "success",
+                    "message": "Unsubscribed from newsletter successfully."
+                }),
+                status=status.HTTP_200_OK
+            )
+        except NewsletterSubscribers.DoesNotExist:
+            logger.error(f"Unsubscribe attempt failed - email not found: {email}")
+            return Response(
+                encrypt({
+                    "status": "fail",
+                    "message": "This email is not subscribed."
+                }),
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class ListNewsletterSubscribersView(generics.ListAPIView):
+    """
+    List all newsletter subscribers.
+    """
+
+    queryset = NewsletterSubscribers.objects.all().order_by("-subscribed_at")
+    serializer_class = NewsletterSubscribersSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+    pagination_class = CustomPageNumberPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = self.pagination_class()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+        serializer = self.get_serializer(paginated_qs, many=True)
+
+        response = {
+            "status": "success",
+            "message": "Newsletter subscribers retrieved successfully",
+            "data": serializer.data,
+        }
+
+        return Response(encrypt(response), status=status.HTTP_200_OK)

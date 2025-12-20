@@ -10,6 +10,9 @@ from .views import (
     JobApplicationList,
     JobApplicationDetail,
     DeleteJobApplication,
+    NewsletterSubscriptionView,
+    NewsletterUnsubscribeView,
+    ListNewsletterSubscribersView
 )
 
 app_name = "web"
@@ -36,5 +39,20 @@ urlpatterns = [
         "career/applications/<int:pk>/delete/",
         DeleteJobApplication.as_view(),
         name="delete-application",
+    ),
+    path(
+        "newsletter/subscribe/",
+        NewsletterSubscriptionView.as_view(),
+        name="newsletter-subscribe",
+    ),
+    path(
+        "newsletter/unsubscribe/",
+        NewsletterUnsubscribeView.as_view(),
+        name="newsletter-unsubscribe",
+    ),
+    path(
+        "newsletter/subscribers/",
+        ListNewsletterSubscribersView.as_view(),
+        name="list-newsletter-subscribers",
     ),
 ]

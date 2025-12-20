@@ -36,3 +36,8 @@ class Applications(models.Model):
     lga = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=255, null=True)
     cv = models.FileField(max_length=255, null=True)
+
+
+class NewsletterSubscribers(models.Model):
+    email = models.EmailField(max_length=255, unique=True)
+    subscribed_at = models.DateTimeField(auto_now_add=True)

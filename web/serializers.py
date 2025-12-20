@@ -7,7 +7,7 @@ from .models import (
 )
 
 
-from .models import JobModel
+from .models import JobModel, NewsletterSubscribers
 
 
 class JobSerializer(serializers.ModelSerializer):
@@ -74,3 +74,10 @@ class GetApplicationsSerializers(serializers.ModelSerializer):
             "email",
             "cv",
         ]
+
+
+class NewsletterSubscribersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsletterSubscribers
+        fields = ["id", "email", "subscribed_at"]
+        read_only_fields = ["id", "subscribed_at"]
