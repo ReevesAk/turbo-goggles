@@ -806,10 +806,10 @@ class BillPaymentCategoriesView(APIView):
     bill payment categories.
     """
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         token = VAS.authenticate()
         categories_resp = VAS.bill_payment_categories(
-            bearer_token=token, category_id=request.query_params.get("category_id")
+            bearer_token=token, category_id=kwargs.get("category_id")
         )
         categories = categories_resp.json().get("data", [])
 
@@ -831,10 +831,10 @@ class BillersCategoriesView(APIView):
     billers categories.
     """
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         token = VAS.authenticate()
         billers_resp = VAS.billers_categories(
-            bearer_token=token, biller_id=request.query_params.get("billers_id")
+            bearer_token=token, biller_id=kwargs.get("billers_id")
         )
         billers = billers_resp.json().get("data", [])
 
