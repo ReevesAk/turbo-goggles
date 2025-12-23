@@ -875,7 +875,7 @@ class VerifyBillerAccountView(generics.RetrieveAPIView):
 
         try:
             token = VAS.authenticate()
-            verify_biller = VAS.verify_biller_account(
+            verify_biller = VAS.verify_bill_payer(
                 bearer_token=token,
                 billerId=user_data.get("billerId"),
                 customerId=user_data.get("customerId"),
