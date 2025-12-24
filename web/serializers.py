@@ -37,6 +37,7 @@ class JobSerializer(serializers.ModelSerializer):
             "location",
             "salary",
             "is_active",
+            "expires_at",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
