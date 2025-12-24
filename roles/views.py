@@ -575,6 +575,8 @@ class AddAdmin(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body="Your admin account has been created.",
                     email=user.email,
                     html_content=text_content,
                     subject="Admin Registration",
@@ -852,7 +854,11 @@ class AdminForgotPin(generics.GenericAPIView):
         )
 
         Messaging.send_email(
-            email=email, html_content=text_content, subject="Admin Pin Reset"
+            email=email,
+            html_content=text_content,
+            subject="Admin Pin Reset",
+            sender_email="notifications@picadailys.com",
+            body="You have requested a pin reset. Please use the OTP sent to your email to proceed.",
         )
         logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
@@ -936,7 +942,11 @@ class PinVerifyOTP(generics.GenericAPIView):
         )
 
         Messaging.send_email(
-            email=user.email, html_content=text_content, subject="Admin Verify OTP"
+            email=user.email,
+            html_content=text_content,
+            subject="Admin Verify OTP",
+            sender_email="notifications@picadailys.com",
+            body="Your OTP has been verified. You can now proceed to reset your pin.",
         )
 
         full_name = (

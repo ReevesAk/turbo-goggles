@@ -1,5 +1,6 @@
 import logging
 
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import check_password
 
@@ -94,13 +95,23 @@ class CreateJob(generics.CreateAPIView):
 
 class JobList(generics.ListAPIView):
     """
-    List all job postings.
+    List all active and non-expired job postings.
     """
 
-    queryset = JobModel.objects.all().order_by("-created_at")
     serializer_class = JobSerializer
     permission_classes = ()
     pagination_class = CustomPageNumberPagination
+
+    def get_queryset(self):
+        now = timezone.now()
+        return (
+            JobModel.objects
+            .filter(
+                is_active=True,
+                expires_at__gt=now
+            )
+            .order_by("-created_at")
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -350,35 +361,32 @@ class DeleteJobApplication(generics.DestroyAPIView):
 
 
 class JobApplicationDetail(generics.ListAPIView):
-    """
-    Retrieve a single job application based on the email.
-    """
-
-    queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
     authentication_classes = [JWTAuthentication]
 
-    def get_queryset(self):
-        email = self.kwargs.get("email")
-        email.lower()
-        if email is None:
+    def get(self, request, *args, **kwargs):
+        email = kwargs.get("email")
+
+        if not email:
             return Response(
-                data={"error": "Email parameter is required."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Email parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        applications = Applications.objects.filter(email=email)
-        if not applications.exists():
+        queryset = Applications.objects.filter(email__iexact=email)
+
+        if not queryset.exists():
             return Response(
-                data={"error": "No job applications with this email exist."},
+                {"error": "No job applications with this email exist."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        serializer = self.get_serializer(queryset, many=True)
         return Response(
-            data={
+            {
                 "status": "success",
-                "data": ApplicationsSerializers(applications, many=True).data,
+                "data": serializer.data,
             },
             status=status.HTTP_200_OK,
         )
