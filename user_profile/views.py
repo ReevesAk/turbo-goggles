@@ -473,6 +473,8 @@ class UpdateUserProfile(generics.UpdateAPIView):
             )
 
             Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=body,
                 email=request.user.email,
                 html_content=text_content,
                 subject="Profile Update",
@@ -592,6 +594,8 @@ class ChangePassword(generics.UpdateAPIView):
             )
 
             Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=body,
                 email=request.user.email,
                 html_content=text_content,
                 subject="Password Change",

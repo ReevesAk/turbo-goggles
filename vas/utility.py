@@ -41,6 +41,8 @@ def send_token(user, msg):
     )
 
     Messaging.send_email(
+        sender_email="notifications@picadailys.com",
+        body=msg,
         email=user.email,
         html_content=text_content,
         subject="Electricity Token",

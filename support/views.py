@@ -722,6 +722,8 @@ class AddAgent(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body=f"Your agent account has been created. Follow this link to complete your signup: {signup_link}",
                     email=user.email,
                     html_content=text_content,
                     subject="Agent Registration",
@@ -899,6 +901,8 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             )
 
             Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=msg,
                 email=user.email,
                 html_content=text_content,
                 subject="Welcome To Picadailys Support",

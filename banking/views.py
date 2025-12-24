@@ -693,6 +693,8 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body=narration,
                     email=user.email,
                     html_content=text_content,
                     subject="Credit Transaction",
@@ -719,6 +721,8 @@ class NotificationView(generics.CreateAPIView):
                 )
 
                 Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body=narration,
                     email=user.email,
                     html_content=text_content,
                     subject="Debit Transaction",
@@ -858,9 +862,11 @@ class SetWalletPin(generics.CreateAPIView):
             )
 
             Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body="Your Wallet pin was created successfully.",
                 email=request.user.email,
                 html_content=text_content,
-                subject="Waller Pin",
+                subject="Wallet Pin",
             )
 
             response = {

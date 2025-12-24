@@ -54,38 +54,28 @@ class Biometrics:
 
 
 class Messaging:
-    def send_email(email, html_content, subject):
-        configuration = ElasticEmail.Configuration()
-        configuration.api_key['apikey'] = elastic_api_key
+    def send_email(email, html_content, sender_email, subject, body):
+        url = yournotify_base_url + "campaigns/email/"
 
-        with ApiClient(configuration) as api_client:
-            api_instance = EmailsApi(api_client)
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
 
-            email_data = EmailMessageData(
-                recipients=[
-                    EmailRecipient(email=email)
-                ],
-                content=EmailContent(
-                    body=[
-                        BodyPart(
-                            content_type=BodyContentType("HTML"),
-                            content=html_content,
-                            charset="utf-8",
-                        ),
-                    ],
-                    From="Alert@picadailys.com",
-                    reply_to="",
-                    subject=subject,
-                ),
-            )
-
-            try:
-                # Send email using Elastic Email API
-                response = api_instance.emails_post(email_data)
-                logging.info("Email sent successfully!")
-                logging.info(response)
-            except Exception as e:
-                logging.error("Error occurred while sending email: %s", e)
+        payload = {
+            "name": "Picadailys Email",
+            "from": sender_email,
+            "subject": subject,
+            "html": html_content,
+            "text": body,
+            "status": "running",
+            "lists": [
+                email
+            ],
+            "channel": "email"
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
 
     @staticmethod
     def send_sms(phone_number, msg):

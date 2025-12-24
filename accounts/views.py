@@ -258,6 +258,8 @@ class PhoneVerifyOTP(generics.GenericAPIView):
                 email=user.email,
                 html_content=text_content,
                 subject="Welcome To Picadailys",
+                body=msg,
+                sender_email="notifications@picadailys.com",
             )
 
             # Update user verification status

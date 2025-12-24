@@ -821,6 +821,8 @@ class FundWallet(generics.GenericAPIView):
                 )
 
                 Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body=message,
                     subject="Wallet Funding",
                     html_content=text_content,
                     email=user.email,

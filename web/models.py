@@ -1,5 +1,7 @@
-from django.db import models
 import uuid
+
+from django.db import models
+from django.utils import timezone
 
 
 class JobModel(models.Model):
@@ -14,10 +16,20 @@ class JobModel(models.Model):
 
     salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
+    def has_expired(self):
+        return self.expires_at and self.expires_at <= timezone.now()
+
+    def save(self, *args, **kwargs):
+        # Automatically deactivate if expired
+        if self.has_expired():
+            self.is_active = False
+        super().save(*args, **kwargs)
 
 
 class Applications(models.Model):
@@ -36,7 +48,8 @@ class Applications(models.Model):
     state = models.CharField(max_length=100, null=True)
     lga = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=255, null=True)
-    cv = models.FileField(max_length=255, null=True)
+    cv = models.URLField(max_length=255, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
 
 class NewsletterSubscribers(models.Model):
