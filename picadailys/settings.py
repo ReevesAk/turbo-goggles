@@ -199,7 +199,7 @@ REST_FRAMEWORK = {
 
     "DEFAULT_THROTTLE_RATES": {
         "user": "700/hour",
-        "anon": "50/hour",
+        "anon": "700/hour",
         "low_usage": "10/hour",
         "high_usage": "500/hour",
 
