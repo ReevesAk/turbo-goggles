@@ -43,6 +43,36 @@ class JobSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class ListJobSerializer(serializers.ModelSerializer):
+    key_responsibilities = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    requirements = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+
+    class Meta:
+        model = JobModel
+        fields = [
+            "id",
+            "pin",
+            "title",
+            "job_type",
+            "company",
+            "job_summary",
+            "key_responsibilities",
+            "requirements",
+            "location",
+            "salary",
+            "is_active",
+            "expires_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
 class ApplicationsSerializers(serializers.ModelSerializer):
 
     class Meta:

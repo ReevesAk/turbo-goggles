@@ -11,6 +11,7 @@ from .serializers import (
     ApplicationsSerializers,
     GetApplicationsSerializers,
     JobSerializer,
+    ListJobSerializer,
     NewsletterSubscribersSerializer,
     UnsubscribeNewsletterSerializer
 )
@@ -100,7 +101,7 @@ class JobList(generics.ListAPIView):
     """
 
     queryset = JobModel.objects.all().order_by("-created_at")
-    serializer_class = JobSerializer
+    serializer_class = ListJobSerializer
     permission_classes = ()
     pagination_class = CustomPageNumberPagination
 
