@@ -362,24 +362,24 @@ class SingleJobApplicationsList(generics.ListAPIView):
 
         if not queryset.exists():
             return Response(
-                {
+                data=encrypt({
                     "status": "success",
                     "message": "No applications found for this job.",
                     "count": 0,
                     "data": [],
-                },
+                }),
                 status=status.HTTP_200_OK,
             )
 
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(
-            {
+            data=encrypt({
                 "status": "success",
                 "message": "Applications retrieved successfully.",
                 "count": queryset.count(),
                 "data": serializer.data,
-            },
+            }),
             status=status.HTTP_200_OK,
         )
 
