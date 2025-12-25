@@ -57,7 +57,6 @@ class ListJobSerializer(serializers.ModelSerializer):
         model = JobModel
         fields = [
             "id",
-            "pin",
             "title",
             "job_type",
             "company",
