@@ -1,6 +1,6 @@
 import logging
 
-from django.utils import timezone
+from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import check_password
 
@@ -25,6 +25,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
+from commons import Messaging
 
 from permissions import (
     IsAdmin,
@@ -98,20 +99,10 @@ class JobList(generics.ListAPIView):
     List all active and non-expired job postings.
     """
 
+    queryset = JobModel.objects.all().order_by("-created_at")
     serializer_class = JobSerializer
     permission_classes = ()
     pagination_class = CustomPageNumberPagination
-
-    def get_queryset(self):
-        now = timezone.now()
-        return (
-            JobModel.objects
-            .filter(
-                is_active=True,
-                expires_at__gt=now
-            )
-            .order_by("-created_at")
-        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -119,13 +110,11 @@ class JobList(generics.ListAPIView):
         paginated_qs = paginator.paginate_queryset(queryset, request)
         serializer = self.get_serializer(paginated_qs, many=True)
 
-        response = {
+        return paginator.get_paginated_response({
             "status": "success",
             "message": "Jobs retrieved successfully",
             "data": serializer.data,
-        }
-
-        return Response(response, status=status.HTTP_200_OK)
+        })
 
 
 class JobDetail(generics.RetrieveAPIView):
@@ -282,16 +271,32 @@ class SubmitJobApplication(generics.CreateAPIView):
             address=request.data.get("address"),
             cv=cv_url,
         )
-        # TODO
-        # send application to careers@picadailys.com.
-        # name = request.data.get("name", "N/A")
-        # email = request.data.get("email", "N/A")
-        # role = request.data.get("role", "N/A")
-        # content = f""" # name: {name}, 
-        # # email: {email},
-        # CV: [View CV]({cv_url}), # cover letter: [View Cover Letter]({letter_url}),
 
-        # """ # sendMail(content=content, subject=role)
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"""
+                    Dear HR,<br><br>
+                    Application for the position of <strong>{job.title}</strong> has been submitted successfully.<br><br>
+                    Applicant Name: {application.first_name} {application.last_name}<br>
+                    Email: {application.email}<br>
+                    Phone Number: {application.phone_number}<br><br>
+                    Please review the application and proceed
+                    to complete your signup.<br><br>
+                    If you have any questions, feel free to contact us at our support email or phone below.
+                """,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "+123 456 7890",
+            },
+        )
+
+        Messaging.send_email(
+            sender_email="Info@picadailys.com",
+            body="Job application submitted successfully.",
+            email=request.data.get("email"),
+            html_content=text_content,
+            subject=f"Application for {job.title} Received",
+        )
 
         return Response(
             {
@@ -313,6 +318,70 @@ class SubmitJobApplication(generics.CreateAPIView):
     def upload_image(self, image_data):
         doc_image = cloud.upload(file=image_data)
         self.uploaded_doc_url = doc_image["url"]
+
+
+class SingleJobApplicationsList(generics.ListAPIView):
+    """
+    List all applications for a specific job (Admin only).
+    PIN is validated manually from request body.
+    """
+
+    serializer_class = ApplicationsSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get_queryset(self):
+        job_id = self.kwargs.get("job_id")
+        return Applications.objects.filter(job_id=job_id).order_by("-created_at")
+
+    def post(self, request, *args, **kwargs):
+        # 🔐 Decrypt payload
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+
+        pin = payload.get("pin")
+        if not pin:
+            return Response(
+                encrypt({"status": "fail", "message": "PIN is required."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_user = request.user
+
+        # 🔑 Validate admin PIN
+        if not check_password(pin, current_user.admin_pin):
+            return Response(
+                encrypt({"status": "fail", "message": "Incorrect PIN."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = self.get_queryset()
+
+        if not queryset.exists():
+            return Response(
+                {
+                    "status": "success",
+                    "message": "No applications found for this job.",
+                    "count": 0,
+                    "data": [],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Applications retrieved successfully.",
+                "count": queryset.count(),
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class DeleteJobApplication(generics.DestroyAPIView):

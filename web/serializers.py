@@ -12,7 +12,7 @@ from .models import JobModel, NewsletterSubscribers
 
 class JobSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
-        max_length=5, min_length=5, required=False, allow_blank=True
+        max_length=5, min_length=5, required=True, allow_blank=True
     )
     key_responsibilities = serializers.ListField(
         child=serializers.CharField(),

@@ -8,6 +8,7 @@ from .views import (
     DeleteJob,
     SubmitJobApplication,
     JobApplicationList,
+    SingleJobApplicationsList,
     JobApplicationDetail,
     DeleteJobApplication,
     NewsletterSubscriptionView,
@@ -29,6 +30,11 @@ urlpatterns = [
         "career/get-applications",
         JobApplicationList.as_view(),
         name="application-list",
+    ),
+    path(
+        "career/get-applications/<int:job_id>",
+        SingleJobApplicationsList.as_view(),
+        name="job-applications-list",
     ),
     path(
         "career/applications/<str:email>/",
