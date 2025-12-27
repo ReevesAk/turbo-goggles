@@ -123,9 +123,7 @@ class UpdatePartnerServiceSerializer(serializers.ModelSerializer):
 class PartnerProfileSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' profile."""
 
-    acc_balance = serializers.CharField(
-        required=False, default=2000000.00, read_only=True
-    )
+    acc_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -152,6 +150,10 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "welcome_bonus",
             "has_card",
         ]
+
+    def get_acc_balance(self, obj):
+        wallet = getattr(obj, "walletmodel", None)
+        return str(wallet.balance) if wallet else "0.00"
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):

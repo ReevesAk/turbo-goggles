@@ -149,6 +149,9 @@ class User(AbstractBaseUser, PermissionsMixin):
                 self.level = level["title"]
                 break
 
+    class Meta:
+        ordering = ["-created_at"]
+
 
 class AccountType(models.Model):
     user = models.ForeignKey(

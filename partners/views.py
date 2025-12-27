@@ -4,7 +4,6 @@ from django.db.models import Prefetch
 from django.http import Http404
 
 # Third party imports.
-from requests import request
 from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework import status
@@ -161,14 +160,25 @@ class ListAllPartners(generics.ListAPIView):
         return partners
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+        queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(page, many=True)
 
-        serializer = self.serializer_class(queryset, many=True)
+            # 🔐 Encrypt ENTIRE paginated payload
+            encrypted_payload = encrypt(
+                {
+                    "count": self.paginator.page.paginator.count,
+                    "next": self.paginator.get_next_link(),
+                    "previous": self.paginator.get_previous_link(),
+                    "results": serializer.data,
+                }
+            )
+
+            return Response(encrypted_payload, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(queryset, many=True)
         return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
