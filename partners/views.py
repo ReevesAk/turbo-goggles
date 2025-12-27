@@ -4,6 +4,7 @@ from django.db.models import Prefetch
 from django.http import Http404
 
 # Third party imports.
+from requests import request
 from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework import status
@@ -230,8 +231,8 @@ class CreatePartnerService(generics.CreateAPIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            service_uploads = cleaned_data.getlist("service_photos")
-            trainer_uploads = cleaned_data.getlist("trainer_photo")
+            service_uploads = request.FILES.getlist("service_photos")
+            trainer_uploads = request.FILES.getlist("trainer_photo")
             image_urls = []
             gym_trainer_img_urls = []
 

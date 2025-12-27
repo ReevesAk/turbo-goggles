@@ -1,9 +1,9 @@
-from datetime import timezone
 import logging
 
 from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
 from django.core.cache import cache
+from django.utils import timezone
 
 # Third party imports.
 from rest_framework import generics, status
