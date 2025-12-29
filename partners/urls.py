@@ -35,7 +35,7 @@ urlpatterns = [
         name="update_service",
     ),
     path(
-        "delete-service/<int:id>/",
+        "delete-service/<int:pk>/",
         DeletePartnerService.as_view(),
         name="delete_service",
     ),
