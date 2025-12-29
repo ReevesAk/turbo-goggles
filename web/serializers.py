@@ -73,6 +73,7 @@ class ListJobSerializer(serializers.ModelSerializer):
 
 
 class ApplicationsSerializers(serializers.ModelSerializer):
+    cv = serializers.FileField(write_only=True)
 
     class Meta:
         model = Applications

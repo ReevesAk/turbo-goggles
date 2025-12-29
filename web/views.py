@@ -242,8 +242,8 @@ class SubmitJobApplication(generics.CreateAPIView):
         serializer = ApplicationsSerializers(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cv_upload = request.data.get("cv")
-        upload_cv = cloud.upload(cv_upload)
+        cv_file = serializer.validated_data.pop("cv")
+        upload_cv = cloud.upload(cv_file)
         cv_url = upload_cv["url"]
 
         # Prevent duplicate application per job
@@ -260,16 +260,9 @@ class SubmitJobApplication(generics.CreateAPIView):
             )
 
         application = Applications.objects.create(
+            **serializer.validated_data,
             job=job,
             job_title=job.title,   # ✅ from DB
-            first_name=request.data.get("first_name"),
-            last_name=request.data.get("last_name"),
-            email=request.data.get("email"),
-            phone_number=request.data.get("phone_number"),
-            gender=request.data.get("gender"),
-            state=request.data.get("state"),
-            lga=request.data.get("lga"),
-            address=request.data.get("address"),
             cv=cv_url,
         )
 

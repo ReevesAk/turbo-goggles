@@ -417,8 +417,8 @@ class UpdatePartnerService(generics.UpdateAPIView):
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
 
         if serializer.is_valid(raise_exception=True):
-            service_uploads = payload.getlist("service_photos")
-            trainer_uploads = payload.getlist("trainer_photo")
+            service_uploads = request.FILES.getlist("service_photos")
+            trainer_uploads = request.FILES.getlist("trainer_photo")
             image_urls = []
             gym_trainer_img_urls = []
 
