@@ -278,6 +278,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    'ENABLE_DELETE_REQUEST_BODY': True,
     'TAGS': [
         {'name': 'KYC', 'description': 'Know Your Customer verification endpoints'},
         {'name': 'Wallet', 'description': 'Wallet management and operations'},

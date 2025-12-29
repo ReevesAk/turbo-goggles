@@ -794,46 +794,34 @@ class DeleteUser(generics.DestroyAPIView):
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request, *args, **kwargs):
-        decrypted_payload = decrypt(request.data)
-        email = decrypted_payload.get("email")
-        password = decrypted_payload.get("password")
+        email = kwargs.get("email")
         logger.info(
             f"User {self.request.user.first_name} {self.request.user.last_name} initiated account deletion request for email: {email}"
         )
 
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
+            msg = "This is to inform you that there was an attempt to delete your account on Picadailys. If you didn't perform this action, kindly reply to this email or send an email to support@picadailys.com."
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": [
+                        "02012271894",
+                        "02012271895",
+                    ],
+                },
+            )
 
-            if not check_password(password, user.password):
-                response = {"status": "fail", "message": "Password is incorrect."}
-                logger.warning(
-                    "User  %s provided an incorrect password to authorise account deletion.",
-                    user.email,
-                )
-                msg = "This is to inform you that there was an unsuccessful attempt to delete your account on Picadailys. If you didn't perform this action, kindly reply to this email or send an email to support@picadailys.com."
-                # Render the template with values
-                text_content = render_to_string(
-                    template_name="empty_email.html",
-                    context={
-                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                        "support_email": "support@picadailys.com",
-                        "picadailys_phone": [
-                            "02012271894",
-                            "02012271895",
-                        ],
-                    },
-                )
-
-                Messaging.send_email(
-                    sender_email="support@picadailys.com",
-                    body=msg,
-                    email=user.email,
-                    html_content=text_content,
-                    subject="Account Deletion",
-                )
-                return Response(
-                    data=encrypt(response), status=status.HTTP_400_BAD_REQUEST
-                )
+            Messaging.send_email(
+                sender_email="support@picadailys.com",
+                body=msg,
+                email=user.email,
+                html_content=text_content,
+                subject="Account Deletion",
+            )
             logger.info(
                 f"User found: {user.first_name} {user.last_name}. Proceeding with account deletion."
             )

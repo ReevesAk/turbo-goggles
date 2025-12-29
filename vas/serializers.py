@@ -13,7 +13,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = ValueAddedServices
@@ -27,7 +26,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "payment_option",
             "use_bonus",
             "use_points",
-            "use_rewards",
         ]
 
     def validate(self, attrs):
@@ -51,7 +49,6 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = ValueAddedServices
@@ -65,7 +62,6 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "payment_option",
             "use_bonus",
             "use_points",
-            "use_rewards",
         ]
 
     def validate(self, attrs):
@@ -89,7 +85,6 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
-    use_rewards = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = ValueAddedServices
@@ -107,7 +102,6 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "otherField",
             "use_bonus",
             "use_points",
-            "use_rewards",
         ]
 
     def create(self, validated_data):
