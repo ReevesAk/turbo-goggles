@@ -33,8 +33,9 @@ from .models import (
 from .helpers import ProductTagmanager
 from accounts.models import UserNotification, PurchaseModel
 from banking.helpers import Pin
+from banking.controllers import Wallet
 from banking.models import WalletModel
-from commons import Biometrics
+from commons import Biometrics, Pay
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 
@@ -70,8 +71,8 @@ class TableBooking(generics.CreateAPIView):
                     for key, value in decrypted_payload.items()
                 }
                 pin = user_data("pin")
-
                 biometrics = user_data.get("use_biometrics")
+                use_points = user_data.get("use_points")
 
                 try:
                     account = WalletModel.objects.get(user=authenticated_user)
@@ -114,75 +115,93 @@ class TableBooking(generics.CreateAPIView):
                 # Inititate a debit on a users' account.
                 amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
-                user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
-                        debit_response = Account.Debit(
-                            debitAccount=user_details.account_number,
-                            amount=amount,
-                            reason="Debit restaurant table booking",
-                            transactionReference="",
-                        )
-                        if debit_response.status_code == 200:
-                            current_user = request.user
-                            UserNotification.objects.create(
-                                user=current_user,
-                                title="Table Booking.",
-                                message=f"Payment of {amount} for restaurant table booking\
-                                    was successful.",
+                        amount = int(amount)
+                        pts_amt = 0
+
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(
+                                user=authenticated_user, amount=amount
                             )
 
-                            ActivityModel.objects.create(
-                                user=current_user,
-                                title="Table Booking.",
-                                description=f"{current_user.first_name} {current_user.last_name} made a payment of {amount} for restaurant table booking.",
-                            )
-
-                            serializer.save()
-                            purchase = PurchaseModel.objects.create(
-                                user=authenticated_user,
-                                service_type="Restaurant Booking",
-                                service_id=serializer.data["id"],
-                                amount=amount,
-                            )
-                            tx_status = TransactionStatus.objects.create(
-                                status="Success",
-                                details="Restaurant booking paid successfully.",
-                            )
-                            tag = ProductTagmanager.generate(service_type="RST-")
-                            current_user = RestaurantBooking.objects.get(
-                                user=authenticated_user
-                            )
-                            current_user.purchase = purchase
-                            current_user.product_tag = tag
-                            current_user.transaction_status = tx_status
-                            current_user.save()
-
-                            response_data = {
-                                "status": "Success!",
-                                "message": "Restaurant booking paid successfully.",
-                                "data": {
-                                    "booking data": serializer.data,
-                                    "payment method": payment_option,
-                                    "product_tag": tag,
-                                },
-                            }
-
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
+                        # Determine wallet debit amount
+                        if use_points and pts_amt >= amount:
+                            wallet_debit_amount = 0
+                        elif use_points and pts_amt < amount:
+                            wallet_debit_amount = amount - pts_amt
                         else:
-                            tx_status = TransactionStatus.objects.create(
-                                status="Fail",
-                                details="Restaurant booking failed.",
+                            wallet_debit_amount = amount
+
+                        if wallet_debit_amount > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=amount,
+                                reason="Debit restaurant table booking",
+                                transactionReference="",
                             )
-                            response_data = {
-                                "status": "fail!",
-                                "details": debit_response.json(),
-                            }
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
+
+                            if debit_response.status_code == 200:
+                                UserNotification.objects.create(
+                                    user=authenticated_user,
+                                    title="Table Booking.",
+                                    message=f"Payment of {amount} for restaurant table booking\
+                                        was successful.",
+                                )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Table Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for restaurant table booking.",
+                                )
+
+                                serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Restaurant Booking",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Restaurant booking paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="RST-")
+                                current_user = RestaurantBooking.objects.get(
+                                    user=authenticated_user
+                                )
+                                current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
+                                current_user.save()
+
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Restaurant booking paid successfully.",
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    },
+                                }
+
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
+                            else:
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Fail",
+                                    details="Restaurant booking failed.",
+                                )
+                                response_data = {
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
 
                     case "CARD":
                         UserNotification.objects.create(
@@ -326,10 +345,11 @@ class GymBooking(generics.CreateAPIView):
                 }
                 pin = user_data.get("pin")
                 biometrics = user_data.get("use_biometrics")
+                use_points = user_data.get("use_points")
 
                 try:
-                    account = AccountCreation.objects.get(user=authenticated_user)
-                except AccountCreation.DoesNotExist:
+                    account = Wallet.objects.get(user=authenticated_user)
+                except WalletModel.DoesNotExist:
                     return Response(
                         data=encrypt(
                             {"status": "fail", "error": "Account not found for user"}
@@ -368,70 +388,88 @@ class GymBooking(generics.CreateAPIView):
                 # Inititate a debit on users' account.
                 amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
-                user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
-                        debit_response = Account.Debit(
-                            debitAccount=user_details.account_number,
-                            amount=amount,
-                            reason="Debit for gym subscription.",
-                            transactionReference="",
-                        )
-                        if debit_response.status_code == 200:
-                            UserNotification.objects.create(
-                                user=authenticated_user,
-                                title="Gym Booking.",
-                                message=f"Payment of {amount} for gym booking\
-                                    was successful.",
+                        amount = int(amount)
+                        pts_amt = 0
+
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(
+                                user=authenticated_user, amount=amount
                             )
 
-                            ActivityModel.objects.create(
-                                user=authenticated_user,
-                                title="Gym Booking.",
-                                description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription.",
-                            )
-
-                            serializer.save()
-                            purchase = PurchaseModel.objects.create(
-                                user=authenticated_user,
-                                service_type="Gym Subscription",
-                                service_id=serializer.data["id"],
-                                amount=amount,
-                            )
-                            tx_status = TransactionStatus.objects.create(
-                                status="Success",
-                                details="Gym Subscription paid successfully.",
-                            )
-                            tag = ProductTagmanager.generate(service_type="GYM-")
-                            current_user = GymSubcription.objects.get(
-                                user=authenticated_user
-                            )
-                            current_user.purchase = purchase
-                            current_user.product_tag = tag
-                            current_user.transaction_status = tx_status
-                            current_user.save()
-
-                            response_data = {
-                                "status": "Success!",
-                                "message": "Gym booking paid successfully",
-                                "data": {
-                                    "booking data": serializer.data,
-                                    "payment method": payment_option,
-                                    "product_tag": tag,
-                                },
-                            }
-
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
+                        # Determine wallet debit amount
+                        if use_points and pts_amt >= amount:
+                            wallet_debit_amount = 0
+                        elif use_points and pts_amt < amount:
+                            wallet_debit_amount = amount - pts_amt
                         else:
-                            response_data = {
-                                "status": "fail!",
-                                "details": debit_response.json(),
-                            }
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
+                            wallet_debit_amount = amount
+
+                        if wallet_debit_amount > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=amount,
+                                reason="Debit for gym subscription.",
+                                transactionReference="",
                             )
+                            if debit_response.status_code == 200:
+                                UserNotification.objects.create(
+                                    user=authenticated_user,
+                                    title="Gym Booking.",
+                                    message=f"Payment of {amount} for gym booking\
+                                        was successful.",
+                                )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Gym Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for gym subscription.",
+                                )
+
+                                serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Gym Subscription",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Gym Subscription paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="GYM-")
+                                current_user = GymSubcription.objects.get(
+                                    user=authenticated_user
+                                )
+                                current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
+                                current_user.save()
+
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Gym booking paid successfully",
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    },
+                                }
+
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
+                            else:
+                                response_data = {
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
 
                     case "CARD":
                         UserNotification.objects.create(
@@ -575,10 +613,11 @@ class CinemaBookingView(generics.CreateAPIView):
                 }
                 pin = user_data("pin")
                 biometrics = user_data.get("use_biometrics")
+                use_points = user_data.get("use_points")
 
                 try:
-                    account = AccountCreation.objects.get(user=authenticated_user)
-                except AccountCreation.DoesNotExist:
+                    account = WalletModel.objects.get(user=authenticated_user)
+                except WalletModel.DoesNotExist:
                     return Response(
                         data={"status": "fail", "error": "Account not found for user"},
                         status=status.HTTP_404_NOT_FOUND,
@@ -615,70 +654,88 @@ class CinemaBookingView(generics.CreateAPIView):
                 # Inititate a debit on a users' account.
                 amount = user_data.get("amount")
                 payment_option = user_data("payment_option")
-                user_details = AccountCreation.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
-                        debit_response = Account.Debit(
-                            debitAccount=user_details.account_number,
-                            amount=amount,
-                            reason="Debit for cinema seats booking.",
-                            transactionReference="",
-                        )
-                        if debit_response.status_code == 200:
-                            UserNotification.objects.create(
-                                user=authenticated_user,
-                                title="Cinema Booking.",
-                                message=f"Payment of {amount} for cinema seats booking\
-                                    was successful.",
+                        amount = int(amount)
+                        pts_amt = 0
+
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(
+                                user=authenticated_user, amount=amount
                             )
 
-                            ActivityModel.objects.create(
-                                user=authenticated_user,
-                                title="Cinema Booking.",
-                                description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking.",
-                            )
-
-                            serializer.save()
-                            purchase = PurchaseModel.objects.create(
-                                user=authenticated_user,
-                                service_type="Cinema Booking.",
-                                service_id=serializer.data["id"],
-                                amount=amount,
-                            )
-                            tx_status = TransactionStatus.objects.create(
-                                status="Success",
-                                details="Cinema seats paid successfully.",
-                            )
-                            tag = ProductTagmanager.generate(service_type="CIN-")
-                            current_user = CinemaBooking.objects.get(
-                                user=authenticated_user
-                            )
-                            current_user.purchase = purchase
-                            current_user.product_tag = tag
-                            current_user.transaction_status = tx_status
-                            current_user.save()
-
-                            response_data = {
-                                "status": "Success!",
-                                "message": "Cinema seats booking paid successfully.",
-                                "data": {
-                                    "booking data": serializer.data,
-                                    "payment method": payment_option,
-                                    "product_tag": tag,
-                                },
-                            }
-
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
+                        # Determine wallet debit amount
+                        if use_points and pts_amt >= amount:
+                            wallet_debit_amount = 0
+                        elif use_points and pts_amt < amount:
+                            wallet_debit_amount = amount - pts_amt
                         else:
-                            response_data = {
-                                "status": "fail!",
-                                "details": debit_response.json(),
-                            }
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
+                            wallet_debit_amount = amount
+
+                        if wallet_debit_amount > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=amount,
+                                reason="Debit for cinema seats booking.",
+                                transactionReference="",
                             )
+                            if debit_response.status_code == 200:
+                                UserNotification.objects.create(
+                                    user=authenticated_user,
+                                    title="Cinema Booking.",
+                                    message=f"Payment of {amount} for cinema seats booking\
+                                        was successful.",
+                                )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Cinema Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for cinema seats booking.",
+                                )
+
+                                serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Cinema Booking.",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Cinema seats paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="CIN-")
+                                current_user = CinemaBooking.objects.get(
+                                    user=authenticated_user
+                                )
+                                current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
+                                current_user.save()
+
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Cinema seats booking paid successfully.",
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    },
+                                }
+
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
+                            else:
+                                response_data = {
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
 
                     case "CARD":
                         UserNotification.objects.create(
@@ -822,10 +879,11 @@ class BookCourierSercvice(generics.CreateAPIView):
                 }
                 pin = user_data("pin")
                 biometrics = user_data.get("use_biometrics")
+                use_points = user_data.get("use_points")
 
                 try:
-                    account = AccountCreation.objects.get(user=authenticated_user)
-                except AccountCreation.DoesNotExist:
+                    account = WalletModel.objects.get(user=authenticated_user)
+                except WalletModel.DoesNotExist:
                     return Response(
                         data=encrypt(
                             {"status": "fail", "error": "Account not found for user"}
@@ -864,70 +922,89 @@ class BookCourierSercvice(generics.CreateAPIView):
                 # Inititate a debit on a users' account.
                 amount = user_data.get("price_per_kg")
                 payment_option = user_data.get("payment_option")
-                user_detail = AccountCreation.objects.get(user=authenticated_user)
+
                 match payment_option:
                     case "WALLET":
-                        debit_response = Account.Debit(
-                            debitAccount=user_detail.account_number,
-                            amount=amount,
-                            reason="Debit for booking courier service.",
-                            transactionReference="",
-                        )
-                        if debit_response.status_code == 200:
-                            UserNotification.objects.create(
-                                user=authenticated_user,
-                                title="Courier Service Booking.",
-                                message=f"Payment of {amount} for courier service booking\
-                                    was successful.",
+                        amount = int(amount)
+                        pts_amt = 0
+
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(
+                                user=authenticated_user, amount=amount
                             )
 
-                            ActivityModel.objects.create(
-                                user=authenticated_user,
-                                title="Courier Service Booking.",
-                                description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking.",
-                            )
-
-                            serializer.save()
-                            purchase = PurchaseModel.objects.create(
-                                user=authenticated_user,
-                                service_type="Courier Service.",
-                                service_id=serializer.data["id"],
-                                amount=amount,
-                            )
-                            tx_status = TransactionStatus.objects.create(
-                                status="Success",
-                                details="Cinema seats paid successfully.",
-                            )
-                            tag = ProductTagmanager.generate(service_type="COU-")
-                            current_user = CourierService.objects.get(
-                                user=authenticated_user
-                            )
-                            current_user.purchase = purchase
-                            current_user.product_tag = tag
-                            current_user.transaction_status = tx_status
-                            current_user.save()
-
-                            response_data = {
-                                "status": "Success!",
-                                "message": "Courier service booking paid successfully.",
-                                "data": {
-                                    "booking data": serializer.data,
-                                    "payment method": payment_option,
-                                    "product_tag": tag,
-                                },
-                            }
-
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
-                            )
+                        # Determine wallet debit amount
+                        if use_points and pts_amt >= amount:
+                            wallet_debit_amount = 0
+                        elif use_points and pts_amt < amount:
+                            wallet_debit_amount = amount - pts_amt
                         else:
-                            response_data = {
-                                "status": "fail!",
-                                "details": debit_response.json(),
-                            }
-                            return Response(
-                                data=encrypt(response_data), status=status.HTTP_200_OK
+                            wallet_debit_amount = amount
+
+                        if wallet_debit_amount > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=amount,
+                                reason="Debit for booking courier service.",
+                                transactionReference="",
                             )
+                            if debit_response.status_code == 200:
+                                UserNotification.objects.create(
+                                    user=authenticated_user,
+                                    title="Courier Service Booking.",
+                                    message=f"Payment of {amount} for courier service booking\
+                                        was successful.",
+                                )
+
+                                ActivityModel.objects.create(
+                                    user=authenticated_user,
+                                    title="Courier Service Booking.",
+                                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a payment of {amount} for courier Service booking.",
+                                )
+
+                                serializer.save()
+                                purchase = PurchaseModel.objects.create(
+                                    user=authenticated_user,
+                                    service_type="Courier Service.",
+                                    service_id=serializer.data["id"],
+                                    amount=amount,
+                                )
+                                tx_status = TransactionStatus.objects.create(
+                                    status="Success",
+                                    details="Cinema seats paid successfully.",
+                                )
+                                tag = ProductTagmanager.generate(service_type="COU-")
+                                current_user = CourierService.objects.get(
+                                    user=authenticated_user
+                                )
+                                current_user.purchase = purchase
+                                current_user.product_tag = tag
+                                current_user.transaction_status = tx_status
+                                current_user.save()
+
+                                response_data = {
+                                    "status": "Success!",
+                                    "message": "Courier service booking paid successfully.",
+                                    "data": {
+                                        "booking data": serializer.data,
+                                        "payment method": payment_option,
+                                        "product_tag": tag,
+                                    },
+                                }
+
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
+                            else:
+                                response_data = {
+                                    "status": "fail!",
+                                    "details": debit_response.json(),
+                                }
+                                return Response(
+                                    data=encrypt(response_data),
+                                    status=status.HTTP_200_OK,
+                                )
 
                     case "CARD":
                         UserNotification.objects.create(

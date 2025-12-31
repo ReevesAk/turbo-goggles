@@ -799,7 +799,7 @@ class DeleteUser(generics.DestroyAPIView):
         if not header:
             response = {
                 "status": "fail",
-                "message": "X-Delete-Credentials header is required"
+                "message": "X-Delete-Credentials header is required",
             }
             return Response(data=encrypt(response), status=status.HTTP_401_UNAUTHORIZED)
 
@@ -807,17 +807,11 @@ class DeleteUser(generics.DestroyAPIView):
             decoded = base64.b64decode(header).decode()
             email, password = decoded.split(":", 1)
         except Exception:
-            response = {
-                "status": "fail",
-                "message": "Invalid credential format"
-            }
+            response = {"status": "fail", "message": "Invalid credential format"}
             return Response(data=encrypt(response), status=status.HTTP_400_BAD_REQUEST)
 
         if not check_password(password, request.user.password):
-            response = {
-                "status": "fail",
-                "message": "Incorrect password"
-            }
+            response = {"status": "fail", "message": "Incorrect password"}
             return Response(data=encrypt(response), status=status.HTTP_400_BAD_REQUEST)
 
         logger.info(

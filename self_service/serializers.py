@@ -18,8 +18,9 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
     pin = serializers.CharField(
         max_length=4, min_length=4, required=False, allow_blank=True
     )
-    amount = serializers.CharField(max_length=255, write_only=True, required=True)
-    use_biometrics = serializers.BooleanField(required=False)
+    use_biometrics = serializers.BooleanField(write_only=True, required=False)
+    payment_option = serializers.CharField(max_length=255, write_only=True)
+    use_points = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = RestaurantBooking
@@ -32,6 +33,7 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
             "pin",
             "use_biometrics",
             "payment_option",
+            "use_points",
         ]
 
 
