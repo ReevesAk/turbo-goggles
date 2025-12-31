@@ -40,7 +40,7 @@ class RestaurantBooking(ItemPurchaseBaseModel):
     name = models.CharField(max_length=155, null=True)
     table = models.CharField(max_length=155, null=True)
     number_of_seats = models.CharField(max_length=150, null=True)
-    amount_per_seat = models.FloatField(null=True)
+    amount = models.FloatField(null=True)
     product_tag = models.CharField(max_length=255, blank=True, null=True)
     transaction_status = models.ForeignKey(
         to=TransactionStatus, on_delete=models.SET_NULL, null=True
