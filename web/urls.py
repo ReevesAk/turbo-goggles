@@ -13,7 +13,9 @@ from .views import (
     DeleteJobApplication,
     NewsletterSubscriptionView,
     NewsletterUnsubscribeView,
-    ListNewsletterSubscribersView
+    ListNewsletterSubscribersView,
+    ContactUsView,
+    ListBusinessesAndIndividualsToContact
 )
 
 app_name = "web"
@@ -61,4 +63,6 @@ urlpatterns = [
         ListNewsletterSubscribersView.as_view(),
         name="list-newsletter-subscribers",
     ),
+    path("contact-us", ContactUsView.as_view(), name="contact_us"),
+    path("list-contact-us-requests", ListBusinessesAndIndividualsToContact.as_view(), name="list_contact_us_requests")
 ]

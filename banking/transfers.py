@@ -816,7 +816,10 @@ class FundWallet(generics.GenericAPIView):
                     context={
                         "custom_text": message,
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "+123 456 7890",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
                     },
                 )
 

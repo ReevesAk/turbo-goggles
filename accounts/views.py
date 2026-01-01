@@ -152,21 +152,24 @@ class Register(generics.GenericAPIView):
 
             Messaging.send_sms(phone_number=recipient, msg=msg)
 
-            # # Render the template with values
-            # text_content = render_to_string(
-            #     template_name="empty_email.html",
-            #     context={
-            #         "custom_text": f"Dear {user.first_name},<br><br>{body}.",
-            #         "support_email": "support@picadailys.com",
-            #         "picadailys_phone": "+123 456 7890",
-            #     },
-            # )
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "notifications@picadailys.com",
+                    "picadailys_phone": [
+                        "02012271894",
+                        "02012271895",
+                    ],
+                },
+            )
 
-            # Messaging.send_email(
-            #     email=user.email,
-            #     html_content=text_content,
-            #     subject="Picadailys Registration",
-            # )
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Picadailys Registration",
+            )
 
             response = {
                 "status": "success",
@@ -250,7 +253,10 @@ class PhoneVerifyOTP(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "+123 456 7890",
+                    "picadailys_phone": [
+                        "02012271894",
+                        "02012271895",
+                    ],
                 },
             )
 

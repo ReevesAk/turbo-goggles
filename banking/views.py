@@ -688,7 +688,10 @@ class NotificationView(generics.CreateAPIView):
                         "tx_type": "Credit Transaction",
                         "balance": user_data["accountBalance"],
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "+123 456 7890",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
                     },
                 )
 
@@ -716,7 +719,10 @@ class NotificationView(generics.CreateAPIView):
                         "tx_type": "Debit Transaction",
                         "balance": user_data["accountBalance"],
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "+123 456 7890",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
                     },
                 )
 
@@ -857,7 +863,10 @@ class SetWalletPin(generics.CreateAPIView):
                 context={
                     "custom_text": "This is to inform you that your Wallet pin was created successful.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "+123 456 7890",
+                    "picadailys_phone": [
+                        "02012271894",
+                        "02012271895",
+                    ],
                 },
             )
 
