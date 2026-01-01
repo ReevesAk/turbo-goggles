@@ -396,6 +396,7 @@ class Wallet:
             response = requests.post(
                 url=base_url + resource, headers=headers, json=payload
             )
+            print(response)
             return response
 
         except requests.exceptions.RequestException:
