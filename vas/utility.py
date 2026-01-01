@@ -36,7 +36,10 @@ def send_token(user, msg):
         context={
             "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
             "support_email": "support@picadailys.com",
-            "picadailys_phone": "+123 456 7890",
+            "picadailys_phone": [
+                "02012271894",
+                "02012271895",
+            ],
         },
     )
 

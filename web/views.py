@@ -1,10 +1,11 @@
 import logging
 
+from django.db import transaction
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import check_password
 
-from .models import Applications, JobModel, NewsletterSubscribers
+from .models import Applications, JobModel, NewsletterSubscribers, ContactUs
 
 # In project imports.
 from .serializers import (
@@ -13,7 +14,8 @@ from .serializers import (
     JobSerializer,
     ListJobSerializer,
     NewsletterSubscribersSerializer,
-    UnsubscribeNewsletterSerializer
+    UnsubscribeNewsletterSerializer,
+    ContactUsSerializer
 )
 
 # Third party imports.
@@ -23,6 +25,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
+
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
@@ -280,7 +284,10 @@ class SubmitJobApplication(generics.CreateAPIView):
                     If you have any questions, feel free to contact us at our support email or phone below.
                 """,
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "+123 456 7890",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
             },
         )
 
@@ -566,6 +573,177 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
             "status": "success",
             "message": "Newsletter subscribers retrieved successfully",
             "data": serializer.data,
+        }
+
+        return Response(encrypt(response), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    request=ContactUsSerializer,
+    examples=[
+        OpenApiExample(
+            "Business Use (WhatsApp)",
+            value={
+                "contact_type": "Business Use",
+                "businesss_name": "Picadailys Ltd",
+                "channel": {
+                    "type": "whatsapp",
+                    "value": "+2348012345678"
+                },
+                "message": "We want to partner with you",
+                "accept_policy": True
+            },
+        ),
+        OpenApiExample(
+            "Personal Use (Email)",
+            value={
+                "contact_type": "Personal Use",
+                "first_name": "John",
+                "last_name": "Doe",
+                "product_of_interest": "Wallet API",
+                "channel": {
+                    "type": "email",
+                    "value": "john@example.com"
+                },
+                "message": "I’d like to know more",
+                "accept_policy": True
+            },
+        ),
+    ],
+)
+class ContactUsView(generics.GenericAPIView):
+    """
+    ContactUsView is a the POST request handler for receieving user's contact information.
+    Either for business or personal use. For busines use case, business names must be provided.
+    For Personal use case, Full names must be provided.
+    """
+
+    serializer_class = ContactUsSerializer
+    permission_classes = (AllowAny,)
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        contact_type = data.get("contact_type")
+        channel = data.get("channel")
+
+        try:
+            with transaction.atomic():
+                # ✅ Save to DB
+                serializer.save()
+
+                match contact_type:
+
+                    case "Business Use":
+                        business_name = data.get("businesss_name")
+                        recipient_email = "support@picadailys.com"
+
+                        text_content = render_to_string(
+                            "empty_email.html",
+                            {
+                                "custom_text": (
+                                    f"{data['message']}<br><br>"
+                                    f"Business Name: {business_name}<br>"
+                                    f"Channel: {channel['type']} - {channel['value']}"
+                                )
+                            },
+                        )
+
+                        Messaging.send_email(
+                            sender_email="notifications@picadailys.com",
+                            subject="Contact Us (Business)",
+                            body=data["message"],
+                            html_content=text_content,
+                            email=recipient_email,
+                        )
+
+                        response_message = (
+                            f"Contact Us form filled and sent from {business_name}."
+                        )
+
+                    case "Personal Use":
+                        full_name = f"{data.get('first_name')} {data.get('last_name')}"
+                        interest = data.get("product_of_interest")
+                        recipient_email = "info@picadailys.com"
+
+                        text_content = render_to_string(
+                            "empty_email.html",
+                            {
+                                "custom_text": (
+                                    f"{data['message']}<br><br>"
+                                    f"Name: {full_name}<br>"
+                                    f"Interest: {interest}<br>"
+                                    f"Channel: {channel['type']} - {channel['value']}"
+                                )
+                            },
+                        )
+
+                        Messaging.send_email(
+                            sender_email="notifications@picadailys.com",
+                            subject="Contact Us (Personal)",
+                            body=data["message"],
+                            html_content=text_content,
+                            email=recipient_email,
+                        )
+
+                        response_message = (
+                            f"Contact Us form filled and sent from {full_name}."
+                        )
+
+                    case _:
+                        raise ValueError("Invalid contact type")
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Unable to process contact request.",
+                    "error": str(exc),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "status": "success",
+                "message": response_message,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
+    """
+    Lists all Contact-Us requests grouped by contact type.
+    """
+
+    serializer_class = ContactUsSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+    pagination_class = CustomPageNumberPagination
+
+    def get(self, request):
+        business_qs = ContactUs.objects.filter(
+            contact_type="Business Use"
+        ).order_by("-created_at")
+
+        personal_qs = ContactUs.objects.filter(
+            contact_type="Personal Use"
+        ).order_by("-created_at")
+
+        business_serializer = self.serializer_class(business_qs, many=True)
+        personal_serializer = self.serializer_class(personal_qs, many=True)
+
+        response = {
+            "status": "success",
+            "message": "Contact requests retrieved successfully",
+            "data": {
+                "business_use": business_serializer.data,
+                "personal_use": personal_serializer.data,
+            },
         }
 
         return Response(encrypt(response), status=status.HTTP_200_OK)

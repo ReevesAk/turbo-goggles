@@ -570,7 +570,10 @@ class AddAdmin(generics.CreateAPIView):
                             If you have any questions, feel free to contact us at our support email or phone below.
                         """,
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "+123 456 7890",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
                     },
                 )
 
@@ -849,7 +852,10 @@ class AdminForgotPin(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "+123 456 7890",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
             },
         )
 
@@ -937,7 +943,10 @@ class PinVerifyOTP(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "+123 456 7890",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
             },
         )
 
@@ -1401,14 +1410,19 @@ class DeleteAdmin(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "+123 456 7890",
+                            "picadailys_phone": [
+                                "02012271894",
+                                "02012271895",
+                            ],
                         },
                     )
 
-                    Message.send_email(
+                    Messaging.send_email(
                         email=request.user.email,
+                        sender_email="notifications@picadailys.com",
                         html_content=text_content,
                         subject="Admin Deletion",
+                        body="Your admin account has been deleted",
                     )
 
                     return Response(
@@ -2032,9 +2046,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             authorised_by = (
                 activity.user.full_name
                 if activity.user and activity.user.full_name
-                else activity.user.email
-                if activity.user
-                else "Unknown"
+                else activity.user.email if activity.user else "Unknown"
             )
             data.append(
                 {

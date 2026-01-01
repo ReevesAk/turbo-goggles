@@ -4,6 +4,24 @@ from django.db import models
 from django.utils import timezone
 
 
+CONTACT_TYPE = (
+    ("Personal Use", "Personal Use"),
+    ("Business Use", "Business Use"),
+)
+
+REACH_ME_CHANNELS = (
+    ("Phone", "Phone"),
+    ("WhatsApp", "WhatsApp"),
+    ("Email", "Email")
+)
+
+INTEREST = (
+    ("Brand Advertisement", "Brand Advertisement"),
+    ("Members", "Members"),
+    ("Partners", "Parnters")
+)
+
+
 class JobModel(models.Model):
     title = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
@@ -58,3 +76,15 @@ class NewsletterSubscribers(models.Model):
         default=uuid.uuid4, editable=False, unique=True, null=True
     )
     subscribed_at = models.DateTimeField(auto_now_add=True)
+
+
+class ContactUs(models.Model):
+    contact_type = models.CharField(choices=CONTACT_TYPE, max_length=50, null=True)
+    first_name = models.CharField(max_length=255, null=True, blank=True)
+    last_name = models.CharField(max_length=255, null=True, blank=True)
+    businesss_name = models.CharField(max_length=150, null=True, blank=True)
+    product_of_interest = models.CharField(choices=INTEREST, null=True)
+    channel = models.JSONField(null=True, blank=True)
+    message = models.TextField(null=True)
+    accept_policy = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
