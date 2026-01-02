@@ -134,7 +134,7 @@ class ContactUsSerializer(serializers.ModelSerializer):
             "contact_type",
             "first_name",
             "last_name",
-            "businesss_name",
+            "business_name",
             "product_of_interest",
             "channel",
             "message",
@@ -145,7 +145,7 @@ class ContactUsSerializer(serializers.ModelSerializer):
         """
         channel format:
         {
-            "type": "email" | "phone" | "whatsapp",
+            "type": "Email" | "Phone" | "Whatsapp",
             "value": "<string>"
         }
         """
@@ -155,7 +155,7 @@ class ContactUsSerializer(serializers.ModelSerializer):
         channel_type = value.get("type")
         channel_value = value.get("value")
 
-        allowed_types = ["email", "phone", "whatsapp"]
+        allowed_types = ["Email", "Phone", "Whatsapp"]
 
         if channel_type not in allowed_types:
             raise serializers.ValidationError(
@@ -166,11 +166,11 @@ class ContactUsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Channel value is required.")
 
         # Email validation
-        if channel_type == "email":
+        if channel_type == "Email":
             serializers.EmailField().run_validation(channel_value)
 
         # Phone / WhatsApp validation
-        if channel_type in ["phone", "whatsapp"]:
+        if channel_type in ["Phone", "Whatsapp"]:
             if not PHONE_REGEX.match(channel_value):
                 raise serializers.ValidationError(
                     "Invalid phone number format. Use international format e.g. +2348012345678"
@@ -187,9 +187,14 @@ class ContactUsSerializer(serializers.ModelSerializer):
             })
 
         if contact_type == "Business Use":
-            if not data.get("businesss_name"):
+            if not data.get("business_name"):
                 raise serializers.ValidationError({
-                    "businesss_name": "Business name is required for Business Use."
+                    "business_name": "Business name is required for Business Use."
+                })
+
+            if not data.get("first_name") or not data.get("last_name"):
+                raise serializers.ValidationError({
+                    "full_name": "First and last name are required for Business Use."
                 })
 
         if contact_type == "Personal Use":
@@ -198,9 +203,9 @@ class ContactUsSerializer(serializers.ModelSerializer):
                     "full_name": "First and last name are required for Personal Use."
                 })
 
-            if data.get("businesss_name"):
+            if data.get("business_name"):
                 raise serializers.ValidationError({
-                    "businesss_name": "Business name is not allowed for Personal Use."
+                    "business_name": "Business name is not allowed for Personal Use."
                 })
 
         return data

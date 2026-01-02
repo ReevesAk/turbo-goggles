@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ("first_name", models.CharField(blank=True, max_length=255, null=True)),
                 ("last_name", models.CharField(blank=True, max_length=255, null=True)),
                 (
-                    "businesss_name",
+                    "business_name",
                     models.CharField(blank=True, max_length=150, null=True),
                 ),
                 (

@@ -585,7 +585,9 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
             "Business Use (WhatsApp)",
             value={
                 "contact_type": "Business Use",
-                "businesss_name": "Picadailys Ltd",
+                "first_name": "Business",
+                "last_name": "Name",
+                "business_name": "Picadailys Ltd",
                 "channel": {
                     "type": "whatsapp",
                     "value": "+2348012345678"
@@ -600,7 +602,7 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
                 "contact_type": "Personal Use",
                 "first_name": "John",
                 "last_name": "Doe",
-                "product_of_interest": "Wallet API",
+                "product_of_interest": "Brand Advertisement",
                 "channel": {
                     "type": "email",
                     "value": "john@example.com"
@@ -639,6 +641,7 @@ class ContactUsView(generics.GenericAPIView):
 
                     case "Business Use":
                         business_name = data.get("businesss_name")
+                        full_name = f"{data.get('first_name')} {data.get('last_name')}"
                         recipient_email = "support@picadailys.com"
 
                         text_content = render_to_string(
@@ -646,6 +649,7 @@ class ContactUsView(generics.GenericAPIView):
                             {
                                 "custom_text": (
                                     f"{data['message']}<br><br>"
+                                    f"Name: {full_name}<br>"
                                     f"Business Name: {business_name}<br>"
                                     f"Channel: {channel['type']} - {channel['value']}"
                                 )

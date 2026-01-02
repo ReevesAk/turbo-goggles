@@ -82,7 +82,7 @@ class ContactUs(models.Model):
     contact_type = models.CharField(choices=CONTACT_TYPE, max_length=50, null=True)
     first_name = models.CharField(max_length=255, null=True, blank=True)
     last_name = models.CharField(max_length=255, null=True, blank=True)
-    businesss_name = models.CharField(max_length=150, null=True, blank=True)
+    business_name = models.CharField(max_length=150, null=True, blank=True)
     product_of_interest = models.CharField(choices=INTEREST, null=True)
     channel = models.JSONField(null=True, blank=True)
     message = models.TextField(null=True)
