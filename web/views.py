@@ -16,7 +16,6 @@ from .serializers import (
     NewsletterSubscribersSerializer,
     UnsubscribeNewsletterSerializer,
     ContactUsSerializer,
-    ApplicationWaitlistSerializers,
     GetApplicationsWaitlistSerializers
 )
 
@@ -760,7 +759,7 @@ class JoinApplicationWaitlist(generics.CreateAPIView):
     JoinApplicationWaitlist handles the POST request of applications waitlist to Picadailys.
     """
 
-    serializer_class = ApplicationWaitlistSerializers
+    serializer_class = ApplicationsSerializers
     permission_classes = (AllowAny,)
     parser_classes = (
         MultiPartParser,

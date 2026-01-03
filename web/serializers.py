@@ -227,22 +227,3 @@ class ContactUsSerializer(serializers.ModelSerializer):
                 })
 
         return data
-
-
-class ApplicationWaitlistSerializers(serializers.ModelSerializer):
-    cv = serializers.FileField(write_only=True)
-
-    class Meta:
-        model = Applications
-        fields = [
-            "first_name",
-            "last_name",
-            "gender",
-            "phone_number",
-            "state",
-            "lga",
-            "address",
-            "email",
-            "waitlist",
-            "cv",
-        ]
