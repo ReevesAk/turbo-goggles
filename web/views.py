@@ -640,7 +640,7 @@ class ContactUsView(generics.GenericAPIView):
                 match contact_type:
 
                     case "Business Use":
-                        business_name = data.get("businesss_name")
+                        business_name = data.get("business_name")
                         full_name = f"{data.get('first_name')} {data.get('last_name')}"
                         recipient_email = "support@picadailys.com"
 
