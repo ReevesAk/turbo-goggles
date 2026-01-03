@@ -15,7 +15,9 @@ from .views import (
     NewsletterUnsubscribeView,
     ListNewsletterSubscribersView,
     ContactUsView,
-    ListBusinessesAndIndividualsToContact
+    ListBusinessesAndIndividualsToContact,
+    JoinApplicationWaitlist,
+    WaitlistApplicationList
 )
 
 app_name = "web"
@@ -64,5 +66,7 @@ urlpatterns = [
         name="list-newsletter-subscribers",
     ),
     path("contact-us", ContactUsView.as_view(), name="contact_us"),
-    path("list-contact-us-requests", ListBusinessesAndIndividualsToContact.as_view(), name="list_contact_us_requests")
+    path("list-contact-us-requests", ListBusinessesAndIndividualsToContact.as_view(), name="list_contact_us_requests"),
+    path("join-waitlist", JoinApplicationWaitlist.as_view(), name="join_waitlist"),
+    path("get-waitlist", WaitlistApplicationList.as_view(), name="get_waitlist")
 ]

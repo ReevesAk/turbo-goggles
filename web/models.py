@@ -67,6 +67,7 @@ class Applications(models.Model):
     lga = models.CharField(max_length=100, null=True)
     address = models.CharField(max_length=255, null=True)
     cv = models.URLField(max_length=255, null=True)
+    waitlist = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
 

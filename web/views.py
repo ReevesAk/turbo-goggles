@@ -15,7 +15,9 @@ from .serializers import (
     ListJobSerializer,
     NewsletterSubscribersSerializer,
     UnsubscribeNewsletterSerializer,
-    ContactUsSerializer
+    ContactUsSerializer,
+    ApplicationWaitlistSerializers,
+    GetApplicationsWaitlistSerializers
 )
 
 # Third party imports.
@@ -26,7 +28,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse
 
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
@@ -474,7 +476,7 @@ class JobApplicationList(generics.ListAPIView):
 
     def get(self, request, *args, **kwargs):
         paginator = CustomPageNumberPagination()
-        applications = Applications.objects.all().order_by("-created_at")
+        applications = Applications.objects.exclude(waitlist=True).order_by("-created_at")
         result_page = paginator.paginate_queryset(applications, request)
         serializer = GetApplicationsSerializers(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
@@ -751,3 +753,80 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
         }
 
         return Response(encrypt(response), status=status.HTTP_200_OK)
+
+
+class JoinApplicationWaitlist(generics.CreateAPIView):
+    """
+    JoinApplicationWaitlist handles the POST request of applications waitlist to Picadailys.
+    """
+
+    serializer_class = ApplicationWaitlistSerializers
+    permission_classes = (AllowAny,)
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
+
+    def post(self, request, *args, **kwargs):
+        serializer = ApplicationsSerializers(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        cv_file = serializer.validated_data.pop("cv")
+        upload_cv = cloud.upload(cv_file)
+        cv_url = upload_cv["url"]
+
+        # Prevent duplicate application waitlist
+        if Applications.objects.filter(
+            email=request.data.get("email"),
+        ).exists():
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "You have already submitted your CV."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        application = Applications.objects.create(
+            **serializer.validated_data,
+            cv=cv_url,
+        )
+        application.waitlist = True
+
+        return Response(
+            {
+                "status": "success",
+                "message": "You have succesfully joined the waitlist!",
+                "data": {
+                    "first_name": application.first_name,
+                    "last_name": application.last_name,
+                    "email": application.email,
+                    "phone_number": application.phone_number,
+                    "joined_waitlist": application.waitlist,
+                    "cv": cv_url,
+                },
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_doc_url = doc_image["url"]
+
+
+class WaitlistApplicationList(generics.ListAPIView):
+    """
+    List all Waitlist applications.
+    """
+
+    queryset = Applications.objects.all()
+    serializer_class = GetApplicationsWaitlistSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        paginator = CustomPageNumberPagination()
+        applications = Applications.objects.exclude(waitlist=False).order_by("-created_at")
+        result_page = paginator.paginate_queryset(applications, request)
+        serializer = GetApplicationsWaitlistSerializers(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
