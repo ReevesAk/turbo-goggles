@@ -119,4 +119,4 @@ class VasStatusSerializer(serializers.Serializer):
 class VerifyBillerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ValueAddedServices
-        fields = ["billerId", "customerId", "itemId", "itemName", "amount"]
+        fields = ["billerId", "customerId", "itemId", "amount"]

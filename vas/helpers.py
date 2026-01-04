@@ -158,7 +158,7 @@ class VAS:
             return response
 
     @staticmethod
-    def verify_bill_payer(bearer_token, billerId, customerId, itemId, itemName, amount):
+    def verify_bill_payer(bearer_token, billerId, customerId, itemId, amount):
         resource = "billspayment/validate"
         headers = {
             "Authorization": f"Bearer {bearer_token}",
@@ -168,7 +168,6 @@ class VAS:
             "billerId": billerId,
             "customerId": customerId,
             "itemId": itemId,
-            "itemName": itemName,
             "amount": amount,
         }
         try:

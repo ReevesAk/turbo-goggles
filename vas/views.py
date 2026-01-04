@@ -888,7 +888,6 @@ class VerifyBillerAccountView(generics.RetrieveAPIView):
                 billerId=user_data.get("billerId"),
                 customerId=user_data.get("customerId"),
                 itemId=user_data.get("itemId"),
-                itemName=user_data.get("itemName"),
                 amount=user_data.get("amount"),
             )
 
