@@ -8,7 +8,6 @@ from .views import (
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
     GetAllAgentAndModeratorUsers, DeleteTicket
 )
-from .pusher import SupportChat
 
 
 app_name = "support"
@@ -26,7 +25,6 @@ urlpatterns = [
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
     path("get-all-agents-and-moderators", GetAllAgentAndModeratorUsers.as_view(), name="get_all_agents_and_moderators"),
-    path("chat/<int:user_id_1>/<int:user_id_2>/", SupportChat.as_view(), name="chat"),
     path("get-single/<uuid:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
     path('users-with-tickets/', UsersWithTickets.as_view(), name='users-with-tickets'),
     path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
