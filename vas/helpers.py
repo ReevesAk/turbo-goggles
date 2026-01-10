@@ -171,7 +171,7 @@ class VAS:
             "amount": amount,
         }
         try:
-            response = requests.get(
+            response = requests.post(
                 url=vas_base_url + resource,
                 headers=headers,
                 json=payload,

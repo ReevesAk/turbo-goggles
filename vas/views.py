@@ -858,7 +858,7 @@ class BillersCategoriesView(APIView):
         )
 
 
-class VerifyBillerAccountView(generics.RetrieveAPIView):
+class VerifyBillerAccountView(generics.GenericAPIView):
     """
     VerifyBillerAccountView is a POST request handler for verifying
     biller account number.
@@ -892,11 +892,11 @@ class VerifyBillerAccountView(generics.RetrieveAPIView):
             )
 
             biller_response = verify_biller.json()
-            logger.debug(f"Biller verification response: {biller_response}")
+            logger.info(f"Biller verification response: {biller_response}")
 
             if (
-                verify_biller.get("status") == "success"
-                and verify_biller.get("responseCode") == 200
+                biller_response.get("status") == "success"
+                and biller_response.get("responseCode") == 200
             ):
                 response_data = {
                     "data": biller_response,
@@ -911,7 +911,7 @@ class VerifyBillerAccountView(generics.RetrieveAPIView):
                 )
                 return Response(
                     data=encrypt(biller_response),
-                    status=verify_biller.get("responseCode"),
+                    status=biller_response.get("responseCode"),
                 )
 
         except requests.exceptions.RequestException as e:
