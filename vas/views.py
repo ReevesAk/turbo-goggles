@@ -46,10 +46,10 @@ from commons import Pay, Biometrics
 from security import encrypt, decrypt
 
 
-vtpass_url = config("VT_PASS_BASE_URL")
-x_secret = config("VT_PASS_SECRET_KEY")
-api_key = config("VT_PASS_API_KEY")
-x_token = config("VT_PASS_PUBLIC_KEY")
+# vtpass_url = config("VT_PASS_BASE_URL")
+# x_secret = config("VT_PASS_SECRET_KEY")
+# api_key = config("VT_PASS_API_KEY")
+# x_token = config("VT_PASS_PUBLIC_KEY")
 
 logger = logging.getLogger(__name__)
 
@@ -1093,7 +1093,6 @@ class BillPaymentView(generics.GenericAPIView):
         use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
-        use_rewards = user_data.get("use_rewards")
         payment_option = user_data.get("payment_option")
         customerId = user_data.get("customerId")
         billerId = user_data.get("billerId")
