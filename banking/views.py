@@ -52,13 +52,13 @@ from .controllers import KYC, Wallet, Paystack
 from security import encrypt, decrypt
 
 
-base_url = config("MAPLERAD_BASE_URL")
-secret_key = config("MAPLERAD_SECRET_KEY")
-headers = {
-    "accept": "application/json",
-    "content-Type": "application/json",
-    "Authorization": "Bearer " + secret_key,
-}
+# base_url = config("MAPLERAD_BASE_URL")
+# secret_key = config("MAPLERAD_SECRET_KEY")
+# headers = {
+#     "accept": "application/json",
+#     "content-Type": "application/json",
+#     "Authorization": "Bearer " + secret_key,
+# }
 
 
 logger = logging.getLogger(__name__)
