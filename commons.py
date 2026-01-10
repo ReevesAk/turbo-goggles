@@ -9,7 +9,6 @@ from decouple import config
 from accounts.models import User
 from gamification.models import Points
 
-elastic_api_key = config("ELASTIC_API_KEY")
 yournotify_api_key = config("YOURNOTIFY_API_KEY")
 yournotify_base_url = config("YOURNOTIFY_BASE_URL")
 
@@ -43,7 +42,7 @@ class Biometrics:
             return None
 
 
-class Messaging:
+claMessaging:
     def send_email(email, html_content, sender_email, subject, body):
         url = yournotify_base_url + "campaigns/email/"
 
