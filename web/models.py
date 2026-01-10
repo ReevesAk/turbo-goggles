@@ -9,16 +9,12 @@ CONTACT_TYPE = (
     ("Business Use", "Business Use"),
 )
 
-REACH_ME_CHANNELS = (
-    ("Phone", "Phone"),
-    ("WhatsApp", "WhatsApp"),
-    ("Email", "Email")
-)
+REACH_ME_CHANNELS = (("Phone", "Phone"), ("WhatsApp", "WhatsApp"), ("Email", "Email"))
 
 INTEREST = (
     ("Brand Advertisement", "Brand Advertisement"),
     ("Members", "Members"),
-    ("Partners", "Parnters")
+    ("Partners", "Parnters"),
 )
 
 
@@ -73,9 +69,7 @@ class Applications(models.Model):
 
 class NewsletterSubscribers(models.Model):
     email = models.EmailField(max_length=255, unique=True)
-    token = models.UUIDField(
-        default=uuid.uuid4, editable=False, unique=True, null=True
-    )
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, null=True)
     subscribed_at = models.DateTimeField(auto_now_add=True)
 
 

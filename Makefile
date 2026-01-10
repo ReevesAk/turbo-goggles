@@ -11,10 +11,10 @@ migrate:
 	python3 manage.py migrate
 
 lint:
-	flake8 accounts adverts banking partners roles self_service user_profile vas
+	flake8 accounts adverts banking partners roles self_service user_profile vas web
 
 fmt:
-	black accounts adverts banking partners roles self_service user_profile vas
+	black accounts adverts banking partners roles self_service user_profile vas web
 
 purge:
 	python3 manage.py flush --no-input

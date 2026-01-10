@@ -16,7 +16,7 @@ from .serializers import (
     NewsletterSubscribersSerializer,
     UnsubscribeNewsletterSerializer,
     ContactUsSerializer,
-    GetApplicationsWaitlistSerializers
+    GetApplicationsWaitlistSerializers,
 )
 
 # Third party imports.
@@ -71,10 +71,12 @@ class CreateJob(generics.CreateAPIView):
 
         if JobModel.objects.filter(title=payload.get("title")).exists():
             return Response(
-                encrypt({
-                    "status": "fail",
-                    "message": "This job posting already exists.",
-                }),
+                encrypt(
+                    {
+                        "status": "fail",
+                        "message": "This job posting already exists.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -85,17 +87,19 @@ class CreateJob(generics.CreateAPIView):
         job = serializer.save()
 
         return Response(
-            encrypt({
-                "status": "success",
-                "message": "Job Created!",
-                "data": {
-                    "id": job.id,
-                    "title": job.title,
-                    "location": job.location,
-                    "salary": str(job.salary),
-                    "is_active": job.is_active,
-                },
-            }),
+            encrypt(
+                {
+                    "status": "success",
+                    "message": "Job Created!",
+                    "data": {
+                        "id": job.id,
+                        "title": job.title,
+                        "location": job.location,
+                        "salary": str(job.salary),
+                        "is_active": job.is_active,
+                    },
+                }
+            ),
             status=status.HTTP_201_CREATED,
         )
 
@@ -116,11 +120,13 @@ class JobList(generics.ListAPIView):
         paginated_qs = paginator.paginate_queryset(queryset, request)
         serializer = self.get_serializer(paginated_qs, many=True)
 
-        return paginator.get_paginated_response({
-            "status": "success",
-            "message": "Jobs retrieved successfully",
-            "data": serializer.data,
-        })
+        return paginator.get_paginated_response(
+            {
+                "status": "success",
+                "message": "Jobs retrieved successfully",
+                "data": serializer.data,
+            }
+        )
 
 
 class JobDetail(generics.RetrieveAPIView):
@@ -154,10 +160,12 @@ class UpdateJob(generics.UpdateAPIView):
         pin = decrypted_payload.get("pin")
         if not check_password(password=pin, encoded=current_user.admin_pin):
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Incorrect pin.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Incorrect pin.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -169,9 +177,7 @@ class UpdateJob(generics.UpdateAPIView):
             "message": "Job updated successfully",
             "data": serializer.data,
         }
-        return Response(
-            encrypt(response), status=status.HTTP_200_OK
-        )
+        return Response(encrypt(response), status=status.HTTP_200_OK)
 
 
 class DeleteJob(generics.DestroyAPIView):
@@ -189,24 +195,15 @@ class DeleteJob(generics.DestroyAPIView):
 
         if not pin or not check_password(password=pin, encoded=current_user.admin_pin):
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Incorrect pin."
-                }),
+                data=encrypt({"status": "fail", "message": "Incorrect pin."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         job.delete()
 
-        response = {
-            "status": "success",
-            "message": "Job deleted successfully"
-        }
+        response = {"status": "success", "message": "Job deleted successfully"}
 
-        return Response(
-            data=encrypt(response),
-            status=status.HTTP_200_OK
-        )
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class SubmitJobApplication(generics.CreateAPIView):
@@ -226,22 +223,16 @@ class SubmitJobApplication(generics.CreateAPIView):
 
         if not job_id:
             return Response(
-                {
-                    "status": "fail",
-                    "message": "job_id is required in the URL params."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"status": "fail", "message": "job_id is required in the URL params."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             job = JobModel.objects.get(id=job_id)
         except JobModel.DoesNotExist:
             return Response(
-                {
-                    "status": "fail",
-                    "message": "Invalid job ID."
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"status": "fail", "message": "Invalid job ID."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         serializer = ApplicationsSerializers(data=request.data)
@@ -253,21 +244,17 @@ class SubmitJobApplication(generics.CreateAPIView):
 
         # Prevent duplicate application per job
         if Applications.objects.filter(
-            email=request.data.get("email"),
-            job=job
+            email=request.data.get("email"), job=job
         ).exists():
             return Response(
-                {
-                    "status": "fail",
-                    "message": "You have already applied for this job."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"status": "fail", "message": "You have already applied for this job."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         application = Applications.objects.create(
             **serializer.validated_data,
             job=job,
-            job_title=job.title,   # ✅ from DB
+            job_title=job.title,  # ✅ from DB
             cv=cv_url,
         )
 
@@ -314,7 +301,7 @@ class SubmitJobApplication(generics.CreateAPIView):
                     "cv": cv_url,
                 },
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
     def upload_image(self, image_data):
@@ -364,24 +351,28 @@ class SingleJobApplicationsList(generics.ListAPIView):
 
         if not queryset.exists():
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "No applications found for this job.",
-                    "count": 0,
-                    "data": [],
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "No applications found for this job.",
+                        "count": 0,
+                        "data": [],
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )
 
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Applications retrieved successfully.",
-                "count": queryset.count(),
-                "data": serializer.data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Applications retrieved successfully.",
+                    "count": queryset.count(),
+                    "data": serializer.data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -405,20 +396,24 @@ class DeleteJobApplication(generics.DestroyAPIView):
         pin = decrypted_payload.get("pin")
         if not check_password(password=pin, encoded=current_user.admin_pin):
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Incorrect pin.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Incorrect pin.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             application.delete()
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Job application deleted successfully",
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Job application deleted successfully",
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )
         except Exception as err:
@@ -475,7 +470,9 @@ class JobApplicationList(generics.ListAPIView):
 
     def get(self, request, *args, **kwargs):
         paginator = CustomPageNumberPagination()
-        applications = Applications.objects.exclude(waitlist=True).order_by("-created_at")
+        applications = Applications.objects.exclude(waitlist=True).order_by(
+            "-created_at"
+        )
         result_page = paginator.paginate_queryset(applications, request)
         serializer = GetApplicationsSerializers(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
@@ -495,21 +492,15 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
 
         if not email:
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "Email is required."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                data={"status": "fail", "message": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         logger.info(f"Newsletter subscription attempt successful: {email}")
 
         if NewsletterSubscribers.objects.filter(email=email).exists():
             return Response(
-                data={
-                    "status": "fail",
-                    "message": "This email is already subscribed."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                data={"status": "fail", "message": "This email is already subscribed."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         NewsletterSubscribers.objects.create(email=email)
@@ -520,7 +511,7 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
                 "status": "success",
                 "message": "Subscribed to newsletter successfully.",
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -534,7 +525,7 @@ class NewsletterUnsubscribeView(generics.GenericAPIView):
         if not token:
             return Response(
                 data={"status": "fail", "message": "Invalid unsubscribe request"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -542,14 +533,20 @@ class NewsletterUnsubscribeView(generics.GenericAPIView):
             subscriber.delete()
 
             return Response(
-                data={"status": "success", "message": "You’ve been unsubscribed successfully"},
-                status=status.HTTP_200_OK
+                data={
+                    "status": "success",
+                    "message": "You’ve been unsubscribed successfully",
+                },
+                status=status.HTTP_200_OK,
             )
 
         except NewsletterSubscribers.DoesNotExist:
             return Response(
-                data={"status": "fail", "message": "This unsubscribe link is invalid or expired"},
-                status=status.HTTP_400_BAD_REQUEST
+                data={
+                    "status": "fail",
+                    "message": "This unsubscribe link is invalid or expired",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
@@ -589,12 +586,9 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
                 "first_name": "Business",
                 "last_name": "Name",
                 "business_name": "Picadailys Ltd",
-                "channel": {
-                    "type": "whatsapp",
-                    "value": "+2348012345678"
-                },
+                "channel": {"type": "whatsapp", "value": "+2348012345678"},
                 "message": "We want to partner with you",
-                "accept_policy": True
+                "accept_policy": True,
             },
         ),
         OpenApiExample(
@@ -604,12 +598,9 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
                 "first_name": "John",
                 "last_name": "Doe",
                 "product_of_interest": "Brand Advertisement",
-                "channel": {
-                    "type": "email",
-                    "value": "john@example.com"
-                },
+                "channel": {"type": "email", "value": "john@example.com"},
                 "message": "I’d like to know more",
-                "accept_policy": True
+                "accept_policy": True,
             },
         ),
     ],
@@ -639,7 +630,6 @@ class ContactUsView(generics.GenericAPIView):
                 serializer.save()
 
                 match contact_type:
-
                     case "Business Use":
                         business_name = data.get("business_name")
                         full_name = f"{data.get('first_name')} {data.get('last_name')}"
@@ -731,13 +721,13 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
     pagination_class = CustomPageNumberPagination
 
     def get(self, request):
-        business_qs = ContactUs.objects.filter(
-            contact_type="Business Use"
-        ).order_by("-created_at")
+        business_qs = ContactUs.objects.filter(contact_type="Business Use").order_by(
+            "-created_at"
+        )
 
-        personal_qs = ContactUs.objects.filter(
-            contact_type="Personal Use"
-        ).order_by("-created_at")
+        personal_qs = ContactUs.objects.filter(contact_type="Personal Use").order_by(
+            "-created_at"
+        )
 
         business_serializer = self.serializer_class(business_qs, many=True)
         personal_serializer = self.serializer_class(personal_qs, many=True)
@@ -779,11 +769,8 @@ class JoinApplicationWaitlist(generics.CreateAPIView):
             email=request.data.get("email"),
         ).exists():
             return Response(
-                {
-                    "status": "fail",
-                    "message": "You have already submitted your CV."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"status": "fail", "message": "You have already submitted your CV."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         application = Applications.objects.create(
@@ -805,7 +792,7 @@ class JoinApplicationWaitlist(generics.CreateAPIView):
                     "cv": cv_url,
                 },
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
     def upload_image(self, image_data):
@@ -825,7 +812,9 @@ class WaitlistApplicationList(generics.ListAPIView):
 
     def get(self, request, *args, **kwargs):
         paginator = CustomPageNumberPagination()
-        applications = Applications.objects.exclude(waitlist=False).order_by("-created_at")
+        applications = Applications.objects.exclude(waitlist=False).order_by(
+            "-created_at"
+        )
         result_page = paginator.paginate_queryset(applications, request)
         serializer = GetApplicationsWaitlistSerializers(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)

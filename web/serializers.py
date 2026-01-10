@@ -4,10 +4,7 @@ import re
 from rest_framework import serializers
 
 # In project imports.
-from .models import (
-    Applications,
-    ContactUs
-)
+from .models import Applications, ContactUs
 
 
 from .models import JobModel, NewsletterSubscribers
@@ -20,13 +17,9 @@ class JobSerializer(serializers.ModelSerializer):
         max_length=5, min_length=5, required=True, allow_blank=True
     )
     key_responsibilities = serializers.ListField(
-        child=serializers.CharField(),
-        required=False
+        child=serializers.CharField(), required=False
     )
-    requirements = serializers.ListField(
-        child=serializers.CharField(),
-        required=False
-    )
+    requirements = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:
         model = JobModel
@@ -50,13 +43,9 @@ class JobSerializer(serializers.ModelSerializer):
 
 class ListJobSerializer(serializers.ModelSerializer):
     key_responsibilities = serializers.ListField(
-        child=serializers.CharField(),
-        required=False
+        child=serializers.CharField(), required=False
     )
-    requirements = serializers.ListField(
-        child=serializers.CharField(),
-        required=False
-    )
+    requirements = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:
         model = JobModel
@@ -200,30 +189,30 @@ class ContactUsSerializer(serializers.ModelSerializer):
         contact_type = data.get("contact_type")
 
         if not data.get("accept_policy"):
-            raise serializers.ValidationError({
-                "accept_policy": "You must accept the policy to continue."
-            })
+            raise serializers.ValidationError(
+                {"accept_policy": "You must accept the policy to continue."}
+            )
 
         if contact_type == "Business Use":
             if not data.get("business_name"):
-                raise serializers.ValidationError({
-                    "business_name": "Business name is required for Business Use."
-                })
+                raise serializers.ValidationError(
+                    {"business_name": "Business name is required for Business Use."}
+                )
 
             if not data.get("first_name") or not data.get("last_name"):
-                raise serializers.ValidationError({
-                    "full_name": "First and last name are required for Business Use."
-                })
+                raise serializers.ValidationError(
+                    {"full_name": "First and last name are required for Business Use."}
+                )
 
         if contact_type == "Personal Use":
             if not data.get("first_name") or not data.get("last_name"):
-                raise serializers.ValidationError({
-                    "full_name": "First and last name are required for Personal Use."
-                })
+                raise serializers.ValidationError(
+                    {"full_name": "First and last name are required for Personal Use."}
+                )
 
             if data.get("business_name"):
-                raise serializers.ValidationError({
-                    "business_name": "Business name is not allowed for Personal Use."
-                })
+                raise serializers.ValidationError(
+                    {"business_name": "Business name is not allowed for Personal Use."}
+                )
 
         return data
