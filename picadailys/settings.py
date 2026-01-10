@@ -32,7 +32,8 @@ elif ENVIRONMENT == "production":
         "miniature-waddle.onrender.com",
         "167.71.174.242",
         "https://api.picadailys.com",
-        "https://miniature-waddle-k5bz.onrender.com/"
+        "https://miniature-waddle-k5bz.onrender.com/",
+        "https://picadailysbackend.onrender.com"
     ]
 
 
