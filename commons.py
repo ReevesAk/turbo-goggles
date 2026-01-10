@@ -3,16 +3,6 @@ import random
 import logging
 import requests
 
-import ElasticEmail
-from ElasticEmail import EmailsApi, ApiClient
-from ElasticEmail.models import (
-    EmailContent,
-    BodyPart,
-    BodyContentType,
-    EmailRecipient,
-    EmailMessageData,
-)
-
 
 from decouple import config
 
