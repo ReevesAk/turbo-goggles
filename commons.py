@@ -42,7 +42,7 @@ class Biometrics:
             return None
 
 
-claMessaging:
+class Messaging:
     def send_email(email, html_content, sender_email, subject, body):
         url = yournotify_base_url + "campaigns/email/"
 
