@@ -39,10 +39,16 @@ class Ticket(BaseModel):
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
 
-    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_tickets")
+    user = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="user_tickets"
+    )
     category = models.CharField(max_length=150, null=True)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
-    assigned_to = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="assigned_tickets")
+    assigned_to = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="assigned_tickets"
+    )
     description = models.TextField(null=True)
     escalation_level = models.CharField(choices=ESCALATION_LEVEL, max_length=150, null=True)
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)

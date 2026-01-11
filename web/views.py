@@ -19,6 +19,9 @@ from .serializers import (
     GetApplicationsWaitlistSerializers,
 )
 
+from support.models import Ticket
+from support.utils import generate_ticket_number
+
 # Third party imports.
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -27,7 +30,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
@@ -659,6 +662,23 @@ class ContactUsView(generics.GenericAPIView):
                             f"Contact Us form filled and sent from {business_name}."
                         )
 
+                        # Create a support ticket for the business inquiry
+                        ticket = Ticket.objects.create(
+                            user=None,
+                            category="Business Inquiry",
+                            channel="Website",
+                            description=data['message'],
+                            escalation_level="Management",
+                            status="Queuing",
+                        )
+
+                        # Save the ticket to get an ID
+                        ticket.save()
+
+                        # Generate and set the number
+                        ticket.number = generate_ticket_number()
+                        ticket.save()
+
                     case "Personal Use":
                         full_name = f"{data.get('first_name')} {data.get('last_name')}"
                         interest = data.get("product_of_interest")
@@ -687,6 +707,44 @@ class ContactUsView(generics.GenericAPIView):
                         response_message = (
                             f"Contact Us form filled and sent from {full_name}."
                         )
+
+                        # Create a support ticket for the personal inquiry
+                        ticket = Ticket.objects.create(
+                            user=None,
+                            category="Personal Inquiry",
+                            channel="Website",
+                            description=data['message'],
+                            escalation_level="Management",
+                            status="Queuing",
+                        )
+
+                        # Save the ticket to get an ID
+                        ticket.save()
+
+                        # Generate and set the number
+                        ticket.number = generate_ticket_number()
+                        ticket.save()# Create a support ticket for the business inquiry
+                        guest = GuestProfile.objects.create(
+                            name=full_name,
+                            phone=channel['value'],
+                        )
+
+                        # Create the ticket
+                        ticket = Ticket.objects.create(
+                            user=guest,
+                            category="Business Inquiry",
+                            channel="Website",
+                            description=data['message'],
+                            escalation_level="Management",
+                            status="Queuing",
+                        )
+
+                        # Save the ticket to get an ID
+                        ticket.save()
+
+                        # Generate and set the number
+                        ticket.number = generate_ticket_number()
+                        ticket.save()
 
                     case _:
                         raise ValueError("Invalid contact type")

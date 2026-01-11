@@ -165,7 +165,6 @@ class CreateTicket(generics.CreateAPIView):
         channel = payload.get("channel")
         description = payload.get("description")
         pin = payload.get("pin")
-        logger.debug("User email extracted from payload: %s", user_email)
 
         if not check_password(password=pin, encoded=request.user.admin_pin):
             return Response(
