@@ -367,8 +367,6 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if user_obj.is_processed:
-            current_status = user_obj.status
         if user_obj:
             if user_obj.status == "success":
                 resp = {
