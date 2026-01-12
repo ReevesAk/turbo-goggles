@@ -617,6 +617,15 @@ class Transfers:
 
 
 class Paystack:
+    base_url = "https://api.paystack.co"
+
+    @staticmethod
+    def _headers():
+        return {
+            "Authorization": f"Bearer {secret_key}",
+            "Content-Type": "application/json",
+        }
+
     @staticmethod
     def generate_url(email, amount):
         generate_url_resource = "https://api.paystack.co/transaction/initialize"
@@ -632,6 +641,24 @@ class Paystack:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def verify_transaction(reference):
+        """
+        Verify a Paystack transaction using its reference
+        """
+        url = f"{Paystack.base_url}/transaction/verify/{reference}"
+
+        response = requests.get(
+            url=url,
+            headers=Paystack._headers(),
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            raise Exception("Failed to verify Paystack transaction")
+
+        return response.json()
 
     @staticmethod
     def create_refund(txn_reference):

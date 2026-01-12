@@ -1,6 +1,8 @@
 import re
 import logging
 import base64
+import hmac
+import hashlib
 from decouple import config
 
 from django.http import HttpResponse
@@ -25,6 +27,8 @@ from security import encrypt, decrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 
 logger = logging.getLogger(__name__)
+
+secret_key = config("PAYSTACK_SECRET_KEY")
 
 
 class WebhookDispatcherView(generics.GenericAPIView):
@@ -273,6 +277,17 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
 
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
+        paystack_signature = request.headers.get("x-paystack-signature")
+        computed_signature = hmac.new(
+            secret_key.encode(),
+            request.body,
+            hashlib.sha512,
+        ).hexdigest()
+
+        if not hmac.compare_digest(computed_signature, paystack_signature):
+            logger.warning("Invalid Paystack signature")
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
         # Validate the incoming data using the serializer
         serializer = WebhookSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)  # Raise an error if validation fails
@@ -339,10 +354,21 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
         guest_id = request.headers.get("X-Guest-ID")
         tx_ref = user_data.get("txn_reference")
 
-        if user:
-            user_obj = FundWithCard.objects.filter(
-                txn_reference=tx_ref, user=request.user
-            ).first()
+        user_obj = FundWithCard.objects.filter(
+            txn_reference=tx_ref
+        ).first()
+
+        if not user_obj:
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "No transaction found for this reference.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_obj.is_processed:
+            current_status = user_obj.status
         if user_obj:
             if user_obj.status == "success":
                 resp = {
