@@ -795,7 +795,7 @@ class FundWallet(generics.GenericAPIView):
                 )
 
                 account = TransferModel.objects.filter(user=user).first()
-                message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}."
+                message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of {amount} has been confirmed. Your available balance is ₦{account.available_balance}."
 
                 UserNotification.objects.create(
                     user=user,
