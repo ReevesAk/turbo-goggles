@@ -782,7 +782,6 @@ class FundWallet(generics.GenericAPIView):
                     user=user,
                     tx_reference="",
                     tx_type="Funding of wallet",
-                    tx_id=tx_id,
                     amount=amount,
                     description="You funded your wallet.",
                 )
