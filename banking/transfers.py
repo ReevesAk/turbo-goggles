@@ -772,7 +772,7 @@ class FundWallet(generics.GenericAPIView):
             transfer_resp = Wallet.Credit(
                 acct_no=user_details.account_number,
                 amount=amount,
-                reason=f"You funded your wallet with ₦{amount} using paystack.",
+                reason=f"You funded your wallet with {amount} using paystack.",
             )
             if transfer_resp.status_code == 200:
                 tx_id = generate_txId()
