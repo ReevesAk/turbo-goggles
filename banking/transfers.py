@@ -789,8 +789,8 @@ class FundWallet(generics.GenericAPIView):
                     user=user,
                     tx=tx,
                     beneficiary_account_number=user_details.account_number,
-                    source_account_name=user.first_name + " " + user.last_name,
-                    transaction_amount=amount,
+                    sender_name=user.first_name + " " + user.last_name,
+                    amount=amount,
                 )
 
                 account = TransferModel.objects.filter(user=user).first()
