@@ -14,12 +14,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     """Serailizers for our User first time registration."""
 
     password = serializers.CharField(
-        max_length=68, min_length=6, write_only=True, style={"input_type": "password"}
+        max_length=68, min_length=10, write_only=True, style={"input_type": "password"}
     )
     password2 = serializers.CharField(
-        max_length=68, min_length=6, write_only=True, style={"input_type": "password"}
+        max_length=68, min_length=10, write_only=True, style={"input_type": "password"}
     )
-    device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_id = serializers.CharField(max_length=68, min_length=10, write_only=True)
     referral_code = serializers.CharField(
         max_length=50, min_length=3, write_only=True, required=False
     )
@@ -166,8 +166,8 @@ class PasswordResendOTPSerializer(serializers.Serializer):
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    password = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=10, write_only=True)
     user_id = serializers.CharField(max_length=68, write_only=True)
 
     class Meta:

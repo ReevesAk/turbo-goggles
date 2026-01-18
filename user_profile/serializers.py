@@ -109,8 +109,8 @@ class MemberSurverySerializers(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.ModelSerializer):
-    old_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    new_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    old_password = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    new_password = serializers.CharField(max_length=68, min_length=10, write_only=True)
 
     class Meta:
         model = User

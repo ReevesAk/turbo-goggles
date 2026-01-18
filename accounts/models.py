@@ -19,10 +19,8 @@ USER_CATEGORY_CHOICES = (
     ("TaskAdmin", "TaskAdmin"),
     ("AdAdmin", "AdAdmin"),
     ("MembersAdmin", "MembersAdmin"),
-    ("UserAdmin", "UserAdmin"),
     ("PartnersAdmin", "PartnersAdmin"),
     ("ContentAdmin", "ContentAdmin"),
-    ("IntegrationAdmin", "IntegrationAdmin"),
     ("WalletAdmin", "WalletAdmin"),
     ("FmcgAdmin", "FmcgAdmin"),
 )
