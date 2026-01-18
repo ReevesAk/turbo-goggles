@@ -34,7 +34,8 @@ elif ENVIRONMENT == "production":
         "167.71.174.242",
         "https://api.picadailys.com",
         "https://miniature-waddle-k5bz.onrender.com/",
-        "https://picadailysbackend.onrender.com"
+        "https://picadailysbackend.onrender.com",
+        "https://web-y9g2.onrender.com",
     ]
 
 
@@ -94,6 +95,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "http://localhost:5174",
+    "https://web-y9g2.onrender.com",
+    "https://admin-dashboard-9juk.onrender.com",
+    "https://support-y8lr.onrender.com",
     "https://picadailys-admin.netlify.app",
     "https://picadailys-landing.vercel.app",
     "https://miniature-waddle-k5bz.onrender.com",
