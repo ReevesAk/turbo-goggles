@@ -448,3 +448,25 @@ class ResetPinSerializer(serializers.ModelSerializer):
     #     user = User.objects.get(id=admin_id)
     #     logger.info("OTP resend request for phone number: %s", user.phone_number)
     #     return attrs
+
+
+class EmailOrListField(serializers.Field):
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            return [data]
+
+        if isinstance(data, list):
+            if not all(isinstance(email, str) for email in data):
+                raise serializers.ValidationError("All emails must be strings")
+            return data
+
+        raise serializers.ValidationError(
+            "send_to must be an email string or a list of emails"
+        )
+
+
+class SendNewsletterSerializer(serializers.Serializer):
+    volume = serializers.ChoiceField(choices=["single", "bulk"])
+    send_to = EmailOrListField()
+    title = serializers.CharField()
+    content = serializers.CharField()

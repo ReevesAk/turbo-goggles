@@ -36,6 +36,8 @@ elif ENVIRONMENT == "production":
         "https://miniature-waddle-k5bz.onrender.com/",
         "https://picadailysbackend.onrender.com",
         "https://web-y9g2.onrender.com",
+        "https://support-y8lr.onrender.com/",
+        "https://admin-dashboard-9juk.onrender.com",
     ]
 
 

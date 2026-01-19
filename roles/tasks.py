@@ -1,5 +1,6 @@
 import logging
 
+from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
 from django.core.cache import cache
@@ -14,6 +15,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_spectacular.utils import extend_schema
 
 # In project imports.
+from .serializers import (
+    SendNewsletterSerializer,
+)
+
 from gamification.serializers import (
     StepCampaignSerializer,
     StepCampaignListSerializer,
@@ -24,6 +29,7 @@ from accounts.models import User, UserNotification
 from gamification.models import StepCampaignModel, StepSessionModel
 from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt, decrypt
+from commons import Messaging
 
 
 logger = logging.getLogger(__name__)
@@ -183,4 +189,72 @@ class CampaignParticipantListView(generics.ListAPIView):
         return Response(
             data=encrypt(response_data),
             status=status.HTTP_200_OK,
+        )
+
+
+class SendNewsLetter(generics.GenericAPIView):
+    """
+    SendNewsLetter is the POST request handler that allows a Task Admin
+    to send newsletters to users.
+    """
+
+    serializer_class = SendNewsletterSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+
+    def post(self, request, *args, **kwargs):
+        logger.info("Request to send newsletter.")
+
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
+        serializer.is_valid(raise_exception=True)
+
+        logger.info("Serializer validated successfully.")
+
+        send_to_list = serializer.validated_data["send_to"]
+        title = serializer.validated_data["title"]
+        content = serializer.validated_data["content"]
+        volume = serializer.validated_data["volume"]
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": content,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
+            },
+        )
+
+        # 🔹 Send to each recipient
+        for email in send_to_list:
+            Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=content,
+                email=email,  # single email per send
+                html_content=text_content,
+                subject=title,
+            )
+
+        response_data = {
+            "status": "Success",
+            "message": "Newsletter sent successfully.",
+            "data": {
+                "volume": volume,
+                "total_recipients": len(send_to_list),
+                "send_to": send_to_list,
+                "title": title,
+                "content": content,
+            },
+        }
+
+        logger.info(
+            f"Newsletter sent successfully to {len(send_to_list)} recipient(s)."
+        )
+
+        return Response(
+            data=encrypt(response_data),
+            status=status.HTTP_201_CREATED
         )

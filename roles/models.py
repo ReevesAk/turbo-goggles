@@ -42,3 +42,11 @@ class ActivityModel(BaseModel):
     user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True)
     title = models.CharField(max_length=100, null=True)
     description = models.TextField(null=True)
+
+
+class SendNewsletters(models.Model):
+    volume = models.CharField(max_length=50, null=True)
+    send_to = models.EmailField(max_length=255, null=True)
+    title = models.CharField(max_length=255, null=True)
+    content = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
