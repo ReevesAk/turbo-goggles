@@ -9,7 +9,7 @@ from .models import (
     Ticket, AgentRating
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
-
+from .models import TicketAssignmentHistory
 
 logger = logging.getLogger("support")
 
@@ -76,6 +76,10 @@ class SupportVerifyOTPSerializer(serializers.Serializer):
 
 class CreateTicketSerializers(serializers.ModelSerializer):
     email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    attachments = serializers.FileField(
+        required=False,
+        allow_null=True
+    )
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
 
     class Meta:
@@ -84,9 +88,13 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "id",
             "pin",
             "number",
+            "customer_name",
+            "title",
+            "priority",
             "category",
             "channel",
             "email",
+            "attachments",
             "description",
         ]
         read_only_fields = ["status", "created_at"]
@@ -102,7 +110,7 @@ class TicketSerializers(serializers.ModelSerializer):
             "category",
             "channel",
             "description",
-            "escalation_level",
+            "priority",
             "status",
             "assigned_at",
         ]
@@ -117,18 +125,45 @@ class UserWithTicketsSerializer(serializers.ModelSerializer):
 
 
 class AssignTicketSerializers(serializers.ModelSerializer):
-    agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    agent_name = serializers.CharField(max_length=68, min_length=6, write_only=True)
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
+    reason = serializers.CharField(max_length=200, write_only=True, required=False)
 
     class Meta:
         model = Ticket
         fields = [
             "pin",
-            "number",
-            "agent_email",
-            "status",
-            "escalation_level"
+            "category",
+            "agent_name",
+            "reason",
+            "priority"
         ]
+
+
+class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
+    assigned_by = serializers.SerializerMethodField()
+    previous_agent = serializers.SerializerMethodField()
+    new_agent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TicketAssignmentHistory
+        fields = (
+            "assigned_by",
+            "previous_agent",
+            "new_agent",
+            "priority",
+            "reason",
+            "created_at",
+        )
+
+    def get_assigned_by(self, obj):
+        return obj.assigned_by.full_name if obj.assigned_by else None
+
+    def get_previous_agent(self, obj):
+        return obj.previous_agent.full_name if obj.previous_agent else None
+
+    def get_new_agent(self, obj):
+        return obj.new_agent.full_name if obj.new_agent else None
 
 
 class AgentRatingSerializers(serializers.ModelSerializer):

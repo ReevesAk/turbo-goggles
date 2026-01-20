@@ -5,8 +5,10 @@ from basemodel import BaseModel
 
 from accounts.models import User
 
-ESCALATION_LEVEL = (
-    ("Management", "Management"),
+PRIORITY = (
+    ("Low", "Low"),
+    ("Medium", "Medium"),
+    ("High", "High"),
 )
 
 STATUS = (
@@ -43,6 +45,8 @@ class Ticket(BaseModel):
         to=User, on_delete=models.SET_NULL,
         null=True, related_name="user_tickets"
     )
+    title = models.CharField(max_length=150, null=True)
+    customer_name = models.CharField(max_length=254, null=True)
     category = models.CharField(max_length=150, null=True)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(
@@ -50,9 +54,10 @@ class Ticket(BaseModel):
         null=True, related_name="assigned_tickets"
     )
     description = models.TextField(null=True)
-    escalation_level = models.CharField(choices=ESCALATION_LEVEL, max_length=150, null=True)
+    priority = models.CharField(choices=PRIORITY, max_length=150, null=True)
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
+    attachments = models.URLField(max_length=255, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None  # Check if this is a new object
@@ -65,6 +70,39 @@ class Ticket(BaseModel):
             # Save again without triggering another number generation
             kwargs['force_insert'] = False
             super().save(update_fields=["number"])
+
+
+class TicketAssignmentHistory(models.Model):
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="assignment_history"
+    )
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="tickets_assigned"
+    )
+    previous_agent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="previous_ticket_assignments"
+    )
+    new_agent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="new_ticket_assignments"
+    )
+    priority = models.CharField(max_length=20, null=True)
+    reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class AgentRating(models.Model):

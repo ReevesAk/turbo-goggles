@@ -668,7 +668,7 @@ class ContactUsView(generics.GenericAPIView):
                             category="Business Inquiry",
                             channel="Website",
                             description=data['message'],
-                            escalation_level="Management",
+                            priority="Low",
                             status="Queuing",
                         )
 
@@ -714,7 +714,7 @@ class ContactUsView(generics.GenericAPIView):
                             category="Personal Inquiry",
                             channel="Website",
                             description=data['message'],
-                            escalation_level="Management",
+                            priority="Low",
                             status="Queuing",
                         )
 
@@ -723,19 +723,15 @@ class ContactUsView(generics.GenericAPIView):
 
                         # Generate and set the number
                         ticket.number = generate_ticket_number()
-                        ticket.save()# Create a support ticket for the business inquiry
-                        guest = GuestProfile.objects.create(
-                            name=full_name,
-                            phone=channel['value'],
-                        )
+                        ticket.save()  # Create a support ticket for the business inquiry
 
                         # Create the ticket
                         ticket = Ticket.objects.create(
-                            user=guest,
+                            user=None,
                             category="Business Inquiry",
                             channel="Website",
                             description=data['message'],
-                            escalation_level="Management",
+                            priority="Low",
                             status="Queuing",
                         )
 

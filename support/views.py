@@ -14,10 +14,10 @@ from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentAndModeratorSerializer
+    CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer
 )
 from .utils import generate_ticket_number
-from .models import Ticket, AgentRating
+from .models import Ticket, AgentRating, TicketAssignmentHistory
 
 # Third party imports.
 from rest_framework import generics, status, serializers
@@ -164,6 +164,10 @@ class CreateTicket(generics.CreateAPIView):
         user_email = payload.get("email")
         channel = payload.get("channel")
         description = payload.get("description")
+        customer_name = payload.get("customer_name")
+        attachment = request.FILES.get("attachment")
+        title = payload.get("title")
+        priority = payload.get("priority")
         pin = payload.get("pin")
 
         if not check_password(password=pin, encoded=request.user.admin_pin):
@@ -190,10 +194,13 @@ class CreateTicket(generics.CreateAPIView):
         # Create the ticket
         ticket = Ticket.objects.create(
             user=user,
+            customer_name=customer_name,
+            title=title,
             category=category,
             channel=channel,
             description=description,
-            escalation_level="Management",
+            attachments=attachment,
+            priority=priority,
             status="Queuing",
         )
 
@@ -245,7 +252,7 @@ class AssignTicket(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsSuperAdmin]
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         logger.info("Received request to assign a support ticket.")
 
         authenticated_user = request.user
@@ -260,10 +267,11 @@ class AssignTicket(generics.GenericAPIView):
             logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        admin_email = payload.get("agent_email")
-        ticket_number = payload.get("number")
+        admin_name = payload.get("agent_name")
+        ticket_number = kwargs.get("ticket_number")
+        priority = payload.get("priority")
         pin = request.data.get("pin")
-        logger.debug("Admin email: %s, Ticket Number: %s", admin_email, ticket_number)
+        logger.debug("Admin name: %s, Ticket Number: %s", admin_name, ticket_number)
 
         # Attempt to retrieve the ticket
         try:
@@ -282,14 +290,14 @@ class AssignTicket(generics.GenericAPIView):
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
             # Attempt to retrieve the user by email
             try:
-                user = User.objects.get(email=admin_email)
-                logger.info("User  found: %s", user)
+                user = User.objects.get(email=admin_name)
+                logger.info("Admin found: %s", user)
             except User.DoesNotExist:
-                logger.error("User with email %s does not exist.", admin_email)
+                logger.error("Admin with email %s does not exist.", admin_name)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "User does not exist",
+                        "message": "Admin does not exist",
                     },
                     status=status.HTTP_404_NOT_FOUND
                 )
@@ -310,11 +318,23 @@ class AssignTicket(generics.GenericAPIView):
 
             logger.info("Pin verification successful for user: %s", authenticated_user)
 
+            previous_agent = ticket.assigned_to
+
             # Assign the ticket to the user
             ticket.assigned_to = user
+            ticket.priority = priority
+            ticket.status = "In Progress"
             ticket.save()
             logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
 
+            TicketAssignmentHistory.objects.create(
+                ticket=ticket,
+                assigned_by=authenticated_user,
+                previous_agent=previous_agent,
+                new_agent=user,
+                priority=priority,
+                reason=payload.get("reason"),
+            )
             # Log the activity
             ActivityModel.objects.create(
                 user=authenticated_user,
@@ -371,7 +391,7 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "assigned_to": ticket.assigned_to,
                     "assigned_at": ticket.assigned_at,
                     "ticket_channel": ticket.channel,
-                    "escalation_level": ticket.escalation_level,
+                    "priority": ticket.priority,
                     "status": ticket.status
                 }
             )
@@ -398,7 +418,9 @@ class GetSingleTicket(generics.RetrieveAPIView):
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
+
     lookup_field = "ticket_number"
+    lookup_url_kwarg = "ticket_number"
 
     def retrieve(self, request, *args, **kwargs):
         logger.info("Received request to retrieve support ticket.")
@@ -407,10 +429,22 @@ class GetSingleTicket(generics.RetrieveAPIView):
         logger.debug("Attempting to retrieve ticket with ID: %s", ticket_id)
 
         try:
-            ticket = Ticket.objects.get(id=ticket_id)
+            ticket = (
+                Ticket.objects
+                .select_related("assigned_to")
+                .prefetch_related("assignment_history")
+                .get(number=ticket_id)
+            )
             logger.info("Ticket found: %s", ticket)
 
-            # Prepare the response data
+            history = TicketAssignmentHistory.objects.filter(
+                ticket=ticket
+            ).order_by("created_at")
+
+            history_data = TicketAssignmentHistorySerializer(
+                history, many=True
+            ).data
+
             response = {
                 "status": "success",
                 "message": "Support Ticket retrieved successfully!",
@@ -420,14 +454,23 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "category": ticket.category,
                     "description": ticket.description,
                     "created_at": ticket.created_at,
-                    "assigned_to": ticket.assigned_to,
+                    "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
                     "assigned_at": ticket.assigned_at,
                     "ticket_channel": ticket.channel,
-                    "escalation_level": ticket.escalation_level,
-                    "status": ticket.status
+                    "priority": ticket.priority,
+                    "status": ticket.status,
+
+                    # 🔥 NEW
+                    "assignment_history": history_data,
                 },
             }
-            logger.info("Response prepared successfully for ticket ID: %s", ticket_id)
+
+            logger.info(
+                "Ticket %s retrieved with %s assignment history records",
+                ticket_id,
+                len(history_data),
+            )
+
             return Response(data=response, status=status.HTTP_200_OK)
 
         except Ticket.DoesNotExist:

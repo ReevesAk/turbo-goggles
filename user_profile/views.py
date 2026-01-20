@@ -1326,7 +1326,7 @@ class CustomerTicketCreation(generics.GenericAPIView):
             category=payload.get("category"),
             status="Queuing",
             channel="App",
-            escalation_level="Management",
+            priority="Low",
         )
 
         UserNotification.objects.create(
