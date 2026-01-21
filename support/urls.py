@@ -6,7 +6,7 @@ from .views import (
     AssignTicket, GetAllSupportTickets, GetSingleTicket,
     RateSupportAgent, GetTicketByChannel, UsersWithTickets,
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
-    GetAllAgentAndModeratorUsers, DeleteTicket
+    GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets
 )
 
 
@@ -23,6 +23,7 @@ urlpatterns = [
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign/<str:ticket_number>/", AssignTicket.as_view(), name="assign_ticket"),
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
+    path("my-assigned-tickets", GetMyAssignedTickets.as_view(), name="my_assigned_tickets"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
     path("get-all-agents-and-moderators", GetAllAgentAndModeratorUsers.as_view(), name="get_all_agents_and_moderators"),
     path("get-single-ticket/<str:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),

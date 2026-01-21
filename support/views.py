@@ -425,6 +425,56 @@ class GetAllSupportTickets(generics.ListAPIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
+class GetMyAssignedTickets(generics.ListAPIView):
+    """
+    Allows an admin to retrieve tickets assigned to them.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+    pagination_class = CustomPageNumberPagination
+
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "Fetching tickets assigned to user %s", request.user.id
+        )
+
+        tickets = Ticket.objects.filter(
+            assigned_to=request.user,
+            deleted=False
+        ).order_by("-created_at")
+
+        paginator = self.pagination_class()
+        paginated_tickets = paginator.paginate_queryset(tickets, request)
+
+        data = [
+            {
+                "ticket_number": ticket.number,
+                "authorised_by": request.user.full_name or request.user.phone_number,
+                "category": ticket.category,
+                "description": ticket.description,
+                "created_at": ticket.created_at,
+                "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
+                "assigned_at": ticket.assigned_at,
+                "ticket_channel": ticket.channel,
+                "priority": ticket.priority,
+                "status": ticket.status,
+            }
+            for ticket in paginated_tickets
+        ]
+
+        response = {
+            "status": "success",
+            "message": "Assigned tickets fetched successfully!",
+            "page": paginator.page.number,
+            "page_size": paginator.page.paginator.per_page,
+            "total_count": paginator.page.paginator.count,
+            "data": data,
+        }
+
+        return Response(response, status=status.HTTP_200_OK)
+
+
 class GetSingleTicket(generics.RetrieveAPIView):
     """
     GetSingleTicket is the GET request handler that allows a SuperAdmin to
