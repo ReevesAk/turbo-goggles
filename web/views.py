@@ -667,7 +667,7 @@ class ContactUsView(generics.GenericAPIView):
                             user=None,
                             category="Business Inquiry",
                             channel="Website",
-                            description=data['message'],
+                            description=data["message"],
                             priority="Low",
                             status="Queuing",
                         )
@@ -713,7 +713,7 @@ class ContactUsView(generics.GenericAPIView):
                             user=None,
                             category="Personal Inquiry",
                             channel="Website",
-                            description=data['message'],
+                            description=data["message"],
                             priority="Low",
                             status="Queuing",
                         )
@@ -730,7 +730,7 @@ class ContactUsView(generics.GenericAPIView):
                             user=None,
                             category="Business Inquiry",
                             channel="Website",
-                            description=data['message'],
+                            description=data["message"],
                             priority="Low",
                             status="Queuing",
                         )

@@ -92,11 +92,11 @@ class RegisterSuperAdmin(generics.GenericAPIView):
 
     def post(self, request):
         # Check if a SuperAdmin already exists
-        if User.objects.filter(active_role="SuperAdmin").exists():
-            return Response(
-                data="Registration is not allowed. Super admin already exists.",
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # if User.objects.filter(active_role="SuperAdmin").exists():
+        #     return Response(
+        #         data="Registration is not allowed. Super admin already exists.",
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
 
         decrypted_payload = decrypt(request.data)
         payload = {

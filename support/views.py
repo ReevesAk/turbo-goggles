@@ -419,10 +419,11 @@ class GetSingleTicket(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     authentication_classes = [JWTAuthentication]
 
-    lookup_field = "ticket_number"
+    lookup_field = "number"               # DB FIELD
     lookup_url_kwarg = "ticket_number"
 
     def retrieve(self, request, *args, **kwargs):
+        print("🔥 VIEW HIT", kwargs)
         logger.info("Received request to retrieve support ticket.")
 
         ticket_id = kwargs.get("ticket_number")

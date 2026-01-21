@@ -354,9 +354,7 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
         guest_id = request.headers.get("X-Guest-ID")
         tx_ref = user_data.get("txn_reference")
 
-        user_obj = FundWithCard.objects.filter(
-            txn_reference=tx_ref
-        ).first()
+        user_obj = FundWithCard.objects.filter(txn_reference=tx_ref).first()
 
         if not user_obj:
             return Response(

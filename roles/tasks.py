@@ -254,7 +254,4 @@ class SendNewsLetter(generics.GenericAPIView):
             f"Newsletter sent successfully to {len(send_to_list)} recipient(s)."
         )
 
-        return Response(
-            data=encrypt(response_data),
-            status=status.HTTP_201_CREATED
-        )
+        return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
