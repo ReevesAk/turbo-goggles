@@ -9,6 +9,8 @@ from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from cloudinary import uploader as cloud
+
 # In project imports.
 from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
@@ -26,6 +28,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification, AccountType, DeviceId
 from accounts.tokens import create_jwt_pair_for_user
@@ -145,6 +148,10 @@ class CreateTicket(generics.CreateAPIView):
     serializer_class = CreateTicketSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsSuperAdmin]
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
 
     def create(self, request, *args, **kwargs):
         logger.info("Received request to create a support ticket.")
@@ -170,6 +177,8 @@ class CreateTicket(generics.CreateAPIView):
         priority = payload.get("priority")
         pin = payload.get("pin")
 
+        attachment_url = None
+
         if not check_password(password=pin, encoded=request.user.admin_pin):
             return Response(
                 data={
@@ -188,6 +197,10 @@ class CreateTicket(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if attachment:
+            upload_attachment = cloud.upload(attachment)
+            attachment_url = upload_attachment["url"]
+
         category = payload.get("category")
         logger.debug("Creating ticket with category: %s", category)
 
@@ -199,7 +212,7 @@ class CreateTicket(generics.CreateAPIView):
             category=category,
             channel=channel,
             description=description,
-            attachments=attachment,
+            attachments=attachment_url,
             priority=priority,
             status="Queuing",
         )
@@ -240,6 +253,10 @@ class CreateTicket(generics.CreateAPIView):
         }
         logger.info("Response prepared successfully: %s", resp)
         return Response(data=resp, status=status.HTTP_201_CREATED)
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_doc_url = doc_image["url"]
 
 
 class AssignTicket(generics.GenericAPIView):
