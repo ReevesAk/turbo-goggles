@@ -47,6 +47,7 @@ class Ticket(BaseModel):
     )
     title = models.CharField(max_length=150, null=True)
     customer_name = models.CharField(max_length=254, null=True)
+    customer_email = models.EmailField(max_length=254, null=True)
     category = models.CharField(max_length=150, null=True)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(

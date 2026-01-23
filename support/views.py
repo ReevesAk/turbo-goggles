@@ -284,12 +284,12 @@ class AssignTicket(generics.GenericAPIView):
             logger.warning("Serializer validation failed: %s", serializer.errors)
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        admin_name = payload.get("agent_name")
+        agent_name = payload.get("agent_name")
+        agent_email = payload.get("agent_email")
         ticket_number = kwargs.get("ticket_number")
         priority = payload.get("priority")
         pin = request.data.get("pin")
-        logger.debug("Admin name: %s, Ticket Number: %s", admin_name, ticket_number)
-
+        logger.debug("Agent name: %s, Ticket Number: %s", agent_name, ticket_number)
         # Attempt to retrieve the ticket
         try:
             ticket = Ticket.objects.filter(number=ticket_number).first()
@@ -307,14 +307,14 @@ class AssignTicket(generics.GenericAPIView):
         if check_password(password=pin, encoded=authenticated_user.admin_pin):
             # Attempt to retrieve the user by email
             try:
-                user = User.objects.get(email=admin_name)
-                logger.info("Admin found: %s", user)
+                user = User.objects.get(email=agent_email)
+                logger.info("Agent found: %s", user)
             except User.DoesNotExist:
-                logger.error("Admin with email %s does not exist.", admin_name)
+                logger.error("Agent with email %s does not exist.", agent_email)
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Admin does not exist",
+                        "message": "Agent does not exist",
                     },
                     status=status.HTTP_404_NOT_FOUND
                 )
