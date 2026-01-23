@@ -288,6 +288,7 @@ class AssignTicket(generics.GenericAPIView):
         agent_email = payload.get("agent_email")
         ticket_number = kwargs.get("ticket_number")
         priority = payload.get("priority")
+        ticket_status = payload.get("status")
         pin = request.data.get("pin")
         logger.debug("Agent name: %s, Ticket Number: %s", agent_name, ticket_number)
         # Attempt to retrieve the ticket
@@ -340,7 +341,7 @@ class AssignTicket(generics.GenericAPIView):
             # Assign the ticket to the user
             ticket.assigned_to = user
             ticket.priority = priority
-            ticket.status = "In Progress"
+            ticket.status = ticket_status
             ticket.save()
             logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
 

@@ -135,6 +135,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
         fields = [
             "pin",
             "category",
+            "status",
             "agent_name",
             "agent_email",
             "reason",
