@@ -168,6 +168,8 @@ class Register(generics.GenericAPIView):
             Messaging.send_email(
                 email=user.email,
                 html_content=text_content,
+                sender_email="notifications@picadailys.com",
+                body=msg,
                 subject="Picadailys Registration",
             )
 
