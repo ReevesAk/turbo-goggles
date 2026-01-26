@@ -109,20 +109,24 @@ class VerifYBVN(generics.GenericAPIView):
         kyc, _ = UserKYC.objects.get_or_create(user=user)
 
         # Validate serializer input
-        serializer = self.serializer_class(data=user_data)
+        serializer = self.serializer_class(
+            instance=kyc,
+            data=user_data,
+            partial=True
+        )
         serializer.is_valid(raise_exception=True)
 
-        # # Prevent duplicate BVNs
-        # if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
-        #     return Response(
-        #         data=encrypt(
-        #             {
-        #                 "status": "fail",
-        #                 "message": f"User with this BVN {user_data['bvn']} already exists.",
-        #             }
-        #         ),
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
+        # Prevent duplicate BVNs
+        if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"User with this BVN {user_data['bvn']} already exists.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Call Dojah BVN verification API
         bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
@@ -169,10 +173,10 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # # --- SUCCESS: Update records ---
-        # kyc.bvn = user_data["bvn"]
-        # kyc.bvn_phone = supplied_phone
-        # kyc.save()
+        # --- SUCCESS: Update records ---
+        kyc.bvn = user_data["bvn"]
+        kyc.bvn_phone = supplied_phone
+        kyc.save()
 
         user.is_bvn_verified = True
         user.save()
@@ -250,7 +254,11 @@ class VerifYNIN(generics.GenericAPIView):
         kyc, _ = UserKYC.objects.get_or_create(user=user)
 
         # Validate serializer
-        serializer = self.serializer_class(data=user_data)
+        serializer = self.serializer_class(
+            instance=kyc,
+            data=user_data,
+            partial=True
+        )
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate NIN
