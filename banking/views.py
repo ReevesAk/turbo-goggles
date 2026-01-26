@@ -112,17 +112,17 @@ class VerifYBVN(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
-        # Prevent duplicate BVNs
-        if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": f"User with this BVN {user_data['bvn']} already exists.",
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # # Prevent duplicate BVNs
+        # if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
+        #     return Response(
+        #         data=encrypt(
+        #             {
+        #                 "status": "fail",
+        #                 "message": f"User with this BVN {user_data['bvn']} already exists.",
+        #             }
+        #         ),
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
 
         # Call Dojah BVN verification API
         bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
