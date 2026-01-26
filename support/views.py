@@ -16,7 +16,8 @@ from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer
+    CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer,
+    UpdateTicketStatusSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory
@@ -465,6 +466,92 @@ class ReassignTicket(generics.GenericAPIView):
                 "status": "success",
                 "message": f"Ticket {ticket_number} successfully reassigned to {user.full_name}",
                 "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class UpdateTicketStatus(generics.GenericAPIView):
+    """
+    Handles updating ONLY the status of a support ticket.
+    """
+
+    serializer_class = UpdateTicketStatusSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, *args, **kwargs):
+        logger.info("UpdateTicketStatus request received")
+
+        authenticated_user = request.user
+
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in request.data.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+
+        ticket_number = kwargs.get("ticket_number")
+        pin = serializer.validated_data["pin"]
+        new_status = serializer.validated_data["status"]
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
+            return Response(
+                {"status": "fail", "message": "Ticket does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not check_password(pin, authenticated_user.admin_pin):
+            return Response(
+                {"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        old_status = ticket.status
+
+        # ❗ Prevent unnecessary updates
+        if old_status == new_status:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": f"Ticket is already in '{new_status}' status."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ticket.status = new_status
+        ticket.save(update_fields=["status"])
+
+        # Activity log
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Update Ticket Status",
+            message=(
+                f"Ticket {ticket_number} status changed "
+                f"from '{old_status}' to '{new_status}'."
+            ),
+        )
+
+        logger.info(
+            "Ticket %s status updated from %s to %s by %s",
+            ticket_number,
+            old_status,
+            new_status,
+            authenticated_user.email,
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} status updated successfully.",
+                "data": {
+                    "ticket_number": ticket_number,
+                    "old_status": old_status,
+                    "new_status": new_status,
+                },
             },
             status=status.HTTP_200_OK,
         )

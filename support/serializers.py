@@ -148,6 +148,17 @@ class AssignTicketSerializers(serializers.ModelSerializer):
         ]
 
 
+class UpdateTicketStatusSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=10, min_length=4, write_only=True)
+
+    class Meta:
+        model = Ticket
+        fields = [
+            "status",
+            "pin",
+        ]
+
+
 class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
     assigned_by = serializers.SerializerMethodField()
     previous_agent = serializers.SerializerMethodField()

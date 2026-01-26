@@ -3,8 +3,8 @@ from django.urls import path
 
 from .views import (
     CreateTicket, RegisterManager, SupportPhoneVerifyOTP,
-    AssignTicket, ReassignTicket, GetAllSupportTickets, GetSingleTicket,
-    RateSupportAgent, GetTicketByChannel, UsersWithTickets,
+    AssignTicket, ReassignTicket, UpdateTicketStatus, GetAllSupportTickets, 
+    GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets,
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
     GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets
 )
@@ -23,6 +23,7 @@ urlpatterns = [
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign/<str:ticket_number>/", AssignTicket.as_view(), name="assign_ticket"),
     path("reassign/<str:ticket_number>/", ReassignTicket.as_view(), name="reassign_ticket"),
+    path("update-status/<str:ticket_number>/", UpdateTicketStatus.as_view(), name="update_ticket_status"),
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
     path("my-assigned-tickets", GetMyAssignedTickets.as_view(), name="my_assigned_tickets"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
