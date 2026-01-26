@@ -127,6 +127,10 @@ class UserWithTicketsSerializer(serializers.ModelSerializer):
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_name = serializers.CharField(max_length=68, min_length=6, write_only=True)
     agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    agent_role = serializers.ChoiceField(
+        choices=["Agent", "Moderator"],
+        write_only=True
+    )
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
     reason = serializers.CharField(max_length=200, write_only=True, required=False)
 
@@ -137,6 +141,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "category",
             "status",
             "agent_name",
+            "agent_role",
             "agent_email",
             "reason",
             "priority"

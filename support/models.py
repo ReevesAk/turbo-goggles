@@ -54,6 +54,7 @@ class Ticket(BaseModel):
         to=User, on_delete=models.SET_NULL,
         null=True, related_name="assigned_tickets"
     )
+    agent_role = models.CharField(max_length=150, null=True)
     description = models.TextField(null=True)
     priority = models.CharField(choices=PRIORITY, max_length=150, null=True)
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)

@@ -261,8 +261,7 @@ class CreateTicket(generics.CreateAPIView):
 
 class AssignTicket(generics.GenericAPIView):
     """
-    AssignTicket handles the POST request of assigning a support ticket
-    to an agent.
+    AssignTicket handles Handles FIRST-TIME assignment of a support ticket to an agent
     """
 
     serializer_class = AssignTicketSerializers
@@ -270,110 +269,205 @@ class AssignTicket(generics.GenericAPIView):
     permission_classes = [IsSuperAdmin]
 
     def post(self, request, *args, **kwargs):
-        logger.info("Received request to assign a support ticket.")
+        logger.info("AssignTicket request received")
 
         authenticated_user = request.user
+
         payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in request.data.items()
         }
-        logger.debug("Payload after stripping: %s", payload)
 
-        serializer = self.get_serializer(data=payload)
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning("Serializer validation failed: %s", serializer.errors)
-            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(
+            data=payload,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
 
-        agent_name = payload.get("agent_name")
-        agent_email = payload.get("agent_email")
         ticket_number = kwargs.get("ticket_number")
-        priority = payload.get("priority")
-        ticket_status = payload.get("status")
-        pin = request.data.get("pin")
-        logger.debug("Agent name: %s, Ticket Number: %s", agent_name, ticket_number)
-        # Attempt to retrieve the ticket
-        try:
-            ticket = Ticket.objects.filter(number=ticket_number).first()
-            logger.info("Ticket found: %s", ticket)
-        except Ticket.DoesNotExist:
-            logger.error("Ticket with number %s does not exist.", ticket_number)
+        pin = serializer.validated_data["pin"]
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
             return Response(
-                data={
+                {"status": "fail", "message": "Ticket does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ❗ Must be unassigned
+        if ticket.assigned_to:
+            return Response(
+                {
                     "status": "fail",
-                    "message": "Ticket does not exist",
+                    "message": "Ticket already assigned. Use reassign endpoint."
                 },
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if check_password(password=pin, encoded=authenticated_user.admin_pin):
-            # Attempt to retrieve the user by email
-            try:
-                user = User.objects.get(email=agent_email)
-                logger.info("Agent found: %s", user)
-            except User.DoesNotExist:
-                logger.error("Agent with email %s does not exist.", agent_email)
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Agent does not exist",
-                    },
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            # Check if the user is an admin
-            agent_types = [
-                "Agent",
-                "Moderator",
-            ]
-
-            is_agent = AccountType.objects.filter(
-                user=user, user_type__in=agent_types
-            ).exists()
-
-            if not is_agent:
-                logger.warning("User %s exists, but is not an agent.", user.email)
-                raise PermissionDenied("User exists, but is not an agent.")
-
-            logger.info("Pin verification successful for user: %s", authenticated_user)
-
-            previous_agent = ticket.assigned_to
-
-            # Assign the ticket to the user
-            ticket.assigned_to = user
-            ticket.priority = priority
-            ticket.status = ticket_status
-            ticket.save()
-            logger.info("Ticket %s assigned to user: %s", ticket_number, user.full_name)
-
-            TicketAssignmentHistory.objects.create(
-                ticket=ticket,
-                assigned_by=authenticated_user,
-                previous_agent=previous_agent,
-                new_agent=user,
-                priority=priority,
-                reason=payload.get("reason"),
-            )
-            # Log the activity
-            ActivityModel.objects.create(
-                user=authenticated_user,
-                title="Assign Ticket",
-                message=f"Support ticket {ticket_number} has been assigned to {user.full_name}."
-            )
-            logger.info("Activity logged for assigning ticket %s to user: %s", ticket_number, user.full_name)
-
-            response = {
-                "status": "success",
-                "message": f"Support ticket {ticket_number} has been successfully assigned to {user.full_name}",
-                "data": serializer.data,
-            }
-            logger.info("Response prepared successfully: %s", response)
-            return Response(data=response, status=status.HTTP_201_CREATED)
-        else:
-            logger.warning("Incorrect pin provided for user: %s", authenticated_user)
+        if not check_password(pin, authenticated_user.admin_pin):
             return Response(
-                data={"status": "fail", "error": "Incorrect pin"},
+                {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        agent_email = serializer.validated_data["agent_email"]
+        agent_role = serializer.validated_data["agent_role"]
+
+        user = User.objects.filter(email=agent_email).first()
+        if not user:
+            return Response(
+                {"status": "fail", "message": "Agent does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_agent = AccountType.objects.filter(
+            user=user,
+            user_type=agent_role
+        ).exists()
+
+        if not is_agent:
+            raise PermissionDenied("User exists, but is not an agent.")
+
+        ticket.assigned_to = user
+        ticket.priority = serializer.validated_data["priority"]
+        ticket.status = serializer.validated_data["status"]
+        ticket.save()
+
+        TicketAssignmentHistory.objects.create(
+            ticket=ticket,
+            assigned_by=authenticated_user,
+            previous_agent=None,
+            new_agent=user,
+            priority=serializer.validated_data["priority"],
+            reason=serializer.validated_data.get("reason"),
+            action="assign",
+        )
+
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Assign Ticket",
+            message=f"Ticket {ticket_number} assigned to {user.full_name}",
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} successfully assigned to {user.full_name}",
+                "data": serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ReassignTicket(generics.GenericAPIView):
+    """
+    ReassignTicket handles reassignment of a support ticket to a new agent.
+    """
+
+    serializer_class = AssignTicketSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, *args, **kwargs):
+        logger.info("ReassignTicket request received")
+
+        authenticated_user = request.user
+
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in request.data.items()
+        }
+
+        serializer = self.get_serializer(
+            data=payload,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        ticket_number = kwargs.get("ticket_number")
+        pin = serializer.validated_data["pin"]
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
+            return Response(
+                {"status": "fail", "message": "Ticket does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ❗ Must already be assigned
+        if not ticket.assigned_to:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Ticket not yet assigned. Use assign endpoint."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not check_password(pin, authenticated_user.admin_pin):
+            return Response(
+                {"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        agent_email = serializer.validated_data["agent_email"]
+        agent_role = serializer.validated_data["agent_role"]
+
+        user = User.objects.filter(email=agent_email).first()
+        if not user:
+            return Response(
+                {"status": "fail", "message": "Agent does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if ticket.assigned_to == user:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Ticket is already assigned to this agent."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_agent = AccountType.objects.filter(
+            user=user,
+            user_type=agent_role
+        ).exists()
+
+        if not is_agent:
+            raise PermissionDenied("User exists, but is not an agent.")
+
+        previous_agent = ticket.assigned_to
+
+        ticket.assigned_to = user
+        ticket.priority = serializer.validated_data["priority"]
+        ticket.status = serializer.validated_data["status"]
+        ticket.save()
+
+        TicketAssignmentHistory.objects.create(
+            ticket=ticket,
+            assigned_by=authenticated_user,
+            previous_agent=previous_agent,
+            new_agent=user,
+            priority=serializer.validated_data["priority"],
+            reason=serializer.validated_data.get("reason"),
+            action="reassign",
+        )
+
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Reassign Ticket",
+            message=f"Ticket {ticket_number} reassigned to {user.full_name}",
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} successfully reassigned to {user.full_name}",
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class GetAllSupportTickets(generics.ListAPIView):

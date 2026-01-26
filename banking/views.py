@@ -109,11 +109,7 @@ class VerifYBVN(generics.GenericAPIView):
         kyc, _ = UserKYC.objects.get_or_create(user=user)
 
         # Validate serializer input
-        serializer = self.serializer_class(
-            instance=kyc,
-            data=user_data,
-            partial=True
-        )
+        serializer = self.serializer_class(instance=kyc, data=user_data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate BVNs
@@ -254,11 +250,7 @@ class VerifYNIN(generics.GenericAPIView):
         kyc, _ = UserKYC.objects.get_or_create(user=user)
 
         # Validate serializer
-        serializer = self.serializer_class(
-            instance=kyc,
-            data=user_data,
-            partial=True
-        )
+        serializer = self.serializer_class(instance=kyc, data=user_data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate NIN

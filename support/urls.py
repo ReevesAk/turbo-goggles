@@ -3,7 +3,7 @@ from django.urls import path
 
 from .views import (
     CreateTicket, RegisterManager, SupportPhoneVerifyOTP,
-    AssignTicket, GetAllSupportTickets, GetSingleTicket,
+    AssignTicket, ReassignTicket, GetAllSupportTickets, GetSingleTicket,
     RateSupportAgent, GetTicketByChannel, UsersWithTickets,
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
     GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets
@@ -22,6 +22,7 @@ urlpatterns = [
     path("login", LoginAgent.as_view(), name="login_agent"),
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign/<str:ticket_number>/", AssignTicket.as_view(), name="assign_ticket"),
+    path("reassign/<str:ticket_number>/", ReassignTicket.as_view(), name="reassign_ticket"),
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
     path("my-assigned-tickets", GetMyAssignedTickets.as_view(), name="my_assigned_tickets"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
@@ -30,5 +31,4 @@ urlpatterns = [
     path('users-with-tickets/', UsersWithTickets.as_view(), name='users-with-tickets'),
     path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
     path("search-by-channel/<str:search_term>/", GetTicketByChannel.as_view(), name="serach_channel")
-
 ]
