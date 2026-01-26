@@ -169,10 +169,10 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --- SUCCESS: Update records ---
-        kyc.bvn = user_data["bvn"]
-        kyc.bvn_phone = supplied_phone
-        kyc.save()
+        # # --- SUCCESS: Update records ---
+        # kyc.bvn = user_data["bvn"]
+        # kyc.bvn_phone = supplied_phone
+        # kyc.save()
 
         user.is_bvn_verified = True
         user.save()
