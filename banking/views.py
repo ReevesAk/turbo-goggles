@@ -126,6 +126,7 @@ class VerifYBVN(generics.GenericAPIView):
 
         # Call Dojah BVN verification API
         bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
+        print(bvn_response)
         if not bvn_response:
             return Response(
                 data=encrypt(
