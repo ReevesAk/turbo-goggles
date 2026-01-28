@@ -97,7 +97,7 @@ class MemberSurverySerializers(serializers.ModelSerializer):
             "wheredoyoulive",
             "state",
             "facebook_followers",
-            "facebook_handle"
+            "facebook_handle",
             "twitter_followers",
             "twitter_handle",
             "thread_followers",
