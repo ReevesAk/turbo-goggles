@@ -89,6 +89,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "pin",
             "number",
             "customer_name",
+            "customer_email",
             "title",
             "priority",
             "category",

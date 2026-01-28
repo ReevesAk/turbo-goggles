@@ -150,31 +150,6 @@ class TicketRRTrail(BaseModel):
     happened_at = models.DateTimeField(auto_now_add=True)
 
 
-class TicketEscalationTrail(models.Model):
-    ticket = models.ForeignKey(
-        Ticket,
-        on_delete=models.CASCADE,
-        related_name="escalation_trails"
-    )
-    from_agent = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="escalated_from"
-    )
-    to_agent = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="escalated_to"
-    )
-    reason = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.ticket.id}: {self.from_agent} → {self.to_agent}"
-
-
 class AgentRating(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_rating")
     agent = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="agent_rated")

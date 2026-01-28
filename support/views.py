@@ -173,6 +173,7 @@ class CreateTicket(generics.CreateAPIView):
         channel = payload.get("channel")
         description = payload.get("description")
         customer_name = payload.get("customer_name")
+        customer_email = payload.get("customer_email")
         attachment = request.FILES.get("attachment")
         title = payload.get("title")
         priority = payload.get("priority")
@@ -211,6 +212,8 @@ class CreateTicket(generics.CreateAPIView):
             customer_name=customer_name,
             title=title,
             category=category,
+            customer_email=customer_email,
+            customer_name=customer_name,
             channel=channel,
             description=description,
             attachments=attachment_url,
