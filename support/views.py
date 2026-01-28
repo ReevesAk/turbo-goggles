@@ -210,10 +210,9 @@ class CreateTicket(generics.CreateAPIView):
         ticket = Ticket.objects.create(
             user=user,
             customer_name=customer_name,
+            customer_email=customer_email,
             title=title,
             category=category,
-            customer_email=customer_email,
-            customer_name=customer_name,
             channel=channel,
             description=description,
             attachments=attachment_url,
