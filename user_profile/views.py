@@ -37,7 +37,7 @@ from .serializers import (
     SupportTicketSerializer,
     TierListResponseSerializer,
 )
-from .helpers import MysteryBox, VariationCodes
+from .helpers import MysteryBox, VariationCodes, MemberSurveyService
 from .choices import LEVELS
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import ActivityModel
@@ -730,69 +730,49 @@ class ChangePassword(generics.UpdateAPIView):
 
 class PostMemberSurvey(generics.CreateAPIView):
     """
-    PostMemberSurvey endpoint to conduct memmber survey.
+    PostMemberSurvey handles POST request of conducting member survey.
     """
 
     serializer_class = MemberSurverySerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
-    def create(self, request):
+    def create(self, request, *args, **kwargs):
         user = request.user
-        logger.info(
-            f"User {user.first_name} {user.last_name} initiated a survey completion request."
-        )
 
         decrypted_payload = decrypt(request.data)
         payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
         }
 
-        serializer = MemberSurverySerializers(data=payload)
+        serializer = self.get_serializer(
+            data=payload,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            logger.info(
-                f"Survey data is valid for user {user.first_name} {user.last_name}. Saving to database."
-            )
-
-            user = User.objects.create(user=request.user)
-
-            UserNotification.objects.create(
-                user=request.user,
-                title="Member Survey.",
-                message="Survey completed successfully!",
-            )
-
-            ActivityModel.objects.create(
+        try:
+            MemberSurveyService.complete_member_survey(
                 user=user,
-                title="Member Survey.",
-                description=f"{request.user.first_name} {request.user.last_name} has completed Member account survey.",
+                serializer=serializer,
+            )
+        except ValidationError as e:
+            return Response(
+                encrypt({"message": str(e)}),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-            user.has_done_survey = True
-            user.save()
-            logger.info(
-                f"User {user.first_name} {user.last_name} has completed the survey and updated done_survey status."
-            )
-            # Prepare the response data
-            response = {
-                "status": "success",
-                "message": "Survey completed successfully!",
-                "data": serializer.data,
-            }
-            logger.info(
-                f"Survey completion successful for user {user.first_name} {user.last_name}."
-            )
-            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
-        else:
-            logger.warning(
-                f"Survey validation failed for user {user.first_name} {user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
+        response = {
+            "status": "success",
+            "message": "Survey completed successfully!",
+            "data": serializer.data,
+        }
+
+        return Response(
+            encrypt(response),
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class DeleteUser(generics.DestroyAPIView):

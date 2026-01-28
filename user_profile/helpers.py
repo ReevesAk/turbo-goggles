@@ -1,5 +1,12 @@
 import random
 
+from django.db import transaction
+from django.core.exceptions import ValidationError
+
+from user_profile.models import MemberSurvey
+from accounts.models import UserNotification
+from roles.models import ActivityModel
+
 from accounts.models import Rewards
 
 
@@ -56,3 +63,42 @@ class VariationCodes:
         variation_code = mapping.get(amount)
 
         return variation_code
+
+
+class MemberSurveyService:
+    @staticmethod
+    @transaction.atomic
+    def complete_member_survey(*, user, serializer):
+        """
+        Handles full member survey completion flow safely.
+        """
+
+        # 🔒 Lock user row to prevent race conditions
+        user = type(user).objects.select_for_update().get(pk=user.pk)
+
+        # ❌ Idempotency check
+        if MemberSurvey.objects.filter(user=user).exists():
+            raise ValidationError("Survey already completed.")
+
+        # ✅ Save survey
+        survey = serializer.save()
+
+        # 🔔 Notify user
+        UserNotification.objects.create(
+            user=user,
+            title="Member Survey",
+            message="Survey completed successfully!",
+        )
+
+        # 🧾 Activity log
+        ActivityModel.objects.create(
+            user=user,
+            title="Member Survey",
+            description=f"{user.first_name} {user.last_name} completed member survey.",
+        )
+
+        # 🏁 Update user state
+        user.has_done_survey = True
+        user.save(update_fields=["has_done_survey"])
+
+        return survey
