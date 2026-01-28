@@ -81,7 +81,7 @@ class MemberSurveyService:
             raise ValidationError("Survey already completed.")
 
         # ✅ Save survey
-        survey = serializer.save()
+        survey = serializer.save(user=user)
 
         # 🔔 Notify user
         UserNotification.objects.create(
