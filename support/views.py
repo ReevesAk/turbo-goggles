@@ -678,6 +678,8 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "authorised_by": "SuperAdmin",
                     "category": ticket.category,
                     "description": ticket.description,
+                    "customer_email": ticket.customer_email,
+                    "customer_name": ticket.customer_name,
                     "created_at": ticket.created_at,
                     "assigned_to": ticket.assigned_to,
                     "assigned_at": ticket.assigned_at,
@@ -800,6 +802,8 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "assigned_at": ticket.assigned_at,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
+                    "customer_email": ticket.customer_email,
+                    "customer_name": ticket.customer_name,
                     "status": ticket.status,
 
                     # 🔥 NEW
