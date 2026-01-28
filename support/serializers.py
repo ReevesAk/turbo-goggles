@@ -159,6 +159,28 @@ class UpdateTicketStatusSerializer(serializers.ModelSerializer):
         ]
 
 
+class TicketRRTrailSerializer(serializers.Serializer):
+    action = serializers.CharField()
+    from_user = serializers.CharField(allow_null=True)
+    to_user = serializers.CharField(allow_null=True)
+    role = serializers.CharField(allow_null=True)
+    priority = serializers.CharField(allow_null=True)
+    reason = serializers.CharField(allow_null=True)
+    timestamp = serializers.DateTimeField()
+
+
+class TicketEscalateSerializer(serializers.Serializer):
+    to_user_id = serializers.CharField(max_length=255)
+    to_role = serializers.CharField(max_length=150)
+    reason = serializers.CharField(max_length=255)
+    pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
+
+    def validate_to_user_id(self, value):
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Target user does not exist.")
+        return value
+
+
 class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
     assigned_by = serializers.SerializerMethodField()
     previous_agent = serializers.SerializerMethodField()

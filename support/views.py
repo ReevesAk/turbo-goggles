@@ -14,13 +14,13 @@ from cloudinary import uploader as cloud
 # In project imports.
 from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
-    AgentRatingSerializers, TicketSerializers,
+    AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer,
     UpdateTicketStatusSerializer
 )
 from .utils import generate_ticket_number
-from .models import Ticket, AgentRating, TicketAssignmentHistory
+from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
 
 # Third party imports.
 from rest_framework import generics, status, serializers
@@ -555,6 +555,95 @@ class UpdateTicketStatus(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class EscalateTicketAPIView(APIView):
+    serializer_class = TicketEscalateSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManagerOrSuperAdmin, IsAgent]
+
+    def post(self, request, ticket_id):
+        serializer = TicketEscalateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        authenticated_user = request.user
+
+        try:
+            ticket = Ticket.objects.get(id=ticket_id)
+        except Ticket.DoesNotExist:
+            return Response(
+                {"detail": "Ticket not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        to_user = User.objects.get(id=serializer.validated_data["to_user_id"])
+
+        from_user = ticket.assigned_to
+        from_role = ticket.agent_role
+        to_role = serializer.validated_data["to_role"]
+        pin = serializer.validated_data["pin"]
+        if not check_password(pin, authenticated_user.admin_pin):
+            return Response(
+                {"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # 1️⃣ RR Trail (single source of truth)
+        TicketRRTrail.objects.create(
+            ticket=ticket,
+            action="escalate",
+            from_user=from_user,
+            to_user=to_user,
+            from_role=from_role,
+            to_role=to_role,
+            reason=serializer.validated_data["reason"],
+        )
+
+        # 2️⃣ Update ticket
+        ticket.assigned_to = to_user
+        ticket.agent_role = to_role
+        ticket.status = "escalated"
+        ticket.assigned_at = timezone.now()
+        ticket.save(
+            update_fields=["assigned_to", "agent_role", "status", "assigned_at"]
+        )
+
+        return Response(
+            {"message": "Ticket escalated successfully"},
+            status=status.HTTP_200_OK
+        )
+
+
+class TicketRRTrailAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManagerOrSuperAdmin, IsAgent]
+
+    def get(self, request, ticket_id):
+        try:
+            ticket = Ticket.objects.get(id=ticket_id)
+        except Ticket.DoesNotExist:
+            return Response(
+                {"detail": "Ticket not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        trails = ticket.rr_trail.select_related(
+            "from_user", "to_user"
+        ).order_by("happened_at")
+
+        data = []
+        for trail in trails:
+            data.append({
+                "action": trail.action,
+                "from_user": trail.from_user.full_name if trail.from_user else None,
+                "to_user": trail.to_user.full_name if trail.to_user else None,
+                "from_role": trail.from_role,
+                "to_role": trail.to_role,
+                "reason": trail.reason,
+                "happened_at": trail.happened_at,
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class GetAllSupportTickets(generics.ListAPIView):

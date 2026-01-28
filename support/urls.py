@@ -6,7 +6,8 @@ from .views import (
     AssignTicket, ReassignTicket, UpdateTicketStatus, GetAllSupportTickets, 
     GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets,
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
-    GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets
+    GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets,
+    EscalateTicketAPIView, TicketRRTrailAPIView,
 )
 
 
@@ -27,6 +28,8 @@ urlpatterns = [
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
     path("my-assigned-tickets", GetMyAssignedTickets.as_view(), name="my_assigned_tickets"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
+    path("escalate-ticket/<str:ticket_id>/", EscalateTicketAPIView.as_view(), name="escalate_ticket"),
+    path("ticket-rr-trail/<str:ticket_id>/", TicketRRTrailAPIView.as_view(), name="ticket_rr_trail"),
     path("get-all-agents-and-moderators", GetAllAgentAndModeratorUsers.as_view(), name="get_all_agents_and_moderators"),
     path("get-single-ticket/<str:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
     path('users-with-tickets/', UsersWithTickets.as_view(), name='users-with-tickets'),

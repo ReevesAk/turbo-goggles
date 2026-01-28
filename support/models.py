@@ -107,6 +107,74 @@ class TicketAssignmentHistory(models.Model):
         ordering = ["-created_at"]
 
 
+class TicketRRTrail(BaseModel):
+    """
+    Tracks routing, escalation, and handover history (RR).
+    """
+
+    ACTIONS = (
+        ("assign", "Assign"),
+        ("reassign", "Reassign"),
+        ("escalate", "Escalate"),
+        ("resolve", "Resolve"),
+        ("close", "Close"),
+    )
+
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="rr_trail"
+    )
+
+    action = models.CharField(max_length=20, choices=ACTIONS)
+
+    from_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="rr_from_user"
+    )
+
+    to_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="rr_to_user"
+    )
+
+    from_role = models.CharField(max_length=150, null=True, blank=True)
+    to_role = models.CharField(max_length=150, null=True, blank=True)
+
+    reason = models.CharField(max_length=255, null=True, blank=True)
+
+    happened_at = models.DateTimeField(auto_now_add=True)
+
+
+class TicketEscalationTrail(models.Model):
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="escalation_trails"
+    )
+    from_agent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="escalated_from"
+    )
+    to_agent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="escalated_to"
+    )
+    reason = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.ticket.id}: {self.from_agent} → {self.to_agent}"
+
+
 class AgentRating(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_rating")
     agent = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="agent_rated")
