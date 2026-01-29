@@ -14,6 +14,8 @@ from .models import (
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
     ActivityModel,
+    SendNewsletters,
+    NewsletterRecipient
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from security import encrypt
@@ -465,8 +467,40 @@ class EmailOrListField(serializers.Field):
         )
 
 
-class SendNewsletterSerializer(serializers.Serializer):
-    volume = serializers.ChoiceField(choices=["single", "bulk"])
-    send_to = EmailOrListField()
-    title = serializers.CharField()
-    content = serializers.CharField()
+class SendNewsletterSerializer(serializers.ModelSerializer):
+    send_to = serializers.JSONField(write_only=True)
+    pin = serializers.CharField(min_length=5, write_only=True)
+
+    class Meta:
+        model = SendNewsletters
+        fields = ["volume", "title", "content", "send_to", "pin"]
+
+    def validate_send_to(self, value):
+        # Normalize to list
+        if isinstance(value, str):
+            value = [value]
+
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                "send_to must be an email or a list of emails."
+            )
+
+        for email in value:
+            serializers.EmailField().run_validation(email)
+
+        return value
+
+    def create(self, validated_data):
+        recipients = validated_data.pop("send_to")
+
+        newsletter = SendNewsletters.objects.create(**validated_data)
+
+        NewsletterRecipient.objects.bulk_create([
+            NewsletterRecipient(
+                newsletter=newsletter,
+                email=email
+            )
+            for email in recipients
+        ])
+
+        return newsletter
