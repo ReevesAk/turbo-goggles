@@ -46,7 +46,15 @@ class ActivityModel(BaseModel):
 
 class SendNewsletters(models.Model):
     volume = models.CharField(max_length=50, null=True)
-    send_to = models.EmailField(max_length=255, null=True)
     title = models.CharField(max_length=255, null=True)
     content = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class NewsletterRecipient(models.Model):
+    newsletter = models.ForeignKey(
+        SendNewsletters, on_delete=models.CASCADE, related_name="recipients"
+    )
+    email = models.EmailField(null=True)
+    sent = models.BooleanField(default=False)
+    sent_at = models.DateTimeField(null=True, blank=True)
