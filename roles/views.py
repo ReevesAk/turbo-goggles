@@ -27,7 +27,7 @@ from .serializers import (
     GetAllActivityLogsSerializer,
     ForgotPinSerializer,
     ResetPinSerializer,
-    SendNewsletterSerializer
+    SendNewsletterSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -2403,7 +2403,9 @@ class SendNewsletterView(generics.CreateAPIView):
 
         pin = serializer.validated_data.get("pin")
         if not check_password(password=pin, encoded=request.user.admin_pin):
-            logger.info("Admin user '%s' provided an incorrect pin.", request.user.full_name)
+            logger.info(
+                "Admin user '%s' provided an incorrect pin.", request.user.full_name
+            )
             return Response(
                 data=encrypt({"message": "Incorrect admin pin."}),
                 status=status.HTTP_400_BAD_REQUEST,

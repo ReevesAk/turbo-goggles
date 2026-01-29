@@ -15,7 +15,7 @@ from .models import (
     RestrictBrandAdAccount,
     ActivityModel,
     SendNewsletters,
-    NewsletterRecipient
+    NewsletterRecipient,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from security import encrypt
@@ -495,12 +495,11 @@ class SendNewsletterSerializer(serializers.ModelSerializer):
 
         newsletter = SendNewsletters.objects.create(**validated_data)
 
-        NewsletterRecipient.objects.bulk_create([
-            NewsletterRecipient(
-                newsletter=newsletter,
-                email=email
-            )
-            for email in recipients
-        ])
+        NewsletterRecipient.objects.bulk_create(
+            [
+                NewsletterRecipient(newsletter=newsletter, email=email)
+                for email in recipients
+            ]
+        )
 
         return newsletter

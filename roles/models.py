@@ -53,9 +53,7 @@ class SendNewsletters(models.Model):
 
 class NewsletterRecipient(models.Model):
     newsletter = models.ForeignKey(
-        SendNewsletters,
-        on_delete=models.CASCADE,
-        related_name="recipients"
+        SendNewsletters, on_delete=models.CASCADE, related_name="recipients"
     )
     email = models.EmailField(null=True)
     sent = models.BooleanField(default=False)
