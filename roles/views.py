@@ -27,7 +27,6 @@ from .serializers import (
     GetAllActivityLogsSerializer,
     ForgotPinSerializer,
     ResetPinSerializer,
-    SendNewsletterSerializer,
     AdminDdashboardDataSerializer,
 )
 from user_profile.serializers import GetUserSerializer
@@ -2388,45 +2387,6 @@ class ActivityTitleListView(APIView):
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-
-class SendNewsletterView(generics.CreateAPIView):
-    """
-    Send newsletter to one or multiple email recipients.
-    """
-
-    serializer_class = SendNewsletterSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        pin = serializer.validated_data.get("pin")
-        if not check_password(password=pin, encoded=request.user.admin_pin):
-            logger.info(
-                "Admin user '%s' provided an incorrect pin.", request.user.full_name
-            )
-            return Response(
-                data=encrypt({"message": "Incorrect admin pin."}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        newsletter = serializer.save()
-
-        response = {
-            "status": "success",
-            "message": "Newsletter queued successfully",
-            "data": {
-                "id": newsletter.id,
-                "volume": newsletter.volume,
-                "title": newsletter.title,
-                "recipients_count": newsletter.recipients.count(),
-            },
-        }
-
-        return Response(encrypt(response), status=status.HTTP_201_CREATED)
 
 
 class AdminDashboardDataView(APIView):

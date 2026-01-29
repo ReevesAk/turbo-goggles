@@ -31,7 +31,6 @@ from .views import (
     AdminForgotPin,
     PinVerifyOTP,
     ResetPin,
-    SendNewsletterView,
     AdminDashboardDataView,
 )
 
@@ -39,6 +38,7 @@ from .tasks import (
     CreateStepCampaign,
     GetAllStepCampaigns,
     GetSingleStepCampaign,
+    SendNewsLetter,
     CampaignParticipantListView,
 )
 from .wallets import GetallWalletUsers, WalletSearch, ChangeWalletStatusView
@@ -148,7 +148,7 @@ urlpatterns = [
     ),
     path(
         "tasks/send-newsletter",
-        SendNewsletterView.as_view(),
+        SendNewsLetter.as_view(),
         name="send_newsletter",
     ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
