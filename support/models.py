@@ -12,12 +12,11 @@ PRIORITY = (
 )
 
 STATUS = (
-    ("Queuing", "Queuing"),
-    ("Closed", "Closed"),
+    ("New", "New"),
     ("In-Progress", "In-Progress"),
-    ("Unopened", "Unopened"),
-    ("Reassigned", "Reassigned"),
-    ("Overdue", "Overdue"),
+    ("Awaiting Customer", "Awaiting Customer"),
+    ("Escalated", "Escalated"),
+    ("Resolved", "Resolved"),
     ("Closed", "Closed")
 )
 
