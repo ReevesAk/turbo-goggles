@@ -28,6 +28,7 @@ from .serializers import (
     ForgotPinSerializer,
     ResetPinSerializer,
     SendNewsletterSerializer,
+    AdminDdashboardDataSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -40,6 +41,7 @@ from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.serializers import VerifyOTPSerializer
+from support.models import Ticket
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -2425,3 +2427,58 @@ class SendNewsletterView(generics.CreateAPIView):
         }
 
         return Response(encrypt(response), status=status.HTTP_201_CREATED)
+
+
+class AdminDashboardDataView(APIView):
+    serializer_class = AdminDdashboardDataSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request):
+        today = timezone.now().date()
+        ADMIN_ROLES = [
+            "AdAdmin",
+            "SuperAdmin",
+            "TaskAdmin",
+            "MembersAdmin",
+            "UserAdmin",
+            "PartnersAdmin",
+            "ContentAdmin",
+            "IntegrationAdmin",
+            "WalletAdmin",
+        ]
+
+        data = {
+            "total_wallet_users": User.objects.filter(has_wallet=True).count(),
+            "total_partners": User.objects.filter(account_types__user_type="Partner")
+            .distinct()
+            .count(),
+            "total_brand_ads": User.objects.filter(account_types__user_type="BrandAd")
+            .distinct()
+            .count(),
+            "total_admins": User.objects.filter(active_role__in=ADMIN_ROLES).count(),
+            "total_active_admins": User.objects.filter(
+                active_role__in=ADMIN_ROLES, is_admin_disabled=False
+            ).count(),
+            "total_disabled_admins": User.objects.filter(
+                is_admin_disabled=True
+            ).count(),
+            "total_verified_users": User.objects.filter(is_verified=True).count(),
+            "total_verified_partners": User.objects.filter(business_verified=True)
+            .distinct()
+            .count(),
+            "total_verified_brandAds": User.objects.filter(has_promoted=True).count(),
+            "total_support_tickets": Ticket.objects.count(),
+            "total_live_tickets": Ticket.objects.exclude(
+                status__in=["Resolved", "Closed"]
+            ).count(),
+            "total_closed_tickets": Ticket.objects.filter(status="Closed").count(),
+            "total_logins": User.objects.filter(last_login__date=today).count(),
+        }
+
+        serializer = AdminDdashboardDataSerializer(data)
+        response_data = {
+            "status": "success",
+            "data": serializer.data,
+        }
+        return Response(encrypt(response_data), status=status.HTTP_200_OK)

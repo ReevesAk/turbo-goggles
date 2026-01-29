@@ -503,3 +503,19 @@ class SendNewsletterSerializer(serializers.ModelSerializer):
         )
 
         return newsletter
+
+
+class AdminDdashboardDataSerializer(serializers.Serializer):
+    total_wallet_users = serializers.IntegerField()
+    total_partners = serializers.IntegerField()
+    total_brand_ads = serializers.IntegerField()
+    total_admins = serializers.IntegerField()
+    total_active_admins = serializers.IntegerField()
+    total_disabled_admins = serializers.IntegerField()
+    total_verified_users = serializers.IntegerField()
+    total_verified_partners = serializers.IntegerField()
+    total_verified_brandAds = serializers.IntegerField()
+    total_support_tickets = serializers.IntegerField()
+    total_live_tickets = serializers.IntegerField()
+    total_closed_tickets = serializers.IntegerField()
+    total_logins = serializers.IntegerField()
