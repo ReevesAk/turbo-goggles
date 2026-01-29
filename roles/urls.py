@@ -31,6 +31,8 @@ from .views import (
     AdminForgotPin,
     PinVerifyOTP,
     ResetPin,
+    SendNewsletterView,
+    AdminDashboardDataView,
 )
 
 from .tasks import (
@@ -144,6 +146,11 @@ urlpatterns = [
         CampaignParticipantListView.as_view(),
         name="campaigns-with-participants",
     ),
+    path(
+        "tasks/send-newsletter",
+        SendNewsletterView.as_view(),
+        name="send_newsletter",
+    ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
     path(
@@ -195,5 +202,10 @@ urlpatterns = [
         "wallets/change-wallet-status",
         ChangeWalletStatusView.as_view(),
         name="change_wallet_status",
+    ),
+    path(
+        "admin-dashboard-data",
+        AdminDashboardDataView.as_view(),
+        name="admin_dashboard_data",
     ),
 ]
