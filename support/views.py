@@ -593,7 +593,7 @@ class EscalateTicketAPIView(APIView):
         # 1️⃣ RR Trail (single source of truth)
         TicketRRTrail.objects.create(
             ticket=ticket,
-            action="escalate",
+            action="Escalated",
             from_user=from_user,
             to_user=to_user,
             from_role=from_role,
@@ -604,7 +604,7 @@ class EscalateTicketAPIView(APIView):
         # 2️⃣ Update ticket
         ticket.assigned_to = to_user
         ticket.agent_role = to_role
-        ticket.status = "escalated"
+        ticket.status = "Escalated"
         ticket.assigned_at = timezone.now()
         ticket.save(
             update_fields=["assigned_to", "agent_role", "status", "assigned_at"]
