@@ -531,7 +531,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=authenticated_user,
             title="Update Ticket Status",
-            message=(
+            description=(
                 f"Ticket {ticket_number} status changed "
                 f"from '{old_status}' to '{new_status}'."
             ),
