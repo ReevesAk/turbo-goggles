@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from cloudinary import uploader as cloud
@@ -302,7 +303,7 @@ class AssignTicket(generics.GenericAPIView):
             return Response(
                 {
                     "status": "fail",
-                    "message": "Ticket already assigned. Use reassign endpoint."
+                    "message": "Ticket already assigned. Use reassign resource endpoint."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -349,7 +350,7 @@ class AssignTicket(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=authenticated_user,
             title="Assign Ticket",
-            message=f"Ticket {ticket_number} assigned to {user.full_name}",
+            description=f"Ticket {ticket_number} assigned to {user.full_name}",
         )
 
         return Response(
@@ -460,7 +461,7 @@ class ReassignTicket(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=authenticated_user,
             title="Reassign Ticket",
-            message=f"Ticket {ticket_number} reassigned to {user.full_name}",
+            description=f"Ticket {ticket_number} reassigned to {user.full_name}",
         )
 
         return Response(
@@ -562,16 +563,17 @@ class UpdateTicketStatus(generics.GenericAPIView):
 class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManagerOrSuperAdmin, IsAgent]
+    permission_classes = [IsSuperAdmin]
 
-    def post(self, request, ticket_id):
+    def post(self, request, *args, **kwargs):
         serializer = TicketEscalateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         authenticated_user = request.user
 
+        ticket_number = kwargs.get("ticket_number")
         try:
-            ticket = Ticket.objects.get(id=ticket_id)
+            ticket = Ticket.objects.filter(number=ticket_number).first()
         except Ticket.DoesNotExist:
             return Response(
                 {"detail": "Ticket not found"},
@@ -611,41 +613,47 @@ class EscalateTicketAPIView(APIView):
         )
 
         return Response(
-            {"message": "Ticket escalated successfully"},
+            {"status": "success", "message": "Ticket escalated successfully"},
             status=status.HTTP_200_OK
         )
 
 
 class TicketRRTrailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManagerOrSuperAdmin, IsAgent]
+    permission_classes = [IsSuperAdmin]
 
-    def get(self, request, ticket_id):
-        try:
-            ticket = Ticket.objects.get(id=ticket_id)
-        except Ticket.DoesNotExist:
-            return Response(
-                {"detail": "Ticket not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+    def get(self, request, *args, **kwargs):
+        ticket_number = kwargs.get("ticket_number")
 
-        trails = ticket.rr_trail.select_related(
-            "from_user", "to_user"
-        ).order_by("happened_at")
+        ticket = get_object_or_404(Ticket, number=ticket_number)
 
-        data = []
-        for trail in trails:
-            data.append({
+        trails = TicketAssignmentHistory.objects.filter(
+            ticket=ticket
+        ).select_related(
+            "assigned_by", "previous_agent", "new_agent"
+        ).order_by("created_at")
+
+        data = [
+            {
                 "action": trail.action,
-                "from_user": trail.from_user.full_name if trail.from_user else None,
-                "to_user": trail.to_user.full_name if trail.to_user else None,
-                "from_role": trail.from_role,
-                "to_role": trail.to_role,
+                "assigned_by": trail.assigned_by.full_name if trail.assigned_by else None,
+                "previous_agent": trail.previous_agent.full_name if trail.previous_agent else None,
+                "new_agent": trail.new_agent.full_name if trail.new_agent else None,
+                "priority": trail.priority,
                 "reason": trail.reason,
-                "happened_at": trail.happened_at,
-            })
+                "happened_at": trail.created_at,
+            }
+            for trail in trails
+        ]
 
-        return Response(data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "ticket_number": ticket.number,
+                "history_count": trails.count(),
+                "history": data,
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class GetAllSupportTickets(generics.ListAPIView):
@@ -680,7 +688,11 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
                     "created_at": ticket.created_at,
-                    "assigned_to": ticket.assigned_to,
+                    "assigned_to": {
+                        "id": ticket.assigned_to.id if ticket.assigned_to else None,
+                        "full_name": ticket.assigned_to.full_name if ticket.assigned_to else None,
+                        "email": ticket.assigned_to.email if ticket.assigned_to else None,
+                    },
                     "assigned_at": ticket.assigned_at,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,

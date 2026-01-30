@@ -100,6 +100,7 @@ class TicketAssignmentHistory(models.Model):
     )
     priority = models.CharField(max_length=20, null=True)
     reason = models.TextField(null=True, blank=True)
+    action = models.CharField(max_length=50, null=True)  # e.g., "assign" or "reassign"
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
