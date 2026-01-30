@@ -217,7 +217,7 @@ class CreateTicket(generics.CreateAPIView):
             description=description,
             attachments=attachment_url,
             priority=priority,
-            status="Queuing",
+            status="New",
         )
 
         # Save the ticket to get an ID
