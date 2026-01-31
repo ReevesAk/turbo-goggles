@@ -59,6 +59,7 @@ from security import encrypt, decrypt
 #     "content-Type": "application/json",
 #     "Authorization": "Bearer " + secret_key,
 # }
+verification_link = config("DIGITAL_ADDREESS_VERIFICATION_LINK")
 
 
 logger = logging.getLogger(__name__)
@@ -562,6 +563,42 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
             )
         except requests.exceptions.RequestException as e:
             logging.error(f"Wallet upgrade to tier 2 API request error: {str(e)}")
+            return Response(
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
+    """RequestToUpgradeToTier3Wallet Handles the POST request to request upgrade of a wallet to Tier 3."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        current_user = request.user
+
+        user_wallet = WalletModel.objects.filter(user=current_user).first()
+        if user_wallet.tier_level >= 3:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet is already on Tier 3.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        try:
+            resp = {
+                "status": "success",
+                "message": "Request to upgrade to Tier 3 submitted successfully. Our support team will contact you shortly.",
+                "data": verification_link,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+        except Exception as e:
+            logging.error(f"Wallet upgrade to tier 3 request error: {str(e)}")
             return Response(
                 data=encrypt({"error": str(e)}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

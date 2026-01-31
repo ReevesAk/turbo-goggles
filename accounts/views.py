@@ -115,7 +115,7 @@ class Register(generics.GenericAPIView):
 
             AccountType.objects.create(
                 user=user,
-                user_type="User",
+                user_type="Member",
             )
             user.active_role = "Member"
             user.is_member = True

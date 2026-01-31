@@ -14,6 +14,7 @@ from .views import (
     NotificationView,
     GetAccountDetails,
     RefundFailedCardTransaction,
+    RequestToUpgradeToTier3Wallet,
 )
 
 from .transfers import (
@@ -48,6 +49,11 @@ urlpatterns = [
     # Wallet
     path("create-wallet", CreateUserWallet.as_view(), name="create_wallet"),
     path("upgrade-to-tier2", UpgradeToTier2Wallet.as_view(), name="upgrade_to_tier2"),
+    path(
+        "request-upgrade-to-tier3",
+        RequestToUpgradeToTier3Wallet.as_view(),
+        name="request_upgrade_to_tier3",
+    ),
     path(
         "upgrade-from-tier2-to-tier3",
         UpgradeToTier3Wallet.as_view(),
