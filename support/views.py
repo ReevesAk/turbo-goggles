@@ -221,12 +221,12 @@ class CreateTicket(generics.CreateAPIView):
             status="New",
         )
 
-        # Save the ticket to get an ID
-        ticket.save()
+        # # Save the ticket to get an ID
+        # ticket.save()
 
-        # Generate and set the number
-        ticket.number = generate_ticket_number()
-        ticket.save()
+        # # Generate and set the number
+        # ticket.number = generate_ticket_number()
+        # ticket.save()
 
         logger.info("Ticket created successfully: %s", ticket)
 
