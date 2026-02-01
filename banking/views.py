@@ -49,16 +49,10 @@ from .models import (
     UserKYC,
 )
 from .controllers import KYC, Wallet, Paystack
+from .helpers import cloudinary_to_base64
 from security import encrypt, decrypt
 
 
-# base_url = config("MAPLERAD_BASE_URL")
-# secret_key = config("MAPLERAD_SECRET_KEY")
-# headers = {
-#     "accept": "application/json",
-#     "content-Type": "application/json",
-#     "Authorization": "Bearer " + secret_key,
-# }
 verification_link = config("DIGITAL_ADDREESS_VERIFICATION_LINK")
 
 
@@ -125,8 +119,11 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Call Dojah BVN verification API
-        bvn_response = KYC.verify_bvn(bvn=user_data["bvn"])
+        selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+
+        # Call Dojah BVN verification API and verify the image from
+        # bvn record with the selfie taken at registration.
+        bvn_response = KYC.verify_bvn(img_file=selfie_image, bvn=user_data["bvn"])
         print(bvn_response)
         if not bvn_response:
             return Response(
@@ -155,10 +152,20 @@ class VerifYBVN(generics.GenericAPIView):
         # Remove heavy base64 image
         entity.pop("image", None)
 
-        # --- PHONE NUMBER VERIFICATION ---
+        img_resp = entity.get("selfie_verification")
+        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed, selfie does not match.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         doj_phone = entity.get("phone_number1")
         supplied_phone = user_data.get("bvn_phone")
-
         if doj_phone != supplied_phone:
             return Response(
                 data=encrypt(
@@ -173,6 +180,7 @@ class VerifYBVN(generics.GenericAPIView):
         # --- SUCCESS: Update records ---
         kyc.bvn = user_data["bvn"]
         kyc.bvn_phone = supplied_phone
+        kyc.is_bvn_img_a_match = True
         kyc.save()
 
         user.is_bvn_verified = True
@@ -266,8 +274,11 @@ class VerifYNIN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Call Dojah API
-        nin_response = KYC.verify_nin(nin=user_data["nin"])
+        selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+
+        # Call Dojah API NIN verification and verify image from nin record
+        # with selfie taken at registration.
+        nin_response = KYC.verify_nin(img_file=selfie_image, nin=user_data["nin"])
 
         if not nin_response:
             return Response(
@@ -291,12 +302,23 @@ class VerifYNIN(generics.GenericAPIView):
 
         # Parse valid response
         nin_data = nin_response.json()
+        entity = nin_data.get("entity", {})
 
         # Remove heavy image if present
-        nin_data.pop("photo", None)
         nin_data.pop("image", None)
 
-        # DOB check
+        img_resp = entity.get("selfie_verification")
+        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "NIN verification failed. Selfie does not match.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         supplied_dob = user_data.get("nin_dob")
         verified_dob = nin_data["entity"].get("date_of_birth")
 
@@ -314,6 +336,7 @@ class VerifYNIN(generics.GenericAPIView):
         # SUCCESS ---- update DB
         kyc.nin = user_data["nin"]
         kyc.nin_dob = supplied_dob
+        kyc.is_nin_img_a_match = True
         kyc.save()
 
         user.is_nin_verified = True

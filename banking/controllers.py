@@ -54,18 +54,16 @@ def authenticate():
 
 class KYC:
     @staticmethod
-    def verify_bvn(bvn):
-        url = "https://sandbox.dojah.io/api/v1/kyc/bvn/full"
-        payload = {"bvn": bvn}
+    def verify_bvn(img_file, bvn):
+        url = "https://sandbox.dojah.io/api/v1/kyc/bvn/verify"
+        payload = {"selfie_image": img_file, "bvn": bvn}
         headers = {
             "AppId": app_id,
             "Authorization": authorization,
         }
 
         try:
-            response = requests.get(
-                url=url, params=payload, headers=headers, timeout=20
-            )
+            response = requests.post(url=url, json=payload, headers=headers, timeout=20)
 
             return response
 
@@ -74,17 +72,17 @@ class KYC:
             return response
 
     @staticmethod
-    def verify_nin(nin):
-        resource = "https://sandbox.dojah.io/api/v1/kyc/nin"
-        payload = {"nin": nin}
+    def verify_nin(img_file, nin):
+        resource = "https://sandbox.dojah.io/api/v1/kyc/nin/verify"
+        payload = {"selfie_image": img_file, "nin": nin}
         headers = {
             "AppId": app_id,
             "Authorization": authorization,
         }
 
         try:
-            response = requests.get(
-                url=resource, params=payload, headers=headers, timeout=20
+            response = requests.post(
+                url=resource, json=payload, headers=headers, timeout=20
             )
             return response
         except requests.exceptions.RequestException as e:
