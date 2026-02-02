@@ -32,11 +32,16 @@ elif ENVIRONMENT == "production":
         "miniature-waddle.onrender.com",
         "picadailysbackend.onrender.com",
         "167.71.174.242",
+        "http://localhost:5173",
+        "http://localhost:5174",
         "https://api.picadailys.com",
         "https://miniature-waddle-k5bz.onrender.com/",
         "https://picadailysbackend.onrender.com",
         "https://web-y9g2.onrender.com",
         "https://support-y8lr.onrender.com/",
+        "https://support.picadailys.com",
+        "https://support-y8lr.onrender.com",
+
         "https://admin-dashboard-9juk.onrender.com",
     ]
 
