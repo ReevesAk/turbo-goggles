@@ -32,16 +32,12 @@ elif ENVIRONMENT == "production":
         "miniature-waddle.onrender.com",
         "picadailysbackend.onrender.com",
         "167.71.174.242",
-        "http://localhost:5173",
-        "http://localhost:5174",
         "https://api.picadailys.com",
-        "https://miniature-waddle-k5bz.onrender.com/",
+        "https://miniature-waddle-k5bz.onrender.com",
         "https://picadailysbackend.onrender.com",
         "https://web-y9g2.onrender.com",
-        "https://support-y8lr.onrender.com/",
-        "https://support.picadailys.com",
         "https://support-y8lr.onrender.com",
-
+        "https://support.picadailys.com",
         "https://admin-dashboard-9juk.onrender.com",
     ]
 
@@ -102,7 +98,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://api.picadailys.com",
     "http://127.0.0.1:8000",
     "https://picadailys.com",
-    "http://localhost:5174",
     "https://web-y9g2.onrender.com",
     "https://admin-dashboard-9juk.onrender.com",
     "https://support-y8lr.onrender.com",
@@ -110,9 +105,22 @@ CORS_ALLOWED_ORIGINS = [
     "https://picadailys-landing.vercel.app",
     "https://miniature-waddle-k5bz.onrender.com",
     "https://admin-dashboard-jade-phi.vercel.app",
-    "https://support-y8lr.onrender.com",
     "https://admin.picadailys.com",
     "https://support.picadailys.com",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "idempotency-key",
 ]
 
 ROOT_URLCONF = "picadailys.urls"
@@ -263,7 +271,18 @@ else:
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CSRF_TRUSTED_ORIGINS = ["https://api.picadailys.com", "http://localhost:5173", "https://miniature-waddle-k5bz.onrender.com"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://api.picadailys.com",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://miniature-waddle-k5bz.onrender.com",
+    "https://web-y9g2.onrender.com",
+    "https://support-y8lr.onrender.com",
+    "https://admin-dashboard-9juk.onrender.com",
+    "https://picadailysbackend.onrender.com",
+    "https://support.picadailys.com",
+    "https://admin.picadailys.com",
+]
 
 X_FRAME_OPTIONS = 'DENY'
 
