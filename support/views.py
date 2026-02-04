@@ -333,8 +333,12 @@ class AssignTicket(generics.GenericAPIView):
             raise PermissionDenied("User exists, but is not an agent.")
 
         ticket.assigned_to = user
-        ticket.priority = serializer.validated_data["priority"]
-        ticket.status = serializer.validated_data["status"]
+        ticket.priority = serializer.validated_data.get("priority")
+        
+        # Only update status if provided
+        if "status" in serializer.validated_data:
+            ticket.status = serializer.validated_data["status"]
+        
         ticket.save()
 
         TicketAssignmentHistory.objects.create(
@@ -342,7 +346,7 @@ class AssignTicket(generics.GenericAPIView):
             assigned_by=authenticated_user,
             previous_agent=None,
             new_agent=user,
-            priority=serializer.validated_data["priority"],
+            priority=serializer.validated_data.get("priority"),
             reason=serializer.validated_data.get("reason"),
             action="assign",
         )
@@ -1364,7 +1368,7 @@ class LoginAgent(APIView):
             # Retrieve the user by email to get the phone number
             # Use filter().first() instead of get() to handle duplicates gracefully
             user = User.objects.filter(email=email).first()
-            
+
             if not user:
                 logger.warning(f"Login attempt failed: User with email {email} not found.")
                 return Response(

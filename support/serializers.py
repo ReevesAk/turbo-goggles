@@ -134,6 +134,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
     )
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
     reason = serializers.CharField(max_length=200, write_only=True, required=False)
+    status = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Ticket
