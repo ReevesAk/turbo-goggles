@@ -1353,11 +1353,26 @@ class LoginAgent(APIView):
         email = data.get("email")
         password = data.get("password")
 
+        if not email or not password:
+            logger.warning("Login attempt with missing email or password.")
+            return Response(
+                data={"status": "fail", "message": "Email and password are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             # Retrieve the user by email to get the phone number
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            logger.warning(f"Login attempt failed: User with email {email} not found.")
+            # Use filter().first() instead of get() to handle duplicates gracefully
+            user = User.objects.filter(email=email).first()
+            
+            if not user:
+                logger.warning(f"Login attempt failed: User with email {email} not found.")
+                return Response(
+                    data={"status": "fail", "message": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        except Exception as e:
+            logger.exception(f"Error retrieving user with email {email}: {str(e)}")
             return Response(
                 data={"status": "fail", "message": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
