@@ -2,7 +2,9 @@ import logging
 import string
 import random
 import time
+from decimal import Decimal
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 
@@ -206,6 +208,8 @@ class IntraBankTransfer(generics.CreateAPIView):
     """
     IntraBankTransfer handles the POST request of transferring funds to other
     picadailys customers.
+    Implements race condition prevention via select_for_update() and
+    idempotency via Idempotency-Key header.
     """
 
     serializer_class = BankTransfersSerializer
@@ -225,6 +229,20 @@ class IntraBankTransfer(generics.CreateAPIView):
         authenticated_user = request.user
         logger.info(f"Received transfer request from user: {authenticated_user.id}")
 
+        # Extract idempotency key from request headers or body
+        idempotency_key = request.headers.get("Idempotency-Key") or request.data.get(
+            "idempotency_key"
+        )
+
+        if not idempotency_key:
+            logger.warning("Idempotency-Key header is missing.")
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "error": "Idempotency-Key header required"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
@@ -236,106 +254,192 @@ class IntraBankTransfer(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            account = WalletModel.objects.get(user=authenticated_user)
-            pin = payload.get("pin")
-            biometrics = payload.get("use_biometrics")
+            # Check if this idempotency key was already processed
+            existing_tx = TxModel.objects.filter(
+                user=authenticated_user, tx_reference=idempotency_key
+            ).first()
 
-            if biometrics:
-                logger.info("Using biometrics for verification.")
-                verification = Biometrics.authenticate(authenticated_user.phone_number)
-            else:
-                logger.info("Using PIN for verification.")
-                verification = Pin.verify(
-                    user=authenticated_user, pin=pin, hashed_pin=account.pin
+            if existing_tx:
+                logger.info(
+                    f"Duplicate request detected for idempotency key: {idempotency_key}"
                 )
 
-            if not verification:
-                logger.error("Verification failed: Incorrect PIN or biometrics.")
+                # If still PENDING, return PENDING status
+                if existing_tx.status == "PENDING":
+                    return Response(
+                        data=encrypt(
+                            {"status": "pending", "message": "Transfer in progress"}
+                        ),
+                        status=status.HTTP_202_ACCEPTED,
+                    )
+
+                # If already successful, return same success response
+                if existing_tx.status == "SUCCESS":
+                    transfer = TransferModel.objects.filter(tx=existing_tx).first()
+                    resp = {
+                        "status": "success",
+                        "message": "Transfer successful.",
+                        "data": {
+                            "credit_account": transfer.beneficiary_account_number
+                            if transfer
+                            else payload.get("beneficiary_account_number"),
+                            "debit_account": transfer.sender_account_number
+                            if transfer
+                            else payload.get("sender_account_number"),
+                            "amount": str(existing_tx.amount),
+                            "narration": existing_tx.description,
+                            "beneficiaryBank": "Picadailys/9PSB",
+                            "transactionReference": idempotency_key,
+                        },
+                    }
+                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+
+                # If failed, return same error
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
+                    data=encrypt(
+                        {"status": "fail", "error": "Previous transfer failed"}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info("Verification successful, proceeding with transfer.")
-            tx_id = self._generate_transaction_id(prefix="TRA")
-            transfer_resp = Transfers.initiate_transfer(
-                bank_code=payload.get("beneficiary_bank_code"),
-                account_number=payload.get("beneficiary_account_number"),
-                name=payload.get("beneficiary_name"),
-                sender_name=account.acct_name,
-                sender_account_number=payload.get("sender_account_number"),
-                amount=payload.get("amount"),
-                description=payload.get("description"),
-                transactionType="INTRA_BANK",
-                tx_ref=tx_id,
-            )
+            # Use select_for_update() to lock the wallet row during atomic transaction
+            with transaction.atomic():
+                account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
+                    user=authenticated_user
+                )
 
-            if transfer_resp.status_code == 200:
-                logger.info("Transfer successful, recording transaction.")
+                pin = payload.get("pin")
+                biometrics = payload.get("use_biometrics")
+
+                if biometrics:
+                    logger.info("Using biometrics for verification.")
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
+                else:
+                    logger.info("Using PIN for verification.")
+                    verification = Pin.verify(
+                        user=authenticated_user, pin=pin, hashed_pin=account.pin
+                    )
+
+                if not verification:
+                    logger.error("Verification failed: Incorrect PIN or biometrics.")
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                # Check balance before proceeding
+                amount = Decimal(str(payload.get("amount")))
+                if account.balance < amount:
+                    logger.error(
+                        f"Insufficient balance. Available: {account.balance}, Required: {amount}"
+                    )
+                    return Response(
+                        data=encrypt(
+                            {"status": "fail", "error": "Insufficient balance"}
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                logger.info("Verification successful, proceeding with transfer.")
+
+                # Generate TRA-prefixed transaction ID for third party (max 18 chars)
+                external_tx_id = self._generate_transaction_id(prefix="TRA")
+
+                # Record transaction BEFORE external call with PENDING status
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=tx_id,
+                    tx_reference=idempotency_key,  # Use idempotency key for deduplication
+                    external_tx_reference=external_tx_id,  # TRA-prefixed ID for third party
                     tx_type="Intra-Bank Transfer",
                     amount=payload.get("amount"),
                     description=payload.get("description"),
+                    status="PENDING",  # Mark as pending until confirmed
                 )
 
-                TransferModel.objects.create(
-                    user=authenticated_user,
-                    tx=tx,
-                    beneficiary_account_number=payload.get(
-                        "beneficiary_account_number"
-                    ),
-                    sender_name=authenticated_user.full_name,
+                transfer_resp = Transfers.initiate_transfer(
+                    bank_code=payload.get("beneficiary_bank_code"),
+                    account_number=payload.get("beneficiary_account_number"),
+                    name=payload.get("beneficiary_name"),
+                    sender_name=account.acct_name,
+                    sender_account_number=payload.get("sender_account_number"),
                     amount=payload.get("amount"),
+                    description=payload.get("description"),
+                    transactionType="INTRA_BANK",
+                    tx_ref=external_tx_id,  # Pass TRA-prefixed ID to external service
                 )
 
-                # Notify user
-                account_balance = (
-                    TransferModel.objects.filter(user=authenticated_user)
-                    .first()
-                    .available_balance
-                )
-                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account_balance}."
+                if transfer_resp.status_code == 200:
+                    logger.info(
+                        "Transfer successful, updating balance and transaction status."
+                    )
 
-                UserNotification.objects.create(
-                    user=authenticated_user,
-                    title="Bank Transfer",
-                    message=message,
-                )
-                ActivityModel.objects.create(
-                    user=authenticated_user,
-                    title="Bank Transfer",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account_balance}.",
-                )
+                    # Update balance atomically
+                    account.balance -= amount
+                    account.save(update_fields=["balance"])
+                    # Mark transaction as successful
+                    tx.status = "SUCCESS"
+                    tx.save(update_fields=["status"])
 
-                logger.info(
-                    f"Transfer notification sent to user {authenticated_user.id}."
-                )
+                    TransferModel.objects.create(
+                        user=authenticated_user,
+                        tx=tx,
+                        beneficiary_account_number=payload.get(
+                            "beneficiary_account_number"
+                        ),
+                        sender_name=authenticated_user.full_name,
+                        amount=payload.get("amount"),
+                        available_balance=account.balance,
+                    )
 
-                resp = {
-                    "status": "success",
-                    "message": "Transfer successful.",
-                    "data": {
-                        "credit_account": payload.get("beneficiary_account_number"),
-                        "debit_account": payload.get("sender_account_number"),
-                        "amount": payload.get("amount"),
-                        "narration": payload.get("description"),
-                        "beneficiaryBank": "Picadailys/9PSB",
-                        "transactionReference": tx_id,
-                    },
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.error("Transfer failed, received error from external service.")
-                err_resp = {
-                    "status": "fail",
-                    "error": "Transfer failed.",
-                    "data": transfer_resp.json(),
-                }
-                return Response(
-                    data=encrypt(err_resp), status=transfer_resp.status_code
-                )
+                    # Notify user
+                    message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account.balance}."
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Bank Transfer",
+                        message=message,
+                    )
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Bank Transfer",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
+                    )
+
+                    logger.info(
+                        f"Transfer notification sent to user {authenticated_user.id}."
+                    )
+
+                    resp = {
+                        "status": "success",
+                        "message": "Transfer successful.",
+                        "data": {
+                            "credit_account": payload.get("beneficiary_account_number"),
+                            "debit_account": payload.get("sender_account_number"),
+                            "amount": payload.get("amount"),
+                            "narration": payload.get("description"),
+                            "beneficiaryBank": "Picadailys/9PSB",
+                            "transactionReference": idempotency_key,
+                        },
+                    }
+                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+                else:
+                    logger.error(
+                        "Transfer failed, received error from external service."
+                    )
+
+                    # Mark transaction as failed
+                    tx.status = "FAILED"
+                    tx.save(update_fields=["status"])
+
+                    err_resp = {
+                        "status": "fail",
+                        "error": "Transfer failed.",
+                        "data": transfer_resp.json(),
+                    }
+                    return Response(
+                        data=encrypt(err_resp), status=transfer_resp.status_code
+                    )
 
         except WalletModel.DoesNotExist:
             logger.error(f"Account for user {authenticated_user.id} not found.")
@@ -360,6 +464,8 @@ class InterBankTransfer(generics.CreateAPIView):
     """
     InterBankTransfer handles the POST request of transferring funds to other
     banks other than Picadialys/Providus users.
+    Implements race condition prevention via select_for_update() and
+    idempotency via Idempotency-Key header.
     """
 
     serializer_class = BankTransfersSerializer
@@ -379,6 +485,20 @@ class InterBankTransfer(generics.CreateAPIView):
         authenticated_user = request.user
         logger.info(f"Received transfer request from user: {authenticated_user.id}")
 
+        # Extract idempotency key from request headers or body
+        idempotency_key = request.headers.get("Idempotency-Key") or request.data.get(
+            "idempotency_key"
+        )
+
+        if not idempotency_key:
+            logger.warning("Idempotency-Key header is missing.")
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "error": "Idempotency-Key header required"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
@@ -390,106 +510,193 @@ class InterBankTransfer(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            account = WalletModel.objects.get(user=authenticated_user)
-            pin = payload.get("pin")
-            biometrics = payload.get("use_biometrics")
+            # Check if this idempotency key was already processed
+            existing_tx = TxModel.objects.filter(
+                user=authenticated_user, tx_reference=idempotency_key
+            ).first()
 
-            if biometrics:
-                logger.info("Using biometrics for verification.")
-                verification = Biometrics.authenticate(authenticated_user.phone_number)
-            else:
-                logger.info("Using PIN for verification.")
-                verification = Pin.verify(
-                    user=authenticated_user, pin=pin, hashed_pin=account.pin
+            if existing_tx:
+                logger.info(
+                    f"Duplicate request detected for idempotency key: {idempotency_key}"
                 )
 
-            if not verification:
-                logger.error("Verification failed: Incorrect PIN or biometrics.")
+                # If still PENDING, return PENDING status
+                if existing_tx.status == "PENDING":
+                    return Response(
+                        data=encrypt(
+                            {"status": "pending", "message": "Transfer in progress"}
+                        ),
+                        status=status.HTTP_202_ACCEPTED,
+                    )
+
+                # If already successful, return same success response
+                if existing_tx.status == "SUCCESS":
+                    transfer = TransferModel.objects.filter(tx=existing_tx).first()
+                    resp = {
+                        "status": "success",
+                        "message": "Transfer successful.",
+                        "data": {
+                            "credit_account": transfer.beneficiary_account_number
+                            if transfer
+                            else payload.get("beneficiary_account_number"),
+                            "debit_account": transfer.sender_account_number
+                            if transfer
+                            else payload.get("sender_account_number"),
+                            "amount": str(existing_tx.amount),
+                            "narration": existing_tx.description,
+                            "beneficiaryBank": payload.get("beneficiary_bank_code"),
+                            "transactionReference": idempotency_key,
+                        },
+                    }
+                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+
+                # If failed, return same error
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
+                    data=encrypt(
+                        {"status": "fail", "error": "Previous transfer failed"}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info("Verification successful, proceeding with transfer.")
-            tx_id = self._generate_transaction_id(prefix="TRA")
-            transfer_resp = Transfers.initiate_transfer(
-                bank=payload.get("beneficiary_bank_code"),
-                account_number=payload.get("beneficiary_account_number"),
-                name=payload.get("beneficiary_name"),
-                sender_name=account.acct_name,
-                sender_account_number=payload.get("sender_account_number"),
-                amount=payload.get("amount"),
-                description=payload.get("description"),
-                transactionType="INTER_BANK",
-                tx_ref=tx_id,
-            )
+            # Use select_for_update() to lock the wallet row during atomic transaction
+            with transaction.atomic():
+                account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
+                    user=authenticated_user
+                )
 
-            if transfer_resp.status_code == 200:
-                logger.info("Transfer successful, recording transaction.")
+                pin = payload.get("pin")
+                biometrics = payload.get("use_biometrics")
+
+                if biometrics:
+                    logger.info("Using biometrics for verification.")
+                    verification = Biometrics.authenticate(
+                        authenticated_user.phone_number
+                    )
+                else:
+                    logger.info("Using PIN for verification.")
+                    verification = Pin.verify(
+                        user=authenticated_user, pin=pin, hashed_pin=account.pin
+                    )
+
+                if not verification:
+                    logger.error("Verification failed: Incorrect PIN or biometrics.")
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                # Check balance before proceeding
+                amount = Decimal(str(payload.get("amount")))
+                if account.balance < amount:
+                    logger.error(
+                        f"Insufficient balance. Available: {account.balance}, Required: {amount}"
+                    )
+                    return Response(
+                        data=encrypt(
+                            {"status": "fail", "error": "Insufficient balance"}
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                logger.info("Verification successful, proceeding with transfer.")
+
+                # Generate TRA-prefixed transaction ID for third party (max 18 chars)
+                external_tx_id = self._generate_transaction_id(prefix="TRA")
+
+                # Record transaction BEFORE external call with PENDING status
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=tx_id,
+                    tx_reference=idempotency_key,  # Use idempotency key for deduplication
+                    external_tx_reference=external_tx_id,  # TRA-prefixed ID for third party
                     tx_type="Inter-Bank Transfer",
                     amount=payload.get("amount"),
                     description=payload.get("description"),
+                    status="PENDING",  # Mark as pending until confirmed
                 )
 
-                TransferModel.objects.create(
-                    user=authenticated_user,
-                    tx=tx,
-                    beneficiary_account_number=payload.get(
-                        "beneficiary_account_number"
-                    ),
-                    source_account_name=authenticated_user.full_name,
+                transfer_resp = Transfers.initiate_transfer(
+                    bank=payload.get("beneficiary_bank_code"),
+                    account_number=payload.get("beneficiary_account_number"),
+                    name=payload.get("beneficiary_name"),
+                    sender_name=account.acct_name,
+                    sender_account_number=payload.get("sender_account_number"),
                     amount=payload.get("amount"),
+                    description=payload.get("description"),
+                    transactionType="INTER_BANK",
+                    tx_ref=external_tx_id,  # Pass TRA-prefixed ID to external service
                 )
 
-                # Notify user
-                account_balance = (
-                    TransferModel.objects.filter(user=authenticated_user)
-                    .first()
-                    .available_balance
-                )
-                message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account_balance}."
+                if transfer_resp.status_code == 200:
+                    logger.info(
+                        "Transfer successful, updating balance and transaction status."
+                    )
 
-                UserNotification.objects.create(
-                    user=authenticated_user,
-                    title="Bank Transfer",
-                    message=message,
-                )
-                ActivityModel.objects.create(
-                    user=authenticated_user,
-                    title="Bank Transfer",
-                    description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account_balance}.",
-                )
+                    # Update balance atomically
+                    account.balance -= amount
+                    account.save(update_fields=["balance"])
 
-                logger.info(
-                    f"Transfer notification sent to user {authenticated_user.id}."
-                )
+                    # Mark transaction as successful
+                    tx.status = "SUCCESS"
+                    tx.save(update_fields=["status"])
 
-                resp = {
-                    "status": "success",
-                    "message": "Transfer successful.",
-                    "data": {
-                        "credit_account": payload.get("beneficiary_account_number"),
-                        "debit_account": payload.get("sender_account_number"),
-                        "amount": payload.get("amount"),
-                        "narration": payload.get("description"),
-                        "beneficiaryBank": payload.get("beneficiary_bank_code"),
-                        "transactionReference": tx_id,
-                    },
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.error("Transfer failed, received error from external service.")
-                err_resp = {
-                    "status": "fail",
-                    "error": "Transfer failed.",
-                    "data": transfer_resp.json(),
-                }
-                return Response(
-                    data=encrypt(err_resp), status=transfer_resp.status_code
-                )
+                    TransferModel.objects.create(
+                        user=authenticated_user,
+                        tx=tx,
+                        beneficiary_account_number=payload.get(
+                            "beneficiary_account_number"
+                        ),
+                        source_account_name=authenticated_user.full_name,
+                        amount=payload.get("amount"),
+                        available_balance=account.balance,
+                    )
+
+                    # Notify user
+                    message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account.balance}."
+                    UserNotification.objects.create(
+                        user=authenticated_user,
+                        title="Bank Transfer",
+                        message=message,
+                    )
+                    ActivityModel.objects.create(
+                        user=authenticated_user,
+                        title="Bank Transfer",
+                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
+                    )
+
+                    logger.info(
+                        f"Transfer notification sent to user {authenticated_user.id}."
+                    )
+
+                    resp = {
+                        "status": "success",
+                        "message": "Transfer successful.",
+                        "data": {
+                            "credit_account": payload.get("beneficiary_account_number"),
+                            "debit_account": payload.get("sender_account_number"),
+                            "amount": payload.get("amount"),
+                            "narration": payload.get("description"),
+                            "beneficiaryBank": payload.get("beneficiary_bank_code"),
+                            "transactionReference": idempotency_key,
+                        },
+                    }
+                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+                else:
+                    logger.error(
+                        "Transfer failed, received error from external service."
+                    )
+
+                    # Mark transaction as failed
+                    tx.status = "FAILED"
+                    tx.save(update_fields=["status"])
+
+                    err_resp = {
+                        "status": "fail",
+                        "error": "Transfer failed.",
+                        "data": transfer_resp.json(),
+                    }
+                    return Response(
+                        data=encrypt(err_resp), status=transfer_resp.status_code
+                    )
 
         except WalletModel.DoesNotExist:
             logger.error(f"Account for user {authenticated_user.id} not found.")

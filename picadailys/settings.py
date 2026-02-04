@@ -97,6 +97,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://167.71.174.242",
     "https://api.picadailys.com",
     "http://127.0.0.1:8000",
@@ -109,6 +110,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://picadailys-landing.vercel.app",
     "https://miniature-waddle-k5bz.onrender.com",
     "https://admin-dashboard-jade-phi.vercel.app",
+    "https://support-y8lr.onrender.com",
     "https://admin.picadailys.com",
     "https://support.picadailys.com",
 ]
