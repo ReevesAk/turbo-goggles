@@ -174,7 +174,8 @@ class CreateTicket(generics.CreateAPIView):
         channel = payload.get("channel")
         description = payload.get("description")
         customer_name = payload.get("customer_name")
-        customer_email = payload.get("customer_email")
+        # Allow client to provide either `customer_email` or `email`.
+        customer_email = payload.get("customer_email") or user_email
         attachment = request.FILES.get("attachment")
         title = payload.get("title")
         priority = payload.get("priority")
@@ -207,6 +208,7 @@ class CreateTicket(generics.CreateAPIView):
         category = payload.get("category")
         logger.debug("Creating ticket with category: %s", category)
 
+
         # Create the ticket
         ticket = Ticket.objects.create(
             user=user,
@@ -221,12 +223,13 @@ class CreateTicket(generics.CreateAPIView):
             status="New",
         )
 
-        # # Save the ticket to get an ID
-        # ticket.save()
-
-        # # Generate and set the number
-        # ticket.number = generate_ticket_number()
-        # ticket.save()
+        # Ensure a readable ticket number is generated (use helper)
+        try:
+            ticket.number = generate_ticket_number()
+            ticket.save(update_fields=["number"])
+        except Exception:
+            # In case generating/saving number fails, keep ticket but log
+            logger.exception("Failed to generate/save ticket number for ticket %s", ticket.id)
 
         logger.info("Ticket created successfully: %s", ticket)
 
@@ -249,9 +252,11 @@ class CreateTicket(generics.CreateAPIView):
         # Serialize the created ticket
         serialized_ticket = self.get_serializer(ticket)
 
+        display_name = customer_name or f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+
         resp = {
             "status": "success",
-            "message": f"Support ticket created for {user.first_name} {user.last_name}, for {category} issues.",
+            "message": f"Support ticket created for {display_name}, for {category} issues.",
             "data": serialized_ticket.data,
             "created_at": ticket.created_at,
         }
@@ -288,7 +293,8 @@ class AssignTicket(generics.GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        ticket_number = kwargs.get("ticket_number")
+        # Accept either `ticket_number` or `ticket_id` from URL (urls.py uses ticket_id)
+        ticket_number = kwargs.get("ticket_number") or kwargs.get("ticket_id")
         pin = serializer.validated_data["pin"]
 
         ticket = Ticket.objects.filter(number=ticket_number).first()
@@ -627,37 +633,58 @@ class TicketRRTrailAPIView(APIView):
     permission_classes = [IsSuperAdmin]
 
     def get(self, request, *args, **kwargs):
-        ticket_number = kwargs.get("ticket_number")
+        ticket_id = kwargs.get("ticket_number")
 
-        ticket = get_object_or_404(Ticket, number=ticket_number)
+        try:
+            # Try to parse as UUID first, then fall back to ticket number
+            import uuid
+            ticket = None
+            try:
+                param_uuid = uuid.UUID(str(ticket_id))
+                ticket = Ticket.objects.filter(id=param_uuid).first()
+            except (ValueError, TypeError):
+                # Not a UUID, try as ticket number
+                ticket = Ticket.objects.filter(number=ticket_id).first()
 
-        trails = TicketAssignmentHistory.objects.filter(
-            ticket=ticket
-        ).select_related(
-            "assigned_by", "previous_agent", "new_agent"
-        ).order_by("created_at")
+            if not ticket:
+                return Response(
+                    {"detail": "Ticket not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-        data = [
-            {
-                "action": trail.action,
-                "assigned_by": trail.assigned_by.full_name if trail.assigned_by else None,
-                "previous_agent": trail.previous_agent.full_name if trail.previous_agent else None,
-                "new_agent": trail.new_agent.full_name if trail.new_agent else None,
-                "priority": trail.priority,
-                "reason": trail.reason,
-                "happened_at": trail.created_at,
-            }
-            for trail in trails
-        ]
+            trails = TicketAssignmentHistory.objects.filter(
+                ticket=ticket
+            ).select_related(
+                "assigned_by", "previous_agent", "new_agent"
+            ).order_by("created_at")
 
-        return Response(
-            {
-                "ticket_number": ticket.number,
-                "history_count": trails.count(),
-                "history": data,
-            },
-            status=status.HTTP_200_OK
-        )
+            data = []
+            for trail in trails:
+                data.append({
+                    "action": getattr(trail, "action", None),
+                    "assigned_by": getattr(getattr(trail, "assigned_by", None), "full_name", None),
+                    "previous_agent": getattr(getattr(trail, "previous_agent", None), "full_name", None),
+                    "new_agent": getattr(getattr(trail, "new_agent", None), "full_name", None),
+                    "priority": getattr(trail, "priority", None),
+                    "reason": getattr(trail, "reason", None),
+                    "happened_at": getattr(trail, "created_at", None),
+                })
+
+            return Response(
+                {
+                    "ticket_id": str(ticket.id),
+                    "ticket_number": ticket.number,
+                    "history_count": trails.count(),
+                    "history": data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            logger.exception("Error while fetching RR trail for ticket_id %s: %s", ticket_id, exc)
+            return Response(
+                {"status": "fail", "message": "Unable to fetch ticket RR trail."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class GetAllSupportTickets(generics.ListAPIView):

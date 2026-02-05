@@ -5,18 +5,21 @@ from django.db import migrations
 
 def cleanup_duplicates(apps, schema_editor):
     """Remove duplicate user entries, keeping only the most recent (highest ID)."""
-    User = apps.get_model('accounts', 'User')
-    
+    User = apps.get_model("accounts", "User")
+
     # Find all duplicate emails
     from django.db.models import Count
-    duplicates = User.objects.values('email').annotate(
-        count=Count('id')
-    ).filter(count__gt=1, email__isnull=False)
-    
+
+    duplicates = (
+        User.objects.values("email")
+        .annotate(count=Count("id"))
+        .filter(count__gt=1, email__isnull=False)
+    )
+
     for dup in duplicates:
-        email = dup['email']
+        email = dup["email"]
         # Get all users with this email, ordered by ID (keep newest)
-        users = list(User.objects.filter(email=email).order_by('id'))
+        users = list(User.objects.filter(email=email).order_by("id"))
         # Keep the last one (highest ID), delete the rest
         if len(users) > 1:
             to_delete = users[:-1]
