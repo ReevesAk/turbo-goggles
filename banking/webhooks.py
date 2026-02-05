@@ -25,6 +25,9 @@ from accounts.models import UserNotification
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
+from decimal import Decimal
+from django.db import transaction
+from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +163,56 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 logger.info(
                     f"Wallet {account_number} successfully credited with ₦{amount}."
                 )
+
+                # Attempt to award welcome bonus if eligibility met
+                try:
+                    try:
+                        credited_amount = Decimal(str(amount))
+                    except Exception:
+                        credited_amount = Decimal("0.00")
+
+                    if credited_amount >= Decimal("2000.00"):
+                        try:
+                            with transaction.atomic():
+                                counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
+                                counter = WelcomeBonusCounter.objects.select_for_update().get(id=counter.id)
+
+                                user = wallet.user
+                                already_awarded = WelcomeBonusAward.objects.filter(user=user).exists()
+                                if (not already_awarded) and counter.awarded_count < 1000:
+                                    WelcomeBonusAward.objects.create(user=user, amount=Decimal("500.00"))
+                                    counter.awarded_count = counter.awarded_count + 1
+                                    counter.save()
+
+                                    rewards, _ = Rewards.objects.get_or_create(user=user)
+                                    try:
+                                        current = Decimal(str(rewards.balance))
+                                    except Exception:
+                                        current = Decimal("0.00")
+                                    rewards.balance = current + Decimal("500.00")
+                                    rewards.save()
+
+                                    try:
+                                        user.welcome_bonus = 500
+                                        user.has_bonus = True
+                                        user.save()
+                                    except Exception:
+                                        logger.exception("Failed to set user flags after welcome award")
+
+                                    UserNotification.objects.create(
+                                        user=user,
+                                        title="Welcome Bonus",
+                                        message="You have been credited with a ₦500 welcome bonus. Use it for purchases.",
+                                    )
+                                    ActivityModel.objects.create(
+                                        user=user,
+                                        title="Welcome Bonus",
+                                        description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
+                                    )
+                        except Exception:
+                            logger.exception("Error awarding welcome bonus inside transaction")
+                except Exception:
+                    logger.exception("Unexpected error while attempting to award welcome bonus")
 
         return Response(
             {

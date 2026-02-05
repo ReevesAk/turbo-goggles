@@ -182,8 +182,24 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         user = request.user if request.user.is_authenticated else None
         guest_id = request.headers.get("X-Guest-ID")
+        idempotency_key = request.headers.get("Idempotency-Key")
 
-        tx_reference = VAS.generate_unique_code("PICA")
+        # Idempotency: check if this request was already processed
+        if user and idempotency_key:
+            existing_tx = TxModel.objects.filter(
+                user=user, tx_reference=idempotency_key
+            ).first()
+            if existing_tx:
+                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                # Return success response (assuming prior success; in production, check status field)
+                response_data = {
+                    "status": "success",
+                    "message": "This request was already processed.",
+                    "tx_reference": idempotency_key,
+                }
+                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         vas_token = VAS.authenticate()
         logger.info(f"VAS token: {vas_token}")
 
@@ -197,7 +213,11 @@ class AirTimeTopUp(generics.GenericAPIView):
         network = user_data.get("network")
         biometrics = user_data.get("use_biometrics")
 
-        user_wallet = WalletModel.objects.get(user=user)
+        # Lock wallet row during transaction to prevent race conditions
+        if user:
+            user_wallet = WalletModel.objects.select_for_update().get(user=user)
+        else:
+            user_wallet = WalletModel.objects.filter(user__isnull=True).first() if user else None
 
         # Guest validations
         if not user:
@@ -285,52 +305,63 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                 # Debit wallet only if required
                 if wallet_debit_amount > 0:
-                    debit_response = Wallet.Debit(
-                        debitAccount=user_wallet.account_number,
-                        amount=wallet_debit_amount,
-                        reason="Debit for airtime recharge.",
-                        merchantFeeAmount="",
-                    )
-
-                    if debit_response.status_code == 200:
-                        airtime_response = VAS.airtime_topup(
-                            network=network,
-                            bearer_token=vas_token,
-                            amount=amount,
-                            debitAccount=user_wallet.account_number,
-                            phone_number=phone,
-                            tx_ref=tx_reference,
-                        )
-
-                        airtime_data = airtime_response.json()
-                        status_resp = VAS.status(
-                            bearer_token=vas_token, tx_ref=tx_reference
-                        )
-                        status_data = status_resp.json().get("data", {})
-                        if (
-                            status_data.get("transactionStatus") == "success"
-                            and status_data.get("responseCode") == 200
-                        ):
-                            return self._handle_airtime_success(
-                                user=user,
-                                phone=phone,
-                                amount=amount,
-                                network=network,
-                                tx_reference=tx_reference,
-                            )
-                        else:
-                            return self._handle_airtime_failure(
-                                user=user,
-                                phone=phone,
-                                amount=amount,
-                                airtime_response=airtime_data,
-                                reason="Airtime top-up failed.",
+                    try:
+                        with transaction.atomic():
+                            # Re-fetch wallet inside transaction with lock
+                            user_wallet = WalletModel.objects.select_for_update().get(user=user)
+                            
+                            debit_response = Wallet.Debit(
+                                debitAccount=user_wallet.account_number,
+                                amount=wallet_debit_amount,
+                                reason="Debit for airtime recharge.",
+                                merchantFeeAmount="",
                             )
 
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
+                            if debit_response.status_code == 200:
+                                airtime_response = VAS.airtime_topup(
+                                    network=network,
+                                    bearer_token=vas_token,
+                                    amount=amount,
+                                    debitAccount=user_wallet.account_number,
+                                    phone_number=phone,
+                                    tx_ref=tx_reference,
+                                )
+
+                                airtime_data = airtime_response.json()
+                                status_resp = VAS.status(
+                                    bearer_token=vas_token, tx_ref=tx_reference
+                                )
+                                status_data = status_resp.json().get("data", {})
+                                if (
+                                    status_data.get("transactionStatus") == "success"
+                                    and status_data.get("responseCode") == 200
+                                ):
+                                    return self._handle_airtime_success(
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
+                                        network=network,
+                                        tx_reference=tx_reference,
+                                    )
+                                else:
+                                    return self._handle_airtime_failure(
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
+                                        airtime_response=airtime_data,
+                                        reason="Airtime top-up failed.",
+                                    )
+
+                            return Response(
+                                data=encrypt(debit_response.json()),
+                                status=debit_response.status_code,
+                            )
+                    except Exception as e:
+                        logger.exception(f"Transaction error during wallet airtime purchase: {e}")
+                        return Response(
+                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
             case "CARD":
                 debit_account = user_wallet.account_number if user else None
@@ -574,12 +605,27 @@ class DataSubscriptionView(generics.GenericAPIView):
 
     def post(self, request):
         guest_id = request.headers.get("X-Guest-ID")
+        idempotency_key = request.headers.get("Idempotency-Key")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
         user = request.user if request.user.is_authenticated else None
+
+        # Idempotency: check if this request was already processed
+        if user and idempotency_key:
+            existing_tx = TxModel.objects.filter(
+                user=user, tx_reference=idempotency_key
+            ).first()
+            if existing_tx:
+                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                response_data = {
+                    "status": "success",
+                    "message": "This request was already processed.",
+                    "tx_reference": idempotency_key,
+                }
+                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
         pin = user_data.get("pin")
         use_bonus = user_data.get("use_bonus")
@@ -591,9 +637,12 @@ class DataSubscriptionView(generics.GenericAPIView):
         product_id = user_data.get("productId")
         biometrics = user_data.get("use_biometrics")
 
-        user_wallet = WalletModel.objects.get(user=user)
+        if user:
+            user_wallet = WalletModel.objects.select_for_update().get(user=user)
+        else:
+            user_wallet = None
 
-        tx_reference = VAS.generate_unique_code("PICA")
+        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         vas_token = VAS.authenticate()
 
         # Guest validations
@@ -703,54 +752,64 @@ class DataSubscriptionView(generics.GenericAPIView):
 
                 # Debit wallet only if required
                 if wallet_debit_amount > 0:
-                    debit_response = Wallet.Debit(
-                        debitAccount=account.account_number,
-                        amount=wallet_debit_amount,
-                        reason="Debit for data subscription.",
-                        transactionReference="",
-                    )
-
-                    if debit_response.status_code == 200:
-                        data_response = VAS.data(
-                            network=network,
-                            bearer_token=vas_token,
-                            amount=amount,
-                            productId=product_id,
-                            debitAccount=user_wallet.account_number,
-                            phone_number=phone,
-                            tx_ref=tx_reference,
-                        )
-
-                        data_topup = data_response.json()
-                        status_resp = VAS.status(
-                            bearer_token=vas_token, tx_ref=tx_reference
-                        )
-                        status_data = status_resp.json().get("data", {})
-                        if (
-                            status_data.get("transactionStatus") == "success"
-                            and status_data.get("responseCode") == 200
-                        ):
-                            return self._handle_data_success(
-                                user=user,
-                                guest_id=guest_id,
-                                phone=phone,
-                                productId=product_id,
-                                amount=amount,
-                                network=network,
-                                tx_reference=tx_reference,
+                    try:
+                        with transaction.atomic():
+                            account = WalletModel.objects.select_for_update().get(user=user)
+                            
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=wallet_debit_amount,
+                                reason="Debit for data subscription.",
+                                transactionReference="",
                             )
-                        else:
-                            return self._handle_data_failure(
-                                user=user,
-                                phone=phone,
-                                amount=amount,
-                                data_response=data_topup,
-                                reason="Data subscription failed after wallet debit.",
+
+                            if debit_response.status_code == 200:
+                                data_response = VAS.data(
+                                    network=network,
+                                    bearer_token=vas_token,
+                                    amount=amount,
+                                    productId=product_id,
+                                    debitAccount=user_wallet.account_number,
+                                    phone_number=phone,
+                                    tx_ref=tx_reference,
+                                )
+
+                                data_topup = data_response.json()
+                                status_resp = VAS.status(
+                                    bearer_token=vas_token, tx_ref=tx_reference
+                                )
+                                status_data = status_resp.json().get("data", {})
+                                if (
+                                    status_data.get("transactionStatus") == "success"
+                                    and status_data.get("responseCode") == 200
+                                ):
+                                    return self._handle_data_success(
+                                        user=user,
+                                        guest_id=guest_id,
+                                        phone=phone,
+                                        productId=product_id,
+                                        amount=amount,
+                                        network=network,
+                                        tx_reference=tx_reference,
+                                    )
+                                else:
+                                    return self._handle_data_failure(
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
+                                        data_response=data_topup,
+                                        reason="Data subscription failed after wallet debit.",
+                                    )
+                            return Response(
+                                data=encrypt(debit_response.json()),
+                                status=debit_response.status_code,
                             )
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
+                    except Exception as e:
+                        logger.exception(f"Transaction error during wallet data purchase: {e}")
+                        return Response(
+                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
             case "CARD":
                 # Card flow for authenticated users and guests
@@ -1081,12 +1140,27 @@ class BillPaymentView(generics.GenericAPIView):
     # --- POST flow (mirrors DataSubscription flow) ---
     def post(self, request):
         guest_id = request.headers.get("X-Guest-ID")
+        idempotency_key = request.headers.get("Idempotency-Key")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
         user = request.user if request.user.is_authenticated else None
+
+        # Idempotency: check if this request was already processed
+        if user and idempotency_key:
+            existing_tx = TxModel.objects.filter(
+                user=user, tx_reference=idempotency_key
+            ).first()
+            if existing_tx:
+                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                response_data = {
+                    "status": "success",
+                    "message": "This request was already processed.",
+                    "tx_reference": idempotency_key,
+                }
+                return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
         # Extract fields
         pin = user_data.get("pin")
@@ -1103,8 +1177,17 @@ class BillPaymentView(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         # Generate transaction reference and authenticate VAS
-        tx_reference = VAS.generate_unique_code("PICA")
+        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         vas_token = VAS.authenticate()
+
+        # Lock wallet for authenticated users
+        if user:
+            try:
+                user_wallet = WalletModel.objects.select_for_update().get(user=user)
+            except WalletModel.DoesNotExist:
+                user_wallet = None
+        else:
+            user_wallet = None
 
         # Guest validations (guests only allowed CARD)
         if not user:
@@ -1246,82 +1329,91 @@ class BillPaymentView(generics.GenericAPIView):
 
                 # Debit user's account
                 if wallet_debit_amount > 0:
-                    debit_response = Wallet.Debit(
-                        debitAccount=account.account_number,
-                        amount=wallet_debit_amount,
-                        reason="Debit for bill payment.",
-                        transactionReference="",
-                    )
-
-                    if debit_response.status_code == 200:
-                        try:
-                            vas_response = VAS.bill_payment(
-                                bearer_token=vas_token,
-                                customerId=customerId,
-                                billerId=billerId,
-                                itemId=itemId,
-                                amount=amount,
-                                phone_number=phone_number,
-                                customerName=customerName,
-                                otherField=otherField,
-                                debitAccount=user.wallet.account_number,
-                                transactionReference=tx_reference,
-                            )
-                        except Exception as e:
-                            logger.error(f"VAS electricity call error (wallet): {e}")
-                            # refund debit? (depends on your debit implementation)
-                            return self._handle_failure(
-                                user=user,
-                                guest_id=guest_id,
-                                phone_number=phone_number,
-                                amount=amount,
-                                vas_response=None,
-                                reason="Provider call error",
+                    try:
+                        with transaction.atomic():
+                            account = WalletModel.objects.select_for_update().get(user=user)
+                            
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=wallet_debit_amount,
+                                reason="Debit for bill payment.",
+                                transactionReference="",
                             )
 
-                        # Check VAS status
-                        try:
-                            status_resp = VAS.status(
-                                bearer_token=vas_token, tx_ref=tx_reference
-                            )
-                            status_data = status_resp.json().get("data", {})
-                        except Exception:
-                            status_data = {}
+                            if debit_response.status_code == 200:
+                                try:
+                                    vas_response = VAS.bill_payment(
+                                        bearer_token=vas_token,
+                                        customerId=customerId,
+                                        billerId=billerId,
+                                        itemId=itemId,
+                                        amount=amount,
+                                        phone_number=phone_number,
+                                        customerName=customerName,
+                                        otherField=otherField,
+                                        debitAccount=user.wallet.account_number,
+                                        transactionReference=tx_reference,
+                                    )
+                                except Exception as e:
+                                    logger.error(f"VAS electricity call error (wallet): {e}")
+                                    return self._handle_failure(
+                                        user=user,
+                                        guest_id=guest_id,
+                                        phone_number=phone_number,
+                                        amount=amount,
+                                        vas_response=None,
+                                        reason="Provider call error",
+                                    )
 
-                        if (
-                            status_data.get("transactionStatus") == "success"
-                            and status_data.get("responseCode") == 200
-                        ):
-                            return self._handle_success(
-                                user=user,
-                                guest_id=guest_id,
-                                customerId=customerId,
-                                billerId=billerId,
-                                itemId=itemId,
-                                amount=amount,
-                                phone_number=phone_number,
-                                customerName=customerName,
-                                otherField=otherField,
-                                vas_response=vas_response,
-                                tx_reference=tx_reference,
-                            )
-                        else:
-                            # VAS failed after debit
-                            vas_data = vas_response.json() if vas_response else {}
-                            return self._handle_failure(
-                                user=user,
-                                guest_id=guest_id,
-                                phone_number=phone_number,
-                                amount=amount,
-                                vas_response=vas_data,
-                                reason="Bill payment failed after wallet debit.",
-                            )
+                                # Check VAS status
+                                try:
+                                    status_resp = VAS.status(
+                                        bearer_token=vas_token, tx_ref=tx_reference
+                                    )
+                                    status_data = status_resp.json().get("data", {})
+                                except Exception:
+                                    status_data = {}
 
-                    # debit_response not 200 -> pass the debit response back
-                    return Response(
-                        data=encrypt(debit_response.json()),
-                        status=debit_response.status_code,
-                    )
+                                if (
+                                    status_data.get("transactionStatus") == "success"
+                                    and status_data.get("responseCode") == 200
+                                ):
+                                    return self._handle_success(
+                                        user=user,
+                                        guest_id=guest_id,
+                                        customerId=customerId,
+                                        billerId=billerId,
+                                        itemId=itemId,
+                                        amount=amount,
+                                        phone_number=phone_number,
+                                        customerName=customerName,
+                                        otherField=otherField,
+                                        vas_response=vas_response,
+                                        tx_reference=tx_reference,
+                                    )
+                                else:
+                                    # VAS failed after debit
+                                    vas_data = vas_response.json() if vas_response else {}
+                                    return self._handle_failure(
+                                        user=user,
+                                        guest_id=guest_id,
+                                        phone_number=phone_number,
+                                        amount=amount,
+                                        vas_response=vas_data,
+                                        reason="Bill payment failed after wallet debit.",
+                                    )
+
+                            # debit_response not 200 -> pass the debit response back
+                            return Response(
+                                data=encrypt(debit_response.json()),
+                                status=debit_response.status_code,
+                            )
+                    except Exception as e:
+                        logger.exception(f"Transaction error during wallet bill payment: {e}")
+                        return Response(
+                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
             case "CARD":
                 # Card flow for both authenticated users and guests

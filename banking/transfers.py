@@ -32,6 +32,9 @@ from accounts.models import TxModel, UserNotification, User
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
+from decimal import Decimal
+from django.db import transaction
+from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards, User as AccountUser
 from .serializers import (
     Get9PSBWalletSerializer,
     GetAccountSerializer,
@@ -984,6 +987,54 @@ class FundWallet(generics.GenericAPIView):
             if transfer_resp.status_code == 200:
                 tx_id = generate_txId()
                 logger.info("Transfer successful. Transaction ID: %s", tx_id)
+
+                # Award welcome bonus if user opened wallet and funded >= 2000 NGN
+                try:
+                    funded_amount = Decimal(str(amount))
+                except Exception:
+                    funded_amount = Decimal("0.00")
+
+                if funded_amount >= Decimal("2000.00"):
+                    try:
+                        with transaction.atomic():
+                            counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
+                            # lock counter row to prevent race conditions
+                            counter = WelcomeBonusCounter.objects.select_for_update().get(id=counter.id)
+
+                            already_awarded = WelcomeBonusAward.objects.filter(user=user).exists()
+                            if (not already_awarded) and counter.awarded_count < 1000:
+                                WelcomeBonusAward.objects.create(user=user, amount=Decimal("500.00"))
+                                counter.awarded_count = counter.awarded_count + 1
+                                counter.save()
+
+                                rewards, _ = Rewards.objects.get_or_create(user=user)
+                                try:
+                                    current_balance = Decimal(str(rewards.balance))
+                                except Exception:
+                                    current_balance = Decimal("0.00")
+                                rewards.balance = current_balance + Decimal("500.00")
+                                rewards.save()
+
+                                # mark on user model for convenience
+                                try:
+                                    user.welcome_bonus = 500
+                                    user.has_bonus = True
+                                    user.save()
+                                except Exception:
+                                    logger.exception("Failed to set flags on user after awarding welcome bonus")
+
+                                UserNotification.objects.create(
+                                    user=user,
+                                    title="Welcome Bonus",
+                                    message="You have been credited with a ₦500 welcome bonus. Use it for purchases.",
+                                )
+                                ActivityModel.objects.create(
+                                    user=user,
+                                    title="Welcome Bonus",
+                                    description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
+                                )
+                    except Exception:
+                        logger.exception("Error while attempting to award welcome bonus")
 
                 tx = TxModel.objects.create(
                     user=user,

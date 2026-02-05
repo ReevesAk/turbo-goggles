@@ -232,3 +232,26 @@ class PurchaseModel(models.Model):
 
     def __str__(self):
         return f"Purchase #{self.id} - {self.user.username} - {self.service_type}"
+
+
+class WelcomeBonusCounter(models.Model):
+    """
+    Singleton counter to track how many users have been awarded the welcome bonus.
+    """
+
+    id = models.IntegerField(primary_key=True, default=1)
+    awarded_count = models.IntegerField(default=0)
+
+
+class WelcomeBonusAward(models.Model):
+    """
+    Record that a user received the welcome bonus.
+    """
+
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=500)
+    awarded_at = models.DateTimeField(auto_now_add=True)
+    tx_reference = models.CharField(max_length=100, null=True, blank=True, unique=True)
+
+    class Meta:
+        ordering = ["-awarded_at"]
