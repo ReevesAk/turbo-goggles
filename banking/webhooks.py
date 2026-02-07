@@ -13,7 +13,7 @@ from rest_framework import generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
-from .models import FundWithCard, WalletModel
+from .models import FundWithCard, WalletModel, AddressVerificationModel
 from .controllers import Transfers
 from .serializers import (
     VerifyCardDepositSerializers,
@@ -21,7 +21,7 @@ from .serializers import (
     TransferNotificationWebhookSerializer,
     UpgradeNotificationWebhookSerializer,
 )
-from accounts.models import UserNotification
+from accounts.models import UserNotification, User
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
@@ -174,17 +174,31 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     if credited_amount >= Decimal("2000.00"):
                         try:
                             with transaction.atomic():
-                                counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
-                                counter = WelcomeBonusCounter.objects.select_for_update().get(id=counter.id)
+                                counter, _ = WelcomeBonusCounter.objects.get_or_create(
+                                    id=1
+                                )
+                                counter = (
+                                    WelcomeBonusCounter.objects.select_for_update().get(
+                                        id=counter.id
+                                    )
+                                )
 
                                 user = wallet.user
-                                already_awarded = WelcomeBonusAward.objects.filter(user=user).exists()
-                                if (not already_awarded) and counter.awarded_count < 1000:
-                                    WelcomeBonusAward.objects.create(user=user, amount=Decimal("500.00"))
+                                already_awarded = WelcomeBonusAward.objects.filter(
+                                    user=user
+                                ).exists()
+                                if (
+                                    not already_awarded
+                                ) and counter.awarded_count < 1000:
+                                    WelcomeBonusAward.objects.create(
+                                        user=user, amount=Decimal("500.00")
+                                    )
                                     counter.awarded_count = counter.awarded_count + 1
                                     counter.save()
 
-                                    rewards, _ = Rewards.objects.get_or_create(user=user)
+                                    rewards, _ = Rewards.objects.get_or_create(
+                                        user=user
+                                    )
                                     try:
                                         current = Decimal(str(rewards.balance))
                                     except Exception:
@@ -197,7 +211,9 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                         user.has_bonus = True
                                         user.save()
                                     except Exception:
-                                        logger.exception("Failed to set user flags after welcome award")
+                                        logger.exception(
+                                            "Failed to set user flags after welcome award"
+                                        )
 
                                     UserNotification.objects.create(
                                         user=user,
@@ -210,9 +226,13 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                         description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
                                     )
                         except Exception:
-                            logger.exception("Error awarding welcome bonus inside transaction")
+                            logger.exception(
+                                "Error awarding welcome bonus inside transaction"
+                            )
                 except Exception:
-                    logger.exception("Unexpected error while attempting to award welcome bonus")
+                    logger.exception(
+                        "Unexpected error while attempting to award welcome bonus"
+                    )
 
         return Response(
             {
@@ -497,3 +517,144 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
 class RedirectingPageView(View):
     def get(self, request, *args, **kwargs):
         return HttpResponse("Redirecting...")
+
+
+class AddressVerificationWebhookView(generics.GenericAPIView):
+    """
+    AddressVerificationWebhookView handles POST webhooks from the address verification service.
+    It looks up the user by the third-party reference_id, validates the webhook,
+    and updates their address verification status.
+    """
+
+    def post(self, request, *args, **kwargs):
+        try:
+            webhook_data = request.data
+            logger.info(f"Received address verification webhook: {webhook_data}")
+
+            # Extract verification details from webhook
+            entity = webhook_data.get("entity", {})
+            verification_status = entity.get(
+                "status"
+            )  # e.g., "pending", "approved", "rejected"
+            data = entity.get("data", {})
+            user_id = entity.get("reference_id")
+            applicant = data.get("applicant", {})
+
+            if user_id:
+                # Direct match by user_id in metadata
+                try:
+                    address_verification = AddressVerificationModel.objects.filter(
+                        reference_id=str(user_id)
+                    ).first()
+                except Exception as e:
+                    logger.warning(f"Error looking up by user_id {user_id}: {e}")
+                    address_verification = None
+            else:
+                address_verification = None
+
+            # Fallback: if metadata user_id didn't work,
+            if not address_verification:
+                intended_user = User.objects.get(id=user_id)
+                if intended_user.first_name != applicant.get(
+                    "first_name"
+                ) or intended_user.last_name != applicant.get("last_name"):
+                    logger.warning(f"User name mismatch for user_id {user_id}")
+                    logger.warning(
+                        f"No address verification found for user_id {user_id} or by applicant data"
+                    )
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Address verification request not found",
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            user = address_verification.user
+            if not user:
+                logger.warning(f"Address verification {user_id} has no associated user")
+                return Response(
+                    {
+                        "success": False,
+                        "message": "User not found for verification request",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Update address verification record based on webhook status
+            if verification_status == "approved" or verification_status == "success":
+                address_verification.status = "Success"
+                address_verification.has_verified_address = True
+                address_verification.save()
+
+                logger.info(f"Address verification approved for user {user.id}")
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Address verification approved successfully.",
+                        "status": "success",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            elif verification_status == "rejected" or verification_status == "failure":
+                address_verification.status = "Failure"
+                address_verification.has_verified_address = False
+                address_verification.save()
+
+                # Notify user of failed verification
+                UserNotification.objects.create(
+                    user=user,
+                    title="Address Verification Failed",
+                    message="Your address verification failed. Please try again or contact support.",
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Address Verification Failed",
+                    description=f"{user.first_name} {user.last_name}'s address verification was rejected.",
+                )
+
+                logger.warning(f"Address verification failed for user {user.id}")
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Address verification status updated (failed).",
+                        "status": "failure",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            elif verification_status == "pending":
+                # Webhook indicates verification is still pending; no action needed yet
+                logger.info(f"Address verification still pending for user {user.id}")
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Address verification status is still pending.",
+                        "status": "pending",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            else:
+                logger.warning(f"Unknown verification status: {verification_status}")
+                return Response(
+                    {
+                        "success": False,
+                        "message": f"Unknown verification status: {verification_status}",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except Exception as e:
+            logger.exception(f"Error processing address verification webhook: {e}")
+            return Response(
+                {
+                    "success": False,
+                    "message": "Internal server error processing webhook",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

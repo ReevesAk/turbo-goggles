@@ -405,7 +405,7 @@ class IsManagerOrSuperAdmin(permissions.BasePermission):
 class IsAgent(permissions.BasePermission):
     def has_permission(self, request, view):
         # Define the agent roles you want to allow
-        support_agents = ["Manager", "Agent", "Moderator"]
+        support_agents = ["Manager", "Agent", "Moderator", "SuperAdmin"]
 
         if request.user.is_authenticated:
             # Check if the user's active role is in the list of allowed admin roles

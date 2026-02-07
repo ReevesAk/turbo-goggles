@@ -519,3 +519,19 @@ class AdminDdashboardDataSerializer(serializers.Serializer):
     total_live_tickets = serializers.IntegerField()
     total_closed_tickets = serializers.IntegerField()
     total_logins = serializers.IntegerField()
+
+
+class WalletKYCSerializer(serializers.ModelSerializer):
+    bvn = serializers.CharField(source="user.bvn", read_only=True)
+    nin = serializers.CharField(source="user.nin", read_only=True)
+    address_verification_status = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = WalletModel
+        fields = [
+            "account_number",
+            "acct_name",
+            "bvn",
+            "nin",
+            "address_verification_status",
+        ]

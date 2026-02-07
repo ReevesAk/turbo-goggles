@@ -21,6 +21,13 @@ SEX = (
     ("1", "Female"),
 )
 
+ADDRESS_VERIFICATION_STATUS = (
+    ("Pending", "Pending"),
+    ("Failure", "Failure"),
+    ("Success", "Success"),
+    ("Approved", "Approved"),
+)
+
 
 class UserKYC(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="kyc")
@@ -178,3 +185,21 @@ class FundWithCard(BaseModel):
     email = models.EmailField(null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     is_processed = models.BooleanField(default=False)
+
+
+class AddressVerificationModel(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="address_verifications",
+    )
+    reference_id = models.CharField(
+        max_length=100, null=True, blank=True, unique=True
+    )  # Third-party webhook reference ID
+    has_verified_address = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20, choices=ADDRESS_VERIFICATION_STATUS, default="Pending"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)

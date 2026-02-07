@@ -34,7 +34,12 @@ from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
 from decimal import Decimal
 from django.db import transaction
-from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards, User as AccountUser
+from accounts.models import (
+    WelcomeBonusAward,
+    WelcomeBonusCounter,
+    Rewards,
+    User as AccountUser,
+)
 from .serializers import (
     Get9PSBWalletSerializer,
     GetAccountSerializer,
@@ -999,11 +1004,19 @@ class FundWallet(generics.GenericAPIView):
                         with transaction.atomic():
                             counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
                             # lock counter row to prevent race conditions
-                            counter = WelcomeBonusCounter.objects.select_for_update().get(id=counter.id)
+                            counter = (
+                                WelcomeBonusCounter.objects.select_for_update().get(
+                                    id=counter.id
+                                )
+                            )
 
-                            already_awarded = WelcomeBonusAward.objects.filter(user=user).exists()
+                            already_awarded = WelcomeBonusAward.objects.filter(
+                                user=user
+                            ).exists()
                             if (not already_awarded) and counter.awarded_count < 1000:
-                                WelcomeBonusAward.objects.create(user=user, amount=Decimal("500.00"))
+                                WelcomeBonusAward.objects.create(
+                                    user=user, amount=Decimal("500.00")
+                                )
                                 counter.awarded_count = counter.awarded_count + 1
                                 counter.save()
 
@@ -1021,7 +1034,9 @@ class FundWallet(generics.GenericAPIView):
                                     user.has_bonus = True
                                     user.save()
                                 except Exception:
-                                    logger.exception("Failed to set flags on user after awarding welcome bonus")
+                                    logger.exception(
+                                        "Failed to set flags on user after awarding welcome bonus"
+                                    )
 
                                 UserNotification.objects.create(
                                     user=user,
@@ -1034,7 +1049,9 @@ class FundWallet(generics.GenericAPIView):
                                     description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
                                 )
                     except Exception:
-                        logger.exception("Error while attempting to award welcome bonus")
+                        logger.exception(
+                            "Error while attempting to award welcome bonus"
+                        )
 
                 tx = TxModel.objects.create(
                     user=user,

@@ -44,10 +44,7 @@ from .serializers import (
 )
 from accounts.models import UserNotification
 from roles.models import ActivityModel
-from .models import (
-    WalletModel,
-    UserKYC,
-)
+from .models import WalletModel, UserKYC, AddressVerificationModel
 from .controllers import KYC, Wallet, Paystack
 from .helpers import cloudinary_to_base64
 from security import encrypt, decrypt
@@ -614,11 +611,45 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             )
 
         try:
+            reference_id = f"DOJAH_{current_user.id}"
+
+            # Build the verification URL with user data appended
+            # Format: https://identity.dojah.io?widget_id=12345678&user_data[first_name]=John&...&metadata[user_id]=
+            base_url = "https://identity.dojah.io"
+            dojah_widget_id_and_token = config("DOJAH_WIDGET_ID_AND_TOKEN")
+
+            # Extract user details
+            first_name = current_user.first_name or ""
+            middle_name = ""
+            last_name = current_user.last_name or ""
+            email = current_user.email or ""
+            phone = current_user.phone_number or ""
+            dob = ""
+
+            # Build query string with user data
+            verification_url = (
+                f"{base_url}?"
+                f"widget_id={dojah_widget_id_and_token}"
+                f"&user_data[first_name]={first_name}"
+                f"&user_data[middle_name]={middle_name}"
+                f"&user_data[last_name]={last_name}"
+                f"&user_data[email]={email}"
+                f"&user_data[phone]={phone}"
+                f"&user_data[dob]={dob}"
+                f"&metadata[user_id]={reference_id}"
+            )
+
             resp = {
                 "status": "success",
-                "message": "Request to upgrade to Tier 3 submitted successfully. Our support team will contact you shortly.",
-                "data": verification_link,
+                "message": "Request to upgrade to Tier 3 submitted successfully. Please proceed to address verification.",
+                "verification_link": verification_url,
+                "reference_id": reference_id,
             }
+
+            # Store with user_id as reference_id for webhook matching
+            AddressVerificationModel.objects.create(
+                user=current_user, reference_id=reference_id
+            )
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         except Exception as e:
             logging.error(f"Wallet upgrade to tier 3 request error: {str(e)}")

@@ -149,7 +149,7 @@ class CreateTicket(generics.CreateAPIView):
     """
     serializer_class = CreateTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -275,7 +275,7 @@ class AssignTicket(generics.GenericAPIView):
 
     serializer_class = AssignTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
         logger.info("AssignTicket request received")
@@ -340,11 +340,11 @@ class AssignTicket(generics.GenericAPIView):
 
         ticket.assigned_to = user
         ticket.priority = serializer.validated_data.get("priority")
-        
+
         # Only update status if provided
         if "status" in serializer.validated_data:
             ticket.status = serializer.validated_data["status"]
-        
+
         ticket.save()
 
         TicketAssignmentHistory.objects.create(
@@ -380,7 +380,7 @@ class ReassignTicket(generics.GenericAPIView):
 
     serializer_class = AssignTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
         logger.info("ReassignTicket request received")
@@ -491,7 +491,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
 
     serializer_class = UpdateTicketStatusSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsAgent]
 
     def post(self, request, *args, **kwargs):
         logger.info("UpdateTicketStatus request received")
@@ -573,7 +573,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
 class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsAgent]
 
     def post(self, request, *args, **kwargs):
         serializer = TicketEscalateSerializer(data=request.data)
@@ -630,7 +630,7 @@ class EscalateTicketAPIView(APIView):
 
 class TicketRRTrailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsAgent]
 
     def get(self, request, *args, **kwargs):
         ticket_id = kwargs.get("ticket_number")
@@ -694,7 +694,7 @@ class GetAllSupportTickets(generics.ListAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
@@ -749,7 +749,7 @@ class GetMyAssignedTickets(generics.ListAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticated, IsAgent]
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
@@ -801,7 +801,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
 
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsAgent]
     authentication_classes = [JWTAuthentication]
 
     lookup_field = "number"               # DB FIELD
@@ -876,8 +876,8 @@ class GetTicketByChannel(generics.ListAPIView):
     """
 
     serializer_class = TicketSerializers
-    authentication_classes = [JWTAuthentication, IsSuperAdmin]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAgent]
 
     def get(self, request, *args, **kwargs):
         search_term = kwargs.get("search_term")
@@ -929,7 +929,7 @@ class DeleteTicket(generics.DestroyAPIView):
 
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
     lookup_field = "number"  # This should match your model field
     lookup_url_kwarg = "ticket_number"  # This should match your URL parameter
@@ -1051,7 +1051,7 @@ class UsersWithTickets(generics.ListAPIView):
     """
 
     serializer_class = TicketSerializers
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):

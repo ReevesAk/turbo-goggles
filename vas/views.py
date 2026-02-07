@@ -190,7 +190,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                 user=user, tx_reference=idempotency_key
             ).first()
             if existing_tx:
-                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                logger.info(
+                    f"Idempotent request detected for {user.id} with key {idempotency_key}"
+                )
                 # Return success response (assuming prior success; in production, check status field)
                 response_data = {
                     "status": "success",
@@ -199,7 +201,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
-        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        tx_reference = (
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        )
         vas_token = VAS.authenticate()
         logger.info(f"VAS token: {vas_token}")
 
@@ -217,7 +221,9 @@ class AirTimeTopUp(generics.GenericAPIView):
         if user:
             user_wallet = WalletModel.objects.select_for_update().get(user=user)
         else:
-            user_wallet = WalletModel.objects.filter(user__isnull=True).first() if user else None
+            user_wallet = (
+                WalletModel.objects.filter(user__isnull=True).first() if user else None
+            )
 
         # Guest validations
         if not user:
@@ -308,8 +314,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                     try:
                         with transaction.atomic():
                             # Re-fetch wallet inside transaction with lock
-                            user_wallet = WalletModel.objects.select_for_update().get(user=user)
-                            
+                            user_wallet = WalletModel.objects.select_for_update().get(
+                                user=user
+                            )
+
                             debit_response = Wallet.Debit(
                                 debitAccount=user_wallet.account_number,
                                 amount=wallet_debit_amount,
@@ -357,9 +365,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 status=debit_response.status_code,
                             )
                     except Exception as e:
-                        logger.exception(f"Transaction error during wallet airtime purchase: {e}")
+                        logger.exception(
+                            f"Transaction error during wallet airtime purchase: {e}"
+                        )
                         return Response(
-                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
 
@@ -619,7 +631,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 user=user, tx_reference=idempotency_key
             ).first()
             if existing_tx:
-                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                logger.info(
+                    f"Idempotent request detected for {user.id} with key {idempotency_key}"
+                )
                 response_data = {
                     "status": "success",
                     "message": "This request was already processed.",
@@ -642,7 +656,9 @@ class DataSubscriptionView(generics.GenericAPIView):
         else:
             user_wallet = None
 
-        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        tx_reference = (
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        )
         vas_token = VAS.authenticate()
 
         # Guest validations
@@ -754,8 +770,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                 if wallet_debit_amount > 0:
                     try:
                         with transaction.atomic():
-                            account = WalletModel.objects.select_for_update().get(user=user)
-                            
+                            account = WalletModel.objects.select_for_update().get(
+                                user=user
+                            )
+
                             debit_response = Wallet.Debit(
                                 debitAccount=account.account_number,
                                 amount=wallet_debit_amount,
@@ -805,9 +823,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                                 status=debit_response.status_code,
                             )
                     except Exception as e:
-                        logger.exception(f"Transaction error during wallet data purchase: {e}")
+                        logger.exception(
+                            f"Transaction error during wallet data purchase: {e}"
+                        )
                         return Response(
-                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
 
@@ -1154,7 +1176,9 @@ class BillPaymentView(generics.GenericAPIView):
                 user=user, tx_reference=idempotency_key
             ).first()
             if existing_tx:
-                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                logger.info(
+                    f"Idempotent request detected for {user.id} with key {idempotency_key}"
+                )
                 response_data = {
                     "status": "success",
                     "message": "This request was already processed.",
@@ -1177,7 +1201,9 @@ class BillPaymentView(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
 
         # Generate transaction reference and authenticate VAS
-        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        tx_reference = (
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        )
         vas_token = VAS.authenticate()
 
         # Lock wallet for authenticated users
@@ -1331,8 +1357,10 @@ class BillPaymentView(generics.GenericAPIView):
                 if wallet_debit_amount > 0:
                     try:
                         with transaction.atomic():
-                            account = WalletModel.objects.select_for_update().get(user=user)
-                            
+                            account = WalletModel.objects.select_for_update().get(
+                                user=user
+                            )
+
                             debit_response = Wallet.Debit(
                                 debitAccount=account.account_number,
                                 amount=wallet_debit_amount,
@@ -1355,7 +1383,9 @@ class BillPaymentView(generics.GenericAPIView):
                                         transactionReference=tx_reference,
                                     )
                                 except Exception as e:
-                                    logger.error(f"VAS electricity call error (wallet): {e}")
+                                    logger.error(
+                                        f"VAS electricity call error (wallet): {e}"
+                                    )
                                     return self._handle_failure(
                                         user=user,
                                         guest_id=guest_id,
@@ -1393,7 +1423,9 @@ class BillPaymentView(generics.GenericAPIView):
                                     )
                                 else:
                                     # VAS failed after debit
-                                    vas_data = vas_response.json() if vas_response else {}
+                                    vas_data = (
+                                        vas_response.json() if vas_response else {}
+                                    )
                                     return self._handle_failure(
                                         user=user,
                                         guest_id=guest_id,
@@ -1409,9 +1441,13 @@ class BillPaymentView(generics.GenericAPIView):
                                 status=debit_response.status_code,
                             )
                     except Exception as e:
-                        logger.exception(f"Transaction error during wallet bill payment: {e}")
+                        logger.exception(
+                            f"Transaction error during wallet bill payment: {e}"
+                        )
                         return Response(
-                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
 

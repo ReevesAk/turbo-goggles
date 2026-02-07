@@ -328,3 +328,11 @@ class FundWalletSerializers(serializers.Serializer):
     class Meta:
         model = FundWithCard
         fields = ["id", "amount", "email", "tx_ref"]
+
+
+class AddressVerificationSerializer(serializers.Serializer):
+    houseNumber = serializers.CharField()
+    streetName = serializers.CharField()
+    city = serializers.CharField()
+    state = serializers.CharField()
+    localGovernment = serializers.CharField()

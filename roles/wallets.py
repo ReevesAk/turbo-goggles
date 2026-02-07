@@ -2,9 +2,14 @@ import logging
 from django.core.cache import cache
 from django.contrib.auth.hashers import check_password
 from django.db.models import Prefetch
+from django.db.models import OuterRef, Subquery
 
 # In project imports.
-from .serializers import ListWalletUsersSerializer, ChangeWalletStatusSerializer
+from .serializers import (
+    ListWalletUsersSerializer,
+    ChangeWalletStatusSerializer,
+    WalletKYCSerializer,
+)
 
 # Third party imports.
 from rest_framework import generics, status
@@ -12,9 +17,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import UserNotification, TxModel
+from accounts.models import User, UserNotification, TxModel
 from roles.models import ActivityModel
-from banking.models import WalletModel
+from banking.models import WalletModel, AddressVerificationModel
 from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
@@ -212,5 +217,44 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
 
         return Response(
             data=encrypt(response_data),
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserKYCListView(generics.ListAPIView):
+    serializer_class = WalletKYCSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled,
+        IsWalletAdminOrSuperAdmin,
+    ]
+
+    def get(self, request):
+        latest_address_verification = AddressVerificationModel.objects.filter(
+            user=OuterRef("pk")
+        ).order_by("-created_at")
+
+        queryset = User.objects.annotate(
+            account_name=Subquery(
+                WalletModel.objects.filter(user=OuterRef("pk")).values("acct_name")[:1]
+            ),
+            account_number=Subquery(
+                WalletModel.objects.filter(user=OuterRef("pk")).values(
+                    "account_number"
+                )[:1]
+            ),
+            address_verification_status=Subquery(
+                latest_address_verification.values("status")[:1]
+            ),
+        )
+
+        serializer = WalletKYCSerializer(queryset, many=True)
+
+        # 🔐 ENCRYPT HERE (same way you encrypt other responses)
+        encrypted_payload = encrypt(serializer.data)
+
+        return Response(
+            data=encrypt(encrypted_payload),
             status=status.HTTP_200_OK,
         )

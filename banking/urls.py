@@ -38,6 +38,7 @@ from .webhooks import (
     WebhookDispatcherView,
     InflowsWebhookNotificationView,
     AccountUpgradeWebhookNotificationView,
+    AddressVerificationWebhookView,
 )
 
 app_name = "banking"
@@ -114,6 +115,11 @@ urlpatterns = [
         "webhook/account-upgrade",
         AccountUpgradeWebhookNotificationView.as_view(),
         name="webhook_account_upgrade",
+    ),
+    path(
+        "webhook/address-verification",
+        AddressVerificationWebhookView.as_view(),
+        name="webhook_address_verification",
     ),
     path(
         "verify-card-deposit",

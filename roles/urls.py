@@ -41,7 +41,12 @@ from .tasks import (
     SendNewsLetter,
     CampaignParticipantListView,
 )
-from .wallets import GetallWalletUsers, WalletSearch, ChangeWalletStatusView
+from .wallets import (
+    GetallWalletUsers,
+    WalletSearch,
+    ChangeWalletStatusView,
+    UserKYCListView,
+)
 
 from .partners import (
     GetAllPartnersUsers,
@@ -103,6 +108,7 @@ urlpatterns = [
         VerifiedPartnersCount.as_view(),
         name="verified-partners-list",
     ),
+    path("list-KYC-users", UserKYCListView.as_view(), name="list_kyc_users"),
     # Activity Logs Endpoints.
     path(
         "activity/get-all-app-activities",
