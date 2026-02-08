@@ -540,9 +540,11 @@ class WalletKYCSerializer(serializers.ModelSerializer):
 
 class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
     """Serailizers for upgrading wallet to a tier3."""
+
     pin = serializers.CharField(min_length=5, write_only=True)
     bvn = serializers.CharField(max_length=12, write_only=True, required=True)
     nin = serializers.CharField(max_length=12, write_only=True, required=True)
+    proofOfAddressVerification = serializers.FileField(write_only=True, required=True)
 
     class Meta:
         model = WalletUpgrade

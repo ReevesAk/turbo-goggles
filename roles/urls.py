@@ -46,7 +46,7 @@ from .wallets import (
     WalletSearch,
     ChangeWalletStatusView,
     UserKYCListView,
-    UpgradeToTier3Wallet
+    UpgradeToTier3Wallet,
 )
 
 from .partners import (

@@ -21,6 +21,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification, TxModel
 from roles.models import ActivityModel
@@ -29,6 +30,10 @@ from banking.controllers import Wallet
 from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
+
+from drf_spectacular.utils import extend_schema, OpenApiExample
+
+from cloudinary import uploader as cloud
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +271,22 @@ class UserKYCListView(generics.ListAPIView):
         )
 
 
+@extend_schema(
+    request=Tier3WalletUpgradeSerializers,
+    examples=[
+        OpenApiExample(
+            name="Tier 3 Wallet Upgrade Request",
+            description="Request payload for upgrading a wallet to Tier 3",
+            value={
+                "pin": "12345",
+                "bvn": "22334455667",
+                "nin": "12345678901",
+                "proofOfAddressVerification": "docu.pdf"
+            },
+            request_only=True,
+        ),
+    ],
+)
 class UpgradeToTier3Wallet(generics.GenericAPIView):
     """UpgradeToTier3Wallet Handles the POST request of sending a Tier 3 wallet upgrade."""
 
@@ -276,6 +297,10 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
+    parser_classes = (
+        MultiPartParser,
+        JSONParser,
+    )
 
     def post(self, request, *args, **kwargs):
         current_admin = request.user
@@ -316,13 +341,19 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
+        proof_of_address_verification_file = serializer.validated_data.get(
+            "proofOfAddressVerification"
+        )
+        upload_proof = cloud.upload(file=proof_of_address_verification_file)
+        proof_of_address_verification_url = upload_proof["url"]
+
         # Perform the upgrade logic here
         try:
             upgrade_response = Wallet.UpgradefromTier2ToTier3(
                 accountNumber=wallet.account_number,
                 bvn=payload.get("bvn"),
                 nin=payload.get("nin"),
-                proofOfAddressVerification=payload.get("proofOfAddressVerification"),
+                proofOfAddressVerification=proof_of_address_verification_url,
             )
             response_data = upgrade_response.json()
             if upgrade_response.status_code != 200:
@@ -346,3 +377,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 data=encrypt({"error": str(e)}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    def upload_image(self, image_data):
+        doc_image = cloud.upload(file=image_data)
+        self.uploaded_doc_url = doc_image["url"]
