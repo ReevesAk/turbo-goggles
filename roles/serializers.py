@@ -18,6 +18,7 @@ from .models import (
     NewsletterRecipient,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
+from banking.models import WalletUpgrade
 from security import encrypt
 
 logger = logging.getLogger(__name__)
@@ -535,3 +536,14 @@ class WalletKYCSerializer(serializers.ModelSerializer):
             "nin",
             "address_verification_status",
         ]
+
+
+class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
+    """Serailizers for upgrading wallet to a tier3."""
+    pin = serializers.CharField(min_length=5, write_only=True)
+    bvn = serializers.CharField(max_length=12, write_only=True, required=True)
+    nin = serializers.CharField(max_length=12, write_only=True, required=True)
+
+    class Meta:
+        model = WalletUpgrade
+        fields = ["id", "pin", "bvn", "nin", "proofOfAddressVerification"]

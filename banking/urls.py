@@ -5,7 +5,7 @@ from .views import (
     VerifYNIN,
     CreateUserWallet,
     UpgradeToTier2Wallet,
-    UpgradeToTier3Wallet,
+    RequestToUpgradeToTier3Wallet,
     SetWalletPin,
     ForgotWalletPin,
     PinResendOTP,
@@ -14,7 +14,6 @@ from .views import (
     NotificationView,
     GetAccountDetails,
     RefundFailedCardTransaction,
-    RequestToUpgradeToTier3Wallet,
 )
 
 from .transfers import (
@@ -54,11 +53,6 @@ urlpatterns = [
         "request-upgrade-to-tier3",
         RequestToUpgradeToTier3Wallet.as_view(),
         name="request_upgrade_to_tier3",
-    ),
-    path(
-        "upgrade-from-tier2-to-tier3",
-        UpgradeToTier3Wallet.as_view(),
-        name="upgrade_from_tier2_to_tier3",
     ),
     path("set-wallet-pin", SetWalletPin.as_view(), name="set_wallet_pin"),
     path("forgot-wallet-pin", ForgotWalletPin.as_view(), name="forgot_wallet_pin"),

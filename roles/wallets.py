@@ -1,14 +1,19 @@
 import logging
+import requests
+
+
 from django.core.cache import cache
 from django.contrib.auth.hashers import check_password
 from django.db.models import Prefetch
 from django.db.models import OuterRef, Subquery
+from django.shortcuts import get_object_or_404
 
 # In project imports.
 from .serializers import (
     ListWalletUsersSerializer,
     ChangeWalletStatusSerializer,
     WalletKYCSerializer,
+    Tier3WalletUpgradeSerializers,
 )
 
 # Third party imports.
@@ -19,7 +24,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User, UserNotification, TxModel
 from roles.models import ActivityModel
-from banking.models import WalletModel, AddressVerificationModel
+from banking.models import WalletModel, AddressVerificationModel, UserKYC
+from banking.controllers import Wallet
 from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
@@ -258,3 +264,85 @@ class UserKYCListView(generics.ListAPIView):
             data=encrypt(encrypted_payload),
             status=status.HTTP_200_OK,
         )
+
+
+class UpgradeToTier3Wallet(generics.GenericAPIView):
+    """UpgradeToTier3Wallet Handles the POST request of sending a Tier 3 wallet upgrade."""
+
+    serializer_class = Tier3WalletUpgradeSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled,
+        IsWalletAdminOrSuperAdmin,
+    ]
+
+    def post(self, request, *args, **kwargs):
+        current_admin = request.user
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
+
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            wallet = get_object_or_404(UserKYC, bvn=payload.get("bvn"))
+        except UserKYC.DoesNotExist:
+            return Response(
+                data=encrypt({"error": "User with this BVN does not exist."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not check_password(payload.get("pin"), current_admin.admin_pin):
+            return Response(
+                data=encrypt({"status": "fail", "message": "Invalid PIN."}),
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if wallet.tier_level >= 2:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet is already at Tier 2.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        # Perform the upgrade logic here
+        try:
+            upgrade_response = Wallet.UpgradefromTier2ToTier3(
+                accountNumber=wallet.account_number,
+                bvn=payload.get("bvn"),
+                nin=payload.get("nin"),
+                proofOfAddressVerification=payload.get("proofOfAddressVerification"),
+            )
+            response_data = upgrade_response.json()
+            if upgrade_response.status_code != 200:
+                logging.error(f"Wallet upgrade to tier 3 failed: {response_data}")
+                return Response(
+                    data=encrypt(response_data),
+                    status=upgrade_response.status_code,
+                )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Wallet upgraded to Tier 3 successfully.",
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Wallet upgrade to tier 3 API request error: {str(e)}")
+            return Response(
+                data=encrypt({"error": str(e)}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

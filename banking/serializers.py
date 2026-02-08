@@ -91,14 +91,6 @@ class Tier2WalletUpgradeSerializer(serializers.Serializer):
     use_biometrics = serializers.BooleanField(default=False, write_only=True)
 
 
-class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
-    """Serailizers for upgrading wallet to a tier3."""
-
-    class Meta:
-        model = WalletUpgrade
-        fields = ["id", "proofOfAddressVerification"]
-
-
 class CreateWalletPinSerializer(serializers.ModelSerializer):
     """Serailizers for first time wallet pin setting."""
 

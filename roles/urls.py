@@ -46,6 +46,7 @@ from .wallets import (
     WalletSearch,
     ChangeWalletStatusView,
     UserKYCListView,
+    UpgradeToTier3Wallet
 )
 
 from .partners import (
@@ -108,7 +109,7 @@ urlpatterns = [
         VerifiedPartnersCount.as_view(),
         name="verified-partners-list",
     ),
-    path("list-KYC-users", UserKYCListView.as_view(), name="list_kyc_users"),
+    path("list-kyc-users", UserKYCListView.as_view(), name="list_kyc_users"),
     # Activity Logs Endpoints.
     path(
         "activity/get-all-app-activities",
@@ -197,6 +198,11 @@ urlpatterns = [
     path("fmcg/add-product", AddProduct.as_view(), name="add_product"),
     path("fmcg/add-address", AddAddress.as_view(), name="add_address"),
     # Wallet endpoints.
+    path(
+        "wallets/upgrade-from-tier2-to-tier3",
+        UpgradeToTier3Wallet.as_view(),
+        name="upgrade_from_tier2_to_tier3",
+    ),
     path(
         "wallets/get-all-wallet-users",
         GetallWalletUsers.as_view(),
