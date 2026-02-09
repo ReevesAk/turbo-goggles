@@ -350,8 +350,8 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
     userTypes = serializers.SerializerMethodField()
     recentTransactions = serializers.SerializerMethodField()
-    bvn = serializers.CharField(source="user.userkyc.bvn", read_only=True)
-    nin = serializers.CharField(source="user.userkyc.nin", read_only=True)
+    bvn = serializers.CharField(source="user.kyc.bvn", read_only=True)
+    nin = serializers.CharField(source="user.kyc.nin", read_only=True)
     profile_img = serializers.CharField(source="user.profile_img_url", read_only=True)
 
     class Meta:

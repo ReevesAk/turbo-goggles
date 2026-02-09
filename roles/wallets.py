@@ -281,7 +281,7 @@ class UserKYCListView(generics.ListAPIView):
                 "pin": "12345",
                 "bvn": "22334455667",
                 "nin": "12345678901",
-                "proofOfAddressVerification": "docu.pdf"
+                "proofOfAddressVerification": "docu.pdf",
             },
             request_only=True,
         ),
