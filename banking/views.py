@@ -638,6 +638,8 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
                 f"&metadata[user_id]={reference_id}"
             )
 
+            logger.info(f"Generated verification URL: {verification_url}")
+            logger.info(f"Reference ID for webhook matching: {reference_id}")
             resp = {
                 "status": "success",
                 "message": "Request to upgrade to Tier 3 submitted successfully. Please proceed to address verification.",
