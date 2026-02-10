@@ -7,7 +7,6 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from cloudinary import uploader as cloud
@@ -37,7 +36,7 @@ from accounts.tokens import create_jwt_pair_for_user
 from accounts.otp import otp_manager
 from roles.models import ActivityModel
 from permissions import (
-    IsSuperAdmin, IsManagerOrSuperAdmin, IsAgent
+    IsManagerModeratorOrSuperAdmin, IsManagerOrSuperAdmin, IsAgent
 )
 from commons import Messaging
 
@@ -694,7 +693,7 @@ class GetAllSupportTickets(generics.ListAPIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
@@ -1588,7 +1587,7 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListAgentAndModeratorSerializer  # You may rename if needed
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsSuperAdmin)
+    permission_classes = (IsAuthenticated, IsManagerOrSuperAdmin)
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):

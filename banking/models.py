@@ -30,7 +30,7 @@ ADDRESS_VERIFICATION_STATUS = (
 
 
 class UserKYC(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="kyc")
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name="kyc")
     bvn = models.CharField(max_length=100, null=True, unique=True)
     is_bvn_img_a_match = models.BooleanField(default=False, null=True)
     nin = models.CharField(max_length=100, null=True, unique=True)

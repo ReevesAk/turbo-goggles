@@ -402,6 +402,21 @@ class IsManagerOrSuperAdmin(permissions.BasePermission):
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
 
+class IsManagerModeratorOrSuperAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["Manager", "Moderator", "SuperAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise ValidationError(encrypt("Only the Manager, Moderator or SuperAdmin can perform this action."))
+
+        raise ValidationError(encrypt("Authentication is required to access this resource."))
+
+
 class IsAgent(permissions.BasePermission):
     def has_permission(self, request, view):
         # Define the agent roles you want to allow

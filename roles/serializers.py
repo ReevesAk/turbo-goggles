@@ -350,9 +350,13 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
     userTypes = serializers.SerializerMethodField()
     recentTransactions = serializers.SerializerMethodField()
-    bvn = serializers.CharField(source="user.kyc.bvn", read_only=True)
-    nin = serializers.CharField(source="user.kyc.nin", read_only=True)
-    profile_img = serializers.CharField(source="user.profile_img_url", read_only=True)
+
+    bvn = serializers.SerializerMethodField()
+    nin = serializers.SerializerMethodField()
+
+    profile_img = serializers.CharField(
+        source="user.profile_img_url", read_only=True
+    )
 
     class Meta:
         model = WalletModel
@@ -373,15 +377,19 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
             "nin",
         ]
 
+    def get_bvn(self, obj):
+        return getattr(getattr(obj.user, "kyc", None), "bvn", None)
+
+    def get_nin(self, obj):
+        return getattr(getattr(obj.user, "kyc", None), "nin", None)
+
     def get_userTypes(self, obj):
-        return list(obj.user.account_types.values_list("user_type", flat=True))
+        return list(
+            obj.user.account_types.values_list("user_type", flat=True)
+        )
 
     def get_recentTransactions(self, obj):
-        """
-        Returns last 5 transactions using prefetched list (no DB hit).
-        """
         tx_list = getattr(obj.user, "last_five_tx", [])
-
         return [
             {
                 "description": tx.description,

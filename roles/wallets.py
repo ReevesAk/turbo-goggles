@@ -243,30 +243,34 @@ class UserKYCListView(generics.ListAPIView):
 
     def get(self, request):
         latest_address_verification = AddressVerificationModel.objects.filter(
-            user=OuterRef("pk")
+            user=OuterRef("pk"),
+            user__isnull=False,
         ).order_by("-created_at")
 
-        queryset = User.objects.annotate(
-            account_name=Subquery(
-                WalletModel.objects.filter(user=OuterRef("pk")).values("acct_name")[:1]
-            ),
-            account_number=Subquery(
-                WalletModel.objects.filter(user=OuterRef("pk")).values(
-                    "account_number"
-                )[:1]
-            ),
-            address_verification_status=Subquery(
-                latest_address_verification.values("status")[:1]
-            ),
+        queryset = (
+            User.objects
+            .filter(walletmodel__isnull=False)
+            .filter(address_verifications__isnull=False)
+            .distinct()
+            .annotate(
+                account_name=Subquery(
+                    WalletModel.objects.filter(user=OuterRef("pk"))
+                    .values("acct_name")[:1]
+                ),
+                account_number=Subquery(
+                    WalletModel.objects.filter(user=OuterRef("pk"))
+                    .values("account_number")[:1]
+                ),
+                address_verification_status=Subquery(
+                    latest_address_verification.values("status")[:1]
+                ),
+            )
         )
 
         serializer = WalletKYCSerializer(queryset, many=True)
 
-        # 🔐 ENCRYPT HERE (same way you encrypt other responses)
-        encrypted_payload = encrypt(serializer.data)
-
         return Response(
-            data=encrypt(encrypted_payload),
+            encrypt(serializer.data),
             status=status.HTTP_200_OK,
         )
 
