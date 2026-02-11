@@ -7,7 +7,7 @@ from .views import (
     GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets,
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
     GetAllAgentAndModeratorUsers, DeleteTicket, GetMyAssignedTickets,
-    EscalateTicketAPIView, TicketRRTrailAPIView,
+    EscalateTicketAPIView, TicketRRTrailAPIView, DisableAgentrole, EnableAgentrole, DeleteAgent
 )
 
 
@@ -21,6 +21,9 @@ urlpatterns = [
     path("set-agent-pin", SetAgentPin.as_view(), name="set_agent_pin"),
     path("signup-complete/<str:user_id>/", AgentSignUpComplete.as_view(), name="signup-complete"),
     path("login", LoginAgent.as_view(), name="login_agent"),
+    path("disable-agent", DisableAgentrole.as_view(), name="disable_agent"),
+    path("re-enable-agent", EnableAgentrole.as_view(), name="enable_agent"),
+    path("delete-agent", DeleteAgent.as_view(), name="delete_agent_users"),
     path("create", CreateTicket.as_view(), name="create_ticket"),
     path("assign/<str:ticket_number>/", AssignTicket.as_view(), name="assign_ticket"),
     path("reassign/<str:ticket_number>/", ReassignTicket.as_view(), name="reassign_ticket"),

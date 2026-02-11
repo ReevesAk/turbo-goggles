@@ -221,15 +221,29 @@ class AgentRatingSerializers(serializers.ModelSerializer):
         ]
 
 
-class PusherSerializers(serializers.ModelSerializer):
-    message = serializers.CharField(max_length=68, min_length=6, write_only=True)
+class AgentDeletionSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    pin = serializers.CharField(write_only=True, required=True)
 
     class Meta:
-        model = AgentRating
-        fields = [
-            "id",
-            "message",
-        ]
+        model = User
+        fields = ["email", "pin"]
+
+
+class DisableAgentSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email", "pin"]
+
+
+class EnableAgentSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=5, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email", "pin"]
 
 
 class AddAgentSerializer(serializers.ModelSerializer):

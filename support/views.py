@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.db.models import Q
 
 from cloudinary import uploader as cloud
 
@@ -17,7 +18,7 @@ from .serializers import (
     AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer,
-    UpdateTicketStatusSerializer
+    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -206,7 +207,6 @@ class CreateTicket(generics.CreateAPIView):
 
         category = payload.get("category")
         logger.debug("Creating ticket with category: %s", category)
-
 
         # Create the ticket
         ticket = Ticket.objects.create(
@@ -1092,6 +1092,7 @@ class AddAgent(generics.CreateAPIView):
             logger.debug(f"Processed payload: {payload}")
 
             pin = payload.get("pin")
+            role = payload.get("role")
             if not check_password(password=pin, encoded=request.user.admin_pin):
                 return Response(
                     data={
@@ -1138,7 +1139,7 @@ class AddAgent(generics.CreateAPIView):
                     context={
                         "custom_text": f"""
                             Dear {name},<br><br>
-                            Your agent account has been created. Follow this
+                            Your {role} account has been created. Follow this
                             <a href="{signup_link}" style="color: #3498db; text-decoration: none;">
                                 link
                             </a>
@@ -1158,7 +1159,7 @@ class AddAgent(generics.CreateAPIView):
                     body=f"Your agent account has been created. Follow this link to complete your signup: {signup_link}",
                     email=user.email,
                     html_content=text_content,
-                    subject="Agent Registration",
+                    subject=f"{role} Registration",
                 )
 
                 # Prepare response
@@ -1271,6 +1272,239 @@ class AgentSignUpComplete(generics.UpdateAPIView):
             return Response(
                 data={"status": "fail", "message": "An unexpected error occurred."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class DisableAgentrole(generics.RetrieveUpdateAPIView):
+    """
+    DisableAgentrole handles the POST request of disabling
+    an agent user.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = DisableAgentSerializer
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        email = payload.get("email")
+        pin = payload.get("pin")
+        logger.info("Received request to disable agent for email: %s", email)
+        try:
+            user = User.objects.filter(Q(email=email)).first()
+
+            if user is None:
+                logger.warning("Agent with email '%s' does not exist.", email)
+                return Response(
+                    data={"status": "fail", "message": f"Agent with '{email}' does not exist."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if check_password(password=pin, encoded=request.user.admin_pin):
+                user.is_admin_disabled = True
+                user.save()
+                logger.info("Agent account for '%s' has been disabled.", email)
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="Disable Agent",
+                    message="Your account has been disabled!.",
+                )
+                logger.info("User notification created for agent '%s'.", email)
+
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Disable Agent",
+                    description=f"Admin user, {user.full_name} disabled.",
+                )
+                logger.info("Activity logged for disabling agent '%s'.", user.full_name)
+
+                resp = {
+                    "status": "success",
+                    "message": "Agent disabled successfully",
+                    "data": user.is_agent_disabled,
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                logger.warning(
+                    "Incorrect pin provided for user: %s %s",
+                    request.user.first_name,
+                    request.user.last_name,
+                )
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+        except Exception as e:
+            logger.error("An error occurred while disabling agent: %s", str(e))
+            return Response(
+                data={"status": "fail", "error": "An error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class EnableAgentrole(generics.RetrieveUpdateAPIView):
+    """
+    EnableAgentrole handles the POST request of re-enabling
+    a disabled agent user.
+    """
+
+    queryset = User.objects.all()
+    serializer_class = EnableAgentSerializer
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        email = payload.get("email")
+        pin = payload.get("pin")
+        logger.info("Received request to re-enable agent for email: %s", email)
+
+        try:
+            user = User.objects.filter(Q(email=email)).first()
+
+            if user is None:
+                logger.warning("Agent with email '%s' does not exist.", email)
+                return Response(
+                    data={"status": "fail", "error": f"Agent with '{email}' does not exist."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if check_password(password=pin, encoded=request.user.admin_pin):
+                user.is_agent_disabled = False
+                user.save()
+                logger.info("Agent account for '%s' has been re-enabled.", email)
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="Re-Enable Agent",
+                    message="Your account has been re-enabled successfully.",
+                )
+                logger.info("User  notification created for agent '%s'.", email)
+
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Re-Enable Agent",
+                    description=f"Agent user, {user.full_name} was re-enabled.",
+                )
+                logger.info(
+                    "Activity logged for re-enabling agent '%s'.", user.full_name
+                )
+
+                resp = {
+                    "status": "success",
+                    "message": "Admin re-enabled successfully",
+                    "data": user.is_admin_disabled,
+                }
+                return Response(data=resp, status=status.HTTP_200_OK)
+            else:
+                logger.warning(
+                    "Incorrect pin provided for user: %s %s",
+                    request.user.first_name,
+                    request.user.last_name,
+                )
+                return Response(
+                    data={"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+        except Exception as e:
+            logger.error("An error occurred while re-enabling agent: %s", str(e))
+            return Response(
+                data={"status": "fail", "error": "An error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class DeleteAgent(generics.GenericAPIView):
+    serializer_class = AgentDeletionSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsManagerOrSuperAdmin)
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data.get("email")
+            pin = serializer.validated_data.get("pin")
+            logger.info("Received request to delete agent for email: %s", email)
+            try:
+                user = User.objects.get(Q(id=email) | Q(email=email))
+                logger.info("Agent user found: %s", user.full_name)
+                if check_password(password=pin, encoded=request.user.admin_pin):
+                    user.delete()
+                    logger.info("Agent user '%s' deleted successfully.", user.full_name)
+
+                    UserNotification.objects.create(
+                        user=request.user,
+                        title="Delete Agent",
+                        message=f"Agent with '{email}' deleted successfully.",
+                    )
+                    logger.info(
+                        "User  notification created for agent deletion: %s", email
+                    )
+
+                    # Register Admin activity.
+                    ActivityModel.objects.create(
+                        user=request.user,
+                        title="Delete Agent",
+                        description=f"Agent user, {user.full_name} deleted successfully.",
+                    )
+                    logger.info(
+                        "Activity logged for deleting agent: %s", user.full_name
+                    )
+
+                    text_content = render_to_string(
+                        template_name="empty_email.html",
+                        context={
+                            "custom_text": f"Dear {request.user.first_name},<br><br>Your agent account has been deleted.",
+                            "support_email": "support@picadailys.com",
+                            "picadailys_phone": [
+                                "02012271894",
+                                "02012271895",
+                            ],
+                        },
+                    )
+
+                    Messaging.send_email(
+                        email=request.user.email,
+                        sender_email="notifications@picadailys.com",
+                        html_content=text_content,
+                        subject="Admin Deletion",
+                        body="Your admin account has been deleted",
+                    )
+
+                    return Response(
+                        data={"status": "success", "message": f"Agent with '{email}' deleted successfully."},
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    logger.warning(
+                        "Incorrect pin provided for user: %s %s",
+                        request.user.first_name,
+                        request.user.last_name,
+                    )
+                    return Response(
+                        data={"status": "fail", "error": "Incorrect pin"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            except User.DoesNotExist:
+                logger.warning("Agent with email '%s' does not exist.", email)
+                return Response(
+                    data={"status": "fail", "error": f"Agent with '{email}' does not exist."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            logger.error("Serializer validation failed: %s", serializer.errors)
+            return Response(
+                data={"status": "fail", "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
