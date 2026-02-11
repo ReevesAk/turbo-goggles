@@ -1232,7 +1232,7 @@ class AgentSignUpComplete(generics.UpdateAPIView):
             )
 
         if instance.is_verified:
-            logger.warning("%s with Id: %s has already completed signup.", instance.role, user_id)
+            logger.warning("Agent with Id: %s has already completed signup.", user_id)
             return Response(
                 {
                     "status": "fail",
