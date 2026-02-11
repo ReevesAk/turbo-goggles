@@ -304,10 +304,16 @@ class AddAgentContdSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
-        validated_data.pop("password2", None)  # Remove password2 if present
-        if "password" in validated_data:
-            instance.set_password(validated_data["password"])
-        return super().update(instance, validated_data)
+        validated_data.pop("password2", None)
+
+        password = validated_data.pop("password", None)  # Remove password2 if present
+        if password:
+            instance.set_password(password)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
 
 
 class SupportAgentLoginSerializers(serializers.ModelSerializer):

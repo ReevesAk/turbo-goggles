@@ -1092,7 +1092,7 @@ class AddAgent(generics.CreateAPIView):
             logger.debug(f"Processed payload: {payload}")
 
             pin = payload.get("pin")
-            role = payload.get("role")
+            role = payload["role"]
             if not check_password(password=pin, encoded=request.user.admin_pin):
                 return Response(
                     data={
@@ -1231,13 +1231,23 @@ class AgentSignUpComplete(generics.UpdateAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if instance.is_verified:
+            logger.warning("%s with Id: %s has already completed signup.", instance.role, user_id)
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "User has already registered."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
         logger.debug("Payload for update: %s", payload)
 
-        serializer = self.get_serializer(instance=instance, data=payload)
+        serializer = self.get_serializer(instance=instance, data=payload, partial=True)
 
         try:
             if serializer.is_valid(raise_exception=True):
