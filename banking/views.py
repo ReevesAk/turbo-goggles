@@ -631,33 +631,50 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             phone = current_user.phone_number or ""
             dob = ""
 
-            # Build query string with user data
-            verification_url = (
-                f"{base_url}?"
-                f"widget_id={dojah_widget_id_and_token}"
-                f"&user_data[first_name]={first_name}"
-                f"&user_data[middle_name]={middle_name}"
-                f"&user_data[last_name]={last_name}"
-                f"&user_data[email]={email}"
-                f"&user_data[phone]={phone}"
-                f"&user_data[dob]={dob}"
-                f"&metadata[user_id]={reference_id}"
-            )
-
-            logger.info(f"Generated verification URL: {verification_url}")
-            logger.info(f"Reference ID for webhook matching: {reference_id}")
-            resp = {
-                "status": "success",
-                "message": "Request to upgrade to Tier 3 submitted successfully. Please proceed to address verification.",
-                "verification_link": verification_url,
-                "reference_id": reference_id,
-            }
-
             # Store with user_id as reference_id for webhook matching
-            AddressVerificationModel.objects.create(
-                user=current_user, reference_id=reference_id
+            address_verification, created = AddressVerificationModel.objects.get_or_create(
+                reference_id=reference_id,
+                defaults={"user": current_user},
             )
-            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+            if created:
+                logger.info(f"Created new address verification for {reference_id}")
+
+            status_options = ["Approved", "Successful"]
+            if address_verification.status in status_options:
+                logger.info(f"Reused existing address verification for {reference_id}")
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "You have already submitted a request to upgrade to Tier 3 and your request is being processed.",
+                        }
+                    ),
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                # Build query string with user data
+                verification_url = (
+                    f"{base_url}?"
+                    f"widget_id={dojah_widget_id_and_token}"
+                    f"&user_data[first_name]={first_name}"
+                    f"&user_data[middle_name]={middle_name}"
+                    f"&user_data[last_name]={last_name}"
+                    f"&user_data[email]={email}"
+                    f"&user_data[phone]={phone}"
+                    f"&user_data[dob]={dob}"
+                    f"&metadata[user_id]={reference_id}"
+                )
+
+                logger.info(f"Generated verification URL: {verification_url}")
+                logger.info(f"Reference ID for webhook matching: {reference_id}")
+                resp = {
+                    "status": "success",
+                    "message": "Request to upgrade to Tier 3 submitted successfully. Please proceed to address verification.",
+                    "verification_link": verification_url,
+                    "reference_id": reference_id,
+                }
+
+                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         except Exception as e:
             logging.error(f"Wallet upgrade to tier 3 request error: {str(e)}")
             return Response(
