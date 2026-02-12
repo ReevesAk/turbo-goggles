@@ -598,6 +598,12 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
         current_user = request.user
 
         user_wallet = WalletModel.objects.filter(user=current_user).first()
+        if not user_wallet:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Wallet not found for user."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if user_wallet.tier_level >= 3:
             return Response(
                 data=encrypt(

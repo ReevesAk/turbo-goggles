@@ -23,8 +23,8 @@ SEX = (
 
 ADDRESS_VERIFICATION_STATUS = (
     ("Pending", "Pending"),
-    ("Failure", "Failure"),
-    ("Success", "Success"),
+    ("Failed", "Failed"),
+    ("Successful", "Successful"),
     ("Approved", "Approved"),
 )
 

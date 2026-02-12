@@ -301,10 +301,6 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
-    parser_classes = (
-        MultiPartParser,
-        JSONParser,
-    )
 
     def post(self, request, *args, **kwargs):
         current_admin = request.user
@@ -366,11 +362,19 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                     data=encrypt(response_data),
                     status=upgrade_response.status_code,
                 )
+
+            account = WalletModel.objects.get(account_number=wallet.account_number)
+            address_verification = AddressVerificationModel.objects.get(
+                user=account.user,
+            )
+            address_verification.status = "Approved"
+            address_verification.save()
+
             return Response(
                 data=encrypt(
                     {
                         "status": "success",
-                        "message": "Wallet upgraded to Tier 3 successfully.",
+                        "message": "Wallet upgrade request to Tier 3 sent successfully.",
                     }
                 ),
                 status=status.HTTP_200_OK,
