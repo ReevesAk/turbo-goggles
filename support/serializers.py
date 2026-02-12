@@ -259,15 +259,17 @@ class AddAgentSerializer(serializers.ModelSerializer):
         fields = ["id", "role", "full_name", "email", "pin"]
         extra_kwargs = {"email": {"required": True}}
 
-    def validate(self, attrs):
-        return super().validate(attrs)
-
     def create(self, validated_data):
         user_types = validated_data.pop("role", [])
         validated_data.pop("pin", None)
-        user = super().create(validated_data)
 
-        # Assign multiple AccountType entries based on roles
+        user = User(**validated_data)
+
+        # 🔐 CRITICAL: Disable password until signup completion
+        user.set_unusable_password()
+        user.is_verified = False
+        user.save()
+
         AccountType.objects.bulk_create(
             [AccountType(user=user, user_type=user_type) for user_type in user_types]
         )
