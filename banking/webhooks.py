@@ -519,6 +519,11 @@ class RedirectingPageView(View):
         return HttpResponse("Redirecting...")
 
 
+class DojahRedirectingPageView(View):
+    def get(self, request, *args, **kwargs):
+        return HttpResponse("Address verification done, redirecting page...")
+
+
 class AddressVerificationWebhookView(generics.GenericAPIView):
     """
     AddressVerificationWebhookView handles POST webhooks from the address verification service.

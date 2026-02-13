@@ -34,6 +34,7 @@ from .webhooks import (
     CardDepositPaystackWebhook,
     VerifyCardPaymentTransaction,
     RedirectingPageView,
+    DojahRedirectingPageView,
     WebhookDispatcherView,
     InflowsWebhookNotificationView,
     AccountUpgradeWebhookNotificationView,
@@ -121,6 +122,7 @@ urlpatterns = [
         name="verify_card_deposit",
     ),
     path("redirecting", RedirectingPageView.as_view(), name="redirecting"),
+    path("dojah/redirect", DojahRedirectingPageView.as_view(), name="redirecting"),
     # Account + Notifications
     path("account-details", GetAccountDetails.as_view(), name="account_details"),
     path("notification", NotificationView.as_view(), name="notification"),
