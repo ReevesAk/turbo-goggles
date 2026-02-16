@@ -237,10 +237,11 @@ REST_FRAMEWORK = {
     },
 }
 
-# # CSP configuration.
-# CSP_DEFAULT_SRC = ("'self'",)  # Only allow resources from the same origin
-# CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net")  # Allow external styles from Google Fonts
-# CSP_STYLE_SRC_ELEM = CSP_STYLE_SRC
+CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+    'script-src': ("'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net',),
+    'style-src': ("'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net',),
+}
 
 # CSP_SCRIPT_SRC = (
 #     "'self'",
