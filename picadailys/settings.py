@@ -259,40 +259,47 @@ CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https
 
 
 CONTENT_SECURITY_POLICY = {
-    'DIRECTIVES': {
-        'default-src': ("'self'",),
-        'img-src': (
-            "'self'",
-            'data:',
-            'https://res.cloudinary.com/dzsnvj9qr',
-            'https://cdn.jsdelivr.net',
-        ),
-        'script-src': (
-            "'self'",
-            "'unsafe-inline'",
-            'blob:',
-            'http://localhost:5174',
-            'https://api.picadailys.com/',
-            'https://cdn.jsdelivr.net',
-            'https://admin-dashboard-jade-phi.vercel.app',
-            'https://admin.picadailys.com',
-            'https://miniature-waddle-k5bz.onrender.com/api/v1',
-            '127.0.0.1:8000/api/v1',
-        ),
-        'style-src': (
-            "'self'",
-            "'unsafe-inline'",
-            'https://fonts.googleapis.com',
-            'https://cdn.jsdelivr.net',
-        ),
-        'style-src-elem': (
-            "'self'",
-            "'unsafe-inline'",
-            'https://fonts.googleapis.com',
-            'https://cdn.jsdelivr.net',
-        ),
-    }
+    'default-src': ("'self'",),
+
+    # Styles (CSS)
+    'style-src': (
+        "'self'",
+        "'unsafe-inline'",               # allow inline styles
+        'https://cdn.jsdelivr.net',      # allow Swagger/Redoc CSS
+        'https://fonts.googleapis.com',  # allow Google Fonts
+    ),
+    'style-src-elem': (
+        "'self'",
+        "'unsafe-inline'",
+        'https://cdn.jsdelivr.net',
+        'https://fonts.googleapis.com',
+    ),
+
+    # Scripts
+    'script-src': (
+        "'self'",
+        "'unsafe-inline'",
+        'blob:',
+        'https://cdn.jsdelivr.net',
+        'https://unpkg.com',
+        'https://cdnjs.cloudflare.com',
+    ),
+
+    # Fonts
+    'font-src': (
+        "'self'",
+        'https://fonts.gstatic.com',
+    ),
+
+    # Images
+    'img-src': (
+        "'self'",
+        'data:',
+        'https://res.cloudinary.com/dzsnvj9qr',
+        'https://cdn.jsdelivr.net',
+    ),
 }
+
 
 
 # Enable HTTP Strict Transport Security (HSTS)
