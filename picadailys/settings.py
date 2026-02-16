@@ -261,12 +261,12 @@ CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https
 CONTENT_SECURITY_POLICY = {
     'default-src': ("'self'",),
 
-    # Styles (CSS)
+    # Stylesheets
     'style-src': (
         "'self'",
-        "'unsafe-inline'",               # allow inline styles
-        'https://cdn.jsdelivr.net',      # allow Swagger/Redoc CSS
-        'https://fonts.googleapis.com',  # allow Google Fonts
+        "'unsafe-inline'",           # allow inline styles
+        'https://cdn.jsdelivr.net',  # Swagger / Redoc
+        'https://fonts.googleapis.com', 
     ),
     'style-src-elem': (
         "'self'",
@@ -285,12 +285,6 @@ CONTENT_SECURITY_POLICY = {
         'https://cdnjs.cloudflare.com',
     ),
 
-    # Fonts
-    'font-src': (
-        "'self'",
-        'https://fonts.gstatic.com',
-    ),
-
     # Images
     'img-src': (
         "'self'",
@@ -298,7 +292,22 @@ CONTENT_SECURITY_POLICY = {
         'https://res.cloudinary.com/dzsnvj9qr',
         'https://cdn.jsdelivr.net',
     ),
+
+    # Fonts
+    'font-src': (
+        "'self'",
+        'https://fonts.gstatic.com',
+    ),
+
+    # Optional: API / WebSocket connections
+    'connect-src': (
+        "'self'",
+        'ws://localhost:5174',
+        'http://localhost:8000',
+        'https://api.picadailys.com/',
+    ),
 }
+
 
 
 
