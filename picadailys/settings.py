@@ -4,7 +4,6 @@ import os
 import sys
 import dj_database_url
 import cloudinary
-from django.utils.csp import CSP
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,7 +86,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.middleware.csp.CSPMiddleware",
+    "csp.middleware.CSPMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -135,7 +134,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
-                "django.template.context_processors.csp",
+                "csp.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -239,67 +238,53 @@ REST_FRAMEWORK = {
     },
 }
 
-CONTENT_SECURITY_POLICY = {
-    "default-src": (CSP.SELF,),
+# Use django-csp settings (mozilla/django-csp)
+# Enable nonces for scripts and styles so inline/style elements created at runtime
+# (e.g. by Swagger UI) can run without allowing 'unsafe-inline'.
+CSP_DEFAULT_SRC = ["'self'"]
 
-    # Stylesheets: allow self, the jsdelivr CDN and a per-request nonce
-    "style-src": (
-        CSP.SELF,
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
-        CSP.NONCE,
-    ),
-    "style-src-elem": (
-        CSP.SELF,
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
-        CSP.NONCE,
-    ),
-
-    # Scripts: allow self, blobs, common CDNs and a per-request nonce
-    "script-src": (
-        CSP.SELF,
-        "blob:",
-        "https://cdn.jsdelivr.net",
-        "https://unpkg.com",
-        "https://cdnjs.cloudflare.com",
-        CSP.NONCE,
-    ),
-
-    # Images
-    "img-src": (
-        CSP.SELF,
-        "data:",
-        "https://res.cloudinary.com/dzsnvj9qr",
-        "https://cdn.jsdelivr.net",
-    ),
-
-    # Fonts
-    "font-src": (CSP.SELF, "https://fonts.gstatic.com"),
-
-    # Connections
-    "connect-src": (
-        CSP.SELF,
-        "ws://localhost:5174",
-        "http://localhost:8000",
-        "https://api.picadailys.com/",
-    ),
-}
-
-# Deprecated/legacy CSP_* variables left for compatibility if needed by third-party
-CSP_SCRIPT_SRC = (
-    CSP.SELF,
-    "blob:",
-    "http://localhost:5174",
-    "https://api.picadailys.com/",
+CSP_STYLE_SRC = [
+    "'self'",
     "https://cdn.jsdelivr.net",
-    "https://admin-dashboard-jade-phi.vercel.app",
-    "https://admin.picadailys.com",
-    "https://miniature-waddle-k5bz.onrender.com/api/v1",
-    "127.0.0.1:8000/api/v1",
-)  # Allow external scripts
+    "https://fonts.googleapis.com",
+]
+CSP_STYLE_SRC_ELEM = [
+    "'self'",
+    "https://cdn.jsdelivr.net",
+    "https://fonts.googleapis.com",
+]
 
-CSP_IMG_SRC = (CSP.SELF, "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
+# Allow this specific inline style hash that browsers reported being blocked
+# (stable across this deployed Swagger UI build). Remove if it changes.
+CSP_STYLE_SRC.append("'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='")
+CSP_STYLE_SRC_ELEM.append("'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='")
+
+CSP_SCRIPT_SRC = [
+    "'self'",
+    "blob:",
+    "https://cdn.jsdelivr.net",
+    "https://unpkg.com",
+    "https://cdnjs.cloudflare.com",
+]
+
+CSP_IMG_SRC = [
+    "'self'",
+    "data:",
+    "https://res.cloudinary.com/dzsnvj9qr",
+    "https://cdn.jsdelivr.net",
+]
+
+CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com"]
+
+CSP_CONNECT_SRC = [
+    "'self'",
+    "ws://localhost:5174",
+    "http://localhost:8000",
+    "https://api.picadailys.com/",
+]
+
+# Include per-response nonces for script/style directives
+CSP_INCLUDE_NONCE_IN = ["script-src", "style-src"]
 
 
 
