@@ -4,6 +4,7 @@ import os
 import sys
 import dj_database_url
 import cloudinary
+from django.utils.csp import CSP
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -86,7 +87,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "csp.middleware.CSPMiddleware",
+    "django.middleware.csp.CSPMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -134,6 +135,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -238,14 +240,55 @@ REST_FRAMEWORK = {
 }
 
 CONTENT_SECURITY_POLICY = {
-    'default-src': ("'self'",),
-    'script-src': ("'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net',),
-    'style-src': ("'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net',),
+    "default-src": (CSP.SELF,),
+
+    # Stylesheets: allow self, the jsdelivr CDN and a per-request nonce
+    "style-src": (
+        CSP.SELF,
+        "https://cdn.jsdelivr.net",
+        "https://fonts.googleapis.com",
+        CSP.NONCE,
+    ),
+    "style-src-elem": (
+        CSP.SELF,
+        "https://cdn.jsdelivr.net",
+        "https://fonts.googleapis.com",
+        CSP.NONCE,
+    ),
+
+    # Scripts: allow self, blobs, common CDNs and a per-request nonce
+    "script-src": (
+        CSP.SELF,
+        "blob:",
+        "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
+        "https://cdnjs.cloudflare.com",
+        CSP.NONCE,
+    ),
+
+    # Images
+    "img-src": (
+        CSP.SELF,
+        "data:",
+        "https://res.cloudinary.com/dzsnvj9qr",
+        "https://cdn.jsdelivr.net",
+    ),
+
+    # Fonts
+    "font-src": (CSP.SELF, "https://fonts.gstatic.com"),
+
+    # Connections
+    "connect-src": (
+        CSP.SELF,
+        "ws://localhost:5174",
+        "http://localhost:8000",
+        "https://api.picadailys.com/",
+    ),
 }
 
+# Deprecated/legacy CSP_* variables left for compatibility if needed by third-party
 CSP_SCRIPT_SRC = (
-    "'self'",
-    "'unsafe-inline'",
+    CSP.SELF,
     "blob:",
     "http://localhost:5174",
     "https://api.picadailys.com/",
@@ -255,58 +298,8 @@ CSP_SCRIPT_SRC = (
     "https://miniature-waddle-k5bz.onrender.com/api/v1",
     "127.0.0.1:8000/api/v1",
 )  # Allow external scripts
-CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
 
-
-CONTENT_SECURITY_POLICY = {
-    'default-src': ("'self'",),
-
-    # Stylesheets
-    'style-src': (
-        "'self'",
-        "'unsafe-inline'",           # allow inline styles
-        'https://cdn.jsdelivr.net',  # Swagger / Redoc
-        'https://fonts.googleapis.com', 
-    ),
-    'style-src-elem': (
-        "'self'",
-        "'unsafe-inline'",
-        'https://cdn.jsdelivr.net',
-        'https://fonts.googleapis.com',
-    ),
-
-    # Scripts
-    'script-src': (
-        "'self'",
-        "'unsafe-inline'",
-        'blob:',
-        'https://cdn.jsdelivr.net',
-        'https://unpkg.com',
-        'https://cdnjs.cloudflare.com',
-    ),
-
-    # Images
-    'img-src': (
-        "'self'",
-        'data:',
-        'https://res.cloudinary.com/dzsnvj9qr',
-        'https://cdn.jsdelivr.net',
-    ),
-
-    # Fonts
-    'font-src': (
-        "'self'",
-        'https://fonts.gstatic.com',
-    ),
-
-    # Optional: API / WebSocket connections
-    'connect-src': (
-        "'self'",
-        'ws://localhost:5174',
-        'http://localhost:8000',
-        'https://api.picadailys.com/',
-    ),
-}
+CSP_IMG_SRC = (CSP.SELF, "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
 
 
 
