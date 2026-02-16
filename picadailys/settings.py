@@ -243,19 +243,19 @@ CONTENT_SECURITY_POLICY = {
     'style-src': ("'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net',),
 }
 
-# CSP_SCRIPT_SRC = (
-#     "'self'",
-#     "'unsafe-inline'",
-#     "blob:",
-#     "http://localhost:5174",
-#     "https://api.picadailys.com/",
-#     "https://cdn.jsdelivr.net",
-#     "https://admin-dashboard-jade-phi.vercel.app",
-#     "https://admin.picadailys.com",
-#     "https://miniature-waddle-k5bz.onrender.com/api/v1",
-#     "127.0.0.1:8000/api/v1",
-# )  # Allow external scripts
-# CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "blob:",
+    "http://localhost:5174",
+    "https://api.picadailys.com/",
+    "https://cdn.jsdelivr.net",
+    "https://admin-dashboard-jade-phi.vercel.app",
+    "https://admin.picadailys.com",
+    "https://miniature-waddle-k5bz.onrender.com/api/v1",
+    "127.0.0.1:8000/api/v1",
+)  # Allow external scripts
+CSP_IMG_SRC = ("'self'", "data:", "https://res.cloudinary.com/dzsnvj9qr", "https://cdn.jsdelivr.net")  # Allow images from specified sources
 
 
 CONTENT_SECURITY_POLICY = {
