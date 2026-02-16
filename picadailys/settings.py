@@ -346,8 +346,7 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Picadailys API Documentation',
     'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
-    "online intermediary services, e.g" "```Value Added Servies(VAS)```",
-    "```Self-Servives(SELF-SERV)```" "VERSION": "1.0.0",
+    "online intermediary services with Value Added Services (VAS) and Self-Service options.",
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
