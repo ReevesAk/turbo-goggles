@@ -4,6 +4,7 @@ import os
 import sys
 import dj_database_url
 import cloudinary
+from csp.constants import NONCE
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -134,7 +135,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
-                "csp.context_processors.csp",
+                "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -238,53 +239,48 @@ REST_FRAMEWORK = {
     },
 }
 
-# Use django-csp settings (mozilla/django-csp)
-# Enable nonces for scripts and styles so inline/style elements created at runtime
-# (e.g. by Swagger UI) can run without allowing 'unsafe-inline'.
-CSP_DEFAULT_SRC = ["'self'"]
-
-CSP_STYLE_SRC = [
-    "'self'",
-    "https://cdn.jsdelivr.net",
-    "https://fonts.googleapis.com",
-]
-CSP_STYLE_SRC_ELEM = [
-    "'self'",
-    "https://cdn.jsdelivr.net",
-    "https://fonts.googleapis.com",
-]
-
-# Allow this specific inline style hash that browsers reported being blocked
-# (stable across this deployed Swagger UI build). Remove if it changes.
-CSP_STYLE_SRC.append("'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='")
-CSP_STYLE_SRC_ELEM.append("'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='")
-
-CSP_SCRIPT_SRC = [
-    "'self'",
-    "blob:",
-    "https://cdn.jsdelivr.net",
-    "https://unpkg.com",
-    "https://cdnjs.cloudflare.com",
-]
-
-CSP_IMG_SRC = [
-    "'self'",
-    "data:",
-    "https://res.cloudinary.com/dzsnvj9qr",
-    "https://cdn.jsdelivr.net",
-]
-
-CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com"]
-
-CSP_CONNECT_SRC = [
-    "'self'",
-    "ws://localhost:5174",
-    "http://localhost:8000",
-    "https://api.picadailys.com/",
-]
-
-# Include per-response nonces for script/style directives
-CSP_INCLUDE_NONCE_IN = ["script-src", "style-src"]
+# Use django-csp v4 configuration format (new style)
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        "script-src": [
+            "'self'",
+            "blob:",
+            "https://cdn.jsdelivr.net",
+            "https://unpkg.com",
+            "https://cdnjs.cloudflare.com",
+            NONCE,
+        ],
+        "style-src": [
+            "'self'",
+            "https://cdn.jsdelivr.net",
+            "https://fonts.googleapis.com",
+            "'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='",
+            NONCE,
+        ],
+        "style-src-elem": [
+            "'self'",
+            "https://cdn.jsdelivr.net",
+            "https://fonts.googleapis.com",
+            "'sha256-MMpT0iDxyjALd9PdfepImGX3DBfJPXZ4IlDWdPAgtn0='",
+            NONCE,
+        ],
+        "img-src": [
+            "'self'",
+            "data:",
+            "https://res.cloudinary.com/dzsnvj9qr",
+            "https://cdn.jsdelivr.net",
+        ],
+        "font-src": ["'self'", "https://fonts.gstatic.com"],
+        "connect-src": [
+            "'self'",
+            "ws://localhost:5174",
+            "http://localhost:8000",
+            "https://api.picadailys.com/",
+        ],
+    }
+}
+CONTENT_SECURITY_POLICY_REPORT_ONLY = False
 
 
 
