@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
-
 CONTACT_TYPE = (
     ("Personal Use", "Personal Use"),
     ("Business Use", "Business Use"),

@@ -8,7 +8,6 @@ from decouple import config
 from rest_framework import status
 from rest_framework.response import Response
 
-
 vas_username = config("VAS_USERNAME")
 vas_password = config("VAS_PASSWORD")
 vas_base_url = config("VAS_BASE_URL")

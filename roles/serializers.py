@@ -354,9 +354,7 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
     bvn = serializers.SerializerMethodField()
     nin = serializers.SerializerMethodField()
 
-    profile_img = serializers.CharField(
-        source="user.profile_img_url", read_only=True
-    )
+    profile_img = serializers.CharField(source="user.profile_img_url", read_only=True)
 
     class Meta:
         model = WalletModel
@@ -384,9 +382,7 @@ class ListWalletUsersSerializer(serializers.ModelSerializer):
         return getattr(getattr(obj.user, "kyc", None), "nin", None)
 
     def get_userTypes(self, obj):
-        return list(
-            obj.user.account_types.values_list("user_type", flat=True)
-        )
+        return list(obj.user.account_types.values_list("user_type", flat=True))
 
     def get_recentTransactions(self, obj):
         tx_list = getattr(obj.user, "last_five_tx", [])
@@ -552,8 +548,34 @@ class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
     pin = serializers.CharField(min_length=5, write_only=True)
     bvn = serializers.CharField(max_length=12, write_only=True, required=True)
     nin = serializers.CharField(max_length=12, write_only=True, required=True)
-    proofOfAddressVerification = serializers.FileField(write_only=True, required=True)
+    proofOfAddressVerification = serializers.CharField(
+        max_length=12, write_only=True, required=True
+    )
 
     class Meta:
         model = WalletUpgrade
         fields = ["id", "pin", "bvn", "nin", "proofOfAddressVerification"]
+
+
+class MemberSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(
+        source="walletmodel.balance", max_digits=10, decimal_places=2, read_only=True
+    )
+    wallet_status = serializers.BooleanField(
+        source="walletmodel.status", read_only=True
+    )
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "name",
+            "email",
+            "balance",
+            "wallet_status",
+        ]
+
+    def get_name(self, obj):
+        if obj.full_name:
+            return obj.full_name
+        return f"{obj.first_name or ''} {obj.last_name or ''}".strip()

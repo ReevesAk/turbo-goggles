@@ -6,7 +6,6 @@ from rest_framework import serializers
 # In project imports.
 from .models import User
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -5,7 +5,6 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from decouple import config
 
-
 # Load the AES key and IV from environment.
 AES_KEY = config("AES_KEY")
 AES_IV = config("AES_IV")

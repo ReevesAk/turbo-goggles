@@ -13,7 +13,6 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.template.loader import render_to_string
 
-
 # Third party imports.
 from rest_framework import generics
 from rest_framework.response import Response
@@ -600,7 +599,9 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
         user_wallet = WalletModel.objects.filter(user=current_user).first()
         if not user_wallet:
             return Response(
-                data=encrypt({"status": "fail", "message": "Wallet not found for user."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Wallet not found for user."}
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -632,9 +633,11 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             dob = ""
 
             # Store with user_id as reference_id for webhook matching
-            address_verification, created = AddressVerificationModel.objects.get_or_create(
-                reference_id=reference_id,
-                defaults={"user": current_user},
+            address_verification, created = (
+                AddressVerificationModel.objects.get_or_create(
+                    reference_id=reference_id,
+                    defaults={"user": current_user},
+                )
             )
             if created:
                 logger.info(f"Created new address verification for {reference_id}")

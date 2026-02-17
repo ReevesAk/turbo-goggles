@@ -9,7 +9,6 @@ from .views import (
     BillPaymentView,
 )
 
-
 app_name = "vas"
 
 

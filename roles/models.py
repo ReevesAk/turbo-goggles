@@ -6,7 +6,6 @@ from accounts.models import User
 
 from basemodel import BaseModel
 
-
 ADMIN_TYPES = (
     ("TaskAdmin", "TaskAdmin"),
     ("AdAdmin", "AdAdmin"),
