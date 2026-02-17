@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title|default:"API docs" }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.css">
+</head>
+
+<body>
+    <div id="redoc-container"></div>
+    <script nonce="{{ csp_nonce }}"
+        src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"></script>
+    <script nonce="{{ csp_nonce }}">
+        Redoc.init("{% url 'schema' %}", {}, document.getElementById('redoc-container'));
+    </script>
+</body>
+
+</html>

@@ -241,6 +241,14 @@ REST_FRAMEWORK = {
 
 # Use django-csp v4 configuration format (new style)
 CONTENT_SECURITY_POLICY = {
+    # Exclude the interactive docs endpoints because ReDoc/Swagger inject
+    # styles at runtime (CSSOM/insertRule) which some CSP directives block.
+    # Excluding them keeps CSP protection for the rest of the app while
+    # allowing the docs to render normally.
+    "EXCLUDE_URL_PREFIXES": [
+        "/v1/docs/",
+        "/v1/redoc/",
+    ],
     "DIRECTIVES": {
         "default-src": ["'self'"],
         "script-src": [
