@@ -39,7 +39,6 @@ from commons import Biometrics, Pay
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 
-
 SERVICES = (
     ("restaurant", "restaurant"),
     ("gym", "gym"),

@@ -248,18 +248,19 @@ class UserKYCListView(generics.ListAPIView):
         ).order_by("-created_at")
 
         queryset = (
-            User.objects
-            .filter(walletmodel__isnull=False)
+            User.objects.filter(walletmodel__isnull=False)
             .filter(address_verifications__isnull=False)
             .distinct()
             .annotate(
                 account_name=Subquery(
-                    WalletModel.objects.filter(user=OuterRef("pk"))
-                    .values("acct_name")[:1]
+                    WalletModel.objects.filter(user=OuterRef("pk")).values("acct_name")[
+                        :1
+                    ]
                 ),
                 account_number=Subquery(
-                    WalletModel.objects.filter(user=OuterRef("pk"))
-                    .values("account_number")[:1]
+                    WalletModel.objects.filter(user=OuterRef("pk")).values(
+                        "account_number"
+                    )[:1]
                 ),
                 address_verification_status=Subquery(
                     latest_address_verification.values("status")[:1]
@@ -341,11 +342,9 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
-        proof_of_address_verification_file = serializer.validated_data.get(
+        proof_of_address_verification_url = serializer.validated_data.get(
             "proofOfAddressVerification"
         )
-        upload_proof = cloud.upload(file=proof_of_address_verification_file)
-        proof_of_address_verification_url = upload_proof["url"]
 
         # Perform the upgrade logic here
         try:
@@ -385,7 +384,3 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 data=encrypt({"error": str(e)}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-    def upload_image(self, image_data):
-        doc_image = cloud.upload(file=image_data)
-        self.uploaded_doc_url = doc_image["url"]

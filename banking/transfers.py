@@ -288,12 +288,16 @@ class IntraBankTransfer(generics.CreateAPIView):
                         "status": "success",
                         "message": "Transfer successful.",
                         "data": {
-                            "credit_account": transfer.beneficiary_account_number
-                            if transfer
-                            else payload.get("beneficiary_account_number"),
-                            "debit_account": transfer.sender_account_number
-                            if transfer
-                            else payload.get("sender_account_number"),
+                            "credit_account": (
+                                transfer.beneficiary_account_number
+                                if transfer
+                                else payload.get("beneficiary_account_number")
+                            ),
+                            "debit_account": (
+                                transfer.sender_account_number
+                                if transfer
+                                else payload.get("sender_account_number")
+                            ),
                             "amount": str(existing_tx.amount),
                             "narration": existing_tx.description,
                             "beneficiaryBank": "Picadailys/9PSB",
@@ -544,12 +548,16 @@ class InterBankTransfer(generics.CreateAPIView):
                         "status": "success",
                         "message": "Transfer successful.",
                         "data": {
-                            "credit_account": transfer.beneficiary_account_number
-                            if transfer
-                            else payload.get("beneficiary_account_number"),
-                            "debit_account": transfer.sender_account_number
-                            if transfer
-                            else payload.get("sender_account_number"),
+                            "credit_account": (
+                                transfer.beneficiary_account_number
+                                if transfer
+                                else payload.get("beneficiary_account_number")
+                            ),
+                            "debit_account": (
+                                transfer.sender_account_number
+                                if transfer
+                                else payload.get("sender_account_number")
+                            ),
                             "amount": str(existing_tx.amount),
                             "narration": existing_tx.description,
                             "beneficiaryBank": payload.get("beneficiary_bank_code"),

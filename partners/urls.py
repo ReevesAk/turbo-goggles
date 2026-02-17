@@ -15,7 +15,6 @@ from .views import (
     PartnerServiceDetailView,
 )
 
-
 app_name = "partners"
 
 

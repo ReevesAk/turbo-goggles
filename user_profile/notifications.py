@@ -16,7 +16,6 @@ from .serializers import (
 from accounts.models import UserNotification
 from security import encrypt
 
-
 logger = logging.getLogger(__name__)
 
 

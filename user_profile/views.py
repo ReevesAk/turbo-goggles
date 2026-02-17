@@ -56,7 +56,6 @@ from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 
-
 logger = logging.getLogger(__name__)
 
 

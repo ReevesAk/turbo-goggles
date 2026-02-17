@@ -9,7 +9,6 @@ from rest_framework.validators import ValidationError
 from rest_framework.response import Response
 from rest_framework import status
 
-
 app_id = config("APP_ID")
 authorization = config("AUTHORIZATION")
 base_url = config("DOJAH_BBASE_URL")

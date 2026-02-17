@@ -38,7 +38,6 @@ from gamification.points import Points
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
 
-
 logger = logging.getLogger("accounts")
 
 

@@ -32,7 +32,6 @@ from banking.models import WalletModel
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 
-
 logger = logging.getLogger(__name__)
 
 

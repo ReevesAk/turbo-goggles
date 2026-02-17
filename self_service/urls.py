@@ -23,7 +23,6 @@ from .views import (
     GetTransaction,
 )
 
-
 app_name = "self-service"
 
 

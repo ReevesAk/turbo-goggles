@@ -45,7 +45,6 @@ from .models import ValueAddedServices
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
 
-
 # vtpass_url = config("VT_PASS_BASE_URL")
 # x_secret = config("VT_PASS_SECRET_KEY")
 # api_key = config("VT_PASS_API_KEY")

@@ -61,9 +61,9 @@ from .brand import (
     AdStatsView,
     ApproveAd,
 )
+from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
-
 
 app_name = "roles"
 
@@ -220,4 +220,6 @@ urlpatterns = [
         AdminDashboardDataView.as_view(),
         name="admin_dashboard_data",
     ),
+    # Member endpoints.
+    path("members/all", AllMembersView.as_view(), name="all_members"),
 ]

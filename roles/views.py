@@ -2048,9 +2048,7 @@ class GetAllAdminActivites(generics.ListAPIView):
             authorised_by = (
                 activity.user.full_name
                 if activity.user and activity.user.full_name
-                else activity.user.email
-                if activity.user
-                else "Unknown"
+                else activity.user.email if activity.user else "Unknown"
             )
             data.append(
                 {

@@ -3,7 +3,6 @@ import uuid
 
 from accounts.models import User
 
-
 BUSINESS_CATEGORY = (
     ("Travel and Leisure", "Travel and Leisure"),
     ("Food and Drinks", "Food and Drinks"),

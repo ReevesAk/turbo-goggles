@@ -31,7 +31,6 @@ from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt, decrypt
 from commons import Messaging
 
-
 logger = logging.getLogger(__name__)
 
 
