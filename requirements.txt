@@ -13,6 +13,7 @@ django-crontab==0.7.1
 django-csp==4.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
+django-redis==5.4.0
 drf-spectacular==0.29.0
 drf-yasg==1.21.14
 flake8==7.3.0
