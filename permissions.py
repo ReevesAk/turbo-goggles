@@ -336,6 +336,23 @@ class IsPartnerAdminOrSuperAdmin(permissions.BasePermission):
         return False
 
 
+class IsMemberAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an MemberAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either MemberAdmin or SuperAdmin
+        if request.user.active_role == 'MemberAdmin' or request.user.active_role == 'SuperAdmin':
+            return True
+
+        return False
+
 class IsAdAdminOrSuperAdmin(permissions.BasePermission):
     """
     Custom permission that grants access if the user is authenticated and

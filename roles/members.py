@@ -13,7 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User
-from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
+from permissions import IsNotDisabled, IsMemberAdminOrSuperAdmin
 
 from security import encrypt, decrypt
 
@@ -22,12 +22,8 @@ logger = logging.getLogger(__name__)
 
 class AllMembersView(generics.ListAPIView):
     serializer_class = MemberSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [
-        JWTAuthentication,
-        IsNotDisabled,
-        IsPartnerAdminOrSuperAdmin,
-    ]
+    permission_classes = [IsAuthenticated, IsNotDisabled, IsMemberAdminOrSuperAdmin]
+    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         members = (
