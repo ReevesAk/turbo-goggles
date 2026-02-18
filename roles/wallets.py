@@ -314,7 +314,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
             )
 
         try:
-            wallet = get_object_or_404(UserKYC, bvn=payload.get("bvn"))
+            user_kyc = get_object_or_404(UserKYC, bvn=payload.get("bvn"))
         except UserKYC.DoesNotExist:
             return Response(
                 data=encrypt({"error": "User with this BVN does not exist."}),
@@ -325,6 +325,15 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
             return Response(
                 data=encrypt({"status": "fail", "message": "Invalid PIN."}),
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Fetch the wallet for the user associated with this KYC record
+        try:
+            wallet = WalletModel.objects.get(user=user_kyc.user)
+        except WalletModel.DoesNotExist:
+            return Response(
+                data=encrypt({"error": "Wallet for this user does not exist."}),
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if wallet.tier_level >= 2:
