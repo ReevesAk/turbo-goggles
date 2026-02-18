@@ -527,8 +527,9 @@ class AdminDdashboardDataSerializer(serializers.Serializer):
 
 
 class WalletKYCSerializer(serializers.ModelSerializer):
-    bvn = serializers.CharField(source="user.bvn", read_only=True)
-    nin = serializers.CharField(source="user.nin", read_only=True)
+    # bvn/nin are stored on the related UserKYC model (`user.kyc`)
+    bvn = serializers.CharField(source="user.kyc.bvn", read_only=True)
+    nin = serializers.CharField(source="user.kyc.nin", read_only=True)
     address_verification_status = serializers.CharField(read_only=True)
 
     class Meta:

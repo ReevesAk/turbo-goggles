@@ -242,34 +242,30 @@ class UserKYCListView(generics.ListAPIView):
     ]
 
     def get(self, request):
-        latest_address_verification = AddressVerificationModel.objects.filter(
-            user=OuterRef("pk"),
-            user__isnull=False,
-        ).order_by("-created_at")
+        # build a subquery to fetch the most recent verification status for the
+        # wallet's user. the wallet model has a FK to `user`, so we reference
+        # ``user`` on the subquery.
+        latest_address_verification = (
+            AddressVerificationModel.objects.filter(
+                user=OuterRef("user"),
+            )
+            .order_by("-created_at")
+            .values("status")
+        )
 
+        # base queryset: wallets whose owner has at least one address
+        # verification record
         queryset = (
-            User.objects.filter(walletmodel__isnull=False)
-            .filter(address_verifications__isnull=False)
+            WalletModel.objects.filter(user__isnull=False)
+            # use the related_name from AddressVerificationModel
+            .filter(user__address_verifications__isnull=False)
             .distinct()
             .annotate(
-                account_name=Subquery(
-                    WalletModel.objects.filter(user=OuterRef("pk")).values("acct_name")[
-                        :1
-                    ]
-                ),
-                account_number=Subquery(
-                    WalletModel.objects.filter(user=OuterRef("pk")).values(
-                        "account_number"
-                    )[:1]
-                ),
-                address_verification_status=Subquery(
-                    latest_address_verification.values("status")[:1]
-                ),
+                address_verification_status=Subquery(latest_address_verification[:1])
             )
         )
 
         serializer = WalletKYCSerializer(queryset, many=True)
-
         return Response(
             encrypt(serializer.data),
             status=status.HTTP_200_OK,
