@@ -549,7 +549,7 @@ class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
     bvn = serializers.CharField(max_length=12, write_only=True, required=True)
     nin = serializers.CharField(max_length=12, write_only=True, required=True)
     proofOfAddressVerification = serializers.CharField(
-        max_length=12, write_only=True, required=True
+        max_length=150, write_only=True, required=True
     )
 
     class Meta:
