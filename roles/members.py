@@ -44,23 +44,27 @@ class AllMembersView(generics.ListAPIView):
             return Response(data=encrypt(cached_response), status=status.HTTP_200_OK)
 
         queryset = self.get_queryset()
+        total_members = queryset.count()
         page = self.paginate_queryset(queryset)
 
-        if page is not None:
-            serialized_users = self.get_serializer(page, many=True)
-
-            response_data = {
-                "status": "success",
-                "message": "All members retrieved successfully",
-                "No of Members": queryset.count(),
-                "Members object": serialized_users.data,
-            }
-        else:
+        if total_members == 0:
             response_data = {
                 "status": "success",
                 "message": "No member found.",
                 "No of Members": 0,
                 "Members object": [],
+            }
+        else:
+            if page is not None:
+                serialized_users = self.get_serializer(page, many=True)
+            else:
+                serialized_users = self.get_serializer(queryset, many=True)
+
+            response_data = {
+                "status": "success",
+                "message": "All members retrieved successfully",
+                "No of Members": total_members,
+                "Members object": serialized_users.data,
             }
 
         cache.set(cache_key, response_data, timeout=300)  # 5 minutes
