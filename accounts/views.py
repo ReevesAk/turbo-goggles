@@ -283,7 +283,14 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             )
             logger.info("Activity logged for user %s verification.", user.id)
 
-            verified_response = {"status": "success", "message": "Account is verified"}
+            # Create JWT tokens
+            tokens = create_jwt_pair_for_user(user)
+            logger.info("JWT tokens generated for user %s", user.phone_number)
+            verified_response = {
+                "status": "success",
+                "message": "Account is verified",
+                "tokens": tokens,
+            }
             encrypted_response = encrypt(verified_response)
             return Response(data=encrypted_response, status=status.HTTP_200_OK)
         else:
