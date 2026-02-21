@@ -2406,6 +2406,83 @@ class AdminDashboardDataView(APIView):
             "WalletAdmin",
         ]
 
+        # --- Cashflow (income activity) calculations ---
+        from django.db import models
+        from django.db.models import Sum
+        from django.utils import timezone as dj_timezone
+        from banking.models import TransferModel, FundWithCard
+        from vas.models import ValueAddedServices
+        from django.db.models.functions import Cast
+        from django.db.models import FloatField
+
+        now = dj_timezone.now()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_of_week = start_of_today - dj_timezone.timedelta(
+            days=start_of_today.weekday()
+        )
+        start_of_month = start_of_today.replace(day=1)
+        start_of_year = start_of_today.replace(month=1, day=1)
+
+        def get_transfer_sum(start, end, direction=None):
+            qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
+            if direction == "inbound":
+                qs = qs.filter(
+                    transaction_type__in=["INBOUND", "CREDIT", "INTRA_BANK_IN"]
+                )
+            elif direction == "outbound":
+                qs = qs.filter(
+                    transaction_type__in=["OUTBOUND", "DEBIT", "INTRA_BANK_OUT"]
+                )
+            return qs.aggregate(total=Sum("amount")).get("total") or 0
+
+        def get_card_deposit_sum(start, end):
+            return (
+                FundWithCard.objects.filter(
+                    created_at__gte=start, created_at__lt=end, is_processed=True
+                )
+                .aggregate(total=Sum("amount"))
+                .get("total")
+                or 0
+            )
+
+        def get_bill_payment_sum(start, end):
+            # Only include successful/paid bills
+            bills = ValueAddedServices.objects.filter(
+                created_at__gte=start,
+                created_at__lt=end,
+                status__in=["successful", "paid", "success"],
+            )
+            # Cast amount to float for aggregation
+            return (
+                bills.annotate(amount_float=Cast("amount", FloatField()))
+                .aggregate(total=models.Sum("amount_float"))
+                .get("total")
+                or 0
+            )
+
+        def get_cashflow(start, end):
+            inbound = get_transfer_sum(start, end, direction="inbound")
+            outbound = get_transfer_sum(start, end, direction="outbound")
+            card_deposit = get_card_deposit_sum(start, end)
+            bill_payments = get_bill_payment_sum(start, end)
+            return {
+                "inbound": float(inbound),
+                "outbound": float(outbound),
+                "card_deposit": float(card_deposit),
+                "bill_payments": float(bill_payments),
+                "net": float(inbound)
+                + float(card_deposit)
+                - float(outbound)
+                - float(bill_payments),
+            }
+
+        cashflow = {
+            "daily": get_cashflow(start_of_today, now),
+            "weekly": get_cashflow(start_of_week, now),
+            "monthly": get_cashflow(start_of_month, now),
+            "yearly": get_cashflow(start_of_year, now),
+        }
+
         data = {
             "total_wallet_users": User.objects.filter(has_wallet=True).count(),
             "total_partners": User.objects.filter(account_types__user_type="Partner")
@@ -2432,6 +2509,7 @@ class AdminDashboardDataView(APIView):
             ).count(),
             "total_closed_tickets": Ticket.objects.filter(status="Closed").count(),
             "total_logins": User.objects.filter(last_login__date=today).count(),
+            "cashflow": cashflow,
         }
 
         serializer = AdminDdashboardDataSerializer(data)

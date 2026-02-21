@@ -524,6 +524,7 @@ class AdminDdashboardDataSerializer(serializers.Serializer):
     total_live_tickets = serializers.IntegerField()
     total_closed_tickets = serializers.IntegerField()
     total_logins = serializers.IntegerField()
+    cashflow = serializers.DictField(child=serializers.DictField(), required=False)
 
 
 class WalletKYCSerializer(serializers.ModelSerializer):
