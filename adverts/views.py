@@ -56,104 +56,105 @@ class OnboardBrandAdvertsAccount(generics.GenericAPIView):
             authenticated_user.email,
         )
 
-        if serializer.is_valid(raise_exception=True):
-            urls = ["facebook", "twitter", "instagram", "telegram"]
-            url_validator = URLValidator()
-
-            for field_name in urls:
-                url = user_data.get(field_name, "")
-
-                if url:
-                    # Check if the URL has a scheme; if not, prepend 'https://'
-                    parsed_url = urlparse(url)
-                    if not parsed_url.scheme:
-                        url = f"https://{url}"
-
-                    try:
-                        url_validator(url)
-                        logger.debug(f"{field_name} URL validated: {url}")
-                    except DjangoValidationError:
-                        logger.error(f"Invalid URL format for {field_name}: {url}")
-                        response_data = {
-                            "status": "fail",
-                            "message": f"{field_name}: Invalid URL format",
-                        }
-                        return Response(
-                            data=encrypt(response_data),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                    user_data[field_name] = url
-
-            # Save the new brand advert data
-            try:
-                serializer.save()
-                logger.info("Brand user Onboarded successfully")
-            except Exception as e:
-                logger.error(f"Error onboarding brand user: {e}")
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "An error occurred while onboarding the user.",
-                        }
-                    ),
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            logger.info(
-                "Brand advert data saved successfully for user: %s",
-                authenticated_user.email,
+        if not serializer.is_valid(raise_exception=True):
+            logger.warning(
+                f"Serializer validation failed for user {authenticated_user.first_name} {authenticated_user.last_name}: {serializer.errors}"
             )
-
-            # Create a user notification
-            UserNotification.objects.create(
-                user=authenticated_user,
-                title="Brand Account",
-                message="Brand advert account created successfully.",
-            )
-            logger.info("User notification created for brand advert account.")
-
-            # Retrieve the saved brand user and update account type
-            brand_user = User.objects.get(email=authenticated_user.email)
-            AccountType.objects.create(user=brand_user, user_type="BrandAd")
-            brand_user.active_role = "BrandAd"
-            brand_user.save()
-            logger.info("User's active role set to 'BrandAd' and AccountType updated.")
-
-            # Log the activity for the user's brand registration
-            ActivityModel.objects.create(
-                user=brand_user,
-                title="Brand Register",
-                description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}.",
-            )
-            logger.info(
-                "Activity logged for brand registration of user: %s", brand_user.email
-            )
-
-            # Build the response
-            response = {
-                "status": "success",
-                "message": "Brand advert account created successfully.",
-                "data": {
-                    "whoareyou": user_data.get("whoareyou"),
-                    "name": user_data.get("name"),
-                    "address": user_data.get("address"),
-                    "brand_email": user_data.get("brand_email"),
-                    "brand_type": user_data.get("brand_type"),
-                    "brand_name": user_data.get("brand_name"),
-                    "facebook": user_data.get("facebook"),
-                    "twitter": user_data.get("twitter"),
-                    "instagram": user_data.get("instagram"),
-                    "telegram": user_data.get("telegram"),
-                },
-            }
-            return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
-        else:
-            # Log errors if serializer is invalid
-            logger.error("Failed to create brand advert account: %s", serializer.errors)
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
+
+        urls = ["facebook", "twitter", "instagram", "telegram"]
+        url_validator = URLValidator()
+
+        for field_name in urls:
+            url = user_data.get(field_name, "")
+
+            if url:
+                # Check if the URL has a scheme; if not, prepend 'https://'
+                parsed_url = urlparse(url)
+                if not parsed_url.scheme:
+                    url = f"https://{url}"
+
+                try:
+                    url_validator(url)
+                    logger.debug(f"{field_name} URL validated: {url}")
+                except DjangoValidationError:
+                    logger.error(f"Invalid URL format for {field_name}: {url}")
+                    response_data = {
+                        "status": "fail",
+                        "message": f"{field_name}: Invalid URL format",
+                    }
+                    return Response(
+                        data=encrypt(response_data),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user_data[field_name] = url
+
+        # Save the new brand advert data
+        try:
+            serializer.save()
+            logger.info("Brand user Onboarded successfully")
+        except Exception as e:
+            logger.error(f"Error onboarding brand user: {e}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while onboarding the user.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        logger.info(
+            "Brand advert data saved successfully for user: %s",
+            authenticated_user.email,
+        )
+
+        # Create a user notification
+        UserNotification.objects.create(
+            user=authenticated_user,
+            title="Brand Account",
+            message="Brand advert account created successfully.",
+        )
+        logger.info("User notification created for brand advert account.")
+
+        # Retrieve the saved brand user and update account type
+        brand_user = User.objects.get(email=authenticated_user.email)
+        AccountType.objects.create(user=brand_user, user_type="BrandAd")
+        brand_user.active_role = "BrandAd"
+        brand_user.save()
+        logger.info("User's active role set to 'BrandAd' and AccountType updated.")
+
+        # Log the activity for the user's brand registration
+        ActivityModel.objects.create(
+            user=brand_user,
+            title="Brand Register",
+            description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}.",
+        )
+        logger.info(
+            "Activity logged for brand registration of user: %s", brand_user.email
+        )
+
+        # Build the response
+        response = {
+            "status": "success",
+            "message": "Brand advert account created successfully.",
+            "data": {
+                "whoareyou": user_data.get("whoareyou"),
+                "name": user_data.get("name"),
+                "address": user_data.get("address"),
+                "brand_email": user_data.get("brand_email"),
+                "brand_type": user_data.get("brand_type"),
+                "brand_name": user_data.get("brand_name"),
+                "facebook": user_data.get("facebook"),
+                "twitter": user_data.get("twitter"),
+                "instagram": user_data.get("instagram"),
+                "telegram": user_data.get("telegram"),
+            },
+        }
+        return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
 
 class ListAllBrandAdsUsers(generics.ListAPIView):
