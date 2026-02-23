@@ -1,12 +1,11 @@
 from django.urls import path
 from .views import (
-    OnboardBrandAdvertsAccount,
     ListAllBrandAds,
     ListAllBrandAdsUsers,
     SingleAdDetailView,
     GetBrandAdDetails,
     UpdateBrandAdProfile,
-    CreateAdView,
+    CreateAdAndOnboardBrandView,
     PromoteBrand,
 )
 
@@ -14,7 +13,11 @@ app_name = "adverts"
 
 
 urlpatterns = [
-    path("onboard", OnboardBrandAdvertsAccount.as_view(), name="onboard"),
+    path(
+        "onboard-and-create",
+        CreateAdAndOnboardBrandView.as_view(),
+        name="onboard_and_create",
+    ),
     path(
         "list-all-ads",
         ListAllBrandAds.as_view(),
@@ -28,6 +31,5 @@ urlpatterns = [
     path("get/<int:ad_id>/", SingleAdDetailView.as_view(), name="get_ad"),
     path("profile", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile", UpdateBrandAdProfile.as_view(), name="update_profile"),
-    path("create", CreateAdView.as_view(), name="create"),
     path("promote/<int:ad_id>/", PromoteBrand.as_view(), name="promote"),
 ]

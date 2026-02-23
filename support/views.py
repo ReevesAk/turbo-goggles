@@ -1831,7 +1831,7 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = ListAgentAndModeratorSerializer  # You may rename if needed
     authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsManagerOrSuperAdmin)
+    permission_classes = (IsAuthenticated, IsManagerModeratorOrSuperAdmin)
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):

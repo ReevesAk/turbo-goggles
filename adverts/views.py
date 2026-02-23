@@ -14,7 +14,6 @@ from rest_framework.pagination import PageNumberPagination
 
 # In project imports.
 from .serializers import (
-    OnboardBrandSerializer,
     BrandAdProfileSerializers,
     UpdateBrandAdProfileSerializers,
     CreateAdSerializers,
@@ -39,122 +38,53 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
-class OnboardBrandAdvertsAccount(generics.GenericAPIView):
-    serializer_class = OnboardBrandSerializer
+# Collapsed view: CreateAdAndOnboardBrandView
+class CreateAdAndOnboardBrandView(generics.CreateAPIView):
+    serializer_class = CreateAdSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
-        decrypted_payload = decrypt(request.data)
-        user_data = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
-        }
-        authenticated_user = request.user
-        serializer = self.serializer_class(data=user_data)
-
-        logger.info(
-            "Attempting to create brand advert account for user: %s",
-            authenticated_user.email,
-        )
-
-        if not serializer.is_valid(raise_exception=True):
-            logger.warning(
-                f"Serializer validation failed for user {authenticated_user.first_name} {authenticated_user.last_name}: {serializer.errors}"
-            )
-            return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-        urls = ["facebook", "twitter", "instagram", "telegram"]
-        url_validator = URLValidator()
-
-        for field_name in urls:
-            url = user_data.get(field_name, "")
-
-            if url:
-                # Check if the URL has a scheme; if not, prepend 'https://'
-                parsed_url = urlparse(url)
-                if not parsed_url.scheme:
-                    url = f"https://{url}"
-
-                try:
-                    url_validator(url)
-                    logger.debug(f"{field_name} URL validated: {url}")
-                except DjangoValidationError:
-                    logger.error(f"Invalid URL format for {field_name}: {url}")
-                    response_data = {
-                        "status": "fail",
-                        "message": f"{field_name}: Invalid URL format",
-                    }
-                    return Response(
-                        data=encrypt(response_data),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                user_data[field_name] = url
-
-        # Save the new brand advert data
+    def create(self, request, *args, **kwargs):
         try:
-            serializer.save()
-            logger.info("Brand user Onboarded successfully")
-        except Exception as e:
-            logger.error(f"Error onboarding brand user: {e}")
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "An error occurred while onboarding the user.",
-                    }
-                ),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            decrypted_data = decrypt(request.data)
+            serializer = self.get_serializer(data=decrypted_data)
+            serializer.is_valid(raise_exception=True)
+
+            # Ensure user is a BrandAd (onboarded)
+            user = request.user
+            if not AccountType.objects.filter(user=user, user_type="BrandAd").exists():
+                AccountType.objects.create(user=user, user_type="BrandAd")
+                user.active_role = "BrandAd"
+                user.save()
+
+            serializer.validated_data["user"] = user
+            create_ad = serializer.save()
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Brand Ad Created",
+                description=f"{user} created an Ad successfully.",
             )
 
-        logger.info(
-            "Brand advert data saved successfully for user: %s",
-            authenticated_user.email,
-        )
+            UserNotification.objects.create(
+                user=user,
+                title="Brand Ad Created",
+                message="Your brand ad was created successfully.",
+            )
 
-        # Create a user notification
-        UserNotification.objects.create(
-            user=authenticated_user,
-            title="Brand Account",
-            message="Brand advert account created successfully.",
-        )
-        logger.info("User notification created for brand advert account.")
+            return Response(
+                encrypt(CreateAdSerializers(create_ad).data),
+                status=status.HTTP_201_CREATED,
+            )
 
-        # Retrieve the saved brand user and update account type
-        brand_user = User.objects.get(email=authenticated_user.email)
-        AccountType.objects.create(user=brand_user, user_type="BrandAd")
-        brand_user.active_role = "BrandAd"
-        brand_user.save()
-        logger.info("User's active role set to 'BrandAd' and AccountType updated.")
-
-        # Log the activity for the user's brand registration
-        ActivityModel.objects.create(
-            user=brand_user,
-            title="Brand Register",
-            description=f"{brand_user.first_name} {brand_user.last_name} registered as {brand_user.whoareyou}.",
-        )
-        logger.info(
-            "Activity logged for brand registration of user: %s", brand_user.email
-        )
-
-        # Build the response
-        response = {
-            "status": "success",
-            "message": "Brand advert account created successfully.",
-            "data": {
-                "whoareyou": user_data.get("whoareyou"),
-                "name": user_data.get("name"),
-                "address": user_data.get("address"),
-                "brand_email": user_data.get("brand_email"),
-                "brand_type": user_data.get("brand_type"),
-                "brand_name": user_data.get("brand_name"),
-                "facebook": user_data.get("facebook"),
-                "twitter": user_data.get("twitter"),
-                "instagram": user_data.get("instagram"),
-                "telegram": user_data.get("telegram"),
-            },
-        }
-        return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
+        except Exception as err:
+            logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
+            return Response(
+                encrypt(
+                    {"error": f"An error occurred while creating the ad: {str(err)}"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class ListAllBrandAdsUsers(generics.ListAPIView):
@@ -334,41 +264,6 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
             )
             return Response(
                 encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-
-class CreateAdView(generics.CreateAPIView):
-    serializer_class = CreateAdSerializers
-    authentication_classes = [JWTAuthentication]
-    permission_classes = (IsAuthenticated, IsBrandAd)
-
-    def create(self, request, *args, **kwargs):
-        try:
-            decrypted_data = decrypt(request.data)
-            serializer = self.get_serializer(data=decrypted_data)
-            serializer.is_valid(raise_exception=True)
-
-            serializer.validated_data["user"] = request.user
-            create_ad = serializer.save()
-
-            ActivityModel.objects.create(
-                user=request.user,
-                title="Brand Survey",
-                description=f"{request.user} created an Ad successfully.",
-            )
-
-            return Response(
-                encrypt(CreateAdSerializers(create_ad).data),
-                status=status.HTTP_201_CREATED,
-            )
-
-        except Exception as err:
-            logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
-            return Response(
-                encrypt(
-                    {"error": f"An error occurred while creating the ad: {str(err)}"}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
