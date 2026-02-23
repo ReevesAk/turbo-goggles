@@ -311,19 +311,21 @@ class RestrictBrandAdSerializers(serializers.ModelSerializer):
 class ListBrandAdSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    full_name = serializers.CharField(required=False, read_only=True)
+    full_name = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    facebook = serializers.SerializerMethodField()
+    twitter = serializers.SerializerMethodField()
+    instagram = serializers.SerializerMethodField()
+    telegram = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
+        model = CreateAd
         fields = [
             "id",
             "full_name",
-            "email",
             "user_type",
-            "address",
             "status",
-            "brand_type",
-            "services",
             "state",
             "city",
             "website",
@@ -336,14 +338,48 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
         ]
 
     def get_user_type(self, obj):
-        # Fetch user_type values from AccountType model related to the user
-        return list(obj.account_types.values_list("user_type", flat=True))
+        user = getattr(obj, "user", None)
+        if user:
+            return list(user.account_types.values_list("user_type", flat=True))
+        return []
 
     def get_status(self, obj):
-        return "Disabled" if obj.is_disabled else "Active"
+        user = getattr(obj, "user", None)
+        if user and hasattr(user, "is_disabled"):
+            return "Disabled" if user.is_disabled else "Active"
+        return "Active"
 
     def get_full_name(self, obj):
-        return f"{obj.firstname} {obj.lastname}".strip()
+        user = getattr(obj, "user", None)
+        if user:
+            if user.full_name:
+                return user.full_name
+            return f"{user.first_name or ''} {user.last_name or ''}".strip()
+        return ""
+
+    def get_state(self, obj):
+        # Aggregate all states from related AdLocation objects
+        return list(obj.brand_location.values_list("state", flat=True))
+
+    def get_city(self, obj):
+        # Aggregate all cities from related AdLocation objects
+        return list(obj.brand_location.values_list("city", flat=True))
+
+    def get_facebook(self, obj):
+        user = getattr(obj, "user", None)
+        return getattr(user, "facebook", None) if user else None
+
+    def get_twitter(self, obj):
+        user = getattr(obj, "user", None)
+        return getattr(user, "twitter", None) if user else None
+
+    def get_instagram(self, obj):
+        user = getattr(obj, "user", None)
+        return getattr(user, "instagram", None) if user else None
+
+    def get_telegram(self, obj):
+        user = getattr(obj, "user", None)
+        return getattr(user, "telegram", None) if user else None
 
 
 class ListWalletUsersSerializer(serializers.ModelSerializer):

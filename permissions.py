@@ -414,9 +414,9 @@ class IsManagerOrSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only the Manager can perform this action."))
+                raise ValidationError("Only the Manager can perform this action.")
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError("Authentication is required to access this resource.")
 
 
 class IsManagerModeratorOrSuperAdmin(permissions.BasePermission):
@@ -429,9 +429,9 @@ class IsManagerModeratorOrSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only the Manager, Moderator or SuperAdmin can perform this action."))
+                raise ValidationError("Only the Manager, Moderator or SuperAdmin can perform this action.")
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError("Authentication is required to access this resource.")
 
 
 class IsAgent(permissions.BasePermission):

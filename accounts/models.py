@@ -90,15 +90,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Brand details.
     address = models.CharField(max_length=155, blank=False, null=True)
     whoareyou = models.CharField(choices=BRAND_TYPE, max_length=150, null=True)
-    name = models.CharField(max_length=155, blank=False, null=True)
-    brand_email = models.CharField(max_length=80, unique=True, null=True)
-    brand_phone_number = models.CharField(max_length=20, unique=True, null=True)
-    brand_type = models.CharField(max_length=155, blank=False, null=True)
+
     has_promoted = models.BooleanField(default=False)
-    online_presence = models.CharField(max_length=20, null=True)
 
     # Brand onboarding.
-    brand_name = models.CharField(max_length=255, null=True)
+
     description = models.CharField(max_length=150, null=True)
     services = models.CharField(max_length=255, null=True)
     website = models.CharField(max_length=150, null=True)

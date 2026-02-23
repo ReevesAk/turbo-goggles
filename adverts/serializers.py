@@ -10,127 +10,34 @@ from .models import CreateAd, AdBudget, AdLocation, AdMedia
 logger = logging.getLogger(__name__)
 
 
-class OnboardBrandSerializer(serializers.ModelSerializer):
-    """Serializers for onboarding a brand"""
-
-    online_presence = serializers.CharField(
-        max_length=200, write_only=True, required=False
-    )
-
-    class Meta:
-        model = User
-        fields = [
-            "active_role",
-            "whoareyou",
-            "name",
-            "address",
-            "brand_email",
-            "brand_type",
-            "phone_number",
-            "country",
-            "brand_name",
-            "description",
-            "services",
-            "state",
-            "city",
-            "website",
-            "facebook",
-            "twitter",
-            "instagram",
-            "telegram",
-            "online_presence",
-        ]
-
-    def validate(self, attrs):
-        return super().validate(attrs)
-
-
-class CreateBrandAdvertSeriailizers(serializers.ModelSerializer):
-    """Serializers for craeating brand adverts"""
-
-    class Meta:
-        model = User
-        fields = [
-            "id",
-            "whoareyou",
-            "facebook",
-            "twitter",
-            "instagram",
-            "telegram",
-        ]
-
-    def validate(self, attrs):
-        return super().validate(attrs)
-
-
 class BrandAdProfileSerializers(serializers.ModelSerializer):
     """Serailizers for our BrandAds profile."""
 
     is_approved = serializers.BooleanField(read_only=True)
 
     class Meta:
-        model = User
-        fields = [
-            "id",
-            "active_role",
-            "whoareyou",
-            "name",
-            "address",
-            "email",
-            "brand_type",
-            "brand_phone_number",
-            "country",
-            "brand_name",
-            "description",
-            "services",
-            "state",
-            "city",
-            "website",
-            "facebook",
-            "twitter",
-            "instagram",
-            "telegram",
-            "created_at",
-            "updated_at",
-            "is_approved",
-        ]
+        model = CreateAd
+        fields = "__all__"
 
 
 class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
     """Serializers for updating brand adverts profile."""
 
     class Meta:
-        model = User
-        fields = [
-            "id",
-            "address",
-            "brand_type",
-            "country",
-            "brand_name",
-            "description",
-            "services",
-            "state",
-            "city",
-            "website",
-            "facebook",
-            "twitter",
-            "instagram",
-            "telegram",
-            "created_at",
-            "updated_at",
-        ]
+        model = CreateAd
+        fields = "__all__"
 
 
 class CreateAdSerializers(serializers.ModelSerializer):
     state = serializers.ListField(
         child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False,  # Optional field
+        required=False,
     )
     city = serializers.ListField(
         child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False,  # Optional field
+        required=False,
     )
     images = serializers.ListField(
         child=serializers.CharField(max_length=150),
@@ -140,7 +47,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
     videos = serializers.ListField(
         child=serializers.CharField(max_length=150),
         write_only=True,
-        required=False,
+        required=False,  # Optional field
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
     user = serializers.PrimaryKeyRelatedField(
@@ -152,23 +59,25 @@ class CreateAdSerializers(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "brand_type",
-            "product_type",
-            "online_presence",
-            "online_preferences",
-            "metric_to_increase",
+            "business_or_brand_name",
+            "type_of_business",
+            "industry",
+            "brand_objective",
+            "campaign_name",
+            "gender",
             "demography",
+            "engagement_type",
+            "daily_allocation",
             "website",
+            "campaign_duration",
+            "amount",
             "state",
             "city",
             "images",
             "videos",
             "type",
-            "category",
-            "address",
-            "description",
-            "duration",
             "is_approved",
+            "is_rejected",
         ]
 
     def create(self, validated_data):
@@ -200,49 +109,50 @@ class AdLocationSerializer(serializers.ModelSerializer):
 
 class AdSerializers(serializers.ModelSerializer):
     brand_location = AdLocationSerializer(many=True, read_only=True)
+    ad_media = serializers.SerializerMethodField()
+
+    def get_ad_media(self, obj):
+        media = obj.ad_media.all()
+        return [{"images": m.images, "videos": m.videos} for m in media]
 
     class Meta:
         model = CreateAd
         fields = [
             "id",
-            "brand_type",
-            "product_type",
-            "online_presence",
-            "online_preferences",
-            "metric_to_increase",
+            "user",
+            "business_or_brand_name",
+            "type_of_business",
+            "industry",
+            "brand_objective",
+            "campaign_name",
+            "gender",
             "demography",
+            "engagement_type",
+            "daily_allocation",
             "website",
             "type",
-            "category",
-            "address",
-            "description",
-            "duration",
+            "campaign_duration",
+            "amount",
             "brand_location",
+            "ad_media",
             "is_approved",
+            "is_rejected",
         ]
 
 
 class AdBudgetSerializer(serializers.ModelSerializer):
-    """Serializers for Advert budget."""
-
-    pin = serializers.CharField(max_length=4, write_only=True, required=True)
-    payment_option = serializers.CharField(max_length=50, write_only=True)
-    use_biometrics = serializers.BooleanField(write_only=True, required=False)
-
     class Meta:
         model = AdBudget
         fields = [
             "id",
-            "ad_type",
+            "user",
+            "payment_option",
+            "is_active_ad",
+            "is_completed",
+            "is_ongoing",
+            "has_made_request",
+            "category",
             "ad",
             "star",
             "price_range",
-            "pin",
-            "payment_option",
-            "use_biometrics",
         ]
-
-    def create(self, validated_data):
-        validated_data.pop("pin", None)
-        validated_data.pop("use_biometrics", None)
-        return super().create(validated_data)

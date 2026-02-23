@@ -3,37 +3,45 @@ from django.db import models
 from accounts.models import User
 from basemodel import PAYMENT_OPTIONS
 
-ONLINE_PRESENCE = (("Yes", "Yes"), ("No", "No"))
-
-TARGET_MARKET = (
-    ("16-36 years", "16-36 years"),
-    ("36 years and above", "36 years and above"),
+DEMOGRAPHY = (
+    ("18 - 25", "18 - 25"),
+    ("26 - 35", "26 - 35"),
+    ("36 - 45", "36 - 45"),
+    ("46+", "46+"),
 )
 
-METRIC_TO_INCREASE = (
+TYPE_OF_BUSUINESS = (
+    ("Online", "Online"),
+    ("Physical", "Physical"),
+    ("Hybrid", "Hybrid"),
+)
+
+GENDER = (
+    ("Male", "Male"),
+    ("Female", "Female"),
+    ("All", "All"),
+)
+
+INDUSTRY_CHOICES = (
+    ("Technology", "Technology"),
+    ("Fashion & Beauty", "Fashion & Beauty"),
+    ("Food & Drinks", "Food & Drinks"),
+    ("Health & Fitness", "Health & Fitness"),
+    ("Travels", "Travels"),
+    ("Education", "Education"),
+    ("Entertainment", "Entertainment"),
+    ("Home Decor", "Home Decor"),
+    ("Sports", "Sports"),
+    ("Business & Finance", "Business & Finance"),
+    ("Retail & General Trade", "Retail & General Trade"),
+    ("Charities & Membership", "Charities & Membership"),
+)
+
+BRAND_OBJECTIVE = (
     ("Brand Awareness", "Brand Awareness"),
-    ("Promore Awareness", "Promore Awareness"),
+    ("Generation Lead", "Generation Lead"),
     ("Drive Sales", "Drive Sales"),
-    ("Generate leads", "Generate leads"),
-)
-
-AD_CATEGORY = (
-    ("On-iste(Images and Video)", "On-iste(Images and Video)"),
-    ("On-iste(Images)", "On-iste(Images)"),
-    ("On-iste(Video)", "On-iste(Video)"),
-    (
-        "Self Service/Off-site(Images and Video)",
-        "Self Service/Off-site(Images and Video)",
-    ),
-    ("Self Service/Off-site(Images)", "Self Service/Off-site(Images)"),
-    ("Self Service/Off-site(Video)", "Self Service/Off-site(Video)"),
-)
-
-AD_TYPE = (
-    ("Pay Per Action(PPA)", "Pay Per Action(PPA)"),
-    ("Pay Per Click (PPC)", "Pay Per Click (PPC)"),
-    ("Pay Per Engagement (PPE)", "Pay Per Engagement (PPE)"),
-    ("Pay Per View (PPV)", "Pay Per View (PPV)"),
+    ("Promotion Awareness(Engagement)", "Promotion Awareness(Engagement)"),
 )
 
 
@@ -41,24 +49,29 @@ class CreateAd(models.Model):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="create_ad"
     )
-    brand_type = models.CharField(max_length=155, null=True)
-    product_type = models.CharField(max_length=200, null=True)
-    online_presence = models.CharField(
-        choices=ONLINE_PRESENCE, max_length=20, blank=True, null=True
+    business_or_brand_name = models.CharField(max_length=255, null=True)
+    type_of_business = models.CharField(
+        choices=TYPE_OF_BUSUINESS, max_length=155, null=True
     )
-    online_preferences = models.CharField(max_length=150, blank=True, null=True)
-    metric_to_increase = models.CharField(max_length=250, blank=True, null=True)
+    industry = models.CharField(choices=INDUSTRY_CHOICES, max_length=255, null=True)
+    brand_objective = models.CharField(
+        choices=BRAND_OBJECTIVE, max_length=255, null=True
+    )
+    campaign_name = models.CharField(max_length=150, null=True)
+    gender = models.CharField(choices=GENDER, max_length=20, null=True)
     demography = models.CharField(
-        choices=TARGET_MARKET, max_length=150, blank=True, null=True
+        choices=DEMOGRAPHY, max_length=150, blank=True, null=True
     )
+    engagement_type = models.CharField(max_length=150, blank=True, null=True)
+    daily_allocation = models.CharField(max_length=150, blank=True, null=True)
+
     website = models.CharField(max_length=150, blank=True, null=True)
     type = models.CharField(max_length=100, null=True, blank=True)
-    category = models.CharField(
-        choices=AD_CATEGORY, max_length=155, null=True, blank=True
-    )
-    address = models.CharField(max_length=155, null=True, blank=True)
-    description = models.CharField(max_length=155, null=True, blank=True)
-    duration = models.CharField(max_length=155, null=True, blank=True)
+    campaign_duration = models.CharField(max_length=155, null=True, blank=True)
+    amount = models.CharField(max_length=155, null=True, blank=True)
+    is_active = models.BooleanField(default=False, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
     is_approved = models.BooleanField(default=False, null=True, blank=True)
     is_rejected = models.BooleanField(default=False, null=True, blank=True)
 
@@ -104,7 +117,6 @@ class AdBudget(models.Model):
     is_completed = models.BooleanField(default=False)
     is_ongoing = models.BooleanField(default=False)
     has_made_request = models.BooleanField(default=False)
-    ad_type = models.CharField(choices=AD_TYPE, max_length=150)
     category = models.CharField(max_length=150, null=True)
     ad = models.CharField(max_length=100, null=True)
     star = models.CharField(max_length=50, null=True, blank=True)
