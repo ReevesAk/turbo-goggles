@@ -53,12 +53,20 @@ class CreateAdSerializers(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), write_only=True, required=False
     )
+    pin = serializers.CharField(max_length=6, write_only=True, required=False)
+    payment_option = serializers.CharField(
+        max_length=20, write_only=True, required=False
+    )
+    biometrics = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = CreateAd
         fields = [
             "id",
             "user",
+            "pin",
+            "payment_option",
+            "biometrics",
             "business_or_brand_name",
             "type_of_business",
             "industry",
