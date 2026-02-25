@@ -591,6 +591,13 @@ class EscalateTicketAPIView(APIView):
 
         to_user = User.objects.get(id=serializer.validated_data["to_user_id"])
 
+        allowed_escalation_roles = ["moderator"]
+        if to_role not in allowed_escalation_roles:
+            return Response(
+                {"status": "fail", "error": "You cannot only escalate tickets to Moderators."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         from_user = ticket.assigned_to
         from_role = ticket.agent_role
         to_role = serializer.validated_data["to_role"]
