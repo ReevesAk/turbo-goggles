@@ -274,7 +274,7 @@ class AssignTicket(generics.GenericAPIView):
 
     serializer_class = AssignTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
         logger.info("AssignTicket request received")
