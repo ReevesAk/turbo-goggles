@@ -175,7 +175,7 @@ class IsBrandAd(permissions.BasePermission):
 class IsBrandAdAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
-        required_user_types = ["BrandAdAdmin"]
+        required_user_types = ["BrandAdAdmin", "SuperAdmin"]
 
         if request.user.is_authenticated:
             # Check if the user_type matches the required user_type

@@ -28,17 +28,18 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
 from .helpers import Pin
-from accounts.models import TxModel, UserNotification, User
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
 from decimal import Decimal
 from django.db import transaction
 from accounts.models import (
+    User,
     WelcomeBonusAward,
     WelcomeBonusCounter,
     Rewards,
-    User as AccountUser,
+    TxModel,
+    UserNotification,
 )
 from .serializers import (
     Get9PSBWalletSerializer,

@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import requests
-from decouple import config
 
 from django.conf import settings
 from django.db import transaction
@@ -246,7 +245,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
-        # Authentication
+        # Payment Authentication
         is_verified, error_response = verify_wallet_auth(
             user=user,
             payment_option=payment_option,

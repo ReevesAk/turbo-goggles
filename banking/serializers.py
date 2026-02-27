@@ -7,7 +7,6 @@ from accounts.models import TxModel
 from .models import (
     UserKYC,
     WalletModel,
-    WalletUpgrade,
     BankingNotificationModel,
     TransferModel,
     FundWithCard,

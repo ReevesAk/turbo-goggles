@@ -21,7 +21,6 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.parsers import MultiPartParser, JSONParser
 
 from accounts.models import User, UserNotification, TxModel
 from roles.models import ActivityModel
@@ -32,8 +31,6 @@ from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
 
 from drf_spectacular.utils import extend_schema, OpenApiExample
-
-from cloudinary import uploader as cloud
 
 logger = logging.getLogger(__name__)
 

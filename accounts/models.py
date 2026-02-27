@@ -88,20 +88,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_biometric_enabled = models.BooleanField(default=False, null=True)
 
     # Brand details.
-    address = models.CharField(max_length=155, blank=False, null=True)
-    whoareyou = models.CharField(choices=BRAND_TYPE, max_length=150, null=True)
-
     has_promoted = models.BooleanField(default=False)
-
-    # Brand onboarding.
-
-    description = models.CharField(max_length=150, null=True)
-    services = models.CharField(max_length=255, null=True)
-    website = models.CharField(max_length=150, null=True)
-    facebook = models.CharField(max_length=150, null=True)
-    twitter = models.CharField(max_length=150, null=True)
-    instagram = models.CharField(max_length=150, null=True)
-    telegram = models.CharField(max_length=150, null=True)
 
     # Partner details.
     active_role = models.CharField(max_length=150, null=True)
