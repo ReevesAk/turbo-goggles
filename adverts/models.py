@@ -1,7 +1,6 @@
 from django.db import models
 
 from accounts.models import User
-from basemodel import PAYMENT_OPTIONS
 
 DEMOGRAPHY = (
     ("18 - 25", "18 - 25"),
@@ -72,8 +71,6 @@ class CreateAd(models.Model):
     is_active = models.BooleanField(default=False, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_approved = models.BooleanField(default=False, null=True, blank=True)
-    is_rejected = models.BooleanField(default=False, null=True, blank=True)
 
 
 class AdMedia(models.Model):
@@ -104,20 +101,3 @@ class AdLocation(models.Model):
             if self.state and self.city
             else "Unknown Location"
         )
-
-
-class AdBudget(models.Model):
-    user = models.OneToOneField(
-        to=User, on_delete=models.CASCADE, related_name="promote_ad"
-    )
-    payment_option = models.CharField(
-        choices=PAYMENT_OPTIONS, max_length=100, null=True
-    )
-    is_active_ad = models.BooleanField(default=False)
-    is_completed = models.BooleanField(default=False)
-    is_ongoing = models.BooleanField(default=False)
-    has_made_request = models.BooleanField(default=False)
-    category = models.CharField(max_length=150, null=True)
-    ad = models.CharField(max_length=100, null=True)
-    star = models.CharField(max_length=50, null=True, blank=True)
-    price_range = models.CharField(max_length=150, null=True)

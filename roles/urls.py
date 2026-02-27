@@ -59,7 +59,6 @@ from .brand import (
     RestrictBrandAdAccountView,
     GetAllBrandAdUsers,
     AdStatsView,
-    ApproveAd,
 )
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
@@ -186,11 +185,6 @@ urlpatterns = [
         "brands/get-all-brandAds",
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
-    ),
-    path(
-        "brands/<int:ad_id>/approve-ad",
-        ApproveAd.as_view(),
-        name="approve_ad",
     ),
     path("ad-profile", GetBrandAdDetails.as_view(), name="ad_profile"),
     path("ad-stats-view/<int:user_id>/", AdStatsView.as_view(), name="ad-stats_view"),

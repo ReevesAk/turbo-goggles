@@ -1,6 +1,5 @@
 import logging
 
-from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 
 # In project imports.
@@ -15,7 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.models import User
 from permissions import IsNotDisabled, IsMemberAdminOrSuperAdmin
 
-from security import encrypt, decrypt
+from security import encrypt
 
 logger = logging.getLogger(__name__)
 

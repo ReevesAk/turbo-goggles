@@ -5,15 +5,13 @@ from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
-from .models import CreateAd, AdBudget, AdLocation, AdMedia
+from .models import CreateAd, AdLocation, AdMedia
 
 logger = logging.getLogger(__name__)
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
     """Serailizers for our BrandAds profile."""
-
-    is_approved = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = CreateAd
@@ -84,8 +82,6 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "images",
             "videos",
             "type",
-            "is_approved",
-            "is_rejected",
         ]
 
     def create(self, validated_data):
@@ -143,24 +139,7 @@ class AdSerializers(serializers.ModelSerializer):
             "amount",
             "brand_location",
             "ad_media",
-            "is_approved",
-            "is_rejected",
-        ]
-
-
-class AdBudgetSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AdBudget
-        fields = [
-            "id",
-            "user",
-            "payment_option",
-            "is_active_ad",
-            "is_completed",
-            "is_ongoing",
-            "has_made_request",
-            "category",
-            "ad",
-            "star",
-            "price_range",
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
