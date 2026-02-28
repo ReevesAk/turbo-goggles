@@ -58,7 +58,6 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                 user.active_role = "BrandAd"
                 user.save()
 
-            serializer.validated_data["user"] = user
             create_ad = serializer.save()
 
             pin = decrypted_data.get("pin")
