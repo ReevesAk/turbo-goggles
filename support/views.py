@@ -17,8 +17,9 @@ from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer,
-    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer
+    CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer, TicketAssignmentHistorySerializer,
+    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer, UserProfileSerializer,
+    CompleteTicketSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -98,6 +99,26 @@ class RegisterManager(generics.GenericAPIView):
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(f"OTP sent to phone number: {recipient}")
 
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {current_user.full_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone":
+                            "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=current_user.email,
+                    html_content=text_content,
+                    subject="Welcome to Picadailys Support - OTP for Manager Registration",
+                    sender_email="notifications@picadailys.com",
+                    body=f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}.",
+                )
+                logger.info(f"OTP sent: {otp}")
+                logger.info(f"OTP sent to email: {current_user.email}")
+
                 # Log the creation of the SuperUser
                 UserNotification.objects.create(
                     user=current_user,
@@ -142,6 +163,38 @@ class RegisterManager(generics.GenericAPIView):
         )
 
 
+class ListUserDetailsAPI(generics.ListAPIView):
+    """
+    ListUserDetailsAPI handles the GET request to list all agents and moderators.
+    """
+    serializer_class = UserProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+
+    def get_queryset(self):
+        users = User.objects.all()
+        return users
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+
+            response = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            return Response(data=response, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+    
+
 class CreateTicket(generics.CreateAPIView):
     """
     CreateTicket handles the POST request of logging an issue for
@@ -149,7 +202,7 @@ class CreateTicket(generics.CreateAPIView):
     """
     serializer_class = CreateTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -810,11 +863,10 @@ class GetSingleTicket(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated, IsAgent]
     authentication_classes = [JWTAuthentication]
 
-    lookup_field = "number"               # DB FIELD
+    lookup_field = "number"
     lookup_url_kwarg = "ticket_number"
 
     def retrieve(self, request, *args, **kwargs):
-        print("🔥 VIEW HIT", kwargs)
         logger.info("Received request to retrieve support ticket.")
 
         ticket_id = kwargs.get("ticket_number")
@@ -836,6 +888,10 @@ class GetSingleTicket(generics.RetrieveAPIView):
             history_data = TicketAssignmentHistorySerializer(
                 history, many=True
             ).data
+
+            if not ticket.opened_at:
+                ticket.opened_at = timezone.now()
+                ticket.save()
 
             response = {
                 "status": "success",
@@ -1567,7 +1623,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
                 )
 
             # Send welcome message to user
-            msg = "Welcome to Picadailys Support... You are registration as the support manager was successful!."
+            msg = "Welcome to Picadailys Support... Your registration as the support manager was successful!."
             recipient = user.phone_number[1:]
 
             Messaging.send_sms(phone_number=recipient, msg=msg)
@@ -1577,12 +1633,10 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
+                    "picadailys_phone":
+                        "02012271894  02012271895",
                 },
             )
 
@@ -1830,13 +1884,14 @@ class SetAgentPin(generics.CreateAPIView):
             )
 
 
-class GetAllAgentAndModeratorUsers(generics.ListAPIView):
+class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     """
-    GET request to retrieve the count and list of users with user_type 'Agent' or 'Moderator'.
+    GetAllAgentModeratorAndSupportManager is the GET request to retrieve the
+    count and list of users with user_type 'Agent','Moderator' and 'Manager'.
     """
 
     queryset = User.objects.all()
-    serializer_class = ListAgentAndModeratorSerializer  # You may rename if needed
+    serializer_class = ListAgentModeratorAndManagerSerializer  # You may rename if needed
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination
@@ -1845,12 +1900,12 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         logger.info("Retrieving agent and moderator users.")
         users = (
             User.objects.filter(
-                account_types__user_type__in=["Agent", "Moderator"]
+                account_types__user_type__in=["Agent", "Moderator", "Manager"]
             )
             .distinct()
             .order_by("account_types__created_at")
         )
-        logger.info("Agent and moderator users retrieved successfully.")
+        logger.info("Agent, moderator and manager users retrieved successfully.")
         return users
 
     def list(self, request, *args, **kwargs):
@@ -1861,15 +1916,17 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         # Count Agent and Moderator users
         agent_count = queryset.filter(account_types__user_type="Agent").count()
         moderator_count = queryset.filter(account_types__user_type="Moderator").count()
+        manager_count = queryset.filter(account_types__user_type="Manager").count()
 
         response_data = {
             "status": "success",
-            "message": "Agent and moderator users retrieved successfully"
+            "message": "Agent, moderator and manager users retrieved successfully"
             if queryset.exists()
-            else "No agent or moderator users found.",
+            else "No agent, moderator or manager users found.",
             "num_of_users": queryset.count(),
             "num_of_agents": agent_count,
             "num_of_moderators": moderator_count,
+            "num_of_managers": manager_count,
             "users": [],
         }
 
@@ -1880,3 +1937,49 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
             logger.warning("No users found for pagination.")
 
         return Response(data=response_data, status=status.HTTP_200_OK)
+
+
+class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
+    """
+    CompleteTicketAPIView is the POST request to mark a ticket as completed.
+    """
+
+    queryset = Ticket.objects.all()
+    serializer_class = CompleteTicketSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAgent]
+
+    def post(self, request, *args, **kwargs):
+
+        authenticated_user = request.user
+
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in request.data.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+
+        ticket_number = kwargs.get("ticket_number")
+        attachment = serializer.validated_data["attachment"]
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+
+        ticket.status = "Resolved"
+        ticket.resolution_attachment = attachment
+        ticket.resolved_by = authenticated_user
+        ticket.resolved_at = timezone.now()
+        ticket.save()
+        
+        response_data = {
+            "status": "success",
+            "message": f"Ticket {ticket_number} marked as completed successfully.",
+            "data": {
+                "ticket_number": ticket_number,
+                "status": ticket.status,
+                "resolved_at": ticket.resolved_at,
+                "resolved_by": ticket.resolved_by.full_name if ticket.resolved_by else None,
+                "resolution_attachment": ticket.resolution_attachment,
+            }
+        }

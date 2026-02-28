@@ -37,6 +37,7 @@ TICKET_CHANNELS = (
 class Ticket(BaseModel):
     number = models.CharField(max_length=50, unique=True, null=True)  # Prefixed unique number
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    opened_at = models.DateTimeField(null=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
 
@@ -48,6 +49,7 @@ class Ticket(BaseModel):
     customer_name = models.CharField(max_length=254, null=True)
     customer_email = models.EmailField(max_length=254, null=True)
     category = models.CharField(max_length=150, null=True)
+    duration = models.CharField(max_length=150, null=True)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(
         to=User, on_delete=models.SET_NULL,
@@ -59,11 +61,17 @@ class Ticket(BaseModel):
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
     attachments = models.URLField(max_length=255, null=True, blank=True)
+    resolution_attachment = models.URLField(max_length=255, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="resolved_tickets"
+    )
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None  # Check if this is a new object
+        is_new = self.pk is None
 
-        super().save(*args, **kwargs)  # Save once to get `id`
+        super().save(*args, **kwargs)
 
         # Only generate number after the first save
         if is_new and not self.number:

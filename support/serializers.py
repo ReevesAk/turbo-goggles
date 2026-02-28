@@ -24,6 +24,7 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "device_id",
+            "full_name",
             "phone_number",
             "email",
             "password",
@@ -65,6 +66,26 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' profile."""
+
+    acc_balance = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "profile_img_url",
+            "email",
+            "active_role",
+            "phone_number",
+            "created_at",
+            "welcome_bonus",
+        ]
+
+
 class SupportVerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
@@ -92,6 +113,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "customer_email",
             "title",
             "priority",
+            "duration",
             "category",
             "channel",
             "email",
@@ -110,6 +132,7 @@ class TicketSerializers(serializers.ModelSerializer):
             "number",
             "category",
             "channel",
+            "duration",
             "description",
             "priority",
             "status",
@@ -144,6 +167,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "status",
             "agent_name",
             "agent_role",
+            "duration",
             "agent_email",
             "reason",
             "priority"
@@ -340,7 +364,7 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
         return value
 
 
-class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
+class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
 
     class Meta:
@@ -351,5 +375,16 @@ class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
         # Fetch user_type values from AccountType model related to the user
         return list(obj.account_types.values_list("user_type", flat=True))
 
-    # def get_status(self, obj):
-    #     return "Disabled" if obj.is_admin_disabled else "Active"
+
+class CompleteTicketSerializer(serializers.ModelSerializer):
+    # attachments = serializers.FileField(
+    #     required=False,
+    #     allow_null=True
+    # )
+
+    class Meta:
+        model = Ticket
+        fields = [
+            "id",
+            "attachments",
+        ]
