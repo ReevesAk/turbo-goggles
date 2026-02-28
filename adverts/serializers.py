@@ -38,22 +38,22 @@ class CreateAdSerializers(serializers.ModelSerializer):
         required=False,
     )
     images = serializers.ListField(
-        child=serializers.CharField(max_length=150),
+        child=serializers.CharField(max_length=150, required=False, allow_blank=True),
         write_only=True,
         required=False,  # Optional field
     )
     videos = serializers.ListField(
-        child=serializers.CharField(max_length=150),
+        child=serializers.CharField(max_length=150, required=False, allow_blank=True),
         write_only=True,
         required=False,  # Optional field
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
     user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), write_only=True, required=False
+        queryset=User.objects.all(), write_only=True, required=True
     )
     pin = serializers.CharField(max_length=6, write_only=True, required=False)
     payment_option = serializers.CharField(
-        max_length=20, write_only=True, required=False
+        max_length=20, write_only=True, required=True
     )
     biometrics = serializers.BooleanField(write_only=True, required=False)
 
