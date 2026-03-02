@@ -19,7 +19,7 @@ from .serializers import (
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer, TicketAssignmentHistorySerializer,
     UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer, UserProfileSerializer,
-    CompleteTicketSerializer
+    CompleteTicketSerializer, ForgotPinSerializer, VerifyOTPSerializer, ResetPinSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -161,6 +161,241 @@ class RegisterManager(generics.GenericAPIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class AgentForgotPin(generics.GenericAPIView):
+    """
+    AgentForgotPin handles the POST request of sending a
+    forgot pin request for an agent user.
+    """
+
+    throttle_scope = "password_change"
+    serializer_class = ForgotPinSerializer
+
+    def post(self, request):
+        payload = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in payload.items()
+        }
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = user_data.get("email")
+        try:
+            user = User.objects.get(email=email)
+            logger.info(f"User found for email: {user.email}")
+        except User.DoesNotExist:
+            logger.warning(f"No agent found with email: {email}")
+            response = {
+                "status": "fail",
+                "detail": "An agent with this email does not exist",
+            }
+            return Response(
+                data=response,
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your pin"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
+            },
+        )
+
+        Messaging.send_email(
+            email=email,
+            html_content=text_content,
+            subject="Agent Pin Reset",
+            sender_email="notifications@picadailys.com",
+            body="You have requested a pin reset. Please use the OTP sent to your email to proceed.",
+        )
+        logger.info(f"OTP sent: {otp}")
+        logger.info(f"OTP sent to email: {email}")
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Agent Pin Reset Request",
+            description=f"Agent {user.full_name} submitted a pin reset request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your mailbox for an OTP",
+        }
+        return Response(data=response, status=status.HTTP_201_CREATED)
+
+
+class AgentPinVerifyOTP(generics.GenericAPIView):
+    """
+    AgentPinVerifyOTP handles the POST request of verifying an agent
+    user with valid email for pin reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        payload = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in payload.items()
+        }
+        logger.debug("Received data for pin reset OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+
+        # Validate incoming data with serializer class.
+        if not serializer.is_valid(raise_exception=True):
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        received_otp = serializer.data["otp"]
+        logger.info("OTP received for pin reset: %s", received_otp)
+
+        # Validate OTP
+        user_id = otp_manager.validate_user_otp(received_otp)
+        if not user_id:
+            logger.warning("Invalid or expired OTP during pin reset: %s", received_otp)
+            return Response(
+                data={"status": "fail", "message": "Invalid or expired OTP"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.error(
+                "Support agent with id %s not found for pin reset verification.",
+                user_id,
+            )
+            return Response(
+                data={"status": "fail", "message": "Support agent not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Send confirmation message to the user
+        msg = "Your account is verified... You can reset your pin now!"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894  02012271895",
+            },
+        )
+
+        Messaging.send_email(
+            email=user.email,
+            html_content=text_content,
+            subject="Agent Verify OTP",
+            sender_email="notifications@picadailys.com",
+            body="Your OTP has been verified. You can now proceed to reset your pin.",
+        )
+
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+
+        # Log activity for verification
+        ActivityModel.objects.create(
+            user=user,
+            title="Verify Account",
+            description=f"{full_name} verified OTP for pin reset.",
+        )
+        logger.info(
+            "Pin reset OTP verification activity logged for admin user %s.", user.id
+        )
+
+        verified_response = {
+            "status": "success",
+            "message": "Account is verified",
+            "user_id": user_id,
+        }
+        return Response(data=verified_response, status=status.HTTP_200_OK)
+
+
+class AgentResetPin(generics.CreateAPIView):
+    serializer_class = ResetPinSerializer
+
+    def create(self, request):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_data = serializer.validated_data
+        agent_id = payload.get("agent_id")
+
+        try:
+            user = User.objects.get(id=agent_id)
+            logger.info(f"User found for ID: {user.id}")
+        except User.DoesNotExist:
+            logger.error(f"Support agent not found with ID: {agent_id}")
+            return Response(
+                data=encrypt({"status": "fail", "message": "Support agent not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_data.get("pin") != user_data.get("pin2"):
+            logger.warning("Pins do not match for Agent ID: %s", agent_id)
+            return Response(
+                data=encrypt({"error": "Pins do not match!"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data.get("pin")
+        user.admin_pin = make_password(password)
+
+        user_token = payload.get("refresh_token")
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {admin_id}")
+
+        user.save()
+
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Agent Pin Reset.",
+            description=f"{full_name} reset their pin.",
+        )
+
+        response = {"status": "success", "message": "Pin reset successfully"}
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
 class ListUserDetailsAPI(generics.ListAPIView):
@@ -891,6 +1126,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
 
             if not ticket.opened_at:
                 ticket.opened_at = timezone.now()
+                ticket.resolution_hours = 2
                 ticket.save()
 
             response = {
@@ -908,9 +1144,8 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "priority": ticket.priority,
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
+                    "remaining_hours": ticket.remaining_time,
                     "status": ticket.status,
-
-                    # 🔥 NEW
                     "assignment_history": history_data,
                 },
             }
@@ -1025,7 +1260,7 @@ class DeleteTicket(generics.DestroyAPIView):
 
 class RateSupportAgent(generics.GenericAPIView):
     """
-    RateSupportAgent is the POST request handler that allows a user to rate asupport agent.
+    RateSupportAgent is the POST request handler that allows a user to rate a support agent.
     """
 
     serializer_class = AgentRatingSerializers

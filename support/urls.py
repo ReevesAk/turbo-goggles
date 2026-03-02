@@ -8,7 +8,7 @@ from .views import (
     AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
     GetAllAgentModeratorAndSupportManager, DeleteTicket, GetMyAssignedTickets,
     EscalateTicketAPIView, TicketRRTrailAPIView, DisableAgentrole, EnableAgentrole, DeleteAgent,
-    CompleteTicketAPIView, ListUserDetailsAPI
+    CompleteTicketAPIView, ListUserDetailsAPI, AgentForgotPin, AgentPinVerifyOTP, AgentResetPin
 )
 
 
@@ -18,6 +18,9 @@ app_name = "support"
 urlpatterns = [
     path("register-manager", RegisterManager.as_view(), name="register_manager"),
     path("verifyotp", SupportPhoneVerifyOTP.as_view(), name="verifyotp"),
+    path("agent-forgot-pin", AgentForgotPin.as_view(), name="agent_forgot_pin"),
+    path("verify-agent-pin-otp", AgentPinVerifyOTP.as_view(), name="verify_agent_pin_otp"),
+    path("reset-agent-pin", AgentResetPin.as_view(), name="reset_agent_pin"),
     path("add-agent", AddAgent.as_view(), name="add_support_agent"),
     path("set-agent-pin", SetAgentPin.as_view(), name="set_agent_pin"),
     path("signup-complete/<str:user_id>/", AgentSignUpComplete.as_view(), name="signup-complete"),

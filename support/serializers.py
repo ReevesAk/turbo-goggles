@@ -69,8 +69,6 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' profile."""
 
-    acc_balance = serializers.SerializerMethodField()
-
     class Meta:
         model = User
         fields = [
@@ -113,7 +111,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "customer_email",
             "title",
             "priority",
-            "duration",
+            "resolution_hours",
             "category",
             "channel",
             "email",
@@ -132,7 +130,7 @@ class TicketSerializers(serializers.ModelSerializer):
             "number",
             "category",
             "channel",
-            "duration",
+            "resolution_hours",
             "description",
             "priority",
             "status",
@@ -167,7 +165,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "status",
             "agent_name",
             "agent_role",
-            "duration",
+            "resolution_hours",
             "agent_email",
             "reason",
             "priority"
@@ -234,7 +232,10 @@ class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
 
 
 class AgentRatingSerializers(serializers.ModelSerializer):
-    rating_comment = serializers.CharField(max_length=68, min_length=6, write_only=True, required=False)
+    rating_comment = serializers.CharField(
+        max_length=68, min_length=6, write_only=True,
+        required=False
+    )
 
     class Meta:
         model = AgentRating
@@ -388,3 +389,35 @@ class CompleteTicketSerializer(serializers.ModelSerializer):
             "id",
             "attachments",
         ]
+
+
+class ForgotPinSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(max_length=50, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("Forgot agent pin request for email: %s", email)
+        return attrs
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField()
+
+    def validate(self, attrs):
+        otp = attrs.get("otp")
+        logger.info("OTP verification attempt for OTP: %s", otp)
+        return attrs
+
+
+class ResetPinSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=68, min_length=5, write_only=True)
+    pin2 = serializers.CharField(max_length=68, min_length=5, write_only=True)
+    agent_id = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["agent_id", "pin", "pin2"]

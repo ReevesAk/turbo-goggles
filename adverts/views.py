@@ -58,8 +58,6 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                 user.active_role = "BrandAd"
                 user.save()
 
-            create_ad = serializer.save()
-
             pin = decrypted_data.get("pin")
             amount = decrypted_data.get("amount")
             payment_option = decrypted_data.get("payment_option")
@@ -107,7 +105,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 )
 
                                 if debit_response.status_code == 200:
-                                    serializer.save()
+                                    create_ad = serializer.save()
                                     UserNotification.objects.create(
                                         user=user,
                                         title="Brand Promotion",
@@ -151,7 +149,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             )
 
                 case "CARD":
-
+                    create_ad = serializer.save()
                     UserNotification.objects.create(
                         user=user,
                         title="Brand Promotion",
@@ -175,6 +173,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                     }
                     encrypted_success = encrypt(response_data)
                     return Response(data=encrypted_success, status=status.HTTP_200_OK)
+
                 case _:
                     return Response(
                         data=encrypt(

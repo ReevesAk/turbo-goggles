@@ -1,4 +1,6 @@
 import uuid
+from datetime import timedelta
+from django.utils import timezone
 
 from django.db import models
 from basemodel import BaseModel
@@ -49,7 +51,7 @@ class Ticket(BaseModel):
     customer_name = models.CharField(max_length=254, null=True)
     customer_email = models.EmailField(max_length=254, null=True)
     category = models.CharField(max_length=150, null=True)
-    duration = models.CharField(max_length=150, null=True)
+    resolution_hours = models.IntegerField(default=24)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(
         to=User, on_delete=models.SET_NULL,
@@ -67,6 +69,14 @@ class Ticket(BaseModel):
         to=User, on_delete=models.SET_NULL,
         null=True, related_name="resolved_tickets"
     )
+
+    @property
+    def remaining_time(self):
+        if not self.opened_at:
+            return None
+
+        deadline = self.opened_at + timedelta(hours=self.resolution_hours)
+        return max(deadline - timezone.now(), timedelta(seconds=0))
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -159,8 +169,22 @@ class TicketRRTrail(BaseModel):
 
 
 class AgentRating(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_rating")
-    agent = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="agent_rated")
-    ticket = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="user_rating"
+    )
+    agent = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="agent_rated"
+    )
+    ticket = models.ForeignKey(
+        to=Ticket,
+        on_delete=models.CASCADE,
+        related_name="ratings"
+    )
     rating = models.CharField(max_length=150, choices=AGENT_RATING, null=True)
     rating_comment = models.TextField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("user", "ticket")
+    
