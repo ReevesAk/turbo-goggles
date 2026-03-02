@@ -166,7 +166,6 @@ class ListAllPartners(generics.ListAPIView):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
 
-            # 🔐 Encrypt ENTIRE paginated payload
             encrypted_payload = encrypt(
                 {
                     "count": self.paginator.page.paginator.count,

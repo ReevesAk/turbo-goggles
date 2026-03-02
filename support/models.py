@@ -1,4 +1,6 @@
 import uuid
+from datetime import timedelta
+from django.utils import timezone
 
 from django.db import models
 from basemodel import BaseModel
@@ -37,6 +39,7 @@ TICKET_CHANNELS = (
 class Ticket(BaseModel):
     number = models.CharField(max_length=50, unique=True, null=True)  # Prefixed unique number
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    opened_at = models.DateTimeField(null=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
 
@@ -48,6 +51,7 @@ class Ticket(BaseModel):
     customer_name = models.CharField(max_length=254, null=True)
     customer_email = models.EmailField(max_length=254, null=True)
     category = models.CharField(max_length=150, null=True)
+    resolution_hours = models.IntegerField(default=24)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(
         to=User, on_delete=models.SET_NULL,
@@ -59,11 +63,25 @@ class Ticket(BaseModel):
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
     attachments = models.URLField(max_length=255, null=True, blank=True)
+    resolution_attachment = models.URLField(max_length=255, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="resolved_tickets"
+    )
+
+    @property
+    def remaining_time(self):
+        if not self.opened_at:
+            return None
+
+        deadline = self.opened_at + timedelta(hours=self.resolution_hours)
+        return max(deadline - timezone.now(), timedelta(seconds=0))
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None  # Check if this is a new object
+        is_new = self.pk is None
 
-        super().save(*args, **kwargs)  # Save once to get `id`
+        super().save(*args, **kwargs)
 
         # Only generate number after the first save
         if is_new and not self.number:
@@ -151,8 +169,22 @@ class TicketRRTrail(BaseModel):
 
 
 class AgentRating(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="user_rating")
-    agent = models.ForeignKey(to=User, on_delete=models.SET_NULL, null=True, related_name="agent_rated")
-    ticket = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="user_rating"
+    )
+    agent = models.ForeignKey(
+        to=User, on_delete=models.SET_NULL,
+        null=True, related_name="agent_rated"
+    )
+    ticket = models.ForeignKey(
+        to=Ticket,
+        on_delete=models.CASCADE,
+        related_name="ratings"
+    )
     rating = models.CharField(max_length=150, choices=AGENT_RATING, null=True)
     rating_comment = models.TextField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("user", "ticket")
+    

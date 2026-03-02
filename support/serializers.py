@@ -24,6 +24,7 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "device_id",
+            "full_name",
             "phone_number",
             "email",
             "password",
@@ -65,6 +66,24 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serailizers for our Partners' profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "profile_img_url",
+            "email",
+            "active_role",
+            "phone_number",
+            "created_at",
+            "welcome_bonus",
+        ]
+
+
 class SupportVerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
@@ -92,6 +111,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "customer_email",
             "title",
             "priority",
+            "resolution_hours",
             "category",
             "channel",
             "email",
@@ -110,6 +130,7 @@ class TicketSerializers(serializers.ModelSerializer):
             "number",
             "category",
             "channel",
+            "resolution_hours",
             "description",
             "priority",
             "status",
@@ -144,6 +165,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "status",
             "agent_name",
             "agent_role",
+            "resolution_hours",
             "agent_email",
             "reason",
             "priority"
@@ -210,7 +232,10 @@ class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
 
 
 class AgentRatingSerializers(serializers.ModelSerializer):
-    rating_comment = serializers.CharField(max_length=68, min_length=6, write_only=True, required=False)
+    rating_comment = serializers.CharField(
+        max_length=68, min_length=6, write_only=True,
+        required=False
+    )
 
     class Meta:
         model = AgentRating
@@ -340,7 +365,7 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
         return value
 
 
-class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
+class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
 
     class Meta:
@@ -351,5 +376,48 @@ class ListAgentAndModeratorSerializer(serializers.ModelSerializer):
         # Fetch user_type values from AccountType model related to the user
         return list(obj.account_types.values_list("user_type", flat=True))
 
-    # def get_status(self, obj):
-    #     return "Disabled" if obj.is_admin_disabled else "Active"
+
+class CompleteTicketSerializer(serializers.ModelSerializer):
+    # attachments = serializers.FileField(
+    #     required=False,
+    #     allow_null=True
+    # )
+
+    class Meta:
+        model = Ticket
+        fields = [
+            "id",
+            "attachments",
+        ]
+
+
+class ForgotPinSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(max_length=50, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("Forgot agent pin request for email: %s", email)
+        return attrs
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField()
+
+    def validate(self, attrs):
+        otp = attrs.get("otp")
+        logger.info("OTP verification attempt for OTP: %s", otp)
+        return attrs
+
+
+class ResetPinSerializer(serializers.ModelSerializer):
+    pin = serializers.CharField(max_length=68, min_length=5, write_only=True)
+    pin2 = serializers.CharField(max_length=68, min_length=5, write_only=True)
+    agent_id = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["agent_id", "pin", "pin2"]

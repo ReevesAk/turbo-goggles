@@ -37,11 +37,12 @@ from .serializers import (
     SupportTicketSerializer,
     TierListResponseSerializer,
 )
+from support.serializers import AgentRatingSerializers
 from .helpers import MysteryBox, VariationCodes, MemberSurveyService
 from .choices import LEVELS
 from accounts.models import User, Rewards, UserNotification, AccountType
 from roles.models import ActivityModel
-from support.models import Ticket
+from support.models import Ticket, AgentRating
 from vas.helpers import VAS
 from self_service.models import (
     LandTravels,
@@ -1303,6 +1304,7 @@ class CustomerTicketCreation(generics.GenericAPIView):
             user=request.user,
             description=payload.get("description"),
             category=payload.get("category"),
+            resolution_hours=5,
             status="Queuing",
             channel="App",
             priority="Low",
@@ -1329,10 +1331,84 @@ class CustomerTicketCreation(generics.GenericAPIView):
                         "Ticket Number": ticket.number,
                         "Category": payload.get("category"),
                         "Description": payload.get("description"),
+                        "Duration": "2 hours",
                         "Channel": "App",
                         "Escalation Level": "Management",
                         "Status": "Queuing",
                     },
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RateAgentViewByCustomer(generics.GenericAPIView):
+    serializer_class = AgentRatingSerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+
+        decrypted_payload = decrypt(request.data)
+        ticket_id = decrypted_payload.get("ticket_id")
+        rating = decrypted_payload.get("rating")
+        rating_comment = decrypted_payload.get("rating_comment")
+
+        try:
+            ticket = Ticket.objects.get(id=ticket_id, deleted=False)
+        except Ticket.DoesNotExist:
+            return Response(
+                encrypt({"status": "fail", "message": "Ticket not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if ticket.user != request.user:
+            return Response(
+                encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Unauthorized action; you can only rate agents for your own tickets",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if ticket.status != "Resolved":
+            return Response(
+                encrypt({"status": "fail", "message": "Ticket is not resolved yet"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not ticket.resolved_by:
+            return Response(
+                encrypt(
+                    {"status": "fail", "message": "No agent assigned to this ticket"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if AgentRating.objects.filter(user=request.user, ticket=ticket).exists():
+            return Response(
+                encrypt(
+                    {"status": "fail", "message": "You have already rated this ticket"}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ✅ Create rating
+        AgentRating.objects.create(
+            user=request.user,
+            agent=ticket.resolved_by,
+            ticket=ticket,
+            rating=rating,
+            rating_comment=rating_comment,
+        )
+
+        return Response(
+            encrypt(
+                {
+                    "status": "success",
+                    "message": f"Agent {ticket.resolved_by} rated successfully for ticket {ticket.number}",
                 }
             ),
             status=status.HTTP_201_CREATED,

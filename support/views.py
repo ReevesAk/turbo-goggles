@@ -17,8 +17,9 @@ from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentAndModeratorSerializer, TicketAssignmentHistorySerializer,
-    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer
+    CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer, TicketAssignmentHistorySerializer,
+    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer, UserProfileSerializer,
+    CompleteTicketSerializer, ForgotPinSerializer, VerifyOTPSerializer, ResetPinSerializer
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -98,6 +99,26 @@ class RegisterManager(generics.GenericAPIView):
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(f"OTP sent to phone number: {recipient}")
 
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {current_user.full_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone":
+                            "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=current_user.email,
+                    html_content=text_content,
+                    subject="Welcome to Picadailys Support - OTP for Manager Registration",
+                    sender_email="notifications@picadailys.com",
+                    body=f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}.",
+                )
+                logger.info(f"OTP sent: {otp}")
+                logger.info(f"OTP sent to email: {current_user.email}")
+
                 # Log the creation of the SuperUser
                 UserNotification.objects.create(
                     user=current_user,
@@ -142,6 +163,273 @@ class RegisterManager(generics.GenericAPIView):
         )
 
 
+class AgentForgotPin(generics.GenericAPIView):
+    """
+    AgentForgotPin handles the POST request of sending a
+    forgot pin request for an agent user.
+    """
+
+    throttle_scope = "password_change"
+    serializer_class = ForgotPinSerializer
+
+    def post(self, request):
+        payload = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in payload.items()
+        }
+        serializer = self.serializer_class(data=user_data)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = user_data.get("email")
+        try:
+            user = User.objects.get(email=email)
+            logger.info(f"User found for email: {user.email}")
+        except User.DoesNotExist:
+            logger.warning(f"No agent found with email: {email}")
+            response = {
+                "status": "fail",
+                "detail": "An agent with this email does not exist",
+            }
+            return Response(
+                data=response,
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your pin"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
+            },
+        )
+
+        Messaging.send_email(
+            email=email,
+            html_content=text_content,
+            subject="Agent Pin Reset",
+            sender_email="notifications@picadailys.com",
+            body="You have requested a pin reset. Please use the OTP sent to your email to proceed.",
+        )
+        logger.info(f"OTP sent: {otp}")
+        logger.info(f"OTP sent to email: {email}")
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Agent Pin Reset Request",
+            description=f"Agent {user.full_name} submitted a pin reset request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your mailbox for an OTP",
+        }
+        return Response(data=response, status=status.HTTP_201_CREATED)
+
+
+class AgentPinVerifyOTP(generics.GenericAPIView):
+    """
+    AgentPinVerifyOTP handles the POST request of verifying an agent
+    user with valid email for pin reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        payload = request.data
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in payload.items()
+        }
+        logger.debug("Received data for pin reset OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+
+        # Validate incoming data with serializer class.
+        if not serializer.is_valid(raise_exception=True):
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        received_otp = serializer.data["otp"]
+        logger.info("OTP received for pin reset: %s", received_otp)
+
+        # Validate OTP
+        user_id = otp_manager.validate_user_otp(received_otp)
+        if not user_id:
+            logger.warning("Invalid or expired OTP during pin reset: %s", received_otp)
+            return Response(
+                data={"status": "fail", "message": "Invalid or expired OTP"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.error(
+                "Support agent with id %s not found for pin reset verification.",
+                user_id,
+            )
+            return Response(
+                data={"status": "fail", "message": "Support agent not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Send confirmation message to the user
+        msg = "Your account is verified... You can reset your pin now!"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894  02012271895",
+            },
+        )
+
+        Messaging.send_email(
+            email=user.email,
+            html_content=text_content,
+            subject="Agent Verify OTP",
+            sender_email="notifications@picadailys.com",
+            body="Your OTP has been verified. You can now proceed to reset your pin.",
+        )
+
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+
+        # Log activity for verification
+        ActivityModel.objects.create(
+            user=user,
+            title="Verify Account",
+            description=f"{full_name} verified OTP for pin reset.",
+        )
+        logger.info(
+            "Pin reset OTP verification activity logged for admin user %s.", user.id
+        )
+
+        verified_response = {
+            "status": "success",
+            "message": "Account is verified",
+            "user_id": user_id,
+        }
+        return Response(data=verified_response, status=status.HTTP_200_OK)
+
+
+class AgentResetPin(generics.CreateAPIView):
+    serializer_class = ResetPinSerializer
+
+    def create(self, request):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_data = serializer.validated_data
+        agent_id = payload.get("agent_id")
+
+        try:
+            user = User.objects.get(id=agent_id)
+            logger.info(f"User found for ID: {user.id}")
+        except User.DoesNotExist:
+            logger.error(f"Support agent not found with ID: {agent_id}")
+            return Response(
+                data=encrypt({"status": "fail", "message": "Support agent not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_data.get("pin") != user_data.get("pin2"):
+            logger.warning("Pins do not match for Agent ID: %s", agent_id)
+            return Response(
+                data=encrypt({"error": "Pins do not match!"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data.get("pin")
+        user.admin_pin = make_password(password)
+
+        user_token = payload.get("refresh_token")
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {admin_id}")
+
+        user.save()
+
+        full_name = (
+            user.full_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.phone_number
+            or user.email
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Agent Pin Reset.",
+            description=f"{full_name} reset their pin.",
+        )
+
+        response = {"status": "success", "message": "Pin reset successfully"}
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+
+class ListUserDetailsAPI(generics.ListAPIView):
+    """
+    ListUserDetailsAPI handles the GET request to list all agents and moderators.
+    """
+    serializer_class = UserProfileSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+
+    def get_queryset(self):
+        users = User.objects.all()
+        return users
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+
+            response = {
+                "count": self.paginator.page.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+
+            return Response(data=response, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+    
+
 class CreateTicket(generics.CreateAPIView):
     """
     CreateTicket handles the POST request of logging an issue for
@@ -149,7 +437,7 @@ class CreateTicket(generics.CreateAPIView):
     """
     serializer_class = CreateTicketSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
         JSONParser,
@@ -810,11 +1098,10 @@ class GetSingleTicket(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated, IsAgent]
     authentication_classes = [JWTAuthentication]
 
-    lookup_field = "number"               # DB FIELD
+    lookup_field = "number"
     lookup_url_kwarg = "ticket_number"
 
     def retrieve(self, request, *args, **kwargs):
-        print("🔥 VIEW HIT", kwargs)
         logger.info("Received request to retrieve support ticket.")
 
         ticket_id = kwargs.get("ticket_number")
@@ -837,6 +1124,11 @@ class GetSingleTicket(generics.RetrieveAPIView):
                 history, many=True
             ).data
 
+            if not ticket.opened_at:
+                ticket.opened_at = timezone.now()
+                ticket.resolution_hours = 2
+                ticket.save()
+
             response = {
                 "status": "success",
                 "message": "Support Ticket retrieved successfully!",
@@ -852,9 +1144,8 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "priority": ticket.priority,
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
+                    "remaining_hours": ticket.remaining_time,
                     "status": ticket.status,
-
-                    # 🔥 NEW
                     "assignment_history": history_data,
                 },
             }
@@ -969,7 +1260,7 @@ class DeleteTicket(generics.DestroyAPIView):
 
 class RateSupportAgent(generics.GenericAPIView):
     """
-    RateSupportAgent is the POST request handler that allows a user to rate asupport agent.
+    RateSupportAgent is the POST request handler that allows a user to rate a support agent.
     """
 
     serializer_class = AgentRatingSerializers
@@ -1567,7 +1858,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
                 )
 
             # Send welcome message to user
-            msg = "Welcome to Picadailys Support... You are registration as the support manager was successful!."
+            msg = "Welcome to Picadailys Support... Your registration as the support manager was successful!."
             recipient = user.phone_number[1:]
 
             Messaging.send_sms(phone_number=recipient, msg=msg)
@@ -1577,12 +1868,10 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
+                    "picadailys_phone":
+                        "02012271894  02012271895",
                 },
             )
 
@@ -1830,13 +2119,14 @@ class SetAgentPin(generics.CreateAPIView):
             )
 
 
-class GetAllAgentAndModeratorUsers(generics.ListAPIView):
+class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     """
-    GET request to retrieve the count and list of users with user_type 'Agent' or 'Moderator'.
+    GetAllAgentModeratorAndSupportManager is the GET request to retrieve the
+    count and list of users with user_type 'Agent','Moderator' and 'Manager'.
     """
 
     queryset = User.objects.all()
-    serializer_class = ListAgentAndModeratorSerializer  # You may rename if needed
+    serializer_class = ListAgentModeratorAndManagerSerializer  # You may rename if needed
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination
@@ -1845,12 +2135,12 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         logger.info("Retrieving agent and moderator users.")
         users = (
             User.objects.filter(
-                account_types__user_type__in=["Agent", "Moderator"]
+                account_types__user_type__in=["Agent", "Moderator", "Manager"]
             )
             .distinct()
             .order_by("account_types__created_at")
         )
-        logger.info("Agent and moderator users retrieved successfully.")
+        logger.info("Agent, moderator and manager users retrieved successfully.")
         return users
 
     def list(self, request, *args, **kwargs):
@@ -1861,15 +2151,17 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
         # Count Agent and Moderator users
         agent_count = queryset.filter(account_types__user_type="Agent").count()
         moderator_count = queryset.filter(account_types__user_type="Moderator").count()
+        manager_count = queryset.filter(account_types__user_type="Manager").count()
 
         response_data = {
             "status": "success",
-            "message": "Agent and moderator users retrieved successfully"
+            "message": "Agent, moderator and manager users retrieved successfully"
             if queryset.exists()
-            else "No agent or moderator users found.",
+            else "No agent, moderator or manager users found.",
             "num_of_users": queryset.count(),
             "num_of_agents": agent_count,
             "num_of_moderators": moderator_count,
+            "num_of_managers": manager_count,
             "users": [],
         }
 
@@ -1880,3 +2172,49 @@ class GetAllAgentAndModeratorUsers(generics.ListAPIView):
             logger.warning("No users found for pagination.")
 
         return Response(data=response_data, status=status.HTTP_200_OK)
+
+
+class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
+    """
+    CompleteTicketAPIView is the POST request to mark a ticket as completed.
+    """
+
+    queryset = Ticket.objects.all()
+    serializer_class = CompleteTicketSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAgent]
+
+    def post(self, request, *args, **kwargs):
+
+        authenticated_user = request.user
+
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in request.data.items()
+        }
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+
+        ticket_number = kwargs.get("ticket_number")
+        attachment = serializer.validated_data["attachment"]
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+
+        ticket.status = "Resolved"
+        ticket.resolution_attachment = attachment
+        ticket.resolved_by = authenticated_user
+        ticket.resolved_at = timezone.now()
+        ticket.save()
+        
+        response_data = {
+            "status": "success",
+            "message": f"Ticket {ticket_number} marked as completed successfully.",
+            "data": {
+                "ticket_number": ticket_number,
+                "status": ticket.status,
+                "resolved_at": ticket.resolved_at,
+                "resolved_by": ticket.resolved_by.full_name if ticket.resolved_by else None,
+                "resolution_attachment": ticket.resolution_attachment,
+            }
+        }

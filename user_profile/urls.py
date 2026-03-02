@@ -17,6 +17,7 @@ from .views import (
     RetrieveFavourite,
     CustomerTicketCreation,
     TierListView,
+    RateAgentViewByCustomer,
 )
 from .notifications import (
     GetAllNotifications,
@@ -64,4 +65,9 @@ urlpatterns = [
         name="customer_ticket_creation",
     ),
     path("tier-list", TierListView.as_view(), name="tier_list"),
+    path(
+        "rate-support-agent/<uuid:ticket_number>/",
+        RateAgentViewByCustomer.as_view(),
+        name="rate_agent_by_customer",
+    ),
 ]
