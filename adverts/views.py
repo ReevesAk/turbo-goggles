@@ -75,7 +75,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                 user=user,
                 payment_option=payment_option,
                 pin=pin,
-                biometrics=biometrics,
+                use_biometrics=biometrics,
             )
 
             if not is_verified:
