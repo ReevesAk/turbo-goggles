@@ -1,7 +1,7 @@
 import logging
 
 # Third party imports.
-from rest_framework import serializers
+from rest_framework import request, serializers
 
 # In projects imports.
 from accounts.models import User
@@ -93,7 +93,10 @@ class CreateAdSerializers(serializers.ModelSerializer):
         videos = validated_data.pop("videos", [])
 
         # Create the main CreateAd instance
-        create_ad = CreateAd.objects.create(**validated_data)
+        request = self.context.get("request")
+        user = request.user
+
+        create_ad = CreateAd.objects.create(user=user, **validated_data)
 
         # Create related AdLocation entries
         for state, city in zip(states, cities):
