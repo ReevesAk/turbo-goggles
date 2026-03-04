@@ -1021,6 +1021,7 @@ class GetAllSupportTickets(generics.ListAPIView):
                         "email": ticket.assigned_to.email if ticket.assigned_to else None,
                     },
                     "assigned_at": ticket.assigned_at,
+                    "resolution_hours": ticket.resolution_hours,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
                     "status": ticket.status
