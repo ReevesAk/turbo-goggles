@@ -58,6 +58,7 @@ class RegisterManager(generics.GenericAPIView):
     Sends an OTP to the phone for validation.
     """
     serializer_class = RegisterAgentManagerSerializer
+    throttle_classes = []
 
     def post(self, request):
         # Check if a Manager already exists
@@ -169,8 +170,8 @@ class AgentForgotPin(generics.GenericAPIView):
     forgot pin request for an agent user.
     """
 
-    throttle_scope = "password_change"
     serializer_class = ForgotPinSerializer
+    throttle_classes = []
 
     def post(self, request):
         payload = request.data
@@ -246,6 +247,7 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
 
     permission_classes = (AllowAny,)
     serializer_class = VerifyOTPSerializer
+    throttle_classes = []
 
     def post(self, request):
         payload = request.data
@@ -337,6 +339,7 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
 
 class AgentResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
+    throttle_classes = []
 
     def create(self, request):
         payload = {
@@ -405,6 +408,7 @@ class ListUserDetailsAPI(generics.ListAPIView):
     serializer_class = UserProfileSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    throttle_classes = []
 
     def get_queryset(self):
         users = User.objects.all()
@@ -442,6 +446,7 @@ class CreateTicket(generics.CreateAPIView):
         MultiPartParser,
         JSONParser,
     )
+    throttle_classes = []
 
     def create(self, request, *args, **kwargs):
         logger.info("Received request to create a support ticket.")
@@ -565,6 +570,7 @@ class AssignTicket(generics.GenericAPIView):
     serializer_class = AssignTicketSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         logger.info("AssignTicket request received")
@@ -671,6 +677,7 @@ class ReassignTicket(generics.GenericAPIView):
     serializer_class = AssignTicketSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         logger.info("ReassignTicket request received")
@@ -782,6 +789,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
     serializer_class = UpdateTicketStatusSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         logger.info("UpdateTicketStatus request received")
@@ -864,6 +872,7 @@ class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = TicketEscalateSerializer(data=request.data)
@@ -928,6 +937,7 @@ class EscalateTicketAPIView(APIView):
 class TicketRRTrailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
+    throttle_classes = []
 
     def get(self, request, *args, **kwargs):
         ticket_id = kwargs.get("ticket_number")
@@ -993,6 +1003,7 @@ class GetAllSupportTickets(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     pagination_class = CustomPageNumberPagination
+    throttle_classes = []
 
     def list(self, request, *args, **kwargs):
         logger.info("Received request to list all support tickets.")
@@ -1050,6 +1061,7 @@ class GetMyAssignedTickets(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     pagination_class = CustomPageNumberPagination
+    throttle_classes = []
 
     def list(self, request, *args, **kwargs):
         logger.info(
@@ -1102,6 +1114,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsAgent]
     authentication_classes = [JWTAuthentication]
+    throttle_classes = []
 
     lookup_field = "number"
     lookup_url_kwarg = "ticket_number"
@@ -1181,6 +1194,7 @@ class GetTicketByChannel(generics.ListAPIView):
     serializer_class = TicketSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
+    throttle_classes = []
 
     def get(self, request, *args, **kwargs):
         search_term = kwargs.get("search_term")
@@ -1234,8 +1248,9 @@ class DeleteTicket(generics.DestroyAPIView):
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
-    lookup_field = "number"  # This should match your model field
-    lookup_url_kwarg = "ticket_number"  # This should match your URL parameter
+    throttle_classes = []
+    lookup_field = "number"
+    lookup_url_kwarg = "ticket_number"
 
     def destroy(self, request, *args, **kwargs):
         logger.info("Received request to delete support ticket.")
@@ -1272,6 +1287,7 @@ class RateSupportAgent(generics.GenericAPIView):
     serializer_class = AgentRatingSerializers
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    throttle_classes = []
     lookup_field = "ticket_number"
 
     def post(self, request, *args, **kwargs):
@@ -1356,6 +1372,7 @@ class UsersWithTickets(generics.ListAPIView):
     serializer_class = TicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
+    throttle_classes = []
 
     def get(self, request, *args, **kwargs):
         users_with_tickets = User.objects.filter(user_tickets__isnull=False).distinct()
@@ -1382,6 +1399,7 @@ class AddAgent(generics.CreateAPIView):
     serializer_class = AddAgentSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    throttle_classes = []
 
     def post(self, request):
         try:
@@ -1498,6 +1516,7 @@ class AgentSignUpComplete(generics.UpdateAPIView):
 
     serializer_class = AddAgentContdSerializer
     permission_classes = [AllowAny]
+    throttle_classes = []
 
     def get_object(self):
         user_id = self.kwargs.get("user_id")  # Make sure this matches your URL pattern
@@ -1599,6 +1618,7 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
     serializer_class = DisableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         payload = {
@@ -1672,6 +1692,7 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
     serializer_class = EnableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     authentication_classes = [JWTAuthentication]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         payload = {
@@ -1830,7 +1851,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
 
     permission_classes = (AllowAny,)
     serializer_class = SupportVerifyOTPSerializer
-
+    
     def post(self, request):
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -2059,6 +2080,7 @@ class SetAgentPin(generics.CreateAPIView):
     serializer_class = CreateAgentPinSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
+    throttle_classes = []
 
     def perform_create(self, serializer, request):
         pin = request.data.get("pin")
@@ -2136,6 +2158,7 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination
+    throttle_classes = []
 
     def get_queryset(self):
         logger.info("Retrieving agent and moderator users.")
@@ -2187,6 +2210,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = CompleteTicketSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
 
