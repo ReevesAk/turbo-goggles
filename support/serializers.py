@@ -377,6 +377,11 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
         # Fetch user_type values from AccountType model related to the user
         return list(obj.account_types.values_list("user_type", flat=True))
 
+    def get_full_name(self, obj):
+        if obj.first_name or obj.last_name:
+            return f"{obj.first_name or ''} {obj.last_name or ''}".strip()
+        return None
+
 
 class CompleteTicketSerializer(serializers.ModelSerializer):
     # attachments = serializers.FileField(

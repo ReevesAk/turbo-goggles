@@ -582,7 +582,6 @@ class AssignTicket(generics.GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        # Accept either `ticket_number` or `ticket_id` from URL (urls.py uses ticket_id)
         ticket_number = kwargs.get("ticket_number") or kwargs.get("ticket_id")
         pin = serializer.validated_data["pin"]
 
@@ -593,7 +592,7 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # ❗ Must be unassigned
+        # Must be unassigned
         if ticket.assigned_to:
             return Response(
                 {
@@ -619,13 +618,15 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        is_agent = AccountType.objects.filter(
+        allowed_roles = ["Agent", "Manager", "Moderator"]
+
+        is_valid_role = AccountType.objects.filter(
             user=user,
-            user_type=agent_role
+            user_type__in=allowed_roles
         ).exists()
 
-        if not is_agent:
-            raise PermissionDenied("User exists, but is not an agent.")
+        if not is_valid_role:
+            raise PermissionDenied("User exists, but is not allowed to be assigned tickets.")
 
         ticket.assigned_to = user
         ticket.priority = serializer.validated_data.get("priority")
@@ -1009,6 +1010,7 @@ class GetAllSupportTickets(generics.ListAPIView):
             data.append(
                 {
                     "ticket_number": ticket.number,
+                    "title": ticket.title,
                     "authorised_by": "SuperAdmin",
                     "category": ticket.category,
                     "description": ticket.description,
@@ -2148,34 +2150,32 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
         return users
 
     def list(self, request, *args, **kwargs):
-        logger.info("Accessing agent and moderator users list view.")
-        queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
+        logger.info("Accessing agent, moderator and manager users list view.")
 
-        # Count Agent and Moderator users
-        agent_count = queryset.filter(account_types__user_type="Agent").count()
-        moderator_count = queryset.filter(account_types__user_type="Moderator").count()
-        manager_count = queryset.filter(account_types__user_type="Manager").count()
+        agents = User.objects.filter(
+            account_types__user_type="Agent"
+        ).distinct()
+
+        moderators = User.objects.filter(
+            account_types__user_type="Moderator"
+        ).distinct()
+
+        managers = User.objects.filter(
+            account_types__user_type="Manager"
+        ).distinct()
 
         response_data = {
             "status": "success",
-            "message": "Agent, moderator and manager users retrieved successfully"
-            if queryset.exists()
-            else "No agent, moderator or manager users found.",
-            "num_of_users": queryset.count(),
-            "num_of_agents": agent_count,
-            "num_of_moderators": moderator_count,
-            "num_of_managers": manager_count,
-            "users": [],
+            "message": "Users retrieved successfully",
+            "num_of_agents": agents.count(),
+            "num_of_moderators": moderators.count(),
+            "num_of_managers": managers.count(),
+            "agents": self.get_serializer(agents, many=True).data,
+            "moderators": self.get_serializer(moderators, many=True).data,
+            "managers": self.get_serializer(managers, many=True).data,
         }
 
-        if page is not None:
-            serialized_users = self.get_serializer(page, many=True)
-            response_data["users"] = serialized_users.data
-        else:
-            logger.warning("No users found for pagination.")
-
-        return Response(data=response_data, status=status.HTTP_200_OK)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
