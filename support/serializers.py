@@ -59,6 +59,7 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         user = User.objects.create(
             email=validated_data["email"],
             phone_number=validated_data["phone_number"],
+            full_name=validated_data.get("full_name"),
         )
         # Set and save the password securely
         user.set_password(validated_data["password"])
@@ -289,7 +290,10 @@ class AddAgentSerializer(serializers.ModelSerializer):
         user_types = validated_data.pop("role", [])
         validated_data.pop("pin", None)
 
-        user = User(**validated_data)
+        user = User(
+            email=validated_data.get("email"),
+            full_name=validated_data.get("full_name"),
+        )
 
         # 🔐 CRITICAL: Disable password until signup completion
         user.set_unusable_password()
@@ -368,6 +372,7 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
 
 class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
     average_rating = serializers.FloatField(read_only=True)
     rating_count = serializers.IntegerField(read_only=True)
 

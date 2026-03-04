@@ -1182,7 +1182,7 @@ class EscalateTicketAPIView(APIView):
 
         to_user = User.objects.get(id=serializer.validated_data["to_user_id"])
 
-        allowed_escalation_roles = ["moderator"]
+        allowed_escalation_roles = ["Moderator", "Manager"]
         if to_role not in allowed_escalation_roles:
             return Response(
                 {"status": "fail", "error": "You cannot only escalate tickets to Moderators."},
@@ -1762,10 +1762,7 @@ class AddAgent(generics.CreateAPIView):
                             If you have any questions, feel free to contact us at our support email or phone below.
                         """,
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": [
-                            "02012271894",
-                            "02012271895",
-                        ],
+                        "picadailys_phone": "02012271894 02012271895"
                     },
                 )
 
