@@ -50,6 +50,7 @@ class Ticket(BaseModel):
     title = models.CharField(max_length=150, null=True)
     customer_name = models.CharField(max_length=254, null=True)
     customer_email = models.EmailField(max_length=254, null=True)
+    customer_phone_number = models.CharField(max_length=20, null=True)
     category = models.CharField(max_length=150, null=True)
     resolution_hours = models.IntegerField(default=24)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)

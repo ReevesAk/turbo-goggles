@@ -109,6 +109,7 @@ class CreateTicketSerializers(serializers.ModelSerializer):
             "number",
             "customer_name",
             "customer_email",
+            "customer_phone_number",
             "title",
             "priority",
             "resolution_hours",

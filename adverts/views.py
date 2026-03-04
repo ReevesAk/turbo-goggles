@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.db import transaction
@@ -35,7 +36,6 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
-# Collapsed view: CreateAdAndOnboardBrandView
 class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     serializer_class = CreateAdSerializers
     authentication_classes = [JWTAuthentication]
@@ -83,10 +83,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
             match payment_option:
                 case "WALLET":
-                    amount = int(amount)
-                    wallet_debit_amount = (
-                        amount  # Assuming full amount is debited from wallet
-                    )
+                    wallet_debit_amount = int(Decimal(str(amount)))
 
                     # Debit user's account
                     if wallet_debit_amount > 0:

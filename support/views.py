@@ -462,6 +462,7 @@ class CreateTicket(generics.CreateAPIView):
         channel = payload.get("channel")
         description = payload.get("description")
         customer_name = payload.get("customer_name")
+        customer_phone_number = payload.get("customer_phone_number")
         # Allow client to provide either `customer_email` or `email`.
         customer_email = payload.get("customer_email") or user_email
         attachment = request.FILES.get("attachment")
@@ -501,6 +502,7 @@ class CreateTicket(generics.CreateAPIView):
             user=user,
             customer_name=customer_name,
             customer_email=customer_email,
+            customer_phone_number=customer_phone_number,
             title=title,
             category=category,
             channel=channel,
@@ -1144,6 +1146,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "priority": ticket.priority,
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
+                    "resolution_hours": ticket.resolution_hours,
                     "remaining_hours": ticket.remaining_time,
                     "status": ticket.status,
                     "assignment_history": history_data,
@@ -2126,7 +2129,7 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     """
 
     queryset = User.objects.all()
-    serializer_class = ListAgentModeratorAndManagerSerializer  # You may rename if needed
+    serializer_class = ListAgentModeratorAndManagerSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination

@@ -40,7 +40,7 @@ BRAND_OBJECTIVE = (
     ("Brand Awareness", "Brand Awareness"),
     ("Generation Lead", "Generation Lead"),
     ("Drive Sales", "Drive Sales"),
-    ("Promotion Awareness(Engagement)", "Promotion Awareness(Engagement)"),
+    ("Promote Awareness(Engagement)", "Promote Awareness(Engagement)"),
 )
 
 
