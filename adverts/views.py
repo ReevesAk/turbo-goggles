@@ -94,7 +94,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     user=user
                                 )
 
-                                merchant_fee = Decimal("0.00")
+                                merchant_fee = "0.00"
                                 debit_response = Wallet.Debit(
                                     debitAccount=account.account_number,
                                     amount=wallet_debit_amount,
