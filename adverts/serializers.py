@@ -82,6 +82,10 @@ class CreateAdSerializers(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        validated_data.pop("pin", None)
+        validated_data.pop("payment_option", None)
+        validated_data.pop("biometrics", None)
+
         # Extract non-model fields first
         states = validated_data.pop("state", [])
         cities = validated_data.pop("city", [])
