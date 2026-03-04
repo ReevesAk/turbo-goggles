@@ -94,11 +94,12 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     user=user
                                 )
 
+                                merchant_fee = Decimal("0.00")
                                 debit_response = Wallet.Debit(
                                     debitAccount=account.account_number,
                                     amount=wallet_debit_amount,
                                     reason="Debit for brwand promotion.",
-                                    transactionReference=tx_reference,
+                                    merchantFeeAmount=merchant_fee,
                                 )
 
                                 if debit_response.status_code == 200:
