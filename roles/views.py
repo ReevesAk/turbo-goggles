@@ -28,6 +28,9 @@ from .serializers import (
     ForgotPinSerializer,
     ResetPinSerializer,
     AdminDdashboardDataSerializer,
+    StaffForgotPasswordSerializer,
+    StaffPasswordResendOTPSerializer,
+    StaffResetPasswordSerializer
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -808,6 +811,303 @@ class SetAdminPin(generics.CreateAPIView):
             )
 
 
+class StaffForgotPassword(generics.GenericAPIView):
+
+    serializer_class = StaffForgotPasswordSerializer
+    throttle_scope = "password_change"
+
+    def post(self, request):
+
+        decrypted_payload = decrypt(request.data)
+
+        serializer = self.serializer_class(data=decrypted_payload)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                encrypt({
+                    "status": "success",
+                    "message": "If this account exists, an OTP has been sent."
+                }),
+                status=status.HTTP_200_OK
+            )
+
+        # Restrict to staff roles only
+        if not user.account_types.filter(
+            user_type__in=["SuperAdmin", "AdAdmin", "MembersAdmin", "PartnersAdmin", "ContentAdmin", "WalletAdmin", "FmcgAdmin"]
+        ).exists():
+
+            return Response(
+                encrypt({
+                    "status": "fail",
+                    "message": "This account is not authorized for staff portal."
+                }),
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your login password"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894 02012271895",
+            },
+        )
+
+        Messaging.send_email(
+            email=email,
+            html_content=text_content,
+            subject="Admin Password Reset Request",
+            sender_email="notifications@picadailys.com",
+            body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
+        )
+        # TODO: Consider sending OTP to phone as well if phone number is available for added security and convenience.
+        logger.info(f"OTP sent: {otp}")
+        logger.info(f"OTP sent to email: {email}")
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Admin Password Reset Request",
+            description=f"{user.first_name} {user.last_name} submitted a password reset request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your mailbox for an OTP",
+        }
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
+
+
+class StaffPasswordResendOTP(generics.GenericAPIView):
+    """
+    StaffPasswordResendOTP handles the POST request of resending an
+    OTP to a admin after password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = StaffPasswordResendOTPSerializer
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        logger.debug("Received OTP resend request data: %s", decrypted_payload)
+
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.serializer_class(data=user_data)
+
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.data["email"]
+            logger.info("Processing OTP resend for email: %s", email)
+
+            try:
+                user = User.objects.get(email=email)
+                logger.info("User found with email: %s", email)
+
+                # Generate OTP using the user's ID
+                otp = otp_manager.create_otp(user_id=str(user.id))
+                msg = msg = f"Enter this {otp} to verify your account and reset your login password"
+
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=email,
+                    html_content=text_content,
+                    subject="Admin Password Reset Request",
+                    sender_email="notifications@picadailys.com",
+                    body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
+                )
+
+                response = {
+                    "status": "success",
+                    "message": "OTP resent successfully. Check your phone for validation.",
+                }
+                return Response(data=encrypt(response), status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                logger.warning(
+                    "Admin with email %s does not exist.", email
+                )
+                resp = {
+                    "status": "fail",
+                    "message": "Admin with the provided email does not exist.",
+                }
+                encrypted_response = encrypt(resp)
+                return Response(
+                    data=encrypted_response,
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        else:
+            logger.error("OTP resend validation failed: %s", serializer.errors)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class StaffEmailVerifyOTP(generics.GenericAPIView):
+    """
+    StaffEmailVerifyOTP handles the POST request of verifying a
+    staff member with a valid email address for password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        logger.debug("Received data for password reset OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+            logger.info("OTP received for password reset: %s", received_otp)
+
+            # Validate OTP
+            user_id = otp_manager.validate_user_otp(received_otp)
+            if not user_id:
+                logger.warning(
+                    "Invalid or expired OTP during password reset: %s", received_otp
+                )
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid or expired OTP"}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error(
+                    "Admin with id %s not found for password reset verification.",
+                    user_id,
+                )
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Admin not found"}),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Send confirmation message to the user
+            msg = "Admin is verified... You can reset your password now!"
+            recipient = user.email
+            Messaging.send_email(email=recipient, msg=msg)
+            logger.info(
+                "Password reset verification message sent to admin %s at %s",
+                user.id,
+                recipient,
+            )
+
+            # Log activity for verification
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account",
+                description=f"{user.first_name} {user.last_name} verified OTP for password reset.",
+            )
+            logger.info(
+                "Password reset OTP verification activity logged for user %s.", user.id
+            )
+
+            verified_response = {
+                "status": "success",
+                "message": "Account is verified",
+                "user_id": user_id,
+            }
+            encrypted_response = encrypt(verified_response)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+        else:
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class StaffResetPassword(generics.CreateAPIView):
+    serializer_class = StaffResetPasswordSerializer
+
+    def create(self, request):
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_data = serializer.validated_data
+        user_id = payload.get("admin_id")
+
+        try:
+            user = User.objects.get(id=user_id)
+            logger.info(f"Admin found for ID: {user.id}")
+        except User.DoesNotExist:
+            logger.error(f"Admin not found with ID: {user_id}")
+            return Response(
+                data=encrypt({"error": "Admin not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_data["password"] != user_data["password2"]:
+            logger.warning("Passwords do not match for admin ID: %s", user_id)
+            return Response(
+                data=encrypt({"error": "Passwords do not match!"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data["password"]
+        user.password = make_password(password)
+
+        user_token = payload.get("refresh_token")
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {user_id}")
+
+        user.save()
+
+        UserNotification.objects.create(
+            user=user,
+            title="Password Reset.",
+            message="Your password reset is successful.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Password Reset.",
+            description=f"{user.full_name} reset their password.",
+        )
+
+        response = {"status": "success", "message": "Password reset successfully"}
+        encrypted_response = encrypt(response)
+        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+
 class AdminForgotPin(generics.GenericAPIView):
     """
     AdminForgotPin handles the POST request of sending a
@@ -854,10 +1154,7 @@ class AdminForgotPin(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": [
-                    "02012271894",
-                    "02012271895",
-                ],
+                "picadailys_phone": "02012271894 02012271895",
             },
         )
 

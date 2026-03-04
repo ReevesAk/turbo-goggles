@@ -32,6 +32,10 @@ from .views import (
     PinVerifyOTP,
     ResetPin,
     AdminDashboardDataView,
+    StaffEmailVerifyOTP,
+    StaffForgotPassword,
+    StaffPasswordResendOTP,
+    StaffResetPassword
 )
 
 from .tasks import (
@@ -81,9 +85,15 @@ urlpatterns = [
         RemoveAdminRole.as_view(),
         name="remove_role_from_admin",
     ),
+    # Authorization management endpoints.
     path("admin-forgot-pin", AdminForgotPin.as_view(), name="admin_forgot_pin"),
     path("verify-pin-otp", PinVerifyOTP.as_view(), name="verify_pin_otp"),
     path("reset-pin", ResetPin.as_view(), name="reset_pin"),
+    path("staff-forgot-password", StaffForgotPassword.as_view(), name="staff_forgot_password"),
+    path("staff-password-resend-otp", StaffPasswordResendOTP.as_view(), name="staff_password_resend_otp"),
+    path("staff-email-verify-otp", StaffEmailVerifyOTP.as_view(), name="staff_email_verify_otp"),
+    path("staff-reset-password", StaffResetPassword.as_view(), name="staff_reset_password"),
+
     path("list-admin-users", GetAllAdminUsers.as_view(), name="list_admin_users"),
     path(
         "list-admin-user-types",

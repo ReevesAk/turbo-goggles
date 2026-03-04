@@ -2,6 +2,7 @@ import logging
 
 from django.db import transaction
 from django.contrib.auth.hashers import check_password
+from django.db.models import Avg, Count, Case, When, IntegerField
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import authenticate
@@ -14,12 +15,17 @@ from cloudinary import uploader as cloud
 
 # In project imports.
 from .serializers import (
-    RegisterAgentManagerSerializer, SupportVerifyOTPSerializer, CreateTicketSerializers, AssignTicketSerializers,
+    RegisterAgentManagerSerializer, SupportVerifyOTPSerializer,
+    CreateTicketSerializers, AssignTicketSerializers,
     AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer, TicketAssignmentHistorySerializer,
-    UpdateTicketStatusSerializer, DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer, UserProfileSerializer,
-    CompleteTicketSerializer, ForgotPinSerializer, VerifyOTPSerializer, ResetPinSerializer
+    CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer,
+    TicketAssignmentHistorySerializer, UpdateTicketStatusSerializer,
+    DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer,
+    UserProfileSerializer, CompleteTicketSerializer, ForgotPinSerializer,
+    VerifyOTPSerializer, ResetPinSerializer, SupportStaffForgotPasswordSerializer,
+    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer
+    
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -373,13 +379,13 @@ class AgentResetPin(generics.CreateAPIView):
             )
 
         password = user_data.get("pin")
-        user.admin_pin = make_password(password)
+        user.agent_pin = make_password(password)
 
         user_token = payload.get("refresh_token")
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {admin_id}")
+            logger.info(f"Refresh token blacklisted for user: {agent_id}")
 
         user.save()
 
@@ -399,6 +405,291 @@ class AgentResetPin(generics.CreateAPIView):
         response = {"status": "success", "message": "Pin reset successfully"}
         encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
+
+
+class SupportForgotPassword(generics.GenericAPIView):
+
+    serializer_class = SupportStaffForgotPasswordSerializer
+    throttle_scope = "password_change"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                data={
+                    "status": "success",
+                    "message": "If this account exists, an OTP has been sent."
+                },
+                status=status.HTTP_200_OK
+            )
+
+        # Restrict to staff roles only
+        if not user.account_types.filter(
+            user_type__in=["Moderator", "Manager", "Agent"]
+        ).exists():
+
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "This account is not authorized for staff portal."
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user_id = user.id
+        otp = otp_manager.create_otp(user_id=str(user_id))
+        msg = f"Enter this {otp} to verify your account and reset your login password"
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894 02012271895",
+            },
+        )
+
+        Messaging.send_email(
+            email=email,
+            html_content=text_content,
+            subject="Support Password Reset Request",
+            sender_email="notifications@picadailys.com",
+            body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
+        )
+        # TODO: Consider sending OTP to phone as well if phone number is available for added security and convenience.
+        logger.info(f"OTP sent: {otp}")
+        logger.info(f"OTP sent to email: {email}")
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Admin Password Reset Request",
+            description=f"{user.full_name} submitted a password reset request.",
+        )
+
+        response = {
+            "status": "success",
+            "message": "Check your mailbox for an OTP",
+        }
+        return Response(data=response, status=status.HTTP_201_CREATED)
+
+
+class SupportPasswordResendOTP(generics.GenericAPIView):
+    """
+    StaffPasswordResendOTP handles the POST request of resending an
+    OTP to a support agent after password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = SupportStaffPasswordResendOTPSerializer
+
+    def post(self, request):
+        logger.debug("Received OTP resend request data: %s", request.data)
+
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.serializer_class(data=user_data)
+
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.data["email"]
+            logger.info("Processing OTP resend for email: %s", email)
+
+            try:
+                user = User.objects.get(email=email)
+                logger.info("User found with email: %s", email)
+
+                # Generate OTP using the user's ID
+                otp = otp_manager.create_otp(user_id=str(user.id))
+                msg = msg = f"Enter this {otp} to verify your account and reset your login password"
+
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=email,
+                    html_content=text_content,
+                    subject="Admin Password Reset Request",
+                    sender_email="notifications@picadailys.com",
+                    body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
+                )
+
+                response = {
+                    "status": "success",
+                    "message": "OTP resent successfully. Check your phone for validation.",
+                }
+                return Response(data=response, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                logger.warning(
+                    "Agent with email %s does not exist.", email
+                )
+                resp = {
+                    "status": "fail",
+                    "message": "Agent with the provided email does not exist.",
+                }
+                return Response(
+                    data=resp,
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        else:
+            logger.error("OTP resend validation failed: %s", serializer.errors)
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+class SupportEmailVerifyOTP(generics.GenericAPIView):
+    """
+    SupportEmailVerifyOTP handles the POST request of verifying a
+    support agent with a valid email address for password reset.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request):
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        logger.debug("Received data for password reset OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+            logger.info("OTP received for password reset: %s", received_otp)
+
+            # Validate OTP
+            user_id = otp_manager.validate_user_otp(received_otp)
+            if not user_id:
+                logger.warning(
+                    "Invalid or expired OTP during password reset: %s", received_otp
+                )
+                return Response(
+                    data={"status": "fail", "message": "Invalid or expired OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error(
+                    "Agent with id %s not found for password reset verification.",
+                    user_id,
+                )
+                return Response(
+                    data={"status": "fail", "message": "Admin not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Send confirmation message to the user
+            msg = "Agent is verified... You can reset your password now!"
+            recipient = user.email
+            Messaging.send_email(email=recipient, msg=msg)
+            logger.info(
+                "Password reset verification message sent to admin %s at %s",
+                user.id,
+                recipient,
+            )
+
+            # Log activity for verification
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account",
+                description=f"{user.full_name} verified OTP for password reset.",
+            )
+            logger.info(
+                "Password reset OTP verification activity logged for user %s.", user.id
+            )
+
+            verified_response = {
+                "status": "success",
+                "message": "Account is verified",
+                "user_id": user_id,
+            }
+            return Response(data=verified_response, status=status.HTTP_200_OK)
+        else:
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class SupportfResetPassword(generics.CreateAPIView):
+    serializer_class = SupportStaffResetPasswordSerializer
+
+    def create(self, request):
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in request.data.items()
+        }
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_data = serializer.validated_data
+        user_id = payload.get("agent_id")
+
+        try:
+            user = User.objects.get(id=user_id)
+            logger.info(f"Agent found for ID: {user.id}")
+        except User.DoesNotExist:
+            logger.error(f"Agent not found with ID: {user_id}")
+            return Response(
+                data=encrypt({"error": "Agent not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_data["password"] != user_data["password2"]:
+            logger.warning("Passwords do not match for agent ID: %s", user_id)
+            return Response(
+                data=encrypt({"error": "Passwords do not match!"}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = user_data["password"]
+        user.password = make_password(password)
+
+        user_token = payload.get("refresh_token")
+        if user_token:
+            token = RefreshToken(user_token)
+            token.blacklist()
+            logger.info(f"Refresh token blacklisted for user: {user_id}")
+
+        user.save()
+
+        UserNotification.objects.create(
+            user=user,
+            title="Password Reset.",
+            message="Your password reset is successful.",
+        )
+
+        ActivityModel.objects.create(
+            user=user,
+            title="Password Reset.",
+            description=f"{user.full_name} reset their password.",
+        )
+
+        response = {"status": "success", "message": "Password reset successfully"}
+        return Response(data=response, status=status.HTTP_200_OK)
+
 
 
 class ListUserDetailsAPI(generics.ListAPIView):
@@ -1085,6 +1376,8 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 "created_at": ticket.created_at,
                 "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
                 "assigned_at": ticket.assigned_at,
+                "resolution_hours": ticket.resolution_hours,
+                "remaining_hours": ticket.remaining_time,
                 "ticket_channel": ticket.channel,
                 "priority": ticket.priority,
                 "status": ticket.status,
@@ -2104,8 +2397,8 @@ class SetAgentPin(generics.CreateAPIView):
 
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
-        authenticated_user.admin_pin = hashed_pin
-        authenticated_user.is_admin_pin_set = True
+        authenticated_user.agent_pin = hashed_pin
+        authenticated_user.is_agent_pin_set = True
         authenticated_user.save()
         logger.info("Agent pin set for user: %s %s", user.full_name)
 
@@ -2177,14 +2470,50 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
 
         agents = User.objects.filter(
             account_types__user_type="Agent"
+        ).annotate(
+            average_rating=Avg(
+                Case(
+                    When(agent_rated__rating="5", then=5),
+                    When(agent_rated__rating="4", then=4),
+                    When(agent_rated__rating="3", then=3),
+                    When(agent_rated__rating="2", then=2),
+                    When(agent_rated__rating="1", then=1),
+                    output_field=IntegerField()
+                )
+            ),
+            rating_count=Count("agent_rated", distinct=True)
         ).distinct()
 
         moderators = User.objects.filter(
             account_types__user_type="Moderator"
+        ).annotate(
+            average_rating=Avg(
+                Case(
+                    When(agent_rated__rating="5", then=5),
+                    When(agent_rated__rating="4", then=4),
+                    When(agent_rated__rating="3", then=3),
+                    When(agent_rated__rating="2", then=2),
+                    When(agent_rated__rating="1", then=1),
+                    output_field=IntegerField()
+                )
+            ),
+            rating_count=Count("agent_rated", distinct=True)
         ).distinct()
 
         managers = User.objects.filter(
             account_types__user_type="Manager"
+        ).annotate(
+            average_rating=Avg(
+                Case(
+                    When(agent_rated__rating="5", then=5),
+                    When(agent_rated__rating="4", then=4),
+                    When(agent_rated__rating="3", then=3),
+                    When(agent_rated__rating="2", then=2),
+                    When(agent_rated__rating="1", then=1),
+                    output_field=IntegerField()
+                )
+            ),
+            rating_count=Count("agent_rated", distinct=True)
         ).distinct()
 
         response_data = {

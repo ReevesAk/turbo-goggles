@@ -148,8 +148,8 @@ class UserWithTicketsSerializer(serializers.ModelSerializer):
 
 
 class AssignTicketSerializers(serializers.ModelSerializer):
-    agent_name = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    agent_email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    agent_name = serializers.CharField(max_length=68, write_only=True)
+    agent_email = serializers.CharField(max_length=68, write_only=True)
     agent_role = serializers.ChoiceField(
         choices=["Agent", "Moderator"],
         write_only=True
@@ -368,10 +368,21 @@ class CreateAgentPinSerializer(serializers.ModelSerializer):
 
 class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
+    average_rating = serializers.FloatField(read_only=True)
+    rating_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "phone_number", "email", "user_type", "last_login"]
+        fields = [
+            "id",
+            "full_name",
+            "phone_number",
+            "email",
+            "user_type",
+            "last_login",
+            "average_rating",
+            "rating_count"
+        ]
 
     def get_user_type(self, obj):
         # Fetch user_type values from AccountType model related to the user
@@ -427,3 +438,47 @@ class ResetPinSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["agent_id", "pin", "pin2"]
+
+
+class SupportStaffForgotPasswordSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("Forgot password request for email for support staff: %s", email)
+        return attrs
+
+
+class SupportStaffPasswordResendOTPSerializer(serializers.Serializer):
+    """Serailizers for resending OTP to support members."""
+
+    email = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = ["id", "email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("OTP resend request for phone number: %s", email)
+        return attrs
+
+
+class SupportStaffResetPasswordSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    agent_id = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ("agent_id", "password", "password2")
+
+    def validate(self, attrs):
+        agent_id = attrs.get("agent_id")
+        user = User.objects.get(id=agent_id)
+        logger.info("Password reset request for email: %s", user.email)
+        return attrs

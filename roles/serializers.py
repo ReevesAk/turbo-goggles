@@ -493,6 +493,50 @@ class ResetPinSerializer(serializers.ModelSerializer):
     #     return attrs
 
 
+class StaffForgotPasswordSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("Forgot password request for email for admin staff: %s", email)
+        return attrs
+
+
+class StaffPasswordResendOTPSerializer(serializers.Serializer):
+    """Serailizers for resending OTP to admin members."""
+
+    email = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = ["id", "email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        logger.info("OTP resend request for email: %s", email)
+        return attrs
+
+
+class StaffResetPasswordSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    admin_id = serializers.CharField(max_length=68, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ("admin_id", "password", "password2")
+
+    def validate(self, attrs):
+        admin_id = attrs.get("admin_id")
+        user = User.objects.get(id=admin_id)
+        logger.info("Password reset request for email: %s", user.email)
+        return attrs
+
+
 class EmailOrListField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, str):

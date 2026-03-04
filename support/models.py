@@ -52,7 +52,7 @@ class Ticket(BaseModel):
     customer_email = models.EmailField(max_length=254, null=True)
     customer_phone_number = models.CharField(max_length=20, null=True)
     category = models.CharField(max_length=150, null=True)
-    resolution_hours = models.IntegerField(default=24)
+    resolution_hours = models.IntegerField(null=True, blank=True)
     channel = models.CharField(max_length=50, choices=TICKET_CHANNELS, null=True)
     assigned_to = models.ForeignKey(
         to=User, on_delete=models.SET_NULL,

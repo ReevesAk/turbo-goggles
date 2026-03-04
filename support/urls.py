@@ -3,12 +3,16 @@ from django.urls import path
 
 from .views import (
     CreateTicket, RegisterManager, SupportPhoneVerifyOTP,
-    AssignTicket, ReassignTicket, UpdateTicketStatus, GetAllSupportTickets, 
-    GetSingleTicket, RateSupportAgent, GetTicketByChannel, UsersWithTickets,
-    AddAgent, AgentSignUpComplete, LoginAgent, SetAgentPin,
-    GetAllAgentModeratorAndSupportManager, DeleteTicket, GetMyAssignedTickets,
-    EscalateTicketAPIView, TicketRRTrailAPIView, DisableAgentrole, EnableAgentrole, DeleteAgent,
-    CompleteTicketAPIView, ListUserDetailsAPI, AgentForgotPin, AgentPinVerifyOTP, AgentResetPin
+    AssignTicket, ReassignTicket, UpdateTicketStatus,
+    GetAllSupportTickets, GetSingleTicket, RateSupportAgent,
+    GetTicketByChannel, UsersWithTickets, AddAgent,
+    AgentSignUpComplete, LoginAgent, SetAgentPin,
+    GetAllAgentModeratorAndSupportManager, DeleteTicket,
+    GetMyAssignedTickets, EscalateTicketAPIView, TicketRRTrailAPIView,
+    DisableAgentrole, EnableAgentrole, DeleteAgent, CompleteTicketAPIView,
+    ListUserDetailsAPI, AgentForgotPin, AgentPinVerifyOTP, AgentResetPin,
+    SupportForgotPassword, SupportPasswordResendOTP,SupportEmailVerifyOTP,
+    SupportfResetPassword
 )
 
 
@@ -21,6 +25,10 @@ urlpatterns = [
     path("agent-forgot-pin", AgentForgotPin.as_view(), name="agent_forgot_pin"),
     path("verify-agent-pin-otp", AgentPinVerifyOTP.as_view(), name="verify_agent_pin_otp"),
     path("reset-agent-pin", AgentResetPin.as_view(), name="reset_agent_pin"),
+    path("support-forgot-password", SupportForgotPassword.as_view(), name="support_forgot_password"),
+    path("support-password-resend-otp", SupportPasswordResendOTP.as_view(), name="support_password_resend_otp"),
+    path("support-email-verify-otp", SupportEmailVerifyOTP.as_view(), name="support_email_verify_otp"),
+    path("support-reset-password", SupportfResetPassword.as_view(), name="support_reset_password"),
     path("add-agent", AddAgent.as_view(), name="add_support_agent"),
     path("set-agent-pin", SetAgentPin.as_view(), name="set_agent_pin"),
     path("signup-complete/<str:user_id>/", AgentSignUpComplete.as_view(), name="signup-complete"),

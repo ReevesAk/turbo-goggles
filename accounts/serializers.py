@@ -176,7 +176,7 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user_id = attrs.get("user_id")
         user = User.objects.get(id=user_id)
-        logger.info("OTP resend request for phone number: %s", user.phone_number)
+        logger.info("Reset password request for phone number: %s", user.phone_number)
         return attrs
 
 
