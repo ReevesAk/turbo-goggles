@@ -1318,6 +1318,7 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "description": ticket.description,
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
+                    "customer_phone_number": ticket.customer_phone_number,
                     "created_at": ticket.created_at,
                     "assigned_to": {
                         "id": ticket.assigned_to.id if ticket.assigned_to else None,
@@ -1454,6 +1455,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
                     "customer_email": ticket.customer_email,
+                    "customer_phone_number": ticket.customer_phone_number,
                     "customer_name": ticket.customer_name,
                     "resolution_hours": ticket.resolution_hours,
                     "remaining_hours": ticket.remaining_time,
@@ -2468,6 +2470,8 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
         agents = User.objects.filter(
             account_types__user_type="Agent"
         ).annotate(
+            total_tickets_assigned=Count("assigned_tickets", distinct=True),
+            total_tickets_resolved=Count("resolved_tickets", distinct=True),
             average_rating=Avg(
                 Case(
                     When(agent_rated__rating="5", then=5),
@@ -2484,6 +2488,8 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
         moderators = User.objects.filter(
             account_types__user_type="Moderator"
         ).annotate(
+            total_tickets_assigned=Count("assigned_tickets", distinct=True),
+            total_tickets_resolved=Count("resolved_tickets", distinct=True),
             average_rating=Avg(
                 Case(
                     When(agent_rated__rating="5", then=5),
@@ -2500,6 +2506,8 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
         managers = User.objects.filter(
             account_types__user_type="Manager"
         ).annotate(
+            total_tickets_assigned=Count("assigned_tickets", distinct=True),
+            total_tickets_resolved=Count("resolved_tickets", distinct=True),
             average_rating=Avg(
                 Case(
                     When(agent_rated__rating="5", then=5),

@@ -375,6 +375,8 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     average_rating = serializers.FloatField(read_only=True)
     rating_count = serializers.IntegerField(read_only=True)
+    total_tickets_assigned = serializers.IntegerField(read_only=True)
+    total_tickets_resolved = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = User
@@ -386,7 +388,9 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
             "user_type",
             "last_login",
             "average_rating",
-            "rating_count"
+            "rating_count",
+            "total_tickets_assigned",
+            "total_tickets_resolved"
         ]
 
     def get_user_type(self, obj):
