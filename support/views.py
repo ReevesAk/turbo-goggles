@@ -927,6 +927,7 @@ class AssignTicket(generics.GenericAPIView):
 
         ticket.assigned_to = user
         ticket.priority = serializer.validated_data.get("priority")
+        ticket.assigned_at = timezone.now()
 
         # Only update status if provided
         if "status" in serializer.validated_data:
@@ -953,7 +954,7 @@ class AssignTicket(generics.GenericAPIView):
         return Response(
             {
                 "status": "success",
-                "message": f"Ticket {ticket_number} successfully assigned to {user.full_name}",
+                "message": f"Ticket {ticket_number} successfully assigned to {agent_role}, {user.full_name}",
                 "data": serializer.data,
             },
             status=status.HTTP_201_CREATED,
