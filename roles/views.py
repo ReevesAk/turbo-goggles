@@ -30,7 +30,7 @@ from .serializers import (
     AdminDdashboardDataSerializer,
     StaffForgotPasswordSerializer,
     StaffPasswordResendOTPSerializer,
-    StaffResetPasswordSerializer
+    StaffResetPasswordSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -829,24 +829,36 @@ class StaffForgotPassword(generics.GenericAPIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                encrypt({
-                    "status": "success",
-                    "message": "If this account exists, an OTP has been sent."
-                }),
-                status=status.HTTP_200_OK
+                encrypt(
+                    {
+                        "status": "success",
+                        "message": "If this account exists, an OTP has been sent.",
+                    }
+                ),
+                status=status.HTTP_200_OK,
             )
 
         # Restrict to staff roles only
         if not user.account_types.filter(
-            user_type__in=["SuperAdmin", "AdAdmin", "MembersAdmin", "PartnersAdmin", "ContentAdmin", "WalletAdmin", "FmcgAdmin"]
+            user_type__in=[
+                "SuperAdmin",
+                "AdAdmin",
+                "MembersAdmin",
+                "PartnersAdmin",
+                "ContentAdmin",
+                "WalletAdmin",
+                "FmcgAdmin",
+            ]
         ).exists():
 
             return Response(
-                encrypt({
-                    "status": "fail",
-                    "message": "This account is not authorized for staff portal."
-                }),
-                status=status.HTTP_403_FORBIDDEN
+                encrypt(
+                    {
+                        "status": "fail",
+                        "message": "This account is not authorized for staff portal.",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         user_id = user.id
@@ -916,7 +928,9 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
 
                 # Generate OTP using the user's ID
                 otp = otp_manager.create_otp(user_id=str(user.id))
-                msg = msg = f"Enter this {otp} to verify your account and reset your login password"
+                msg = msg = (
+                    f"Enter this {otp} to verify your account and reset your login password"
+                )
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -942,9 +956,7 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
                 return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
             except User.DoesNotExist:
-                logger.warning(
-                    "Admin with email %s does not exist.", email
-                )
+                logger.warning("Admin with email %s does not exist.", email)
                 resp = {
                     "status": "fail",
                     "message": "Admin with the provided email does not exist.",

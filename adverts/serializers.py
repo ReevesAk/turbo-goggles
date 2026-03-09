@@ -1,7 +1,9 @@
 import logging
 
+from django.utils import timezone
+
 # Third party imports.
-from rest_framework import request, serializers
+from rest_framework import serializers
 
 # In projects imports.
 from accounts.models import User
@@ -78,7 +80,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "city",
             "images",
             "videos",
-            "type",
+            "type_of_brand",
         ]
 
     def create(self, validated_data):
@@ -117,6 +119,7 @@ class AdLocationSerializer(serializers.ModelSerializer):
 
 class AdSerializers(serializers.ModelSerializer):
     brand_location = AdLocationSerializer(many=True, read_only=True)
+    remaining_time = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
 
     def get_ad_media(self, obj):
@@ -138,8 +141,9 @@ class AdSerializers(serializers.ModelSerializer):
             "engagement_type",
             "daily_allocation",
             "website",
-            "type",
+            "type_of_brand",
             "campaign_duration",
+            "remaining_time",
             "amount",
             "brand_location",
             "ad_media",
@@ -147,3 +151,19 @@ class AdSerializers(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_remaining_time(self, obj):
+        if obj.expiry_date:
+            remaining = obj.expiry_date - timezone.now()
+
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                return f"{days} days {hours} hours remaining"
+            else:
+                if obj.is_active:
+                    obj.is_active = False
+                    obj.save(update_fields=["is_active"])
+                return "Expired"
+
+        return None
