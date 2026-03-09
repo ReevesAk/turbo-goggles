@@ -285,7 +285,7 @@ class ListAllBrandAds(generics.ListAPIView):
         }
 
         # Save to cache (short TTL)
-        cache.set(cache_key, response, timeout=300)  # 5 minutes
+        cache.set(cache_key, response, timeout=120)  # 2 minutes
 
         encrypted_response = encrypt(response)
         return Response(data=encrypted_response, status=status.HTTP_200_OK)

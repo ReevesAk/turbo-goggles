@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 
 from accounts.models import User
 
@@ -57,6 +60,7 @@ class CreateAd(models.Model):
         choices=BRAND_OBJECTIVE, max_length=255, null=True
     )
     campaign_name = models.CharField(max_length=150, null=True)
+    expiry_date = models.DateTimeField(null=True, blank=True)
     gender = models.CharField(choices=GENDER, max_length=20, null=True)
     demography = models.CharField(
         choices=DEMOGRAPHY, max_length=150, blank=True, null=True
@@ -65,12 +69,17 @@ class CreateAd(models.Model):
     daily_allocation = models.CharField(max_length=150, blank=True, null=True)
 
     website = models.CharField(max_length=150, blank=True, null=True)
-    type = models.CharField(max_length=100, null=True, blank=True)
+    type_of_brand = models.CharField(max_length=100, null=True, blank=True)
     campaign_duration = models.CharField(max_length=155, null=True, blank=True)
     amount = models.CharField(max_length=155, null=True, blank=True)
     is_active = models.BooleanField(default=False, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.campaign_duration and not self.expiry_date:
+            self.expiry_date = timezone.now() + timedelta(days=self.campaign_duration)
+        super().save(*args, **kwargs)
 
 
 class AdMedia(models.Model):
