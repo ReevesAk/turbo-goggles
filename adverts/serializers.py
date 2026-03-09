@@ -159,11 +159,17 @@ class AdSerializers(serializers.ModelSerializer):
             if remaining.total_seconds() > 0:
                 days = remaining.days
                 hours = remaining.seconds // 3600
+
+                # Ensure ad is active
+                if not obj.is_active:
+                    obj.is_active = True
+                    obj.save(update_fields=["is_active"])
+
                 return f"{days} days {hours} hours remaining"
+
             else:
                 if obj.is_active:
                     obj.is_active = False
                     obj.save(update_fields=["is_active"])
-                return "Expired"
 
-        return None
+                return "Expired"
