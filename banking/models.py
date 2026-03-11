@@ -116,7 +116,9 @@ class WalletUpgrade(WalletModel):
     nearestLandmark = models.CharField(max_length=200, null=True)
     placeOfBirth = models.CharField(max_length=200, null=True)
     customerSignature = models.CharField(max_length=200, null=True)
-    proofOfAddressVerification = models.CharField(max_length=200, null=True)
+    proofOfAddressVerification = models.FileField(
+        upload_to="banking_address", max_length=200, null=True
+    )
 
 
 class ForexModel(models.Model):

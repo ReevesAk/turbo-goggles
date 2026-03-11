@@ -355,7 +355,7 @@ class AgentResetPin(generics.CreateAPIView):
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
             return Response(
-                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
         user_data = serializer.validated_data
@@ -367,14 +367,14 @@ class AgentResetPin(generics.CreateAPIView):
         except User.DoesNotExist:
             logger.error(f"Support agent not found with ID: {agent_id}")
             return Response(
-                data=encrypt({"status": "fail", "message": "Support agent not found"}),
+                data={"status": "fail", "message": "Support agent not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if user_data.get("pin") != user_data.get("pin2"):
             logger.warning("Pins do not match for Agent ID: %s", agent_id)
             return Response(
-                data=encrypt({"error": "Pins do not match!"}),
+                data={"status": "fail", "message": "Pins do not match!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -403,8 +403,7 @@ class AgentResetPin(generics.CreateAPIView):
         )
 
         response = {"status": "success", "message": "Pin reset successfully"}
-        encrypted_response = encrypt(response)
-        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+        return Response(data=response, status=status.HTTP_200_OK)
 
 
 class SupportForgotPassword(generics.GenericAPIView):
@@ -462,7 +461,8 @@ class SupportForgotPassword(generics.GenericAPIView):
             sender_email="notifications@picadailys.com",
             body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
         )
-        # TODO: Consider sending OTP to phone as well if phone number is available for added security and convenience.
+        # TODO: Consider sending OTP to phone as well if phone number is
+        # available for added security and convenience.
         logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
@@ -1188,15 +1188,15 @@ class EscalateTicketAPIView(APIView):
         authenticated_user = request.user
 
         ticket_number = kwargs.get("ticket_number")
-        try:
-            ticket = Ticket.objects.filter(number=ticket_number).first()
-        except Ticket.DoesNotExist:
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
             return Response(
                 {"detail": "Ticket not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         to_user = User.objects.get(id=serializer.validated_data["to_user_id"])
+        to_role = serializer.validated_data["to_role"]
 
         allowed_escalation_roles = ["Moderator", "Manager"]
         if to_role not in allowed_escalation_roles:
@@ -1207,7 +1207,7 @@ class EscalateTicketAPIView(APIView):
 
         from_user = ticket.assigned_to
         from_role = ticket.agent_role
-        to_role = serializer.validated_data["to_role"]
+
         pin = serializer.validated_data["pin"]
         if not check_password(pin, authenticated_user.admin_pin):
             return Response(
@@ -2084,7 +2084,7 @@ class DeleteAgent(generics.GenericAPIView):
             pin = serializer.validated_data.get("pin")
             logger.info("Received request to delete agent for email: %s", email)
             try:
-                user = User.objects.get(Q(id=email) | Q(email=email))
+                user = User.objects.get(email=email)
                 logger.info("Agent user found: %s", user.full_name)
                 if check_password(password=pin, encoded=request.user.admin_pin):
                     user.delete()
@@ -2114,10 +2114,7 @@ class DeleteAgent(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {request.user.first_name},<br><br>Your agent account has been deleted.",
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": [
-                                "02012271894",
-                                "02012271895",
-                            ],
+                            "picadailys_phone": "02012271894 02012271895"
                         },
                     )
 
@@ -2580,7 +2577,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
 
         ticket_number = kwargs.get("ticket_number")
-        attachment = serializer.validated_data["attachment"]
+        attachment = serializer.validated_data["resolution_attachment"]
 
         ticket = Ticket.objects.filter(number=ticket_number).first()
 

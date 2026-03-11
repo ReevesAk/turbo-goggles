@@ -404,16 +404,16 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
 
 
 class CompleteTicketSerializer(serializers.ModelSerializer):
-    # attachments = serializers.FileField(
-    #     required=False,
-    #     allow_null=True
-    # )
+    resolution_attachment = serializers.FileField(
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Ticket
         fields = [
             "id",
-            "attachments",
+            "resolution_attachment",
         ]
 
 

@@ -21,8 +21,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.parsers import MultiPartParser, FormParser
 
-from accounts.models import User, UserNotification, TxModel
+from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
 from banking.models import WalletModel, AddressVerificationModel, UserKYC
 from banking.controllers import Wallet
@@ -270,20 +271,20 @@ class UserKYCListView(generics.ListAPIView):
 
 
 @extend_schema(
-    request=Tier3WalletUpgradeSerializers,
-    examples=[
-        OpenApiExample(
-            name="Tier 3 Wallet Upgrade Request",
-            description="Request payload for upgrading a wallet to Tier 3",
-            value={
-                "pin": "12345",
-                "bvn": "22334455667",
-                "nin": "12345678901",
-                "proofOfAddressVerification": "docu.pdf",
+    request={
+        "multipart/form-data": {
+            "type": "object",
+            "properties": {
+                "pin": {"type": "string"},
+                "bvn": {"type": "string"},
+                "nin": {"type": "string"},
+                "proofOfAddressVerification": {
+                    "type": "string",
+                    "format": "binary"
+                },
             },
-            request_only=True,
-        ),
-    ],
+        }
+    }
 )
 class UpgradeToTier3Wallet(generics.GenericAPIView):
     """UpgradeToTier3Wallet Handles the POST request of sending a Tier 3 wallet upgrade."""
@@ -295,13 +296,16 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
+    parser_classes = (
+        MultiPartParser,
+        FormParser
+    )
 
     def post(self, request, *args, **kwargs):
         current_admin = request.user
-        decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
-            for key, value in decrypted_payload.items()
+            for key, value in request.data.items()
         }
         serializer = self.get_serializer(data=payload)
 
@@ -344,17 +348,13 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
-        proof_of_address_verification_url = serializer.validated_data.get(
-            "proofOfAddressVerification"
-        )
-
         # Perform the upgrade logic here
         try:
             upgrade_response = Wallet.UpgradefromTier2ToTier3(
                 accountNumber=wallet.account_number,
                 bvn=payload.get("bvn"),
                 nin=payload.get("nin"),
-                proofOfAddressVerification=proof_of_address_verification_url,
+                proofOfAddressVerification=payload.get("proofOfAddressVerification"),
             )
             response_data = upgrade_response.json()
             if upgrade_response.status_code != 200:

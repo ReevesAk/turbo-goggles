@@ -292,40 +292,63 @@ class ListAllBrandAds(generics.ListAPIView):
 
 
 class GetBrandAdDetails(generics.RetrieveAPIView):
-    """GetBrandAdDetails returns the profile details of a brand_Ad user."""
+    """Returns the profile details of a BrandAd user."""
 
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
 
     def retrieve(self, request, *args, **kwargs):
-        user = request.user
-        logger.info("GetBrandAdDetails accessed by user: %s", user.email)
+        email = request.query_params.get("email")
 
-        user_id = request.user.id
-        cache_key = f"Ad_Details:{user_id}"
+        if not email:
+            return Response(
+                {"status": "fail", "error": "Email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Try Redis cache first
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"status": "fail", "error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if user has BrandAd role
+        has_brand_ad_role = AccountType.objects.filter(
+            user=user,
+            user_type="BrandAd"
+        ).exists()
+
+        if not has_brand_ad_role:
+            return Response(
+                {"status": "fail", "error": "User is not a BrandAd"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        logger.info("GetBrandAdDetails accessed for brand user: %s", user.email)
+
+        cache_key = f"Ad_Details:{user.id}"
+
         cached_ads = cache.get(cache_key)
         if cached_ads:
-            logger.info("Returning cached ad detail for user %s", request.user.email)
+            logger.info("Returning cached ad detail for %s", user.email)
             encrypted_response = encrypt(cached_ads)
-            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+            return Response(encrypted_response, status=status.HTTP_200_OK)
 
-        # Serialize and return the user's profile details
         serializer = self.get_serializer(user)
-        logger.info("Successfully retrieved profile for user: %s", user.email)
+
         response = {
             "status": "success",
             "message": "Ad detail retrieved successfully!",
             "data": serializer.data,
         }
 
-        # Save to cache (short TTL)
-        cache.set(cache_key, response, timeout=300)  # 5 minutes
+        cache.set(cache_key, response, timeout=300)
 
         encrypted_response = encrypt(response)
-        return Response(data=encrypted_response, status=status.HTTP_200_OK)
+        return Response(encrypted_response, status=status.HTTP_200_OK)
 
 
 class UpdateBrandAdProfile(generics.UpdateAPIView):
