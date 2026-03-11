@@ -1023,8 +1023,24 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
 
             # Send confirmation message to the user
             msg = "Admin is verified... You can reset your password now!"
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+
             recipient = user.email
-            Messaging.send_email(email=recipient, msg=msg)
+            Messaging.send_email(
+                email=recipient,
+                html_content=text_content,
+                subject="Admin Password Reset Request",
+                sender_email="notifications@picadailys.com",
+                body=msg,
+            )
+
             logger.info(
                 "Password reset verification message sent to admin %s at %s",
                 user.id,

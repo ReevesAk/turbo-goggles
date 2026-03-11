@@ -78,7 +78,9 @@ class CreateAd(models.Model):
 
     def save(self, *args, **kwargs):
         if self.campaign_duration and not self.expiry_date:
-            self.expiry_date = timezone.now() + timedelta(days=int(self.campaign_duration))
+            self.expiry_date = timezone.now() + timedelta(
+                days=int(self.campaign_duration)
+            )
         super().save(*args, **kwargs)
 
 

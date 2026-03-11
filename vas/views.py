@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import requests
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
@@ -28,6 +29,7 @@ from .serializers import (
 from accounts.models import TxModel
 from banking.models import WalletModel
 from banking.controllers import Wallet
+from banking.cashback_service import CashbackService
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
 from gamification.points import Points
@@ -43,11 +45,6 @@ from .helpers import VAS
 from .models import ValueAddedServices
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
-
-# vtpass_url = config("VT_PASS_BASE_URL")
-# x_secret = config("VT_PASS_SECRET_KEY")
-# api_key = config("VT_PASS_API_KEY")
-# x_token = config("VT_PASS_PUBLIC_KEY")
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +67,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         amount=None,
         network=None,
         tx_reference=None,
+        cashback=None,
     ):
         """Handle successful airtime purchase."""
         response_data = {
@@ -104,13 +102,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                         description=title,
                     )
 
-                    ValueAddedServices.objects.create(
-                        user=user if user else None,
-                        guest_id=guest_id if not user else None,
-                        phone_number=phone,
-                        network=network,
-                        tx_reference=tx_reference,
-                        amount=amount,
+                    CashbackService.reward_cashback(
+                        user=user, amount=amount, service="airtime", tx_ref=tx_reference
                     )
 
             except Exception as e:
@@ -214,6 +207,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         amount = user_data.get("amount")
         network = user_data.get("network")
         biometrics = user_data.get("use_biometrics")
+        use_cashback = user_data.get("use_cashback")
 
         # Lock wallet row during transaction to prevent race conditions
         if user:
@@ -222,6 +216,12 @@ class AirTimeTopUp(generics.GenericAPIView):
             user_wallet = (
                 WalletModel.objects.filter(user__isnull=True).first() if user else None
             )
+
+        # Apply cashback for payment
+        if use_cashback:
+            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
+            amount = payment["wallet_amount"]
+            cashback_used = payment["cashback_used"]
 
         # Guest validations
         if not user:
@@ -280,6 +280,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         amount=amount,
                         network=network,
                         tx_reference=tx_reference,
+                        cashback=cashback_used,
                     )
 
             return self._handle_airtime_failure(
@@ -526,6 +527,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         amount=None,
         network=None,
         tx_reference=None,
+        cashback=None,
     ):
         """Handle successful airtime/data purchase."""
         response_data = {
@@ -554,15 +556,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                         description=title,
                     )
 
-                    ValueAddedServices.objects.create(
-                        user=user if user else None,
-                        guest_id=guest_id if not user else None,
-                        phone_number=phone,
-                        productId=productId,
-                        network=network,
-                        tx_reference=tx_reference,
-                        amount=amount,
+                    CashbackService.reward_cashback(
+                        user=user, amount=amount, service="data", tx_ref=tx_reference
                     )
+
             except Exception as e:
                 logger.error(f"Database query error: {str(e)}")
         else:
@@ -577,6 +574,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
             Points.refresh_user_points(user)
 
+            response_data["cashback_used"] = str(cashback_used)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -648,6 +646,9 @@ class DataSubscriptionView(generics.GenericAPIView):
         network = user_data.get("network")
         product_id = user_data.get("productId")
         biometrics = user_data.get("use_biometrics")
+        use_cashback = user_data.get("use_cashback")
+
+        cashback_used = Decimal("0")
 
         if user:
             user_wallet = WalletModel.objects.select_for_update().get(user=user)
@@ -658,6 +659,12 @@ class DataSubscriptionView(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
         vas_token = VAS.authenticate()
+
+        # Apply cashback for payment
+        if use_cashback:
+            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
+            amount = payment["wallet_amount"]
+            cashback_used = payment["cashback_used"]
 
         # Guest validations
         if not user:
@@ -737,6 +744,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         amount=amount,
                         network=network,
                         tx_reference=tx_reference,
+                        cashback=cashback_used,
                     )
 
             return self._handle_data_failure(

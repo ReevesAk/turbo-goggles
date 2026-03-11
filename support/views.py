@@ -598,7 +598,22 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
             # Send confirmation message to the user
             msg = "Agent is verified... You can reset your password now!"
             recipient = user.email
-            Messaging.send_email(email=recipient, msg=msg)
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                email=recipient,
+                html_content=text_content,
+                subject="Verify OTP",
+                sender_email="notifications@picadailys.com",
+                body=msg,
+            )
             logger.info(
                 "Password reset verification message sent to admin %s at %s",
                 user.id,
@@ -1377,6 +1392,11 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 "description": ticket.description,
                 "created_at": ticket.created_at,
                 "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
+                "customer_info":{
+                    "name": ticket.customer_name,
+                    "email": ticket.customer_email,
+                    "phone_number": ticket.customer_phone_number
+                },
                 "assigned_at": ticket.assigned_at,
                 "resolution_hours": ticket.resolution_hours,
                 "remaining_hours": ticket.remaining_time,

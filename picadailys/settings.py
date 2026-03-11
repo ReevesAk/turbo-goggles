@@ -78,10 +78,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -284,6 +284,7 @@ CONTENT_SECURITY_POLICY = {
             "ws://localhost:5174",
             "http://localhost:8000",
             "https://api.picadailys.com/",
+            "https://picadailysbackend.onrender.com",
         ],
     }
 }

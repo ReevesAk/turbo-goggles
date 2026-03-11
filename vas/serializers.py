@@ -13,6 +13,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
+    use_cashback = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = ValueAddedServices
@@ -26,16 +27,22 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "payment_option",
             "use_bonus",
             "use_points",
+            "use_cashback",
         ]
 
     def validate(self, attrs):
         return attrs
 
     def create(self, validated_data):
-        # Exclude non-model fields
+
+        user = self.context["request"].user  # get logged in user
+
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
+        validated_data.pop("use_cashback", None)
+
         airtime_instance = ValueAddedServices.objects.create(**validated_data)
+
         return airtime_instance
 
 
@@ -49,6 +56,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
+    use_cashback = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = ValueAddedServices
@@ -62,6 +70,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "payment_option",
             "use_bonus",
             "use_points",
+            "use_cashback",
         ]
 
     def validate(self, attrs):
@@ -71,6 +80,8 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         # Exclude non-model fields
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
+        validated_data.pop("use_cashback", None)
+
         data_instance = ValueAddedServices.objects.create(**validated_data)
         return data_instance
 
