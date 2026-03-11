@@ -39,6 +39,31 @@ class UserKYC(models.Model):
     bvn_phone = models.CharField(max_length=15, null=True)
 
 
+class CashbackRule(models.Model):
+
+    SERVICE_TYPE = (
+        ("airtime", "Airtime"),
+        ("data", "Data"),
+        ("electricity", "Electricity"),
+        ("cable", "Cable"),
+    )
+
+    service_type = models.CharField(max_length=50, choices=SERVICE_TYPE)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Cashback(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    service_type = models.CharField(max_length=50)
+    tranaction_reference = models.CharField(max_length=120)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class WalletModel(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
     transactionTrackingRef = models.CharField(max_length=50, null=True)
@@ -57,6 +82,7 @@ class WalletModel(models.Model):
     balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
+    cashback_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tier_level = models.IntegerField(default=1, null=True)
     status = models.BooleanField(default=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
