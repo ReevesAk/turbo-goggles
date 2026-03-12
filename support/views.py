@@ -1952,7 +1952,7 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
                 )
 
             if check_password(password=pin, encoded=request.user.admin_pin):
-                user.is_admin_disabled = True
+                user.is_agent_disabled = True
                 user.save()
                 logger.info("Agent account for '%s' has been disabled.", email)
 
@@ -2050,7 +2050,7 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
                 resp = {
                     "status": "success",
                     "message": "Admin re-enabled successfully",
-                    "data": user.is_admin_disabled,
+                    "data": user.is_agent_disabled,
                 }
                 return Response(data=resp, status=status.HTTP_200_OK)
             else:

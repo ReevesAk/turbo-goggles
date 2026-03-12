@@ -389,6 +389,7 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
             "last_login",
             "average_rating",
             "rating_count",
+            "is_agent_disabled",
             "total_tickets_assigned",
             "total_tickets_resolved"
         ]
