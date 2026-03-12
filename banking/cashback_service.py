@@ -59,3 +59,20 @@ class CashbackService:
         wallet.save(update_fields=["cashback_balance"])
 
         return {"wallet_amount": remaining_amount, "cashback_used": cashback_used}
+
+    @classmethod
+    def add_cashback_to_bundles(self, data):
+
+        for category, bundles in data.items():
+
+            if isinstance(bundles, list):
+
+                for bundle in bundles:
+
+                    amount = Decimal(str(bundle.get("amount", "0")))
+
+                    cashback = amount * Decimal("0.01")
+
+                    bundle["cashback"] = str(round(cashback, 2))
+
+        return data

@@ -32,6 +32,7 @@ from banking.controllers import Wallet
 from banking.cashback_service import CashbackService
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
+from banking.cashback_service import CashbackService
 from gamification.points import Points
 from gamification.utils import NextBee
 
@@ -478,6 +479,8 @@ class GetNetworkProvider(generics.RetrieveAPIView):
 
             with open(json_path, "r") as f:
                 variation_data = json.load(f)
+
+            variation_data = CashbackService.add_cashback_to_bundles(variation_data)
 
             return Response(
                 data=encrypt(
