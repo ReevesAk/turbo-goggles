@@ -1216,4 +1216,4 @@ class GetCashbackBalance(APIView):
             "cashback_balance": str(wallet.cashback_balance)
         }
 
-        return Response(data=response, status=200)
+        return Response(data=encrypt(response), status=200)
