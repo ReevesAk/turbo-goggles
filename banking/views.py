@@ -18,6 +18,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from rest_framework.views import APIView
 
 # from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -1198,3 +1199,21 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class GetCashbackBalance(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request):
+        user = request.user
+
+        wallet = WalletModel.objects.get(user=user)
+
+        response = {
+            "status": "success",
+            "message": "Cashback retrieved successful.",
+            "cashback_balance": str(wallet.cashback_balance)
+        }
+
+        return Response(data=response, status=200)
