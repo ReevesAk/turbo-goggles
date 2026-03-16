@@ -212,17 +212,8 @@ class LoginAdmin(APIView):
             logger.info(f"User {user.email} authenticated successfully.")
 
             # Check if the user has more than two devices registered
-            existing_device_count = DeviceId.objects.filter(user=user).count()
-            if existing_device_count >= 2:
-                if existing_device_count == 3:
-                    oldest_device = DeviceId.objects.filter(user=user).earliest(
-                        "created_at"
-                    )
-                    oldest_device.delete()
-                    logger.info(
-                        f"Device limit exceeded for user {user.email}. Oldest device deleted."
-                    )
-
+            existing_device = DeviceId.objects.filter(user=user).exists()
+            if existing_device:
                 return Response(
                     data=encrypt(
                         {

@@ -783,7 +783,7 @@ class CreateTicket(generics.CreateAPIView):
 
         attachment_url = None
 
-        if not check_password(password=pin, encoded=request.user.admin_pin):
+        if not check_password(password=pin, encoded=request.user.agent_pin):
             return Response(
                 data={
                     "status": "fail",
@@ -914,7 +914,7 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not check_password(pin, authenticated_user.admin_pin):
+        if not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1022,7 +1022,7 @@ class ReassignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not check_password(pin, authenticated_user.admin_pin):
+        if not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1122,7 +1122,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not check_password(pin, authenticated_user.admin_pin):
+        if not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1731,7 +1731,7 @@ class AddAgent(generics.CreateAPIView):
 
             pin = payload.get("pin")
             role = payload["role"]
-            if not check_password(password=pin, encoded=request.user.admin_pin):
+            if not check_password(password=pin, encoded=request.user.agent_pin):
                 return Response(
                     data={
                         "status": "fail",
@@ -1951,7 +1951,7 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if check_password(password=pin, encoded=request.user.admin_pin):
+            if check_password(password=pin, encoded=request.user.agent_pin):
                 user.is_agent_disabled = True
                 user.save()
                 logger.info("Agent account for '%s' has been disabled.", email)
@@ -2026,7 +2026,7 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if check_password(password=pin, encoded=request.user.admin_pin):
+            if check_password(password=pin, encoded=request.user.agent_pin):
                 user.is_agent_disabled = False
                 user.save()
                 logger.info("Agent account for '%s' has been re-enabled.", email)
@@ -2086,7 +2086,7 @@ class DeleteAgent(generics.GenericAPIView):
             try:
                 user = User.objects.get(email=email)
                 logger.info("Agent user found: %s", user.full_name)
-                if check_password(password=pin, encoded=request.user.admin_pin):
+                if check_password(password=pin, encoded=request.user.agent_pin):
                     user.delete()
                     logger.info("Agent user '%s' deleted successfully.", user.full_name)
 

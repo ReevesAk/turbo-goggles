@@ -150,6 +150,8 @@ class AccountType(models.Model):
 class DeviceId(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     device_id = models.CharField(max_length=250, null=True)
+    device_name = models.CharField(max_length=255, null=True)
+    device_os = models.CharField(max_length=100, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

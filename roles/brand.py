@@ -184,7 +184,12 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        return User.objects.filter(account_types__user_type="BrandAd").distinct()
+        return (
+            CreateAd.objects.filter(user__account_types__user_type="BrandAd")
+            .select_related("user")
+            .prefetch_related("brand_location", "user__account_types")
+            .distinct()
+        )
 
     def list(self, request, *args, **kwargs):
         cache_key = "brandad_users_list"

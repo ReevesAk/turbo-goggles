@@ -5,6 +5,7 @@ from .views import (
     Register,
     Login,
     PhoneVerifyOTP,
+    DeviceVerificationOTP,
     PasswordPhoneVerifyOTP,
     ForgotPassword,
     ResendOTP,
@@ -26,6 +27,7 @@ urlpatterns = [
     # ===== Authentication =====
     path("login", Login.as_view(), name="login"),
     path("logout", Logout.as_view(), name="logout"),
+    path("new-device-otp", DeviceVerificationOTP.as_view(), name="new_device_otp"),
     # ===== Password Management =====
     path("forgot-password", ForgotPassword.as_view(), name="forgot_password"),
     path(

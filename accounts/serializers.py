@@ -19,6 +19,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=68, min_length=10, write_only=True, style={"input_type": "password"}
     )
     device_id = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    device_name = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    device_os = serializers.CharField(max_length=68, min_length=10, write_only=True)
     referral_code = serializers.CharField(
         max_length=50, min_length=3, write_only=True, required=False
     )
@@ -31,6 +33,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "device_id",
+            "device_os",
+            "device_name",
             "phone_number",
             "password",
             "password2",
@@ -100,10 +104,13 @@ class UpdateUserSerializer(serializers.ModelSerializer):
 class LoginSerializers(serializers.ModelSerializer):
     use_biometrics = serializers.BooleanField(required=False)
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_name = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    device_os = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
 
     class Meta:
         model = User
-        fields = ["phone_number", "password", "use_biometrics", "device_id"]
+        fields = ["phone_number", "password", "use_biometrics", "device_id", "device_name", "device_os"]
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")
@@ -113,6 +120,18 @@ class LoginSerializers(serializers.ModelSerializer):
 
 class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
+
+    def validate(self, attrs):
+        otp = attrs.get("otp")
+        logger.info("OTP verification attempt for OTP: %s", otp)
+        return attrs
+
+
+class NewDeviceOTPVerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField()
+    device_Id = serializers.CharField()
+    device_name = serializers.CharField()
+    device_os = serializers.CharField()
 
     def validate(self, attrs):
         otp = attrs.get("otp")

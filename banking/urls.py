@@ -14,7 +14,7 @@ from .views import (
     NotificationView,
     GetAccountDetails,
     RefundFailedCardTransaction,
-    GetCashbackBalance
+    GetCashbackBalance,
 )
 
 from .transfers import (
@@ -48,7 +48,11 @@ urlpatterns = [
     # KYC
     path("verify-bvn", VerifYBVN.as_view(), name="verify_bvn"),
     path("verify-nin", VerifYNIN.as_view(), name="verify_nin"),
-    path("get-cashback-balance", GetCashbackBalance.as_view(), name="get_cashback_balance"),
+    path(
+        "get-cashback-balance",
+        GetCashbackBalance.as_view(),
+        name="get_cashback_balance",
+    ),
     # Wallet
     path("create-wallet", CreateUserWallet.as_view(), name="create_wallet"),
     path("upgrade-to-tier2", UpgradeToTier2Wallet.as_view(), name="upgrade_to_tier2"),

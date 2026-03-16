@@ -309,15 +309,18 @@ class RestrictBrandAdSerializers(serializers.ModelSerializer):
 
 
 class ListBrandAdSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    website = serializers.CharField(source="user.website", read_only=True)
+
+    facebook = serializers.CharField(source="user.facebook", read_only=True)
+    twitter = serializers.CharField(source="user.twitter", read_only=True)
+    instagram = serializers.CharField(source="user.instagram", read_only=True)
+    telegram = serializers.CharField(source="user.telegram", read_only=True)
+
     user_type = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    full_name = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
-    facebook = serializers.SerializerMethodField()
-    twitter = serializers.SerializerMethodField()
-    instagram = serializers.SerializerMethodField()
-    telegram = serializers.SerializerMethodField()
 
     class Meta:
         model = CreateAd
@@ -338,48 +341,16 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
         ]
 
     def get_user_type(self, obj):
-        user = getattr(obj, "user", None)
-        if user:
-            return list(user.account_types.values_list("user_type", flat=True))
-        return []
+        return list(obj.user.account_types.values_list("user_type", flat=True))
 
     def get_status(self, obj):
-        user = getattr(obj, "user", None)
-        if user and hasattr(user, "is_disabled"):
-            return "Disabled" if user.is_disabled else "Active"
-        return "Active"
-
-    def get_full_name(self, obj):
-        user = getattr(obj, "user", None)
-        if user:
-            if user.full_name:
-                return user.full_name
-            return f"{user.first_name or ''} {user.last_name or ''}".strip()
-        return ""
+        return "Disabled" if obj.user.is_disabled else "Active"
 
     def get_state(self, obj):
-        # Aggregate all states from related AdLocation objects
-        return list(obj.brand_location.values_list("state", flat=True))
+        return [loc.state for loc in obj.brand_location.all()]
 
     def get_city(self, obj):
-        # Aggregate all cities from related AdLocation objects
-        return list(obj.brand_location.values_list("city", flat=True))
-
-    def get_facebook(self, obj):
-        user = getattr(obj, "user", None)
-        return getattr(user, "facebook", None) if user else None
-
-    def get_twitter(self, obj):
-        user = getattr(obj, "user", None)
-        return getattr(user, "twitter", None) if user else None
-
-    def get_instagram(self, obj):
-        user = getattr(obj, "user", None)
-        return getattr(user, "instagram", None) if user else None
-
-    def get_telegram(self, obj):
-        user = getattr(obj, "user", None)
-        return getattr(user, "telegram", None) if user else None
+        return [loc.city for loc in obj.brand_location.all()]
 
 
 class ListWalletUsersSerializer(serializers.ModelSerializer):
@@ -630,9 +601,7 @@ class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
     pin = serializers.CharField(min_length=5, write_only=True)
     bvn = serializers.CharField(max_length=12, write_only=True, required=True)
     nin = serializers.CharField(max_length=12, write_only=True, required=True)
-    proofOfAddressVerification = serializers.FileField(
-        max_length=155, required=False
-    )
+    proofOfAddressVerification = serializers.FileField(max_length=155, required=False)
 
     class Meta:
         model = WalletUpgrade

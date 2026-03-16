@@ -28,6 +28,7 @@ from .serializers import (
     ForgotPasswordSerializer,
     PasswordResendOTPSerializer,
     LogoutSerializer,
+    NewDeviceOTPVerifyOTPSerializer,
 )
 from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
@@ -157,10 +158,7 @@ class Register(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
+                    "picadailys_phone": "02012271894 02012271895",
                 },
             )
 
@@ -171,6 +169,9 @@ class Register(generics.GenericAPIView):
                 body=msg,
                 subject="Picadailys Registration",
             )
+
+            device_id = user_data.get("device_id")
+            DeviceId.objects.create(user=user, device_id=device_id)
 
             response = {
                 "status": "success",
@@ -195,6 +196,121 @@ class Register(generics.GenericAPIView):
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class DeviceVerificationOTP(generics.GenericAPIView):
+    """
+    DeviceVerificationOTP handles the POST request of verifying a
+    new user's new device.
+    """
+
+    permission_classes = (AllowAny,)
+    serializer_class = NewDeviceOTPVerifyOTPSerializer
+    throttle_scope = "otp"
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        logger.debug("Received user data for OTP verification: %s", user_data)
+
+        serializer = self.serializer_class(data=user_data)
+        if serializer.is_valid(raise_exception=True):
+            received_otp = serializer.data["otp"]
+            logger.info("OTP received: %s", received_otp)
+
+            # Validate OTP
+            user_id = otp_manager.validate_user_otp(received_otp)
+            if not user_id:
+                logger.warning("Invalid or expired OTP: %s", received_otp)
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "Invalid or expired OTP"}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error("User with id %s does not exist.", user_id)
+                return Response(
+                    data=encrypt({"status": "fail", "message": "User not found"}),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            device_id = serializer.data["device_id"]
+            device_name = serializer.data["device_name"]
+            device_os = serializer.data["device_os"]
+
+            # Delete old device
+            DeviceId.objects.filter(user=user).delete()
+
+            # Save new device
+            DeviceId.objects.create(
+                user=user,
+                device_id=device_id,
+                device_name=device_name,
+                device_os=device_os,
+            )
+
+            # Send welcome message to user
+            msg = "Your new device has been verified! You are now logged in."
+            recipient = user.phone_number[1:]
+
+            Messaging.send_sms(phone_number=recipient, msg=msg)
+
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Welcome To Picadailys",
+                body=msg,
+                sender_email="notifications@picadailys.com",
+            )
+
+            # Update user verification status
+            user.is_verified = True
+            user.is_active = True
+            user.save()
+            logger.info("User %s has been verified and activated.", user.id)
+
+            # Log activity
+            ActivityModel.objects.create(
+                user=user,
+                title="Verify Account",
+                description=f"{user.first_name} {user.last_name} verified OTP after registration.",
+            )
+            logger.info("Activity logged for user %s verification.", user.id)
+
+            # Create JWT tokens
+            tokens = create_jwt_pair_for_user(user)
+            logger.info("JWT tokens generated for user %s", user.phone_number)
+            verified_response = {
+                "status": "success",
+                "message": "Account is verified",
+                "tokens": tokens,
+            }
+            encrypted_response = encrypt(verified_response)
+            return Response(data=encrypted_response, status=status.HTTP_200_OK)
+        else:
+            logger.error(
+                "Serializer validation failed with errors: %s", serializer.errors
+            )
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -526,6 +642,8 @@ class Login(APIView):
         password = data.get("password")
         biometrics = data.get("use_biometrics")
         device_id = data.get("device_id")
+        device_name = data.get("device_name")
+        device_os = data.get("device_os")
 
         logger.info("Login attempt for phone number: %s", login)
 
@@ -563,39 +681,74 @@ class Login(APIView):
             )
 
         # Check device limit for password login only
-        if not biometrics and not self.check_device_limit(user, device_id):
+        if not self.check_device_limit(user, device_id, device_name, device_os):
             logger.warning(
-                "User %s has reached device limit. Deleting oldest device.", login
+                "User %s has reached device limit. Verify new device.", login
+            )
+
+            # Create and send OTP.
+            otp = otp_manager.create_otp(user_id=str(user.id))
+            logger.info("OTP for user: %s", otp)
+
+            msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+                otp=otp
+            )
+            recipient = user.phone_number[1:]
+
+            Messaging.send_sms(phone_number=recipient, msg=msg)
+
+            # Render the template with values
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "notifications@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                sender_email="notifications@picadailys.com",
+                body=msg,
+                subject="Picadailys Registration",
             )
             return Response(
                 data=encrypt(
                     {
-                        "error": "User cannot log in on more than two devices; oldest device deleted."
+                        "status": "failed",
+                        "error": "New device detected. OTP sent for verification.",
+                        "device_data": {
+                            "device_id": device_id,
+                            "device_name": device_name,
+                            "device_os": device_os,
+                        },
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Successful login
-        return self.handle_login_success(user)
+        return self.handle_login_success(user, device_id)
 
     @staticmethod
-    def check_device_limit(user, device_id):
-        """
-        Check if the user is already logged in on a different device.
-        Only allow login if there is no other device.
-        """
-        existing_devices = DeviceId.objects.filter(user=user)
+    def check_device_limit(user, device_id, device_name, device_os):
+        device = DeviceId.objects.filter(user=user).first()
 
-        # If the same device is logging in again, allow
-        if existing_devices.filter(device_id=device_id).exists():
+        # No device stored yet
+        if not device:
             return True
 
-        # If there is any other device, reject
-        if existing_devices.exists():
-            return False
+        # Check if device matches
+        if (
+            device.device_id == device_id
+            and device.device_name == device_name
+            and device.device_os == device_os
+        ):
+            return True
 
-        return True
+        return False
 
     def handle_login_success(self, user):
         logger.info("User %s successfully logged in.", user.phone_number)

@@ -1213,7 +1213,7 @@ class GetCashbackBalance(APIView):
         response = {
             "status": "success",
             "message": "Cashback retrieved successful.",
-            "cashback_balance": str(wallet.cashback_balance)
+            "cashback_balance": str(wallet.cashback_balance),
         }
 
         return Response(data=encrypt(response), status=200)

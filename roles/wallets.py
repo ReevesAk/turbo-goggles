@@ -278,10 +278,7 @@ class UserKYCListView(generics.ListAPIView):
                 "pin": {"type": "string"},
                 "bvn": {"type": "string"},
                 "nin": {"type": "string"},
-                "proofOfAddressVerification": {
-                    "type": "string",
-                    "format": "binary"
-                },
+                "proofOfAddressVerification": {"type": "string", "format": "binary"},
             },
         }
     }
@@ -296,10 +293,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
         IsNotDisabled,
         IsWalletAdminOrSuperAdmin,
     ]
-    parser_classes = (
-        MultiPartParser,
-        FormParser
-    )
+    parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
         current_admin = request.user

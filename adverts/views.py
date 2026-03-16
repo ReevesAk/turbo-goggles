@@ -304,7 +304,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         if not email:
             return Response(
                 {"status": "fail", "error": "Email is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -312,19 +312,18 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         except User.DoesNotExist:
             return Response(
                 {"status": "fail", "error": "User not found"},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         # Check if user has BrandAd role
         has_brand_ad_role = AccountType.objects.filter(
-            user=user,
-            user_type="BrandAd"
+            user=user, user_type="BrandAd"
         ).exists()
 
         if not has_brand_ad_role:
             return Response(
                 {"status": "fail", "error": "User is not a BrandAd"},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         logger.info("GetBrandAdDetails accessed for brand user: %s", user.email)
