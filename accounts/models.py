@@ -24,6 +24,8 @@ USER_CATEGORY_CHOICES = (
     ("FmcgAdmin", "FmcgAdmin"),
 )
 
+ALERT_TYPE = (("Email", "Email"), ("SMS", "SMS"))
+
 BRAND_TYPE = (
     ("Individual", "Individual"),
     ("Company", "Company"),
@@ -61,6 +63,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)
+    alert_type_choice = models.CharField(choices=ALERT_TYPE, max_length=50, null=True)
     is_bvn_verified = models.BooleanField(default=False)
     is_nin_verified = models.BooleanField(default=False)
     has_wallet = models.BooleanField(default=False)

@@ -107,10 +107,16 @@ class LoginSerializers(serializers.ModelSerializer):
     device_name = serializers.CharField(max_length=68, min_length=6, write_only=True)
     device_os = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
-
     class Meta:
         model = User
-        fields = ["phone_number", "password", "use_biometrics", "device_id", "device_name", "device_os"]
+        fields = [
+            "phone_number",
+            "password",
+            "use_biometrics",
+            "device_id",
+            "device_name",
+            "device_os",
+        ]
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")

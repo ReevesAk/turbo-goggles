@@ -84,6 +84,14 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         ]
 
 
+class SetAlertTypeSerializer(serializers.ModelSerializer):
+    """Serailizers for updating our users' profile."""
+
+    class Meta:
+        model = User
+        fields = ["alert_type_choice"]
+
+
 class MemberSurverySerializers(serializers.ModelSerializer):
     """Serailizers for  conducting member survery."""
 

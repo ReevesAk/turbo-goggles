@@ -36,6 +36,7 @@ from .serializers import (
     FavouriteSerializer,
     SupportTicketSerializer,
     TierListResponseSerializer,
+    SetAlertTypeSerializer,
 )
 from support.serializers import AgentRatingSerializers
 from .helpers import MysteryBox, VariationCodes, MemberSurveyService
@@ -404,6 +405,45 @@ class ProfileImage(generics.UpdateAPIView):
         return Response(
             data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class ChooseAlertTypeView(generics.GenericAPIView):
+    """ChooseAlertTypeView is the POST request method that allows
+    users to choose their preferred alert type.
+    """
+
+    serializer_class = SetAlertTypeSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        authenticated_user = request.user
+        decrypted_payload = decrypt(request.data)
+
+        alert_choice = decrypted_payload.get("alert_type_choice")
+
+        if not alert_choice:
+            resp = {
+                "status": "fail",
+                "message": "It cannot be empty, it has to be 'Sms' or 'Email'",
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = FavouriteSerializer(data=decrypted_payload)
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        authenticated_user.alert_type_choice = alert_choice
+        authenticated_user.save()
+
+        response = {
+            "status": "success",
+            "message": "Preferred alert type selected sucessfully!.",
+            "data": {"user_id": authenticated_user.id, "alert choice": alert_choice},
+        }
+        return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
 class GetUserDetails(generics.RetrieveAPIView):

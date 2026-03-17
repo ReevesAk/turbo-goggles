@@ -18,6 +18,7 @@ from .views import (
     CustomerTicketCreation,
     TierListView,
     RateAgentViewByCustomer,
+    ChooseAlertTypeView
 )
 from .notifications import (
     GetAllNotifications,
@@ -37,6 +38,7 @@ urlpatterns = [
     path("profile-img", ProfileImage.as_view(), name="profile_img"),
     path("get-user-profile", GetUserDetails.as_view(), name="get_user_profile"),
     path("update-user", UpdateUserProfile.as_view(), name="update_user"),
+    path("alert-type", ChooseAlertTypeView.as_view(), name="alert_type"),
     # path("upgrade-to-member", MemberUserSwitch.as_view(), name="upgrade_to_member"),
     path("member-survey", PostMemberSurvey.as_view(), name="member_survey"),
     path("change-password", ChangePassword.as_view(), name="change_password"),
