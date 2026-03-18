@@ -219,7 +219,8 @@ class DeviceVerificationOTP(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
-            received_otp = serializer.data["otp"]
+            data = serializer.validated_data
+            received_otp = data["otp"]
             logger.info("OTP received: %s", received_otp)
 
             # Validate OTP
@@ -242,9 +243,9 @@ class DeviceVerificationOTP(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            device_id = serializer.data["device_id"]
-            device_name = serializer.data["device_name"]
-            device_os = serializer.data["device_os"]
+            device_id = data["device_id"]
+            device_name = data["device_name"]
+            device_os = data["device_os"]
 
             # Delete old device
             DeviceId.objects.filter(user=user).delete()
