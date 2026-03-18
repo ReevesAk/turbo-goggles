@@ -243,7 +243,7 @@ class DeviceVerificationOTP(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            device_id = data["device_id"]
+            device_id = data["device_Id"]
             device_name = data["device_name"]
             device_os = data["device_os"]
 
