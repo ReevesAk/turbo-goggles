@@ -18,7 +18,7 @@ from .views import (
     CustomerTicketCreation,
     TierListView,
     RateAgentViewByCustomer,
-    ChooseAlertTypeView
+    ChooseAlertTypeView,
 )
 from .notifications import (
     GetAllNotifications,

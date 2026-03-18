@@ -681,10 +681,12 @@ class Login(APIView):
             )
 
         # Check device limit for password login only
-        if not self.check_device_limit(user, device_id, device_name, device_os):
-            logger.warning(
-                "User %s has reached device limit. Verify new device.", login
-            )
+        is_known_device = self.check_device_limit(
+            user, device_id, device_name, device_os
+        )
+
+        if not is_known_device:
+            logger.warning("New device detected for user: %s", login)
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
@@ -730,7 +732,7 @@ class Login(APIView):
             )
 
         # Successful login
-        return self.handle_login_success(user, device_id)
+        return self._handle_login_success(user)
 
     @staticmethod
     def check_device_limit(user, device_id, device_name, device_os):
@@ -750,7 +752,7 @@ class Login(APIView):
 
         return False
 
-    def handle_login_success(self, user):
+    def _handle_login_success(self, user):
         logger.info("User %s successfully logged in.", user.phone_number)
 
         # Log successful login event
