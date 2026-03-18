@@ -2590,7 +2590,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
                         "email": ticket.assigned_to.email if ticket.assigned_to else None,
                     }
                 },
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_403_FORBIDDEN
             )
 
         ticket = Ticket.objects.filter(number=ticket_number).first()
