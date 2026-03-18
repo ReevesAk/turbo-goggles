@@ -134,10 +134,10 @@ class VerifyOTPSerializer(serializers.Serializer):
 
 
 class NewDeviceOTPVerifyOTPSerializer(serializers.Serializer):
-    otp = serializers.CharField()
-    device_Id = serializers.CharField()
-    device_name = serializers.CharField()
-    device_os = serializers.CharField()
+    otp = serializers.CharField(max_length=6, write_only=True, required=True)
+    device_Id = serializers.CharField(max_length=100, write_only=True, required=True)
+    device_name = serializers.CharField(max_length=50, write_only=True, required=True)
+    device_os = serializers.CharField(max_length=50, write_only=True, required=True)
 
     def validate(self, attrs):
         otp = attrs.get("otp")
