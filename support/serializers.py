@@ -405,10 +405,6 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
 
 
 class CompleteTicketSerializer(serializers.ModelSerializer):
-    resolution_attachment = serializers.FileField(
-        required=False,
-        allow_null=True
-    )
 
     class Meta:
         model = Ticket

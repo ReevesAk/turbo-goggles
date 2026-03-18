@@ -2579,6 +2579,20 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         ticket_number = kwargs.get("ticket_number")
         attachment = serializer.validated_data["resolution_attachment"]
 
+        if not ticket.assigned_to == authenticated_user:
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": "Ticket can only be resolved by the agent it was assigned to.",
+                    "assigned_agent": {
+                        "id": ticket.assigned_to.id if ticket.assigned_to else None,
+                        "full_name": ticket.assigned_to.full_name if ticket.assigned_to else None,
+                        "email": ticket.assigned_to.email if ticket.assigned_to else None,
+                    }
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
         ticket = Ticket.objects.filter(number=ticket_number).first()
 
         ticket.status = "Resolved"
@@ -2598,3 +2612,5 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
                 "resolution_attachment": ticket.resolution_attachment,
             }
         }
+
+        return Response(data=response_data, status=status.HTTP_200_OK)
