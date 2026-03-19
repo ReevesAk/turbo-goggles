@@ -429,7 +429,7 @@ class ChooseAlertTypeView(generics.GenericAPIView):
             }
             return Response(data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = FavouriteSerializer(data=decrypted_payload)
+        serializer = SetAlertTypeSerializer(data=decrypted_payload)
         if not serializer.is_valid(raise_exception=True):
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
