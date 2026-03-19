@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "banking",
     "support",
     "gamification",
+    "waitlist",
     "web",
     "csp",
 ]

@@ -61,6 +61,8 @@ urlpatterns = [
     path("v1/banking/", include("banking.urls")),
     # Support endpoints.
     path("v1/support/", include("support.urls")),
+    # Waitlist endpoints.
+    path("v1/waitlist/", include("waitlist.urls")),
     # Web endpoints.
     path("v1/web/", include("web.urls")),
 ]

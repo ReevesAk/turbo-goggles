@@ -2579,6 +2579,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         ticket_number = kwargs.get("ticket_number")
         attachment = serializer.validated_data["resolution_attachment"]
 
+        ticket = Ticket.objects.get(number=ticket_number)
         if not ticket.assigned_to == authenticated_user:
             return Response(
                 data={
@@ -2592,8 +2593,6 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
                 },
                 status=status.HTTP_403_FORBIDDEN
             )
-
-        ticket = Ticket.objects.filter(number=ticket_number).first()
 
         ticket.status = "Resolved"
         ticket.resolution_attachment = attachment
