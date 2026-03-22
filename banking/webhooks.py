@@ -126,6 +126,9 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
         amount = webhook_data.get("amount")
         sender_name = webhook_data.get("sendername")
         nipsessionid = webhook_data.get("nipsessionid")
+        source_bank = webhook_data.get("sourcebank")
+        description = webhook_data.get("narration")
+        source_account = webhook_data.get("sourceaccount")
 
         requery_request = Transfers.tx_requery(
             sessionID=nipsessionid, accountNumber=account_number
@@ -145,7 +148,6 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 
         if merchant == "Picadailys":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
-
             if wallet:
                 # Record notification
                 UserNotification.objects.create(

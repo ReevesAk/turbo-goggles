@@ -260,27 +260,29 @@ class DeviceVerificationOTP(generics.GenericAPIView):
 
             # Send welcome message to user
             msg = "Your new device has been verified! You are now logged in."
-            recipient = user.phone_number[1:]
 
-            Messaging.send_sms(phone_number=recipient, msg=msg)
+            if user.alert_type_choice == "SMS":
+                recipient = user.phone_number[1:]
 
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
-                },
-            )
+                Messaging.send_sms(phone_number=recipient, msg=msg)
+            elif user.alert_type_choice == "Email":
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
 
-            Messaging.send_email(
-                email=user.email,
-                html_content=text_content,
-                subject="Welcome To Picadailys",
-                body=msg,
-                sender_email="notifications@picadailys.com",
-            )
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Welcome To Picadailys",
+                    body=msg,
+                    sender_email="notifications@picadailys.com",
+                )
 
             # Update user verification status
             user.is_verified = True
@@ -360,31 +362,31 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             # Send welcome message to user
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard. Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
-            recipient = user.phone_number[1:]
 
-            Messaging.send_sms(phone_number=recipient, msg=msg)
-            logger.info("Welcome message sent to user %s at %s", user.id, recipient)
+            if user.alert_type_choice == "SMS":
+                recipient = user.phone_number[1:]
 
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
-                },
-            )
+                Messaging.send_sms(phone_number=recipient, msg=msg)
+                logger.info("Welcome message sent to user %s at %s", user.id, recipient)
 
-            Messaging.send_email(
-                email=user.email,
-                html_content=text_content,
-                subject="Welcome To Picadailys",
-                body=msg,
-                sender_email="notifications@picadailys.com",
-            )
+            elif user.alert_type_choice == "Email":
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Welcome To Picadailys",
+                    body=msg,
+                    sender_email="notifications@picadailys.com",
+                )
 
             # Update user verification status
             user.is_verified = True
@@ -468,13 +470,32 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
 
             # Send confirmation message to the user
             msg = "User is verified... You can reset your password now!"
-            recipient = user.phone_number
-            Messaging.send_sms(phone_number=recipient, msg=msg)
-            logger.info(
-                "Password reset verification message sent to user %s at %s",
-                user.id,
-                recipient,
-            )
+
+            if user.alert_type_choice == "SMS":
+                recipient = user.phone_number
+                Messaging.send_sms(phone_number=recipient, msg=msg)
+                logger.info(
+                    "Password reset verification message sent to user %s at %s",
+                    user.id,
+                    recipient,
+                )
+            elif user.alert_type_choice == "Email":
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Password Reset Verification",
+                    body=msg,
+                    sender_email="notifications@picadailys.com",
+                )
 
             # Log activity for verification
             ActivityModel.objects.create(
@@ -593,8 +614,26 @@ class PasswordResendOTP(generics.GenericAPIView):
                 msg = "To reset your password, use this code {}.".format(otp)
 
                 # Send OTP
-                Messaging.send_sms(phone_number=phone_number, msg=msg)
-                logger.info("Sent OTP to phone number: %s", phone_number)
+                if user.alert_type_choice == "SMS":
+                    Messaging.send_sms(phone_number=phone_number, msg=msg)
+                    logger.info("Sent OTP to phone number: %s", phone_number)
+                elif user.alert_type_choice == "Email":
+                    text_content = render_to_string(
+                        template_name="empty_email.html",
+                        context={
+                            "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                            "support_email": "support@picadailys.com",
+                            "picadailys_phone": "02012271894  02012271895",
+                        },
+                    )
+
+                    Messaging.send_email(
+                        email=user.email,
+                        html_content=text_content,
+                        subject="Password Resend OTP",
+                        body=msg,
+                        sender_email="notifications@picadailys.com",
+                    )
 
                 response = {
                     "status": "success",
@@ -698,25 +737,26 @@ class Login(APIView):
             )
             recipient = user.phone_number[1:]
 
-            Messaging.send_sms(phone_number=recipient, msg=msg)
+            if user.alert_type_choice == "SMS":
+                Messaging.send_sms(phone_number=recipient, msg=msg)
+            elif user.alert_type_choice == "Email":
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "notifications@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
 
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                    "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
-                },
-            )
-
-            Messaging.send_email(
-                email=user.email,
-                html_content=text_content,
-                sender_email="notifications@picadailys.com",
-                body=msg,
-                subject="Picadailys Registration",
-            )
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    sender_email="notifications@picadailys.com",
+                    body=msg,
+                    subject="Picadailys Registration",
+                )
             return Response(
                 data=encrypt(
                     {
@@ -841,8 +881,26 @@ class ForgotPassword(generics.GenericAPIView):
         otp = otp_manager.create_otp(user_id=str(user_id))
         msg = f"Enter this {otp} to verify your account and reset your password"
 
-        Messaging.send_sms(phone_number=phone_no, msg=msg)
-        logger.info(f"OTP sent to phone number: {phone_no}")
+        if user.alert_type_choice == "SMS":
+            Messaging.send_sms(phone_number=phone_no, msg=msg)
+            logger.info(f"OTP sent to phone number: {phone_no}")
+        elif user.alert_type_choice == "Email" or None:
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894  02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                email=user.email,
+                html_content=text_content,
+                subject="Forgot Password",
+                body=msg,
+                sender_email="notifications@picadailys.com",
+            )
 
         UserNotification.objects.create(
             user=user,
