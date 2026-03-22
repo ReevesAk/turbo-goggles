@@ -713,7 +713,7 @@ class ListUserDetailsAPI(generics.ListAPIView):
     """
     serializer_class = UserProfileSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
     def get_queryset(self):

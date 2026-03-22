@@ -46,7 +46,7 @@ from accounts.models import UserNotification
 from roles.models import ActivityModel
 from .models import WalletModel, UserKYC, AddressVerificationModel
 from .controllers import KYC, Wallet, Paystack
-from .helpers import cloudinary_to_base64
+from .helpers import cloudinary_to_base64, generate_transaction_sms
 from security import encrypt, decrypt
 
 verification_link = config("DIGITAL_ADDREESS_VERIFICATION_LINK")
@@ -416,11 +416,13 @@ class CreateUserWallet(generics.GenericAPIView):
                 response_message == "Account Opening successful"
                 and wallet_status == "SUCCESS"
             ):
+                acct_no = (wallet_response.json()["data"]["accountNumber"],)
+                acct_name = wallet_response.json()["data"]["fullName"]
                 user_acc = WalletModel.objects.create(
                     user=current_user,
-                    account_number=wallet_response.json()["data"]["accountNumber"],
+                    account_number=acct_no,
                     transactionTrackingRef=unique_code,
-                    acct_name=wallet_response.json()["data"]["fullName"],
+                    acct_name=acct_name,
                     address=payload.get("address"),
                     walletType="INDIVIDUAL",
                 )
@@ -435,6 +437,50 @@ class CreateUserWallet(generics.GenericAPIView):
                     title="Wallet Creation",
                     description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉.",
                 )
+
+                mail_msg = f"""
+                    Dear {current_user.first_name},
+
+                    Congratulations! 🎉
+
+                    Your wallet has been created successfully.
+
+                    Account Name: {acct_name}
+                    Account Number: {acct_no}
+
+                    You can now start using your wallet for transactions.
+
+                    Thank you for choosing Picadailys.
+                """
+
+                if current_user.alert_type_choice == "SMS":
+                    Messaging.send_sms(
+                        phone_number=current_user.phone_number[1:],
+                        msg=f"""Congratulations! 🎊
+                        Your wallet has been created successfully 🥳🥳🥳.
+
+                        Account Name: {acct_name}
+                        Account Number: {acct_no}
+                        """,
+                    )
+                elif current_user.alert_type_choice == "Email":
+                    # Render the template with values
+                    text_content = render_to_string(
+                        template_name="empty_email.html",
+                        context={
+                            "custom_text": f"Dear {current_user.first_name},<br><br>{mail_msg}.",
+                            "support_email": "notifications@picadailys.com",
+                            "picadailys_phone": "02012271894 02012271895",
+                        },
+                    )
+
+                    Messaging.send_email(
+                        email=user.email,
+                        html_content=text_content,
+                        sender_email="notifications@picadailys.com",
+                        body=mail_msg,
+                        subject="Picadailys Wallet Registration",
+                    )
 
                 # Set the value of has_wallet to true.
                 current_user.has_wallet = True
@@ -575,7 +621,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 data=encrypt(
                     {
                         "status": "success",
-                        "message": "Wallet upgraded to Tier 2 successfully.",
+                        "message": "Request to upgrade wallet to Tier 2 has been sent successfully.",
                     }
                 ),
                 status=status.HTTP_200_OK,
@@ -705,9 +751,10 @@ class NotificationView(generics.CreateAPIView):
         narration = user_data.get("narration")
         amount = user_data.get("amount")
         date_time = user_data.get("dateTime")
+        reference = user_data.get("reference")
 
         try:
-            user = WalletModel.objects.get(account_number=account_number)
+            wallet = WalletModel.objects.get(account_number=account_number)
         except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt(
@@ -716,77 +763,100 @@ class NotificationView(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        user.balance = user_data["accountBalance"]
-        user.save()
+        wallet.balance = user_data["accountBalance"]
+        wallet.save()
 
         match transactiontype:
             case "cr":
                 UserNotification.objects.create(
-                    user=user, title="Credit Transaction", message=narration
+                    user=wallet.user, title="Credit Transaction", message=narration
                 )
 
                 ActivityModel.objects.create(
-                    user=user,
+                    user=wallet.user,
                     title="Credit Transactionn.",
-                    description=f"{user.first_name} {user.last_name} received a credit transaction with narraiton: {narration}.",
+                    description=f"{wallet.user.first_name} {wallet.user.last_name} received a credit transaction with narraiton: {narration}.",
                 )
 
-                text_content = render_to_string(
-                    template_name="table_email.html",
-                    context={
-                        "custom_text": f"Dear {user.first_name},<br><br>You received a creidt transaction of {amount} and below are the detials.",
-                        "narration": narration,
-                        "account_number": account_number,
-                        "amount": amount,
-                        "datetime": date_time,
-                        "tx_type": "Credit Transaction",
-                        "balance": user_data["accountBalance"],
-                        "support_email": "support@picadailys.com",
-                        "picadailys_phone": [
-                            "02012271894",
-                            "02012271895",
-                        ],
-                    },
+                msg = generate_transaction_sms(
+                    transaction_type="CREDIT",
+                    account_number=wallet.account_number,
+                    amount=amount,
+                    balance=wallet.balance,
+                    description=narration,
+                    reference=reference,
                 )
 
-                Messaging.send_email(
-                    sender_email="notifications@picadailys.com",
-                    body=narration,
-                    email=user.email,
-                    html_content=text_content,
-                    subject="Credit Transaction",
-                )
+                if wallet.user.alert_type_choice == "SMS":
+                    Messaging.send_sms(
+                        phone_number=wallet.user.phone_number[1:], msg=msg
+                    )
+
+                elif wallet.user.alert_type_choice == "Email":
+                    text_content = render_to_string(
+                        template_name="table_email.html",
+                        context={
+                            "custom_text": f"Dear {wallet.user.user.first_name},<br><br>You received a creidt transaction of {amount} and below are the detials.",
+                            "narration": narration,
+                            "account_number": account_number,
+                            "amount": amount,
+                            "datetime": date_time,
+                            "tx_type": "Credit Transaction",
+                            "balance": user_data["accountBalance"],
+                            "support_email": "support@picadailys.com",
+                            "picadailys_phone": "02012271894  02012271895",
+                        },
+                    )
+
+                    Messaging.send_email(
+                        sender_email="notifications@picadailys.com",
+                        body=narration,
+                        email=wallet.user.email,
+                        html_content=text_content,
+                        subject="Credit Transaction",
+                    )
 
             case "db":
                 UserNotification.objects.create(
-                    user=user, title="Debit Transaction", message=narration
+                    user=wallet.user, title="Debit Transaction", message=narration
                 )
 
-                text_content = render_to_string(
-                    template_name="table_email.html",
-                    context={
-                        "custom_text": f"Dear {user.first_name},<br><br>You made a transaction of {amount} and below are the detials.",
-                        "narration": narration,
-                        "account_number": account_number,
-                        "amount": amount,
-                        "datetime": date_time,
-                        "tx_type": "Debit Transaction",
-                        "balance": user_data["accountBalance"],
-                        "support_email": "support@picadailys.com",
-                        "picadailys_phone": [
-                            "02012271894",
-                            "02012271895",
-                        ],
-                    },
+                msg = generate_transaction_sms(
+                    transaction_type="DEBIT",
+                    account_number=wallet.account_number,
+                    amount=amount,
+                    balance=wallet.balance,
+                    description=narration,
+                    reference=reference,
                 )
 
-                Messaging.send_email(
-                    sender_email="notifications@picadailys.com",
-                    body=narration,
-                    email=user.email,
-                    html_content=text_content,
-                    subject="Debit Transaction",
-                )
+                if wallet.user.alert_type_choice == "SMS":
+                    Messaging.send_sms(
+                        phone_number=wallet.user.phone_number[1:], msg=msg
+                    )
+                elif wallet.user.alert_type_choice == "Email":
+                    text_content = render_to_string(
+                        template_name="table_email.html",
+                        context={
+                            "custom_text": f"Dear {wallet.user.first_name},<br><br>You made a transaction of {amount} and below are the detials.",
+                            "narration": narration,
+                            "account_number": account_number,
+                            "amount": amount,
+                            "datetime": date_time,
+                            "tx_type": "Debit Transaction",
+                            "balance": user_data["accountBalance"],
+                            "support_email": "support@picadailys.com",
+                            "picadailys_phone": "02012271894  02012271895",
+                        },
+                    )
+
+                    Messaging.send_email(
+                        sender_email="notifications@picadailys.com",
+                        body=narration,
+                        email=wallet.user.email,
+                        html_content=text_content,
+                        subject="Debit Transaction",
+                    )
 
             case _:
                 pass
@@ -912,25 +982,28 @@ class SetWalletPin(generics.CreateAPIView):
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": "This is to inform you that your Wallet pin was created successful.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
-                },
-            )
+            if authenticated_user.alert_type_choice == "SMS":
+                Messaging.send_sms(
+                    phone_number=request.user.phone_number[1:],
+                    msg="This is to inform you that your Wallet pin was created successfully.",
+                )
+            elif authenticated_user.alert_type_choice == "Email":
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": "This is to inform you that your Wallet pin was created successfully.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894  02012271895",
+                    },
+                )
 
-            Messaging.send_email(
-                sender_email="notifications@picadailys.com",
-                body="Your Wallet pin was created successfully.",
-                email=request.user.email,
-                html_content=text_content,
-                subject="Wallet Pin",
-            )
+                Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body="Your Wallet pin was created successfully.",
+                    email=authenticated_user.email,
+                    html_content=text_content,
+                    subject="Wallet Pin",
+                )
 
             response = {
                 "status": "success",
@@ -962,33 +1035,44 @@ class ForgotWalletPin(generics.GenericAPIView):
             otp=otp
         )
 
-        response = Messaging.send_sms(phone_number=phone_no, msg=msg)
-        if response.status_code == 200:
-            try:
-                resp = {
-                    "status": "success",
-                    "message": "Check your phone for an OTP",
-                }
+        response_msg = ""
 
-                ActivityModel.objects.create(
-                    user=user,
-                    title="Wallet Pin",
-                    description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
-                )
+        if user.alert_type_choice == "SMS":
+            Messaging.send_sms(phone_number=phone_no, msg=msg)
+            response_msg = "An OTP has been sent to your phone number."
 
-                return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
-            except Exception as err:
-                return Response(
-                    encrypt(
-                        {
-                            "status": "fail",
-                            "message": err,
-                        }
-                    ),
-                    status=status.HTTP_409_CONFLICT,
-                )
-        else:
-            return Response(data=encrypt(response), status=response.status_code)
+        elif user.alert_type_choice == "Email":
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": msg,
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894  02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=msg,
+                email=user.email,
+                html_content=text_content,
+                subject="Forgot Wallet Pin",
+            )
+
+            response_msg = "An OTP has been sent to your email address."
+
+            resp = {
+                "status": "success",
+                "message": response_msg,
+            }
+
+            ActivityModel.objects.create(
+                user=user,
+                title="Forgot Wallet Pin",
+                description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
+            )
+
+            return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
 
 
 class PinResendOTP(generics.GenericAPIView):
@@ -1015,15 +1099,36 @@ class PinResendOTP(generics.GenericAPIView):
             otp=otp
         )
 
-        response = Messaging.send_sms(phone_number=phone_number, msg=msg)
-        if response.status_code == 200:
+        status_msg = ""
+        if user.alert_type_choice == "SMS":
+            Messaging.send_sms(phone_number=phone_number, msg=msg)
+            status_msg = "Otp resent Successfully. Check your phone for validation"
+        elif user.alert_type_choice == "Email":
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": msg,
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894  02012271895",
+                },
+            )
+
+            Messaging.send_email(
+                sender_email="notifications@picadailys.com",
+                body=msg,
+                email=user.email,
+                html_content=text_content,
+                subject="Forgot Wallet Pin",
+            )
+            status_msg = (
+                "Otp resent Successfully. Check your email address for validation"
+            )
+
             resp = {
                 "status": "success",
-                "message": "Otp resent Successfully. Check your phone for validation",
+                "message": status_msg,
             }
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-        else:
-            return Response(data=encrypt(response), status=response.status_code)
 
 
 class PinVerifyOTP(generics.GenericAPIView):

@@ -88,3 +88,34 @@ def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
         )
 
     return True, None
+
+
+def generate_transaction_sms(
+    transaction_type,
+    account_number,
+    amount,
+    balance,
+    description,
+    reference,
+    app_name="Picadailys",
+):
+    masked_account = f"******{str(account_number)[-4:]}"
+
+    extra_line = ""
+    if transaction_type.upper() == "DEBIT":
+        extra_line = "If not you, contact support immediately."
+
+    message = f"""
+    {transaction_type.upper()} ALERT
+
+    Acct: {masked_account}
+    Amt: NGN{amount:.2f}
+    Desc: {description}
+    Date: {timezone.now().strftime('%d-%b-%Y %H:%M')}
+    Bal: NGN{balance:.2f}
+    Ref: {reference}
+
+    {extra_line}
+    {app_name}
+    """
+    return message.strip()

@@ -627,26 +627,27 @@ class ChangePassword(generics.UpdateAPIView):
             )
 
             body = "This is to inform you that your password on Picadailys has been updated."
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
-                },
-            )
 
-            Messaging.send_email(
-                sender_email="notifications@picadailys.com",
-                body=body,
-                email=request.user.email,
-                html_content=text_content,
-                subject="Password Change",
-            )
+            if request.user.alert_type_choice == "SMS":
+                Messaging.send_sms(phone_number=request.user.phone_number[1:], msg=body)
+            elif request.user.alert_type_choice == "Email":
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    sender_email="notifications@picadailys.com",
+                    body=body,
+                    email=request.user.email,
+                    html_content=text_content,
+                    subject="Password Change",
+                )
 
             response = {
                 "status": "success",
@@ -847,26 +848,27 @@ class DeleteUser(generics.DestroyAPIView):
         try:
             user = User.objects.get(Q(id=email) | Q(email=email))
             msg = "This is to inform you that there was an attempt to delete your account on Picadailys. If you didn't perform this action, kindly reply to this email or send an email to support@picadailys.com."
-            # Render the template with values
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": [
-                        "02012271894",
-                        "02012271895",
-                    ],
-                },
-            )
 
-            Messaging.send_email(
-                sender_email="support@picadailys.com",
-                body=msg,
-                email=user.email,
-                html_content=text_content,
-                subject="Account Deletion",
-            )
+            if user.alert_type_choice == "SMS":
+                Messaging.send_sms(phone_number=user.phone_number[1:], msg=msg)
+            elif user.alert_type_choice == "Email":
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894  02012271895",
+                    },
+                )
+
+                Messaging.send_email(
+                    sender_email="support@picadailys.com",
+                    body=msg,
+                    email=user.email,
+                    html_content=text_content,
+                    subject="Account Deletion",
+                )
             logger.info(
                 f"User found: {user.first_name} {user.last_name}. Proceeding with account deletion."
             )
