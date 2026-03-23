@@ -41,12 +41,18 @@ from .serializers import (
     RefundSerializers,
     WalletDetailsSerializer,
     WalletEnquirySerializer,
+    AccountStatementSerializer,
 )
-from accounts.models import UserNotification
+from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
 from .models import WalletModel, UserKYC, AddressVerificationModel
 from .controllers import KYC, Wallet, Paystack
-from .helpers import cloudinary_to_base64, generate_transaction_sms
+from .helpers import (
+    cloudinary_to_base64,
+    generate_transaction_sms,
+    ExportStatement,
+    get_asset_id,
+)
 from security import encrypt, decrypt
 
 verification_link = config("DIGITAL_ADDREESS_VERIFICATION_LINK")
@@ -1322,3 +1328,120 @@ class GetCashbackBalance(APIView):
         }
 
         return Response(data=encrypt(response), status=200)
+
+
+class GenerateAccountStatement(generics.GenericAPIView):
+    """
+    GenerateAccountStatement handles the GET request method for
+    printing an account statement. It takes the start_date, end_date and
+    format in which the document will be sent.
+    """
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    serializer_class = AccountStatementSerializer
+
+    def get(self, request):
+        user = request.user
+
+        serializer = AccountStatementSerializer(data=request.data)
+
+        if not serializer.is_valid(raise_exception=True):
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        start_date = serializer.validated_data["start_date"]
+        end_date = serializer.validated_data["end_date"]
+        format_type = serializer.validated_data["format"]
+
+        transactions = TxModel.objects.filter(
+            user=request.user,
+            date__date__range=[start_date, end_date],
+            status="SUCCESS",
+        )
+
+        if not transactions.exists():
+            return Response(
+                data=encrypt({"message": "No transactions found for this period"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        data = []
+
+        for tx in transactions:
+            data.append(
+                {
+                    "date": tx.date,
+                    "reference": tx.tx_reference,
+                    "transaction_type": tx.tx_type,
+                    "amount": tx.amount,
+                    "description": tx.description,
+                    "status": tx.status,
+                }
+            )
+
+        match format_type:
+            case "CSV":
+                file_content = ExportStatement.to_csv(transactions)
+                attachment = ("account_statement.csv", file_content, "text/csv")
+
+            case "PDF":
+                file_content = ExportStatement.to_pdf(transactions)
+                attachment = ("account_statement.pdf", file_content, "application/pdf")
+
+            case _:
+                return Response(
+                    {"error": "Invalid format requested"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        msg = (
+            f"Your account statement from {start_date} to {end_date} "
+            f"has been generated successfully. Please find the statement attached."
+        )
+
+        result = get_asset_id(file=attachment)
+        if not result["success"]:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"An error occured while generating account statement: {result['message']}.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        media_id = result["media_id"]
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": f"""
+                Dear {user.first_name},<br><br>
+                {msg}<br><br>
+                If you did not request this statement, please contact our support team immediately.
+                """,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894 02012271895",
+            },
+        )
+
+        Messaging.send_email_with_attachment(
+            email=user.email,
+            html_content=text_content,
+            subject="Your Picadailys Account Statement",
+            body=msg,
+            sender_email="notifications@picadailys.com",
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "User account statement generated succesfully.",
+                    "transactions": data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )

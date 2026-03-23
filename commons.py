@@ -61,7 +61,37 @@ class Messaging:
             "lists": [
                 email
             ],
-            "channel": "email"
+            "channel": "email",
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
+
+    def send_email_with_attachment(
+            email, html_content,
+            sender_email, subject,
+            body, media_id
+        ):
+        url = yournotify_base_url + "campaigns/email/"
+
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "name": "Picadailys Email",
+            "from": sender_email,
+            "subject": subject,
+            "html": html_content,
+            "text": body,
+            "status": "running",
+            "lists": [
+                email
+            ],
+            "channel": "email",
+            "media": [
+                media_id
+            ]
         }
         response = requests.post(url, headers=headers, json=payload)
         return response.json()

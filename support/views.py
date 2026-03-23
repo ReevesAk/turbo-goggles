@@ -2359,7 +2359,7 @@ class LoginAgent(APIView):
                 "phone_number": user.phone_number,
                 "full_name": user.full_name,
                 "is_verified": user.is_verified,
-                "is_admin_pin_set": user.is_admin_pin_set,
+                "is_agent_pin_set": user.is_agent_pin_set,
                 "roles": list(user_roles),
             }
             user.last_login = timezone.now()
@@ -2417,7 +2417,7 @@ class SetAgentPin(generics.CreateAPIView):
         authenticated_user.agent_pin = hashed_pin
         authenticated_user.is_agent_pin_set = True
         authenticated_user.save()
-        logger.info("Agent pin set for user: %s %s", user.full_name)
+        logger.info("Agent pin set for user: %s", user.full_name)
 
         # Create a user notification
         UserNotification.objects.create(
@@ -2426,7 +2426,7 @@ class SetAgentPin(generics.CreateAPIView):
             message="Agent pin created successfully.",
         )
         logger.info(
-            "User  notification created for user: %s %s",
+            "User  notification created for user: %s",
             user.full_name,
         )
 

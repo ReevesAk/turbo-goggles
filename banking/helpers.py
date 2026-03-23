@@ -1,7 +1,11 @@
 import requests
-from io import BytesIO
+import csv
+from io import BytesIO, StringIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from PIL import Image
 import base64
+from decouple import config
 
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
@@ -14,6 +18,8 @@ from rest_framework import status
 
 from commons import Biometrics
 from security import encrypt
+
+yournotify_api_key = config("YOURNOTIFY_API_KEY")
 
 
 class Pin:
@@ -119,3 +125,80 @@ def generate_transaction_sms(
     {app_name}
     """
     return message.strip()
+
+
+class ExportStatement:
+
+    @staticmethod
+    def to_csv(transactions):
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+
+        writer.writerow(
+            ["Date", "Reference", "Type", "Amount", "Description", "Status"]
+        )
+
+        for tx in transactions:
+            writer.writerow(
+                [
+                    tx.date.strftime("%Y-%m-%d %H:%M"),
+                    tx.tx_reference,
+                    tx.tx_type,
+                    tx.amount,
+                    tx.description,
+                    tx.status,
+                ]
+            )
+
+        return buffer.getvalue()
+
+    @staticmethod
+    def to_pdf(transactions):
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=letter)
+
+        y = 750
+        pdf.drawString(50, y, "Picadailys Account Statement")
+        y -= 40
+
+        for tx in transactions:
+            line = f"{tx.date.strftime('%Y-%m-%d')} | {tx.tx_reference} | {tx.tx_type} | {tx.amount}"
+            pdf.drawString(50, y, line)
+            y -= 20
+
+            if y < 50:  # new page if space finishes
+                pdf.showPage()
+                y = 750
+
+        pdf.save()
+
+        return buffer.getvalue()
+
+
+def get_asset_id(file):
+    url = "https://api.yournotify.com/assets"
+
+    headers = {"Authorization": yournotify_api_key}
+
+    try:
+        with open(file, "rb") as pdf_file:
+            files = {"file": ("statement.pdf", pdf_file, "application/pdf")}
+
+            response = requests.post(url, headers=headers, files=files)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            if data.get("status") == "success":
+                return {"success": True, "media_id": data["data"][0]["id"]}
+
+            return {"success": False, "message": data.get("message", "Upload failed")}
+
+        return {
+            "success": False,
+            "message": f"HTTP Error: {response.status_code}",
+            "response": response.text,
+        }
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}

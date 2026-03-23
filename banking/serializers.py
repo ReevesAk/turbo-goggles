@@ -327,3 +327,16 @@ class AddressVerificationSerializer(serializers.Serializer):
     city = serializers.CharField()
     state = serializers.CharField()
     localGovernment = serializers.CharField()
+
+
+class AccountStatementSerializer(serializers.Serializer):
+    start_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=True)
+    format = serializers.ChoiceField(choices=["PDF", "CSV"], default="PDF")
+
+    def validate(self, attrs):
+        if attrs["end_date"] < attrs["start_date"]:
+            raise serializers.ValidationError(
+                "End date must be greater than start date."
+            )
+        return attrs
