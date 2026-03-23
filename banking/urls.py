@@ -15,6 +15,7 @@ from .views import (
     GetAccountDetails,
     RefundFailedCardTransaction,
     GetCashbackBalance,
+    GenerateAccountStatement
 )
 
 from .transfers import (
@@ -132,4 +133,5 @@ urlpatterns = [
     # Account + Notifications
     path("account-details", GetAccountDetails.as_view(), name="account_details"),
     path("notification", NotificationView.as_view(), name="notification"),
+    path("generate-statement", GenerateAccountStatement.as_view(), name="generate_statement"),
 ]
