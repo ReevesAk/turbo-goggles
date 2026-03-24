@@ -34,7 +34,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=WaitlistSerialiser)
+        serializer = self.serializer_class(data=request.data)
 
         if not serializer.is_valid(raise_exception=True):
             return Response(
@@ -79,7 +79,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                     "last_name": waitlist_user.l_name,
                     "email": waitlist_user.email,
                     "referral_code": waitlist_user.referral_code,
-                    # "referral_link": f"https://yourdomain.com/waitlist?ref={waitlist_user.referral_code}",
+                    "whatsApp": "http://whatsapp.com/channel/0029Vb8AFp8EFeXqoKuXcu0y",
                 },
             },
             status=status.HTTP_201_CREATED,
