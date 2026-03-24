@@ -776,7 +776,7 @@ class CreateTicket(generics.CreateAPIView):
         customer_phone_number = payload.get("customer_phone_number")
         # Allow client to provide either `customer_email` or `email`.
         customer_email = payload.get("customer_email") or user_email
-        attachment = request.FILES.get("attachment")
+        attachment = request.FILES.get("attachments")
         title = payload.get("title")
         priority = payload.get("priority")
         pin = payload.get("pin")
@@ -818,7 +818,7 @@ class CreateTicket(generics.CreateAPIView):
             category=category,
             channel=channel,
             description=description,
-            attachments=attachment_url,
+            ticket_attachment=attachment_url,
             priority=priority,
             status="New",
         )
@@ -1047,9 +1047,11 @@ class ReassignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        allowed_roles = ["Agent", "Manager", "Moderator"]
+
         is_agent = AccountType.objects.filter(
             user=user,
-            user_type=agent_role
+            user_type__in=allowed_roles
         ).exists()
 
         if not is_agent:
@@ -1059,7 +1061,10 @@ class ReassignTicket(generics.GenericAPIView):
 
         ticket.assigned_to = user
         ticket.priority = serializer.validated_data["priority"]
-        ticket.status = serializer.validated_data["status"]
+
+        if "status" in serializer.validated_data:
+            ticket.status = serializer.validated_data["status"]
+
         ticket.save()
 
         TicketAssignmentHistory.objects.create(

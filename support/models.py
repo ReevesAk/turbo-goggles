@@ -63,6 +63,7 @@ class Ticket(BaseModel):
     priority = models.CharField(choices=PRIORITY, max_length=150, null=True)
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
+    ticket_attachment = models.URLField(max_length=255, null=True, blank=True)
     resolution_attachment = models.URLField(max_length=255, null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolved_by = models.ForeignKey(

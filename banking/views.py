@@ -1341,7 +1341,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     serializer_class = AccountStatementSerializer
 
-    def get(self, request):
+    def post(self, request):
         user = request.user
 
         serializer = AccountStatementSerializer(data=request.data)
