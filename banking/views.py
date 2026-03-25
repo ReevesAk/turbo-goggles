@@ -19,6 +19,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+
 
 # from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -1340,6 +1342,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     serializer_class = AccountStatementSerializer
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def post(self, request):
         user = request.user
