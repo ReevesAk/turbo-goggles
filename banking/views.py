@@ -1343,8 +1343,9 @@ class GenerateAccountStatement(generics.GenericAPIView):
 
     def post(self, request):
         user = request.user
+        user_data = decrypt(request.data)
 
-        serializer = AccountStatementSerializer(data=request.data)
+        serializer = AccountStatementSerializer(data=user_data)
 
         if not serializer.is_valid(raise_exception=True):
             return Response(

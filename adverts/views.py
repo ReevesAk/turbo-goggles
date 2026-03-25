@@ -104,6 +104,16 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
                                 if debit_response.status_code == 200:
                                     create_ad = serializer.save()
+
+                                    TxModel.objects.create(
+                                        user=user,
+                                        tx_reference=tx_reference,
+                                        tx_type="Brand Promostion",
+                                        amount=wallet_debit_amount,
+                                        description="Brand promotion payment",
+                                        status="SUCCESS",
+                                    )
+
                                     UserNotification.objects.create(
                                         user=user,
                                         title="Brand Promotion",
@@ -148,6 +158,14 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
                 case "CARD":
                     create_ad = serializer.save()
+                    TxModel.objects.create(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Brand Promotion",
+                        amount=wallet_debit_amount,
+                        description="Brand promotion payment",
+                        status="SUCCESS",
+                    )
                     UserNotification.objects.create(
                         user=user,
                         title="Brand Promotion",
