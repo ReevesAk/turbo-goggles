@@ -1433,6 +1433,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
             subject="Your Picadailys Account Statement",
             body=msg,
             sender_email="notifications@picadailys.com",
+            media_id=media_id
         )
 
         return Response(
