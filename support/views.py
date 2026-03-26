@@ -931,6 +931,17 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if authenticated_user == user:
+            is_manager = AccountType.objects.filter(
+                user=authenticated_user,
+                user_type="Manager"
+            ).exists()
+
+            if not is_manager:
+                raise PermissionDenied(
+                    "Only a Manager is allowed to assign a ticket to themselves."
+                )
+
         allowed_roles = ["Agent", "Manager", "Moderator"]
 
         is_valid_role = AccountType.objects.filter(
@@ -1047,6 +1058,18 @@ class ReassignTicket(generics.GenericAPIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Make sure only a manager can reassign to themsleves.
+        if authenticated_user == user:
+            is_manager = AccountType.objects.filter(
+                user=authenticated_user,
+                user_type="Manager"
+            ).exists()
+
+            if not is_manager:
+                raise PermissionDenied(
+                    "Only a Manager is allowed to reassign a ticket to themselves."
+                )
 
         allowed_roles = ["Agent", "Manager", "Moderator"]
 
