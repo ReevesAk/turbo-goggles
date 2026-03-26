@@ -263,13 +263,13 @@ class PaymentURLSerializers(serializers.ModelSerializer):
         fields = ["id", "amount", "email"]
 
 
-class VerifyCardDepositSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = FundWithCard
-        fields = ["id", "txn_reference"]
-        extra_kwargs = {
-            "txn_reference": {"validators": []}
-        }
+# class VerifyCardDepositSerializers(serializers.ModelSerializer):
+#     class Meta:
+#         model = FundWithCard
+#         fields = ["id", "txn_reference"]
+#         extra_kwargs = {
+#             "txn_reference": {"validators": []}
+#         }
 
 
 class RefundSerializers(serializers.ModelSerializer):

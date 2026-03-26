@@ -16,7 +16,6 @@ from rest_framework import status
 from .models import FundWithCard, WalletModel, AddressVerificationModel
 from .controllers import Transfers
 from .serializers import (
-    VerifyCardDepositSerializers,
     WebhookSerializer,
     TransferNotificationWebhookSerializer,
     UpgradeNotificationWebhookSerializer,
@@ -414,26 +413,24 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         )
 
 
-class VerifyCardPaymentTransaction(generics.CreateAPIView):
+class VerifyCardPaymentTransaction(generics.GenericAPIView):
     """
     VerifyCardPaymentTransaction is the GET request handler that validates
     the supplied single transaction reference and returns the current
     status of the transaction.
     """
 
-    serializer_class = VerifyCardDepositSerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request, *args, **kwargs):
-        user_data = decrypt(request.data)
         user = request.user
         guest_id = request.headers.get("X-Guest-ID")
-        tx_ref = user_data.get("txn_reference")
+        tx_ref = kwargs.get("txn_reference")
 
-        user_obj = FundWithCard.objects.filter(txn_reference=tx_ref).first()
+        transaction = FundWithCard.objects.filter(txn_reference=tx_ref).first()
 
-        if not user_obj:
+        if not transaction:
             return Response(
                 data={
                     "status": "fail",
@@ -442,78 +439,67 @@ class VerifyCardPaymentTransaction(generics.CreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if user_obj:
-            if user_obj.status == "success":
-                resp = {
-                    "status": "success",
-                    "message": "Transaction was successful.",
-                    "transaction": {
-                        "txn_reference": user_obj.txn_reference,
-                        "amount": str(user_obj.amount),
-                        "email": user_obj.email,
-                        "status": user_obj.status,
-                    },
-                }
-                encrypted_resp = encrypt(resp)
-                if user:
-                    UserNotification.objects.create(
-                        user=user,
-                        title="Card Payment",
-                        message=f"Your card payment of {user_obj.amount}, was successful.",
-                    )
+        transaction_data = {
+            "txn_reference": transaction.txn_reference,
+            "amount": str(transaction.amount),
+            "email": transaction.email,
+            "status": transaction.status,
+        }
 
-                    ActivityModel.objects.create(
-                        user=user,
-                        title="Card Payment",
-                        description=f"{user.first_name} {user.last_name} has successfully paid {user_obj.amount} from their card.",
-                    )
-                elif guest_id:
-                    ActivityModel.objects.create(
-                        user=guest_id,
-                        title="Card Payment",
-                        description=f"Guest user: {guest_id} has successfully paid {user_obj.amount} from their card.",
-                    )
+        if transaction.status == "success":
+            resp = {
+                "status": "success",
+                "message": "Transaction was successful.",
+                "transaction": transaction_data,
+            }
 
-                return Response(data=encrypted_resp, status=status.HTTP_200_OK)
-            else:
-                resp = {
-                    "status": "fail",
-                    "message": f"Transaction is not successful. Current status: {user_obj.status}.",
-                    "transaction": {
-                        "txn_reference": user_obj.txn_reference,
-                        "amount": user_obj.amount,
-                        "email": user_obj.email,
-                        "status": user_obj.status,
-                    },
-                }
-                if user:
-                    UserNotification.objects.create(
-                        user=user,
-                        title="Card Payment",
-                        message=f"Your card payment of {user_obj.amount}, was unsuccessful.",
-                    )
+            encrypted_resp = encrypt(resp)
+            if user:
+                UserNotification.objects.create(
+                    user=user,
+                    title="Card Payment",
+                    message=f"Your card payment of {transaction.amount}, was successful.",
+                )
 
-                    ActivityModel.objects.create(
-                        user=user,
-                        title="Card Payment",
-                        description=f"Card payment of {user_obj.amount} by {user.first_name} {user.last_name} was unsuccessful.",
-                    )
-                elif guest_id:
-                    ActivityModel.objects.create(
-                        user=guest_id,
-                        title="Card Payment",
-                        description=f"Card payment of {user_obj.amount} by guest user: {guest_id} was unsuccessful.",
-                    )
-                encrypted_resp = encrypt(resp)
-                return Response(data=encrypted_resp, status=status.HTTP_400_BAD_REQUEST)
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Card Payment",
+                    description=f"{user.first_name} {user.last_name} has successfully paid {transaction.amount} from their card.",
+                )
+            elif guest_id:
+                ActivityModel.objects.create(
+                    user=guest_id,
+                    title="Card Payment",
+                    description=f"Guest user: {guest_id} has successfully paid {transaction.amount} from their card.",
+                )
+
+            return Response(data=encrypted_resp, status=status.HTTP_200_OK)
         else:
-            return Response(
-                data={
-                    "status": "fail",
-                    "message": "No transaction found for this reference.",
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            resp = {
+                "status": "fail",
+                "message": f"Transaction is not successful. Current status: {transaction.status}.",
+                "transaction": transaction_data
+            }
+            if user:
+                UserNotification.objects.create(
+                    user=user,
+                    title="Card Payment",
+                    message=f"Your card payment of {transaction.amount}, was unsuccessful.",
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Card Payment",
+                    description=f"Card payment of {transaction.amount} by {user.first_name} {user.last_name} was unsuccessful.",
+                )
+            elif guest_id:
+                ActivityModel.objects.create(
+                    user=guest_id,
+                    title="Card Payment",
+                    description=f"Card payment of {transaction.amount} by guest user: {guest_id} was unsuccessful.",
+                )
+            encrypted_resp = encrypt(resp)
+            return Response(data=encrypted_resp, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RedirectingPageView(View):
