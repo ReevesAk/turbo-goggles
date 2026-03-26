@@ -378,15 +378,14 @@ class AgentResetPin(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        password = user_data.get("pin")
-        user.agent_pin = make_password(password)
-
         user_token = payload.get("refresh_token")
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
             logger.info(f"Refresh token blacklisted for user: {agent_id}")
 
+        password = user_data.get("pin")
+        user.agent_pin = make_password(password)
         user.save()
 
         full_name = (
@@ -774,6 +773,7 @@ class CreateTicket(generics.CreateAPIView):
         description = payload.get("description")
         customer_name = payload.get("customer_name")
         customer_phone_number = payload.get("customer_phone_number")
+        resolution_hours = payload.get("resolution_hours")
         # Allow client to provide either `customer_email` or `email`.
         customer_email = payload.get("customer_email") or user_email
         attachment = request.FILES.get("attachments")
@@ -819,6 +819,7 @@ class CreateTicket(generics.CreateAPIView):
             channel=channel,
             description=description,
             ticket_attachment=attachment_url,
+            resolution_hours=resolution_hours,
             priority=priority,
             status="New",
         )
@@ -1214,7 +1215,7 @@ class EscalateTicketAPIView(APIView):
         from_role = ticket.agent_role
 
         pin = serializer.validated_data["pin"]
-        if not check_password(pin, authenticated_user.admin_pin):
+        if not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
