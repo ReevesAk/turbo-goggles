@@ -1488,7 +1488,6 @@ class GetSingleTicket(generics.RetrieveAPIView):
 
             if not ticket.opened_at:
                 ticket.opened_at = timezone.now()
-                ticket.resolution_hours = 2
                 ticket.save()
 
             response = {

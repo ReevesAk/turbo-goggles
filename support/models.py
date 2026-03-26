@@ -33,6 +33,7 @@ TICKET_CHANNELS = (
     ("Email", "Email"),
     ("Call", "Call"),
     ("Website", "Website"),
+    ("Social Media", "Social Media"),
 )
 
 
