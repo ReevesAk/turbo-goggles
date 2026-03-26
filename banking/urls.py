@@ -124,7 +124,7 @@ urlpatterns = [
         name="webhook_address_verification",
     ),
     path(
-        "verify-card-deposit",
+        "verify-card-deposit/<str:txn_reference>/",
         VerifyCardPaymentTransaction.as_view(),
         name="verify_card_deposit",
     ),
