@@ -849,8 +849,9 @@ class PayWithCard(generics.CreateAPIView):
                         )
 
                         # Save transaction in FundWithCard model
-                        FundWithCard.objects.create(
-                            user=user, txn_reference=url_resp["data"]["reference"]
+                        FundWithCard.objects.update_or_create(
+                            txn_reference=url_resp["data"]["reference"],
+                            defaults={"user": user},
                         )
                         response = {
                             "status": "success",
