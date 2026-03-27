@@ -112,7 +112,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         else:
             create_activity(guest_id=None, title=title, description=description)
 
-        if user.has_done_survey:
+        if user and user.has_done_survey:
             # Calculate points for service purchase activity
             logger.info(
                 "Calculating points for user %s service purchase activity.",
@@ -125,8 +125,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                 member_email=user.email, activityId="8474", numericValue=str(points)
             )
             Points.refresh_user_points(user)
-        else:
-            pass
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
@@ -182,10 +180,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                 user=user, tx_reference=idempotency_key
             ).first()
             if existing_tx:
-                logger.info(
-                    f"Idempotent request detected for {user.id} with key {idempotency_key}"
-                )
-                # Return success response (assuming prior success; in production, check status field)
+                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
                 response_data = {
                     "status": "success",
                     "message": "This request was already processed.",
@@ -193,11 +188,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
-        tx_reference = (
-            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
-        )
+        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         vas_token = VAS.authenticate()
-        logger.info(f"VAS token: {vas_token}")
 
         # Extract fields
         pin = user_data.get("pin")
@@ -210,37 +202,12 @@ class AirTimeTopUp(generics.GenericAPIView):
         biometrics = user_data.get("use_biometrics")
         use_cashback = user_data.get("use_cashback")
 
-        # Lock wallet row during transaction to prevent race conditions
-        if user:
-            user_wallet = WalletModel.objects.select_for_update().get(user=user)
-        else:
-            user_wallet = (
-                WalletModel.objects.filter(user__isnull=True).first() if user else None
-            )
-
-        # Apply cashback for payment
-        if use_cashback:
-            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
-            amount = payment["wallet_amount"]
-            cashback_used = payment["cashback_used"]
-
         # Guest validations
         if not user:
             if not guest_id:
-                return Response(
-                    data=encrypt({"status": "fail", "message": "Guest ID required"}),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return Response(data=encrypt({"status": "fail", "message": "Guest ID required"}), status=status.HTTP_400_BAD_REQUEST)
             if payment_option != "CARD":
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Guests can only use card payments",
-                        }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return Response(data=encrypt({"status": "fail", "message": "Guests can only use card payments"}), status=status.HTTP_400_BAD_REQUEST)
 
         # Validate payload
         serializer = self.serializer_class(data=user_data)
@@ -257,67 +224,64 @@ class AirTimeTopUp(generics.GenericAPIView):
         if not is_verified:
             return error_response
 
-        # USE BONUS
-        if use_bonus:
-            if user.welcome_bonus >= float(amount):
-                airtime_response = VAS.airtime_topup(
-                    network=network,
-                    bearer_token=vas_token,
-                    amount=amount,
-                    debitAccount=user_wallet.account_number,
-                    phone_number=phone,
-                    tx_ref=tx_reference,
-                )
-                status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
-                status_resp = status_query.json()["data"]
-                if (
-                    status_resp.get("transactionStatus") == "success"
-                    and status_resp.get("responseCode") == 200
-                ):
-                    return self._handle_airtime_success(
-                        user=user,
-                        guest_id=guest_id,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                        cashback=cashback_used,
+        # --- Start Transactional logic ---
+        try:
+            with transaction.atomic():
+                # Lock wallet row INSIDE the transaction to prevent the error
+                if user:
+                    user_wallet = WalletModel.objects.select_for_update().get(user=user)
+                else:
+                    user_wallet = WalletModel.objects.filter(user__isnull=True).first()
+
+                cashback_used = 0
+                if use_cashback:
+                    payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
+                    amount = payment["wallet_amount"]
+                    cashback_used = payment["cashback_used"]
+
+                # USE BONUS logic
+                if use_bonus:
+                    if user and user.welcome_bonus >= float(amount):
+                        airtime_response = VAS.airtime_topup(
+                            network=network,
+                            bearer_token=vas_token,
+                            amount=amount,
+                            debitAccount=user_wallet.account_number,
+                            phone_number=phone,
+                            tx_ref=tx_reference,
+                        )
+                        status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                        status_resp = status_query.json()["data"]
+                        if (
+                            status_resp.get("transactionStatus") == "success"
+                            and status_resp.get("responseCode") == 200
+                        ):
+                            return self._handle_airtime_success(
+                                user=user, phone=phone, amount=amount, network=network,
+                                tx_reference=tx_reference, cashback=cashback_used,
+                            )
+                    
+                    return self._handle_airtime_failure(
+                        user=user, phone=phone, amount=amount, reason="Insufficient bonus balance."
                     )
 
-            return self._handle_airtime_failure(
-                user=user,
-                phone=phone,
-                amount=amount,
-                airtime_response=airtime_response.json(),
-                reason="Insufficient bonus balance.",
-            )
+                # PAYMENT OPTIONS logic
+                match payment_option:
+                    case "WALLET":
+                        amount = int(amount)
+                        pts_amt = 0
 
-        # PAYMENT OPTIONS
-        match payment_option:
-            case "WALLET":
-                amount = int(amount)
-                pts_amt = 0
+                        if use_points:
+                            _, pts_amt = Pay.with_pts(user=user, amount=amount)
 
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=amount)
+                        if use_points and pts_amt >= amount:
+                            wallet_debit_amount = 0
+                        elif use_points and pts_amt < amount:
+                            wallet_debit_amount = amount - pts_amt
+                        else:
+                            wallet_debit_amount = amount
 
-                # Determine wallet debit amount
-                if use_points and pts_amt >= amount:
-                    wallet_debit_amount = 0
-                elif use_points and pts_amt < amount:
-                    wallet_debit_amount = amount - pts_amt
-                else:
-                    wallet_debit_amount = amount
-
-                # Debit wallet only if required
-                if wallet_debit_amount > 0:
-                    try:
-                        with transaction.atomic():
-                            # Re-fetch wallet inside transaction with lock
-                            user_wallet = WalletModel.objects.select_for_update().get(
-                                user=user
-                            )
-
+                        if wallet_debit_amount > 0:
                             debit_response = Wallet.Debit(
                                 debitAccount=user_wallet.account_number,
                                 amount=wallet_debit_amount,
@@ -336,89 +300,66 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 )
 
                                 airtime_data = airtime_response.json()
-                                status_resp = VAS.status(
-                                    bearer_token=vas_token, tx_ref=tx_reference
-                                )
+                                status_resp = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
                                 status_data = status_resp.json().get("data", {})
                                 if (
                                     status_data.get("transactionStatus") == "success"
                                     and status_data.get("responseCode") == 200
                                 ):
                                     return self._handle_airtime_success(
-                                        user=user,
-                                        phone=phone,
-                                        amount=amount,
-                                        network=network,
-                                        tx_reference=tx_reference,
+                                        user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference,
                                     )
                                 else:
                                     return self._handle_airtime_failure(
-                                        user=user,
-                                        phone=phone,
-                                        amount=amount,
-                                        airtime_response=airtime_data,
-                                        reason="Airtime top-up failed.",
+                                        user=user, phone=phone, amount=amount, airtime_response=airtime_data, reason="Airtime top-up failed.",
                                     )
 
-                            return Response(
-                                data=encrypt(debit_response.json()),
-                                status=debit_response.status_code,
+                            return Response(data=encrypt(debit_response.json()), status=debit_response.status_code)
+                        
+                        # Case where points covered everything
+                        airtime_response = VAS.airtime_topup(
+                            network=network, bearer_token=vas_token, amount=amount,
+                            debitAccount=user_wallet.account_number, phone_number=phone, tx_ref=tx_reference,
+                        )
+                        return self._handle_airtime_success(user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference)
+
+                    case "CARD":
+                        # CARD Logic restored
+                        debit_account = user_wallet.account_number if user else None
+                        airtime_response = VAS.airtime_topup(
+                            network=network,
+                            bearer_token=vas_token,
+                            amount=amount,
+                            debitAccount=debit_account,
+                            phone_number=phone,
+                            tx_ref=tx_reference,
+                        )
+
+                        airtime_data = airtime_response.json()
+                        if (
+                            user
+                            and airtime_data.get("status") == "success"
+                            and airtime_data.get("responseCode") == 200
+                        ):
+                            return self._handle_airtime_success(
+                                user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference,
                             )
-                    except Exception as e:
-                        logger.exception(
-                            f"Transaction error during wallet airtime purchase: {e}"
-                        )
-                        return Response(
-                            data=encrypt(
-                                {"status": "fail", "message": "Transaction failed"}
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
+                        else:
+                            # Failure (user or guest)
+                            return self._handle_airtime_failure(
+                                user=user, guest_id=guest_id, phone=phone, amount=amount,
+                                airtime_response=airtime_data,
+                                reason=airtime_data.get("response_description", "Transaction failed"),
+                            )
 
-            case "CARD":
-                debit_account = user_wallet.account_number if user else None
-                airtime_response = VAS.airtime_topup(
-                    network=network,
-                    bearer_token=vas_token,
-                    amount=amount,
-                    debitAccount=debit_account,
-                    phone_number=phone,
-                    tx_ref=tx_reference,
-                )
+                    case _:
+                        return Response(data=encrypt({"status": "fail", "message": "Invalid payment option"}), status=status.HTTP_400_BAD_REQUEST)
 
-                airtime_data = airtime_response.json()
-                if (
-                    user
-                    and airtime_data.get("status") == "success"
-                    and airtime_data.get("responseCode") == 200
-                ):
-                    return self._handle_airtime_success(
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                    )
-                else:
-                    # Failure (user or guest)
-                    return self._handle_airtime_failure(
-                        user=user,
-                        guest_id=guest_id,
-                        phone=phone,
-                        amount=amount,
-                        airtime_response=airtime_response,
-                        reason=airtime_response.get(
-                            "response_description", "Transaction failed"
-                        ),
-                    )
-
-            case _:
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "message": "Invalid payment option"}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        except WalletModel.DoesNotExist:
+            return Response(data=encrypt({"status": "fail", "message": "Wallet not found"}), status=404)
+        except Exception as e:
+            logger.exception(f"Transaction error during airtime purchase: {e}")
+            return Response(data=encrypt({"status": "fail", "message": "Transaction failed"}), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GetNetworkProvider(generics.RetrieveAPIView):
