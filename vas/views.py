@@ -209,6 +209,16 @@ class AirTimeTopUp(generics.GenericAPIView):
             if payment_option != "CARD":
                 return Response(data=encrypt({"status": "fail", "message": "Guests can only use card payments"}), status=status.HTTP_400_BAD_REQUEST)
 
+        # Required field validations
+        if not phone or not network:
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "phone_number and network are required."
+                }),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Validate payload
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
