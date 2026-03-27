@@ -518,7 +518,8 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
             Points.refresh_user_points(user)
 
-            response_data["cashback_used"] = str(cashback_used)
+        if cashback is not None:
+            response_data["cashback_used"] = str(cashback)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -595,7 +596,8 @@ class DataSubscriptionView(generics.GenericAPIView):
         cashback_used = Decimal("0")
 
         if user:
-            user_wallet = WalletModel.objects.select_for_update().get(user=user)
+            with transaction.atomic():
+                user_wallet = WalletModel.objects.select_for_update().get(user=user)
         else:
             user_wallet = None
 
@@ -759,6 +761,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                                         amount=amount,
                                         network=network,
                                         tx_reference=tx_reference,
+                                        cashback=cashback_used,
                                     )
                                 else:
                                     return self._handle_data_failure(
