@@ -17,6 +17,7 @@ password = config("NINE_PSB_PASSWORD")
 clientId = config("CLIENT_ID")
 clientSecret = config("CLIENT_SECRET")
 base_url = config("NINE_PSB_BASEURL")
+dojah_base_url = config("DOJAH_BASE_URL")
 
 picadailys_merchant_account = config("MERCHANT_ACCOUNT")
 
@@ -55,7 +56,7 @@ def authenticate():
 class KYC:
     @staticmethod
     def verify_bvn(img_file, bvn):
-        url = "https://sandbox.dojah.io/api/v1/kyc/bvn/verify"
+        url = f"{dojah_base_url}/api/v1/kyc/bvn/verify"
         payload = {"selfie_image": img_file, "bvn": bvn}
         headers = {
             "AppId": app_id,
@@ -73,7 +74,7 @@ class KYC:
 
     @staticmethod
     def verify_nin(img_file, nin):
-        resource = "https://sandbox.dojah.io/api/v1/kyc/nin/verify"
+        resource = f"{dojah_base_url}/api/v1/kyc/nin/verify"
         payload = {"selfie_image": img_file, "nin": nin}
         headers = {
             "AppId": app_id,
