@@ -328,6 +328,7 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
             "id",
             "full_name",
             "user_type",
+            "email",
             "status",
             "state",
             "city",

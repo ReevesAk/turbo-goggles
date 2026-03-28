@@ -334,7 +334,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                         return self._handle_airtime_success(user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference)
 
                     case "CARD":
-                        # CARD Logic restored
                         debit_account = user_wallet.account_number if user else None
                         airtime_response = VAS.airtime_topup(
                             network=network,

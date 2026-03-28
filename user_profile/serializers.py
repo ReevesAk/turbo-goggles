@@ -32,6 +32,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "active_role",
             "has_wallet",
             "profile_img_url",
+            "alert_type_choice",
             "country",
             "state",
             "city",

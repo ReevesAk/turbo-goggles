@@ -71,7 +71,7 @@ class CashbackService:
 
                     amount = Decimal(str(bundle.get("amount", "0")))
 
-                    cashback = amount * Decimal("0.01")
+                    cashback = amount * Decimal("0.015")
 
                     bundle["cashback"] = str(round(cashback, 2))
 
