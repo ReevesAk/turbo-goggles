@@ -96,7 +96,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3001",
     "http://localhost:5173",
     "http://localhost:5174",
-    "http://167.71.174.242",
+    "http://46.101.234.74",
     "https://api.picadailys.com",
     "http://127.0.0.1:8000",
     "https://picadailys.com",
