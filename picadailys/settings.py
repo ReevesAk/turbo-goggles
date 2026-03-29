@@ -32,7 +32,7 @@ elif ENVIRONMENT == "production":
         "api.picadailys.com",
         "miniature-waddle.onrender.com",
         "picadailysbackend.onrender.com",
-        "167.71.174.242",
+        "46.101.234.74",
         "https://api.picadailys.com",
         "https://miniature-waddle-k5bz.onrender.com",
         "https://picadailysbackend.onrender.com",
@@ -403,20 +403,20 @@ CRONJOBS = [
 ]
 
 if conf("ENVIRONMENT") == "production":
-    # CACHES = {
-    #     "default": {
-    #         "BACKEND": "django_redis.cache.RedisCache",
-    #         "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
-    #         "OPTIONS": {
-    #             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-    #             "CONNECTION_POOL_KWARGS": {
-    #                 "max_connections": 200,
-    #                 "retry_on_timeout": True
-    #             },
-    #             "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
-    #         }
-    #     }
-    # }
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 200,
+                    "retry_on_timeout": True
+                },
+                "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
+            }
+        }
+    }
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",

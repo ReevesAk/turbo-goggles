@@ -625,9 +625,10 @@ class Paystack:
             "Content-Type": "application/json",
         }
 
+
     @staticmethod
     def generate_url(email, amount):
-        generate_url_resource = "https://api.paystack.co/transaction/initialize"
+        generate_url_resource = f"{Paystack.base_url}/transaction/initialize"
         payload = {"email": email, "amount": amount}
 
         try:
@@ -661,7 +662,7 @@ class Paystack:
 
     @staticmethod
     def create_refund(txn_reference):
-        refund_url_resource = "https://api.paystack.co/refund"
+        refund_url_resource = f"{Paystack.base_url}/refund"
         payload = {"transaction": txn_reference}
 
         try:
