@@ -294,7 +294,7 @@ CONTENT_SECURITY_POLICY_REPORT_ONLY = False
 
 # Enable HTTP Strict Transport Security (HSTS)
 if conf("ENVIRONMENT") == "production":
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False
     SECURE_HSTS_SECONDS = 31536000  # 1 year in seconds
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Apply HSTS to all subdomains
     SECURE_HSTS_PRELOAD = True  # Allow browsers to preload HSTS
