@@ -309,6 +309,7 @@ class RestrictBrandAdSerializers(serializers.ModelSerializer):
 
 
 class ListBrandAdSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(source="user.email", read_only=True)
     full_name = serializers.CharField(source="user.full_name", read_only=True)
     website = serializers.CharField(source="user.website", read_only=True)
 

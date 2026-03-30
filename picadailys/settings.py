@@ -501,6 +501,8 @@ LOGGING = {
         'self_service': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
         'support': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
         'user_profile': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'web': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'waitlist': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
         'vas': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
     },
 }
