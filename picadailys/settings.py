@@ -27,20 +27,18 @@ if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["*"]
 elif ENVIRONMENT == "production":
     ALLOWED_HOSTS = [
-        "127.0.0.1",
-        "localhost",
-        "api.picadailys.com",
-        "miniature-waddle.onrender.com",
-        "picadailysbackend.onrender.com",
-        "46.101.234.74",
-        "https://api.picadailys.com",
-        "https://miniature-waddle-k5bz.onrender.com",
-        "https://picadailysbackend.onrender.com",
-        "https://web-y9g2.onrender.com",
-        "https://support-y8lr.onrender.com",
-        "https://support.picadailys.com",
-        "https://admin-dashboard-9juk.onrender.com",
-    ]
+    "127.0.0.1",
+    "localhost",
+    "api.picadailys.com",
+    "miniature-waddle.onrender.com",
+    "picadailysbackend.onrender.com",
+    "46.101.234.74",
+    "web-y9g2.onrender.com",
+    "support-y8lr.onrender.com",
+    "support.picadailys.com",
+    "admin-dashboard-9juk.onrender.com",
+]
+
 
 
 # Application definition
