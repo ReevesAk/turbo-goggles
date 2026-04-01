@@ -14,6 +14,8 @@ class WaitlistModel(models.Model):
     phone = models.CharField(max_length=50, null=True, blank=True)
     referral_code = models.CharField(max_length=50, null=True)
     referral_count = models.SmallIntegerField(null=True, blank=True)
+    is_student = models.BooleanField(default=False, null=True)
+    institution = models.CharField(max_length=150, null=True, blank=True)
 
     @classmethod
     def generate_referral_code(cls, first_name, length=4):

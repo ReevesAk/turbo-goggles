@@ -21,7 +21,7 @@ from .serializers import (
 
 # from mail import send_email
 from accounts.models import User, UserNotification, AccountType
-from permissions import IsBrandAd, IsBrandAdAdmin
+from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
 from .models import CreateAd
 from banking.helpers import verify_wallet_auth
 from banking.controllers import Wallet
@@ -258,7 +258,7 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
 class ListAllBrandAds(generics.ListAPIView):
     serializer_class = AdSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin) | IsSuperAdmin]
     pagination_class = PaginationStyle
 
     def get_queryset(self):

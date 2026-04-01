@@ -34,8 +34,21 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        data = request.data.copy()
+        is_student = data.get("is_student")
+        institution = data.get("institution")
 
+        # Only students can select institution
+        if not is_student and institution:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Only students are allowed to select the institution option.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=data)
         if not serializer.is_valid(raise_exception=True):
             return Response(
                 data=(serializer.errors), status=status.HTTP_400_BAD_REQUEST

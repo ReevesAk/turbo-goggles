@@ -260,7 +260,6 @@ class AdStatsView(generics.RetrieveAPIView):
                     "No of ad requests": ad_requests,
                     "No of active_ads": active_ads,
                     "No of completed_ads": completed_ads,
-                    "No of ads not promoted_yet": not_promoted,
                 },
                 "graph": graph_data,
             }
