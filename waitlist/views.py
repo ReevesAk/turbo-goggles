@@ -1,3 +1,4 @@
+import uuid
 from django.utils import timezone
 
 import logging
@@ -92,7 +93,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                     "last_name": waitlist_user.l_name,
                     "email": waitlist_user.email,
                     "referral_code": waitlist_user.referral_code,
-                    "whatsApp": "http://whatsapp.com/channel/0029Vb8AFp8EFeXqoKuXcu0y",
+                    "whatsApp_group_link": "http://whatsapp.com/channel/0029Vb8AFp8EFeXqoKuXcu0y",
                 },
             },
             status=status.HTTP_201_CREATED,
