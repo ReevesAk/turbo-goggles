@@ -29,7 +29,7 @@ elif ENVIRONMENT == "production":
     ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "api.picadailys.com",
+    "picadailys.app",
     "miniature-waddle.onrender.com",
     "picadailysbackend.onrender.com",
     "46.101.234.74",
@@ -95,7 +95,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://46.101.234.74",
-    "https://api.picadailys.com",
+    "https://picadailys.app",
     "http://127.0.0.1:8000",
     "https://picadailys.com",
     "https://web-y9g2.onrender.com",
@@ -308,7 +308,7 @@ else:
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://api.picadailys.com",
+    "https://picadailys.app",
     "http://localhost:5173",
     "http://localhost:5174",
     "https://miniature-waddle-k5bz.onrender.com",
