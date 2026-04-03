@@ -1,4 +1,3 @@
-import uuid
 from django.utils import timezone
 
 import logging
@@ -97,5 +96,45 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                 },
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class WaitlistDashboardView(APIView):
+    """Returns a waitlist user's details by email."""
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        email = request.query_params.get("email")
+        if not email:
+            return Response(
+                {"status": "fail", "message": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = WaitlistModel.objects.get(email=email)
+        except WaitlistModel.DoesNotExist:
+            return Response(
+                {"status": "fail", "message": "User not found on the waitlist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Waitlist details retrieved.",
+                "data": {
+                    "id": user.id,
+                    "first_name": user.f_name,
+                    "last_name": user.l_name,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "referral_code": user.referral_code,
+                    "referral_count": user.referral_count or 0,
+                    "is_student": user.is_student,
+                    "institution": user.institution,
+                },
+            },
+            status=status.HTTP_200_OK,
         )
     

@@ -8,7 +8,6 @@ class WaitlistModel(models.Model):
     """WaitlistModel is the model to persist the record of
         waitlist users and their count
     """
-    user_token = models.CharField(max_length=64, unique=True, null=True, blank=True, help_text="Anonymous unique user token")
     f_name = models.CharField(max_length=50, null=True)
     l_name = models.CharField(max_length=50, null=True)
     email = models.CharField(max_length=100, unique=True, null=True)
