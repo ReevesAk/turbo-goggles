@@ -1041,7 +1041,7 @@ class Logout(APIView):
             if refresh_token is None:
                 logger.warning("Refresh token is missing for logout request.")
                 return Response(
-                    {"error": "Refresh token is required."},
+                    data=encrypt({"error": "Refresh token is required."}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             token = RefreshToken(refresh_token)
@@ -1069,4 +1069,4 @@ class Logout(APIView):
 
         except Exception as e:
             logger.error(f"Error during logout: {str(e)}")
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e)})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=encrypt({"error": str(e)}))
