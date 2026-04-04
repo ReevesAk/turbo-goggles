@@ -243,5 +243,9 @@ urlpatterns = [
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
     # Waitlist endpoints.
-    path("waitlist/all-users", AdminWaitlistListView.as_view(), name="admin_waitlist_users"),
+    path(
+        "waitlist/all-users",
+        AdminWaitlistListView.as_view(),
+        name="admin_waitlist_users",
+    ),
 ]

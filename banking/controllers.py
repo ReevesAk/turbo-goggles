@@ -625,7 +625,6 @@ class Paystack:
             "Content-Type": "application/json",
         }
 
-
     @staticmethod
     def generate_url(email, amount):
         generate_url_resource = f"{Paystack.base_url}/transaction/initialize"

@@ -478,7 +478,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
             resp = {
                 "status": "fail",
                 "message": f"Transaction is not successful. Current status: {transaction.status}.",
-                "transaction": transaction_data
+                "transaction": transaction_data,
             }
             if user:
                 UserNotification.objects.create(

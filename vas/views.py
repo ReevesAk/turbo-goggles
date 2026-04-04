@@ -180,7 +180,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                 user=user, tx_reference=idempotency_key
             ).first()
             if existing_tx:
-                logger.info(f"Idempotent request detected for {user.id} with key {idempotency_key}")
+                logger.info(
+                    f"Idempotent request detected for {user.id} with key {idempotency_key}"
+                )
                 response_data = {
                     "status": "success",
                     "message": "This request was already processed.",
@@ -188,7 +190,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
-        tx_reference = idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        tx_reference = (
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
+        )
         vas_token = VAS.authenticate()
 
         # Extract fields
@@ -205,18 +209,31 @@ class AirTimeTopUp(generics.GenericAPIView):
         # Guest validations
         if not user:
             if not guest_id:
-                return Response(data=encrypt({"status": "fail", "message": "Guest ID required"}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Guest ID required"}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if payment_option != "CARD":
-                return Response(data=encrypt({"status": "fail", "message": "Guests can only use card payments"}), status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Guests can only use card payments",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Required field validations
         if not phone or not network:
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "phone_number and network are required."
-                }),
-                status=status.HTTP_400_BAD_REQUEST
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "phone_number and network are required.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Validate payload
@@ -245,7 +262,9 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                 cashback_used = 0
                 if use_cashback:
-                    payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
+                    payment = CashbackService.apply_cashback_payment(
+                        user=user, amount=amount
+                    )
                     amount = payment["wallet_amount"]
                     cashback_used = payment["cashback_used"]
 
@@ -260,19 +279,28 @@ class AirTimeTopUp(generics.GenericAPIView):
                             phone_number=phone,
                             tx_ref=tx_reference,
                         )
-                        status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                        status_query = VAS.status(
+                            bearer_token=vas_token, tx_ref=tx_reference
+                        )
                         status_resp = status_query.json()["data"]
                         if (
                             status_resp.get("transactionStatus") == "success"
                             and status_resp.get("responseCode") == 200
                         ):
                             return self._handle_airtime_success(
-                                user=user, phone=phone, amount=amount, network=network,
-                                tx_reference=tx_reference, cashback=cashback_used,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
                             )
-                    
+
                     return self._handle_airtime_failure(
-                        user=user, phone=phone, amount=amount, reason="Insufficient bonus balance."
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        reason="Insufficient bonus balance.",
                     )
 
                 # PAYMENT OPTIONS logic
@@ -310,28 +338,51 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 )
 
                                 airtime_data = airtime_response.json()
-                                status_resp = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                                status_resp = VAS.status(
+                                    bearer_token=vas_token, tx_ref=tx_reference
+                                )
                                 status_data = status_resp.json().get("data", {})
                                 if (
                                     status_data.get("transactionStatus") == "success"
                                     and status_data.get("responseCode") == 200
                                 ):
                                     return self._handle_airtime_success(
-                                        user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference,
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
+                                        network=network,
+                                        tx_reference=tx_reference,
                                     )
                                 else:
                                     return self._handle_airtime_failure(
-                                        user=user, phone=phone, amount=amount, airtime_response=airtime_data, reason="Airtime top-up failed.",
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
+                                        airtime_response=airtime_data,
+                                        reason="Airtime top-up failed.",
                                     )
 
-                            return Response(data=encrypt(debit_response.json()), status=debit_response.status_code)
-                        
+                            return Response(
+                                data=encrypt(debit_response.json()),
+                                status=debit_response.status_code,
+                            )
+
                         # Case where points covered everything
                         airtime_response = VAS.airtime_topup(
-                            network=network, bearer_token=vas_token, amount=amount,
-                            debitAccount=user_wallet.account_number, phone_number=phone, tx_ref=tx_reference,
+                            network=network,
+                            bearer_token=vas_token,
+                            amount=amount,
+                            debitAccount=user_wallet.account_number,
+                            phone_number=phone,
+                            tx_ref=tx_reference,
                         )
-                        return self._handle_airtime_success(user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference)
+                        return self._handle_airtime_success(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                        )
 
                     case "CARD":
                         debit_account = user_wallet.account_number if user else None
@@ -351,24 +402,44 @@ class AirTimeTopUp(generics.GenericAPIView):
                             and airtime_data.get("responseCode") == 200
                         ):
                             return self._handle_airtime_success(
-                                user=user, phone=phone, amount=amount, network=network, tx_reference=tx_reference,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
                             )
                         else:
                             # Failure (user or guest)
                             return self._handle_airtime_failure(
-                                user=user, guest_id=guest_id, phone=phone, amount=amount,
+                                user=user,
+                                guest_id=guest_id,
+                                phone=phone,
+                                amount=amount,
                                 airtime_response=airtime_data,
-                                reason=airtime_data.get("response_description", "Transaction failed"),
+                                reason=airtime_data.get(
+                                    "response_description", "Transaction failed"
+                                ),
                             )
 
                     case _:
-                        return Response(data=encrypt({"status": "fail", "message": "Invalid payment option"}), status=status.HTTP_400_BAD_REQUEST)
+                        return Response(
+                            data=encrypt(
+                                {"status": "fail", "message": "Invalid payment option"}
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
         except WalletModel.DoesNotExist:
-            return Response(data=encrypt({"status": "fail", "message": "Wallet not found"}), status=404)
+            return Response(
+                data=encrypt({"status": "fail", "message": "Wallet not found"}),
+                status=404,
+            )
         except Exception as e:
             logger.exception(f"Transaction error during airtime purchase: {e}")
-            return Response(data=encrypt({"status": "fail", "message": "Transaction failed"}), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class GetNetworkProvider(generics.RetrieveAPIView):

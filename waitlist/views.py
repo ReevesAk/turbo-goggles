@@ -35,6 +35,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
     JoinBetaUserWaitList handles the POST request method of
     onboarding beta waitlist users.
     """
+
     serializer_class = WaitlistSerialiser
     permission_classes = (AllowAny,)
 
@@ -69,9 +70,9 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                     return Response(
                         data={
                             "status": "fail",
-                            "message": "User cannot refer himself."
+                            "message": "User cannot refer himself.",
                         },
-                        status=status.HTTP_400_BAD_REQUEST
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 referrer.referral_count = (referrer.referral_count or 0) + 1
@@ -84,7 +85,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                         "message": "Referral deos not found.",
                         "data": serializer.data,
                     },
-                    status=status.HTTP_404_NOT_FOUND
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
         return Response(
@@ -106,6 +107,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
 
 class WaitlistDashboardView(APIView):
     """Returns a waitlist user's details by email."""
+
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
@@ -150,6 +152,7 @@ class WaitlistPagination(PageNumberPagination):
 
 class PublicWaitlistListView(generics.ListAPIView):
     """Public list of waitlist users with limited details."""
+
     permission_classes = (AllowAny,)
     pagination_class = WaitlistPagination
 
@@ -181,6 +184,7 @@ class PublicWaitlistListView(generics.ListAPIView):
 
 class AdminWaitlistListView(generics.ListAPIView):
     """Admin list of all waitlist users with full details. TaskAdmin & SuperAdmin only."""
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
     pagination_class = WaitlistPagination

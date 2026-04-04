@@ -663,21 +663,33 @@ class ContactUsView(generics.GenericAPIView):
                         )
 
                         # Create a support ticket for the business inquiry
+                        full_name_for_ticket = full_name
+                        customer_email = (
+                            channel.get("value")
+                            if channel.get("type") == "Email"
+                            else None
+                        )
+                        customer_phone = (
+                            channel.get("value")
+                            if channel.get("type") == "Phone"
+                            else None
+                        )
+
                         ticket = Ticket.objects.create(
                             user=None,
+                            title=f"Business Inquiry from {business_name}",
+                            customer_name=full_name_for_ticket,
+                            customer_email=customer_email,
+                            customer_phone_number=customer_phone,
                             category="Business Inquiry",
                             channel="Website",
                             description=data["message"],
                             priority="Low",
-                            status="Queuing",
+                            status="New",
                         )
 
-                        # Save the ticket to get an ID
-                        ticket.save()
-
-                        # Generate and set the number
                         ticket.number = generate_ticket_number()
-                        ticket.save()
+                        ticket.save(update_fields=["number"])
 
                     case "Personal Use":
                         full_name = f"{data.get('first_name')} {data.get('last_name')}"
@@ -709,38 +721,32 @@ class ContactUsView(generics.GenericAPIView):
                         )
 
                         # Create a support ticket for the personal inquiry
+                        customer_email = (
+                            channel.get("value")
+                            if channel.get("type") == "Email"
+                            else None
+                        )
+                        customer_phone = (
+                            channel.get("value")
+                            if channel.get("type") == "Phone"
+                            else None
+                        )
+
                         ticket = Ticket.objects.create(
                             user=None,
+                            title=f"Personal Inquiry from {full_name}",
+                            customer_name=full_name,
+                            customer_email=customer_email,
+                            customer_phone_number=customer_phone,
                             category="Personal Inquiry",
                             channel="Website",
                             description=data["message"],
                             priority="Low",
-                            status="Queuing",
+                            status="New",
                         )
 
-                        # Save the ticket to get an ID
-                        ticket.save()
-
-                        # Generate and set the number
                         ticket.number = generate_ticket_number()
-                        ticket.save()  # Create a support ticket for the business inquiry
-
-                        # Create the ticket
-                        ticket = Ticket.objects.create(
-                            user=None,
-                            category="Business Inquiry",
-                            channel="Website",
-                            description=data["message"],
-                            priority="Low",
-                            status="Queuing",
-                        )
-
-                        # Save the ticket to get an ID
-                        ticket.save()
-
-                        # Generate and set the number
-                        ticket.number = generate_ticket_number()
-                        ticket.save()
+                        ticket.save(update_fields=["number"])
 
                     case _:
                         raise ValueError("Invalid contact type")

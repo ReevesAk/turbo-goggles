@@ -21,7 +21,6 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 
-
 # from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
@@ -1437,7 +1436,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
             subject="Your Picadailys Account Statement",
             body=msg,
             sender_email="notifications@picadailys.com",
-            media_id=media_id
+            media_id=media_id,
         )
 
         return Response(
