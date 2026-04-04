@@ -22,7 +22,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     device_name = serializers.CharField(max_length=68, min_length=10, write_only=True)
     device_os = serializers.CharField(max_length=68, min_length=10, write_only=True)
     referral_code = serializers.CharField(
-        max_length=50, min_length=3, write_only=True, required=False
+        max_length=50, min_length=3, write_only=True, required=False, allow_blank=True
     )
 
     class Meta:
@@ -170,7 +170,6 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")
-        logger.info("Forgot password request for phone number: %s", phone_number)
         return attrs
 
 
@@ -185,7 +184,6 @@ class PasswordResendOTPSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")
-        logger.info("Password reset request for phone number: %s", phone_number)
         return attrs
 
 
@@ -201,7 +199,6 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user_id = attrs.get("user_id")
         user = User.objects.get(id=user_id)
-        logger.info("Reset password request for phone number: %s", user.phone_number)
         return attrs
 
 

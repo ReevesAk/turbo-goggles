@@ -127,7 +127,6 @@ class VerifYBVN(generics.GenericAPIView):
         # Call Dojah BVN verification API and verify the image from
         # bvn record with the selfie taken at registration.
         bvn_response = KYC.verify_bvn(img_file=selfie_image, bvn=user_data["bvn"])
-        print(bvn_response)
         if not bvn_response:
             return Response(
                 data=encrypt(
@@ -391,7 +390,7 @@ class CreateUserWallet(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.info(f"Wallet Creation Payload:\n{json.dumps(payload, indent=4)}")
+        logger.info("Wallet Creation request initiated.")
 
         serializer = WalletCreationSerializers(data=payload)
         if not serializer.is_valid():
@@ -941,7 +940,7 @@ class SetWalletPin(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         decrypted_resp = decrypt(request.data)
-        logger.info(f"Account Creation Payload: {request.data}")
+        logger.info("Account Creation request initiated.")
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_resp.items()

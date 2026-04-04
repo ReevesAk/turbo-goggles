@@ -423,7 +423,6 @@ class ForgotPinSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email")
-        logger.info("Forgot agent pin request for email: %s", email)
         return attrs
 
 

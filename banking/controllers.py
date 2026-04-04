@@ -146,7 +146,7 @@ class Wallet:
             "Authorization": f"Bearer {bearer_token}",
         }
 
-        logger.info(f"Wallet Creation Payload:\n{json.dumps(payload, indent=4)}")
+        logger.info("Wallet Creation request initiated.")
         try:
             response = requests.post(
                 url=base_url + resource,
@@ -216,7 +216,7 @@ class Wallet:
             "customerSignature": cloudinary_to_base64(customerSignature),
         }
 
-        logger.info(f"Wallet Upgrade Payload:\n{json.dumps(payload, indent=4)}")
+        logger.info("Wallet Upgrade request initiated.")
         bearer_token = authenticate()
 
         if not bearer_token:
@@ -390,12 +390,10 @@ class Wallet:
             },
             "transactionType": "CREDIT_WALLET",
         }
-        print("Credit wallet payload:", payload)
         try:
             response = requests.post(
                 url=base_url + resource, headers=headers, json=payload
             )
-            print(response.json())
             return response
 
         except requests.exceptions.RequestException:

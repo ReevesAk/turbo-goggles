@@ -68,11 +68,11 @@ class RegisterManager(generics.GenericAPIView):
 
     def post(self, request):
         # Check if a Manager already exists
-        # if User.objects.filter(active_role="Manager").exists():
-        #     return Response(
-        #         data="Registration is not allowed. Support Agent Manager already exists.",
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
+        if User.objects.filter(active_role="Manager").exists():
+            return Response(
+                data="Registration is not allowed. Support Agent Manager already exists.",
+                status=status.HTTP_403_FORBIDDEN,
+            )
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
@@ -98,13 +98,11 @@ class RegisterManager(generics.GenericAPIView):
                 )
                 # Create and send OTP
                 otp = otp_manager.create_otp(user_id=str(current_user.id))
-                logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
                 msg = f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}."
                 recipient = current_user.phone_number[1:]
 
                 # Send OTP message
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-                logger.info(f"OTP sent to phone number: {recipient}")
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -123,7 +121,6 @@ class RegisterManager(generics.GenericAPIView):
                     sender_email="notifications@picadailys.com",
                     body=f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}.",
                 )
-                logger.info(f"OTP sent: {otp}")
                 logger.info(f"OTP sent to email: {current_user.email}")
 
                 # Log the creation of the SuperUser
@@ -229,7 +226,6 @@ class AgentForgotPin(generics.GenericAPIView):
             sender_email="notifications@picadailys.com",
             body="You have requested a pin reset. Please use the OTP sent to your email to proceed.",
         )
-        logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
         ActivityModel.objects.create(
@@ -261,26 +257,23 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in payload.items()
         }
-        logger.debug("Received data for pin reset OTP verification: %s", user_data)
+        logger.debug("Received data for pin reset OTP verification.")
 
         serializer = self.serializer_class(data=user_data)
 
         # Validate incoming data with serializer class.
         if not serializer.is_valid(raise_exception=True):
-            logger.error(
-                "Serializer validation failed with errors: %s", serializer.errors
-            )
+            logger.error("Serializer validation failed.")
             return Response(
                 data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
         received_otp = serializer.data["otp"]
-        logger.info("OTP received for pin reset: %s", received_otp)
 
         # Validate OTP
         user_id = otp_manager.validate_user_otp(received_otp)
         if not user_id:
-            logger.warning("Invalid or expired OTP during pin reset: %s", received_otp)
+            logger.warning("Invalid or expired OTP during pin reset.")
             return Response(
                 data={"status": "fail", "message": "Invalid or expired OTP"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -382,7 +375,6 @@ class AgentResetPin(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {agent_id}")
 
         password = user_data.get("pin")
         user.agent_pin = make_password(password)
@@ -462,7 +454,6 @@ class SupportForgotPassword(generics.GenericAPIView):
         )
         # TODO: Consider sending OTP to phone as well if phone number is
         # available for added security and convenience.
-        logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
         ActivityModel.objects.create(
@@ -488,7 +479,7 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
     serializer_class = SupportStaffPasswordResendOTPSerializer
 
     def post(self, request):
-        logger.debug("Received OTP resend request data: %s", request.data)
+        logger.debug("Received OTP resend request.")
 
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -545,7 +536,7 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
                 )
 
         else:
-            logger.error("OTP resend validation failed: %s", serializer.errors)
+            logger.error("OTP resend validation failed.")
             return Response(
                 data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
@@ -564,12 +555,11 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        logger.debug("Received data for password reset OTP verification: %s", user_data)
+        logger.debug("Received data for password reset OTP verification.")
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
-            logger.info("OTP received for password reset: %s", received_otp)
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
@@ -685,7 +675,6 @@ class SupportfResetPassword(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {user_id}")
 
         user.save()
 
@@ -761,7 +750,7 @@ class CreateTicket(generics.CreateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        logger.debug("Payload after stripping: %s", payload)
+        logger.debug("Payload after stripping.")
 
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
@@ -1755,7 +1744,7 @@ class AddAgent(generics.CreateAPIView):
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in request.data.items()
             }
-            logger.debug(f"Processed payload: {payload}")
+            logger.debug("Processed payload.")
 
             pin = payload.get("pin")
             role = payload["role"]
@@ -1909,7 +1898,7 @@ class AgentSignUpComplete(generics.UpdateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        logger.debug("Payload for update: %s", payload)
+        logger.debug("Payload for update received.")
 
         serializer = self.get_serializer(instance=instance, data=payload, partial=True)
 
@@ -2195,17 +2184,16 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        logger.debug("Received user data for OTP verification: %s", user_data)
+        logger.debug("Received user data for OTP verification.")
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
-            logger.info("OTP received: %s", received_otp)
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning("Invalid or expired OTP: %s", received_otp)
+                logger.warning("Invalid or expired OTP.")
                 return Response(
                     data={
                         "status": "fail", "message": "Invalid or expired OTP"
@@ -2436,9 +2424,6 @@ class SetAgentPin(generics.CreateAPIView):
 
         # Hash the pin using make_password.
         hashed_pin = make_password(pin)
-        logger.debug(
-            "Hashed pin for user %s: %s", user.full_name, hashed_pin
-        )
 
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
