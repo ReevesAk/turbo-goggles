@@ -425,7 +425,7 @@ class ChooseAlertTypeView(generics.GenericAPIView):
         if not alert_choice:
             resp = {
                 "status": "fail",
-                "message": "It cannot be empty, it has to be 'Sms' or 'Email'",
+                "message": "It cannot be empty, it has to be 'SMS', 'Email' or 'Both'",
             }
             return Response(data=encrypt(resp), status=status.HTTP_400_BAD_REQUEST)
 
@@ -628,9 +628,9 @@ class ChangePassword(generics.UpdateAPIView):
 
             body = "This is to inform you that your password on Picadailys has been updated."
 
-            if request.user.alert_type_choice == "SMS":
+            if request.user.alert_type_choice in ("SMS", "Both"):
                 Messaging.send_sms(phone_number=request.user.phone_number[1:], msg=body)
-            elif request.user.alert_type_choice == "Email":
+            if request.user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -849,9 +849,9 @@ class DeleteUser(generics.DestroyAPIView):
             user = User.objects.get(Q(id=email) | Q(email=email))
             msg = "This is to inform you that there was an attempt to delete your account on Picadailys. If you didn't perform this action, kindly reply to this email or send an email to support@picadailys.com."
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 Messaging.send_sms(phone_number=user.phone_number[1:], msg=msg)
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",

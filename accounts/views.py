@@ -261,11 +261,11 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             # Send welcome message to user
             msg = "Your new device has been verified! You are now logged in."
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number[1:]
 
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -363,13 +363,13 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             # Send welcome message to user
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard. Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number[1:]
 
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info("Welcome message sent to user %s at %s", user.id, recipient)
 
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -471,7 +471,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             # Send confirmation message to the user
             msg = "User is verified... You can reset your password now!"
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(
@@ -479,7 +479,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                     user.id,
                     recipient,
                 )
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
@@ -614,10 +614,10 @@ class PasswordResendOTP(generics.GenericAPIView):
                 msg = "To reset your password, use this code {}.".format(otp)
 
                 # Send OTP
-                if user.alert_type_choice == "SMS":
+                if user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(phone_number=phone_number, msg=msg)
                     logger.info("Sent OTP to phone number: %s", phone_number)
-                elif user.alert_type_choice == "Email":
+                if user.alert_type_choice in ("Email", "Both"):
                     text_content = render_to_string(
                         template_name="empty_email.html",
                         context={
@@ -737,9 +737,9 @@ class Login(APIView):
             )
             recipient = user.phone_number[1:]
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -881,10 +881,10 @@ class ForgotPassword(generics.GenericAPIView):
         otp = otp_manager.create_otp(user_id=str(user_id))
         msg = f"Enter this {otp} to verify your account and reset your password"
 
-        if user.alert_type_choice == "SMS":
+        if user.alert_type_choice in ("SMS", "Both"):
             Messaging.send_sms(phone_number=phone_no, msg=msg)
             logger.info(f"OTP sent to phone number: {phone_no}")
-        elif user.alert_type_choice == "Email" or None:
+        if user.alert_type_choice in ("Email", "Both", None):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
