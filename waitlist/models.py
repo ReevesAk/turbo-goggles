@@ -3,12 +3,13 @@ import random
 
 from django.db import models
 
+
 # Create your models here.
-class WaitlistModel(models.Model):    
+class WaitlistModel(models.Model):
     """WaitlistModel is the model to persist the record of
-        waitlist users and their count
+    waitlist users and their count
     """
-    user_token = models.CharField(max_length=64, unique=True, null=True, blank=True, help_text="Anonymous unique user token")
+
     f_name = models.CharField(max_length=50, null=True)
     l_name = models.CharField(max_length=50, null=True)
     email = models.CharField(max_length=100, unique=True, null=True)
@@ -27,7 +28,9 @@ class WaitlistModel(models.Model):
         prefix = (first_name or "USER").upper().replace(" ", "")[:5]
 
         while True:
-            random_digits = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            random_digits = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=4)
+            )
             code = f"{prefix}{random_digits}"
 
             if not cls.objects.filter(referral_code=code).exists():

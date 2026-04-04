@@ -21,7 +21,6 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 
-
 # from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
@@ -128,7 +127,6 @@ class VerifYBVN(generics.GenericAPIView):
         # Call Dojah BVN verification API and verify the image from
         # bvn record with the selfie taken at registration.
         bvn_response = KYC.verify_bvn(img_file=selfie_image, bvn=user_data["bvn"])
-        print(bvn_response)
         if not bvn_response:
             return Response(
                 data=encrypt(
@@ -392,7 +390,7 @@ class CreateUserWallet(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.info(f"Wallet Creation Payload:\n{json.dumps(payload, indent=4)}")
+        logger.info("Wallet Creation request initiated.")
 
         serializer = WalletCreationSerializers(data=payload)
         if not serializer.is_valid():
@@ -461,7 +459,7 @@ class CreateUserWallet(generics.GenericAPIView):
                     Thank you for choosing Picadailys.
                 """
 
-                if current_user.alert_type_choice == "SMS":
+                if current_user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(
                         phone_number=current_user.phone_number[1:],
                         msg=f"""Congratulations! 🎊
@@ -471,7 +469,7 @@ class CreateUserWallet(generics.GenericAPIView):
                         Account Number: {acct_no}
                         """,
                     )
-                elif current_user.alert_type_choice == "Email":
+                if current_user.alert_type_choice in ("Email", "Both"):
                     # Render the template with values
                     text_content = render_to_string(
                         template_name="empty_email.html",
@@ -483,7 +481,7 @@ class CreateUserWallet(generics.GenericAPIView):
                     )
 
                     Messaging.send_email(
-                        email=user.email,
+                        email=current_user.email,
                         html_content=text_content,
                         sender_email="notifications@picadailys.com",
                         body=mail_msg,
@@ -795,12 +793,12 @@ class NotificationView(generics.CreateAPIView):
                     reference=reference,
                 )
 
-                if wallet.user.alert_type_choice == "SMS":
+                if wallet.user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(
                         phone_number=wallet.user.phone_number[1:], msg=msg
                     )
 
-                elif wallet.user.alert_type_choice == "Email":
+                if wallet.user.alert_type_choice in ("Email", "Both"):
                     text_content = render_to_string(
                         template_name="table_email.html",
                         context={
@@ -838,11 +836,11 @@ class NotificationView(generics.CreateAPIView):
                     reference=reference,
                 )
 
-                if wallet.user.alert_type_choice == "SMS":
+                if wallet.user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(
                         phone_number=wallet.user.phone_number[1:], msg=msg
                     )
-                elif wallet.user.alert_type_choice == "Email":
+                if wallet.user.alert_type_choice in ("Email", "Both"):
                     text_content = render_to_string(
                         template_name="table_email.html",
                         context={
@@ -942,7 +940,7 @@ class SetWalletPin(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         decrypted_resp = decrypt(request.data)
-        logger.info(f"Account Creation Payload: {request.data}")
+        logger.info("Account Creation request initiated.")
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_resp.items()
@@ -990,12 +988,12 @@ class SetWalletPin(generics.CreateAPIView):
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
-            if authenticated_user.alert_type_choice == "SMS":
+            if authenticated_user.alert_type_choice in ("SMS", "Both"):
                 Messaging.send_sms(
                     phone_number=request.user.phone_number[1:],
                     msg="This is to inform you that your Wallet pin was created successfully.",
                 )
-            elif authenticated_user.alert_type_choice == "Email":
+            if authenticated_user.alert_type_choice in ("Email", "Both"):
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
@@ -1045,11 +1043,11 @@ class ForgotWalletPin(generics.GenericAPIView):
 
         response_msg = ""
 
-        if user.alert_type_choice == "SMS":
+        if user.alert_type_choice in ("SMS", "Both"):
             Messaging.send_sms(phone_number=phone_no, msg=msg)
             response_msg = "An OTP has been sent to your phone number."
 
-        elif user.alert_type_choice == "Email":
+        if user.alert_type_choice in ("Email", "Both"):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
@@ -1108,10 +1106,10 @@ class PinResendOTP(generics.GenericAPIView):
         )
 
         status_msg = ""
-        if user.alert_type_choice == "SMS":
+        if user.alert_type_choice in ("SMS", "Both"):
             Messaging.send_sms(phone_number=phone_number, msg=msg)
             status_msg = "Otp resent Successfully. Check your phone for validation"
-        elif user.alert_type_choice == "Email":
+        if user.alert_type_choice in ("Email", "Both"):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
@@ -1437,7 +1435,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
             subject="Your Picadailys Account Statement",
             body=msg,
             sender_email="notifications@picadailys.com",
-            media_id=media_id
+            media_id=media_id,
         )
 
         return Response(

@@ -24,7 +24,7 @@ USER_CATEGORY_CHOICES = (
     ("FmcgAdmin", "FmcgAdmin"),
 )
 
-ALERT_TYPE = (("Email", "Email"), ("SMS", "SMS"))
+ALERT_TYPE = (("Email", "Email"), ("SMS", "SMS"), ("Both", "Both"))
 
 BRAND_TYPE = (
     ("Individual", "Individual"),

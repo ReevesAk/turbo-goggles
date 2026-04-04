@@ -411,7 +411,7 @@ class UpdatePartnerService(generics.UpdateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in request.data.items()
         }
-        logger.debug("Payload after cleaning: %s", payload)
+        logger.debug("Payload after cleaning.")
 
         serializer = self.get_serializer(partner_service, data=payload, partial=True)
 

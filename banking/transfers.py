@@ -992,8 +992,6 @@ class FundWallet(generics.GenericAPIView):
         user_details = WalletModel.objects.get(user=user)
 
         try:
-            print(user_details.account_number)
-            print(amount)
             transfer_resp = Wallet.Credit(
                 acct_no=user_details.account_number,
                 amount=amount,

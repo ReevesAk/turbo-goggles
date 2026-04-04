@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .models import WaitlistModel
 
+
 class WaitlistSerialiser(serializers.ModelSerializer):
     class Meta:
         model = WaitlistModel

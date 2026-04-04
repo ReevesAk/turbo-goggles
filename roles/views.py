@@ -96,12 +96,13 @@ class RegisterSuperAdmin(generics.GenericAPIView):
     serializer_class = RegisterSuperAdminSerializer
 
     def post(self, request):
-        # Check if a SuperAdmin already exists
-        # if User.objects.filter(active_role="SuperAdmin").exists():
-        #     return Response(
-        #         data="Registration is not allowed. Super admin already exists.",
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
+        # Check if a SuperAdmin already exists.
+        # If yes, return a 403 Forbidden response.
+        if User.objects.filter(active_role="SuperAdmin").exists():
+            return Response(
+                data="Registration is not allowed. Super admin already exists.",
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         decrypted_payload = decrypt(request.data)
         payload = {
@@ -131,13 +132,11 @@ class RegisterSuperAdmin(generics.GenericAPIView):
 
                 # Create and send OTP
                 otp = otp_manager.create_otp(user_id=str(current_user.id))
-                logger.info(f"OTP generated for user: {current_user.id}, OTP: {otp}")
                 msg = f"Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {otp}."
                 recipient = current_user.phone_number[1:]
 
                 # Send OTP message
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-                logger.info(f"OTP sent to phone number: {recipient}")
 
                 # Log the creation of the SuperUser
                 UserNotification.objects.create(
@@ -514,7 +513,7 @@ class AddAdmin(generics.CreateAPIView):
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in decrypted_payload.items()
             }
-            logger.debug(f"Processed payload: {payload}")
+            logger.debug("Processed payload.")
 
             # Check if email exists
             if User.objects.filter(email=payload.get("email")).exists():
@@ -672,7 +671,7 @@ class AdAdminContd(generics.UpdateAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Payload for update: %s", payload)
+        logger.debug("Payload for update received.")
 
         serializer = self.get_serializer(instance=instance, data=payload)
 
@@ -750,9 +749,6 @@ class SetAdminPin(generics.CreateAPIView):
 
         # Hash the pin using make_password.
         hashed_pin = make_password(pin)
-        logger.debug(
-            "Hashed pin for user %s %s: %s", user.first_name, user.last_name, hashed_pin
-        )
 
         # Save the hashed pin in the authenticated user's admin_pin field.
         authenticated_user = self.request.user
@@ -873,7 +869,6 @@ class StaffForgotPassword(generics.GenericAPIView):
             body="You have requested a password reset. Please use the OTP sent to your email to proceed.",
         )
         # TODO: Consider sending OTP to phone as well if phone number is available for added security and convenience.
-        logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
         ActivityModel.objects.create(
@@ -901,7 +896,6 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
-        logger.debug("Received OTP resend request data: %s", decrypted_payload)
 
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -959,7 +953,7 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
                 )
 
         else:
-            logger.error("OTP resend validation failed: %s", serializer.errors)
+            logger.error("OTP resend validation failed.")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
@@ -980,19 +974,16 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Received data for password reset OTP verification: %s", user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
-            logger.info("OTP received for password reset: %s", received_otp)
+            logger.info("OTP received for password reset.")
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning(
-                    "Invalid or expired OTP during password reset: %s", received_otp
-                )
+                logger.warning("Invalid or expired OTP during password reset.")
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid or expired OTP"}
@@ -1106,7 +1097,6 @@ class StaffResetPassword(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {user_id}")
 
         user.save()
 
@@ -1184,7 +1174,6 @@ class AdminForgotPin(generics.GenericAPIView):
             sender_email="notifications@picadailys.com",
             body="You have requested a pin reset. Please use the OTP sent to your email to proceed.",
         )
-        logger.info(f"OTP sent: {otp}")
         logger.info(f"OTP sent to email: {email}")
 
         ActivityModel.objects.create(
@@ -1216,26 +1205,23 @@ class PinVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Received data for pin reset OTP verification: %s", user_data)
+        logger.debug("Received data for pin reset OTP verification.")
 
         serializer = self.serializer_class(data=user_data)
 
         # Validate incoming data with serializer class.
         if not serializer.is_valid(raise_exception=True):
-            logger.error(
-                "Serializer validation failed with errors: %s", serializer.errors
-            )
+            logger.error("Serializer validation failed.")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
         received_otp = serializer.data["otp"]
-        logger.info("OTP received for pin reset: %s", received_otp)
 
         # Validate OTP
         user_id = otp_manager.validate_user_otp(received_otp)
         if not user_id:
-            logger.warning("Invalid or expired OTP during pin reset: %s", received_otp)
+            logger.warning("Invalid or expired OTP during pin reset.")
             return Response(
                 data=encrypt({"status": "fail", "message": "Invalid or expired OTP"}),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1344,7 +1330,6 @@ class ResetPin(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {admin_id}")
 
         user.save()
 
@@ -2110,7 +2095,7 @@ class SwitchRoles(generics.RetrieveAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug(f"Processed payload: {payload}")
+        logger.debug("Processed payload.")
 
         current_user = self.get_object()
         logger.info(

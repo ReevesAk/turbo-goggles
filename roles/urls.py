@@ -67,6 +67,7 @@ from .brand import (
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
+from waitlist.views import AdminWaitlistListView
 
 app_name = "roles"
 
@@ -241,4 +242,10 @@ urlpatterns = [
     ),
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
+    # Waitlist endpoints.
+    path(
+        "waitlist/all-users",
+        AdminWaitlistListView.as_view(),
+        name="admin_waitlist_users",
+    ),
 ]

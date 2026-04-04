@@ -58,8 +58,6 @@ class Register(generics.GenericAPIView):
             for key, value in decrypted_payload.items()
         }
 
-        logger.info("Received registration data: %s", user_data)
-
         email = user_data.get("email")
         if email and User.objects.filter(email=email).exists():
             logger.warning("Registration attempt with already used email: %s", email)
@@ -73,7 +71,7 @@ class Register(generics.GenericAPIView):
         phone_number = user_data.get("phone_number")
         if phone_number and User.objects.filter(phone_number=phone_number).exists():
             logger.warning(
-                "Registration attempt with already used phone numner: %s", email
+                "Registration attempt with already used phone number: %s", phone_number
             )
             return Response(
                 data=encrypt(
@@ -101,17 +99,17 @@ class Register(generics.GenericAPIView):
 
             user = serializer.save()
 
-            # if user_data.get("referral_code"):
-            #     logger.info(
-            #         "Referral code %s used during registration.",
-            #         user_data.get("referral_code"),
-            #     )
+            if user_data.get("referral_code"):
+                logger.info(
+                    "Referral code %s used during registration.",
+                    user_data.get("referral_code"),
+                )
 
-            #     points = Points.determine(activity_type="referral", level=user.level)
-            #     NextBee.member_activity(
-            #         member_email=user.email, activityId="8474", numericValue=str(points)
-            #     )
-            #     Points.refresh_user_points(user)
+                points = Points.determine(activity_type="referral", level=user.level)
+                NextBee.member_activity(
+                    member_email=user.email, activityId="8474", numericValue=str(points)
+                )
+                Points.refresh_user_points(user)
 
             AccountType.objects.create(
                 user=user,
@@ -143,7 +141,6 @@ class Register(generics.GenericAPIView):
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
-            logger.info("OTP for user: %s", otp)
 
             msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
                 otp=otp
@@ -215,18 +212,15 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Received user data for OTP verification: %s", user_data)
-
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             data = serializer.validated_data
             received_otp = data["otp"]
-            logger.info("OTP received: %s", received_otp)
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning("Invalid or expired OTP: %s", received_otp)
+                logger.warning("Invalid or expired OTP.")
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid or expired OTP"}
@@ -261,11 +255,11 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             # Send welcome message to user
             msg = "Your new device has been verified! You are now logged in."
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number[1:]
 
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -333,17 +327,14 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Received user data for OTP verification: %s", user_data)
-
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
-            logger.info("OTP received: %s", received_otp)
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning("Invalid or expired OTP: %s", received_otp)
+                logger.warning("Invalid or expired OTP.")
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid or expired OTP"}
@@ -363,13 +354,13 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             # Send welcome message to user
             msg = "Welcome to Picadailys App...we are thrilled to have you onboard. Get ready to unlock a world of possibilities and seamless experiences. Thank you for choosing us!"
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number[1:]
 
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info("Welcome message sent to user %s at %s", user.id, recipient)
 
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -404,7 +395,6 @@ class PhoneVerifyOTP(generics.GenericAPIView):
 
             # Create JWT tokens
             tokens = create_jwt_pair_for_user(user)
-            logger.info("JWT tokens generated for user %s", user.phone_number)
             verified_response = {
                 "status": "success",
                 "message": "Account is verified",
@@ -413,9 +403,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             encrypted_response = encrypt(verified_response)
             return Response(data=encrypted_response, status=status.HTTP_200_OK)
         else:
-            logger.error(
-                "Serializer validation failed with errors: %s", serializer.errors
-            )
+            logger.error("Serializer validation failed.")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
@@ -436,19 +424,15 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Received data for password reset OTP verification: %s", user_data)
 
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             received_otp = serializer.data["otp"]
-            logger.info("OTP received for password reset: %s", received_otp)
 
             # Validate OTP
             user_id = otp_manager.validate_user_otp(received_otp)
             if not user_id:
-                logger.warning(
-                    "Invalid or expired OTP during password reset: %s", received_otp
-                )
+                logger.warning("Invalid or expired OTP during password reset.")
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Invalid or expired OTP"}
@@ -471,7 +455,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             # Send confirmation message to the user
             msg = "User is verified... You can reset your password now!"
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 recipient = user.phone_number
                 Messaging.send_sms(phone_number=recipient, msg=msg)
                 logger.info(
@@ -479,7 +463,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                     user.id,
                     recipient,
                 )
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
@@ -541,7 +525,7 @@ class ResendOTP(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
-        logger.debug("Resend OTP request data: %s", decrypted_payload)
+        logger.debug("Resend OTP request received.")
         serializer = self.serializer_class(data=user_data)
 
         # Validate serializer data
@@ -555,14 +539,12 @@ class ResendOTP(generics.GenericAPIView):
 
             # Generate OTP
             otp = otp_manager.create_otp(user_id=str(user_id))
-            logger.info("Generated OTP %s for user ID %s", otp, user_id)
 
             # Send OTP message
             msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
                 otp=otp
             )
             Messaging.send_sms(phone_number=phone_number, msg=msg)
-            logger.info("OTP message sent to phone number %s", phone_number)
 
             # Prepare response
             response = {
@@ -574,7 +556,7 @@ class ResendOTP(generics.GenericAPIView):
 
         else:
             # Log validation errors
-            logger.error("Resend OTP validation failed: %s", serializer.errors)
+            logger.error("Resend OTP validation failed.")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
@@ -591,7 +573,6 @@ class PasswordResendOTP(generics.GenericAPIView):
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
-        logger.debug("Received OTP resend request data: %s", decrypted_payload)
 
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -609,15 +590,14 @@ class PasswordResendOTP(generics.GenericAPIView):
 
                 # Generate OTP using the user's ID
                 otp = otp_manager.create_otp(user_id=str(user.id))
-                logger.info("Generated OTP: %s for user ID: %s", otp, user.id)
+                logger.info("Generated OTP for user ID: %s", user.id)
 
                 msg = "To reset your password, use this code {}.".format(otp)
 
                 # Send OTP
-                if user.alert_type_choice == "SMS":
+                if user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(phone_number=phone_number, msg=msg)
-                    logger.info("Sent OTP to phone number: %s", phone_number)
-                elif user.alert_type_choice == "Email":
+                if user.alert_type_choice in ("Email", "Both"):
                     text_content = render_to_string(
                         template_name="empty_email.html",
                         context={
@@ -656,7 +636,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                 )
 
         else:
-            logger.error("OTP resend validation failed: %s", serializer.errors)
+            logger.error("OTP resend validation failed.")
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
@@ -673,7 +653,6 @@ class Login(APIView):
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
-        logger.debug("Received login request data: %s", decrypted_payload)
         data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
@@ -730,16 +709,15 @@ class Login(APIView):
 
             # Create and send OTP.
             otp = otp_manager.create_otp(user_id=str(user.id))
-            logger.info("OTP for user: %s", otp)
 
             msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
                 otp=otp
             )
             recipient = user.phone_number[1:]
 
-            if user.alert_type_choice == "SMS":
+            if user.alert_type_choice in ("SMS", "Both"):
                 Messaging.send_sms(phone_number=recipient, msg=msg)
-            elif user.alert_type_choice == "Email":
+            if user.alert_type_choice in ("Email", "Both"):
                 # Render the template with values
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -824,7 +802,6 @@ class Login(APIView):
 
         # Create JWT tokens
         tokens = create_jwt_pair_for_user(user)
-        logger.info("JWT tokens generated for user %s", user.phone_number)
 
         response = {
             "status": "success",
@@ -881,10 +858,9 @@ class ForgotPassword(generics.GenericAPIView):
         otp = otp_manager.create_otp(user_id=str(user_id))
         msg = f"Enter this {otp} to verify your account and reset your password"
 
-        if user.alert_type_choice == "SMS":
+        if user.alert_type_choice in ("SMS", "Both"):
             Messaging.send_sms(phone_number=phone_no, msg=msg)
-            logger.info(f"OTP sent to phone number: {phone_no}")
-        elif user.alert_type_choice == "Email" or None:
+        if user.alert_type_choice in ("Email", "Both", None):
             text_content = render_to_string(
                 template_name="empty_email.html",
                 context={
@@ -964,7 +940,6 @@ class ResetPassword(generics.CreateAPIView):
         if user_token:
             token = RefreshToken(user_token)
             token.blacklist()
-            logger.info(f"Refresh token blacklisted for user: {user_id}")
 
         user.save()
 
@@ -1066,12 +1041,11 @@ class Logout(APIView):
             if refresh_token is None:
                 logger.warning("Refresh token is missing for logout request.")
                 return Response(
-                    {"error": "Refresh token is required."},
+                    data=encrypt({"error": "Refresh token is required."}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             token = RefreshToken(refresh_token)
             token.blacklist()
-            logger.info("Refresh token blacklisted for user: %s", request.user.id)
 
             current_user = request.user
             UserNotification.objects.create(
@@ -1095,4 +1069,4 @@ class Logout(APIView):
 
         except Exception as e:
             logger.error(f"Error during logout: {str(e)}")
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e)})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=encrypt({"error": str(e)}))
