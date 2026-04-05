@@ -122,12 +122,27 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+        try:
+            selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+        except Exception as e:
+            logger.error(
+                f"BVN verification failed: Could not process selfie image - {str(e)}"
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed. Please update your profile image and try again.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Call Dojah BVN verification API and verify the image from
         # bvn record with the selfie taken at registration.
         bvn_response = KYC.verify_bvn(img_file=selfie_image, bvn=user_data["bvn"])
         if not bvn_response:
+            logger.error("BVN verification failed: Dojah API returned no response.")
             return Response(
                 data=encrypt(
                     {"status": "fail", "message": "BVN verification service failed."}
@@ -276,7 +291,21 @@ class VerifYNIN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+        try:
+            selfie_image = cloudinary_to_base64(url=user.profile_img_url)
+        except Exception as e:
+            logger.error(
+                f"NIN verification failed: Could not process selfie image - {str(e)}"
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "NIN verification failed. Please update your profile image and try again.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Call Dojah API NIN verification and verify image from nin record
         # with selfie taken at registration.
