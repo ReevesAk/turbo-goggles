@@ -48,9 +48,9 @@ def authenticate():
         )
         token = response.json().get("accessToken")
         return token
-    except Exception:
-        logging.debug("Authentication failed")
-        return response
+    except Exception as e:
+        logging.error(f"Authentication failed: {str(e)}")
+        return None
 
 
 class KYC:
@@ -64,13 +64,13 @@ class KYC:
         }
 
         try:
-            response = requests.post(url=url, json=payload, headers=headers, timeout=20)
-
+            response = requests.post(url=url, json=payload, headers=headers, timeout=30)
+            logging.info(f"Dojah BVN API response status: {response.status_code}")
             return response
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Dojah BVN Error: {str(e)}")
-            return response
+            return None
 
     @staticmethod
     def verify_nin(img_file, nin):
@@ -83,12 +83,12 @@ class KYC:
 
         try:
             response = requests.post(
-                url=resource, json=payload, headers=headers, timeout=20
+                url=resource, json=payload, headers=headers, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"NIN check API request error: {str(e)}")
-            return response
+            return None
 
 
 class Wallet:

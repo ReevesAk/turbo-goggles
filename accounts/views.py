@@ -1069,4 +1069,6 @@ class Logout(APIView):
 
         except Exception as e:
             logger.error(f"Error during logout: {str(e)}")
-            return Response(status=status.HTTP_400_BAD_REQUEST, data=encrypt({"error": str(e)}))
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST, data=encrypt({"error": str(e)})
+            )
