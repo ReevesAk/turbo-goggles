@@ -141,7 +141,7 @@ class VerifYBVN(generics.GenericAPIView):
         # Call Dojah BVN verification API and verify the image from
         # bvn record with the selfie taken at registration.
         bvn_response = KYC.verify_bvn(img_file=selfie_image, bvn=user_data["bvn"])
-        if not bvn_response:
+        if bvn_response is None:
             logger.error("BVN verification failed: Dojah API returned no response.")
             return Response(
                 data=encrypt(
@@ -152,6 +152,7 @@ class VerifYBVN(generics.GenericAPIView):
 
         # Handle non-200 status
         if bvn_response.status_code != 200:
+            logger.error(f"Dojah BVN returned {bvn_response.status_code}: {bvn_response.text}")
             return Response(
                 data=encrypt(
                     {
@@ -311,7 +312,7 @@ class VerifYNIN(generics.GenericAPIView):
         # with selfie taken at registration.
         nin_response = KYC.verify_nin(img_file=selfie_image, nin=user_data["nin"])
 
-        if not nin_response:
+        if nin_response is None:
             return Response(
                 data=encrypt(
                     {"status": "fail", "message": "NIN verification service failed."}
@@ -321,6 +322,7 @@ class VerifYNIN(generics.GenericAPIView):
 
         # If status is not 200
         if nin_response.status_code != 200:
+            logger.error(f"Dojah NIN returned {nin_response.status_code}: {nin_response.text}")
             return Response(
                 data=encrypt(
                     {
