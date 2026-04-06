@@ -30,6 +30,7 @@ elif ENVIRONMENT == "production":
     "127.0.0.1",
     "localhost",
     "picadailys.app",
+    "www.picadailys.app",
     "miniature-waddle.onrender.com",
     "picadailysbackend.onrender.com",
     "46.101.234.74",

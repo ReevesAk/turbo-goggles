@@ -424,7 +424,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                     case "CARD":
-                        debit_account = user_wallet.account_number if user else None
+                        debit_account = user_wallet.account_number if user_wallet else None
                         airtime_response = VAS.airtime_topup(
                             network=network,
                             bearer_token=vas_token,
