@@ -260,10 +260,12 @@ class AirTimeTopUp(generics.GenericAPIView):
         try:
             with transaction.atomic():
                 # Lock wallet row INSIDE the transaction to prevent the error
-                if user:
+                if user and payment_option == "WALLET":
                     user_wallet = WalletModel.objects.select_for_update().get(user=user)
+                elif user:
+                    user_wallet = WalletModel.objects.filter(user=user).first()
                 else:
-                    user_wallet = WalletModel.objects.filter(user__isnull=True).first()
+                    user_wallet = None
 
                 cashback_used = 0
                 if use_cashback:
@@ -681,8 +683,11 @@ class DataSubscriptionView(generics.GenericAPIView):
         cashback_used = Decimal("0")
 
         if user:
-            with transaction.atomic():
-                user_wallet = WalletModel.objects.select_for_update().get(user=user)
+            try:
+                with transaction.atomic():
+                    user_wallet = WalletModel.objects.select_for_update().get(user=user)
+            except WalletModel.DoesNotExist:
+                user_wallet = None
         else:
             user_wallet = None
 
