@@ -218,7 +218,5 @@ class VAS:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Electricity Purchase API request error: {str(e)}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logging.error(f"Bill payment API request error: {str(e)}")
+            return None
