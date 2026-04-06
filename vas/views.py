@@ -286,10 +286,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                             phone_number=phone,
                             tx_ref=tx_reference,
                         )
+                        if airtime_response is None:
+                            return self._handle_airtime_failure(
+                                user=user, phone=phone, amount=amount,
+                                reason="VAS service unavailable.",
+                            )
                         status_query = VAS.status(
                             bearer_token=vas_token, tx_ref=tx_reference
                         )
-                        status_resp = status_query.json()["data"]
+                        if status_query is None:
+                            return self._handle_airtime_failure(
+                                user=user, phone=phone, amount=amount,
+                                reason="Could not verify transaction status.",
+                            )
+                        status_resp = status_query.json().get("data", {})
                         if (
                             status_resp.get("transactionStatus") == "success"
                             and status_resp.get("responseCode") == 200
@@ -334,6 +344,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 merchantFeeAmount="",
                             )
 
+                            if debit_response is None:
+                                return self._handle_airtime_failure(
+                                    user=user, phone=phone, amount=amount,
+                                    reason="Wallet service unavailable.",
+                                )
+
                             if debit_response.status_code == 200:
                                 airtime_response = VAS.airtime_topup(
                                     network=network,
@@ -344,10 +360,21 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     tx_ref=tx_reference,
                                 )
 
+                                if airtime_response is None:
+                                    return self._handle_airtime_failure(
+                                        user=user, phone=phone, amount=amount,
+                                        reason="VAS service unavailable.",
+                                    )
+
                                 airtime_data = airtime_response.json()
                                 status_resp = VAS.status(
                                     bearer_token=vas_token, tx_ref=tx_reference
                                 )
+                                if status_resp is None:
+                                    return self._handle_airtime_failure(
+                                        user=user, phone=phone, amount=amount,
+                                        reason="Could not verify transaction status.",
+                                    )
                                 status_data = status_resp.json().get("data", {})
                                 if (
                                     status_data.get("transactionStatus") == "success"
@@ -383,6 +410,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                             phone_number=phone,
                             tx_ref=tx_reference,
                         )
+                        if airtime_response is None:
+                            return self._handle_airtime_failure(
+                                user=user, phone=phone, amount=amount,
+                                reason="VAS service unavailable.",
+                            )
                         return self._handle_airtime_success(
                             user=user,
                             phone=phone,
@@ -401,6 +433,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                             phone_number=phone,
                             tx_ref=tx_reference,
                         )
+
+                        if airtime_response is None:
+                            return self._handle_airtime_failure(
+                                user=user, guest_id=guest_id,
+                                phone=phone, amount=amount,
+                                reason="VAS service unavailable.",
+                            )
 
                         airtime_data = airtime_response.json()
                         if (
@@ -772,11 +811,21 @@ class DataSubscriptionView(generics.GenericAPIView):
                     phone_number=phone,
                     tx_ref=tx_reference,
                 )
+                if data_response is None:
+                    return self._handle_data_failure(
+                        user=user, phone=phone, amount=amount,
+                        reason="VAS service unavailable.",
+                    )
                 status_resp = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                if status_resp is None:
+                    return self._handle_data_failure(
+                        user=user, phone=phone, amount=amount,
+                        reason="Could not verify transaction status.",
+                    )
                 status_data = status_resp.json().get("data", {})
                 if (
                     status_data.get("transactionStatus") == "success"
-                    and status_resp.get("responseCode") == 200
+                    and status_data.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
                         user=user,
@@ -792,7 +841,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 user=user,
                 phone=phone,
                 amount=amount,
-                data_response=data_response.json(),
+                data_response=data_response.json() if data_response else None,
                 reason="Insufficient bonus balance.",
             )
 
@@ -828,6 +877,12 @@ class DataSubscriptionView(generics.GenericAPIView):
                                 transactionReference="",
                             )
 
+                            if debit_response is None:
+                                return self._handle_data_failure(
+                                    user=user, phone=phone, amount=amount,
+                                    reason="Wallet service unavailable.",
+                                )
+
                             if debit_response.status_code == 200:
                                 data_response = VAS.data(
                                     network=network,
@@ -839,10 +894,21 @@ class DataSubscriptionView(generics.GenericAPIView):
                                     tx_ref=tx_reference,
                                 )
 
+                                if data_response is None:
+                                    return self._handle_data_failure(
+                                        user=user, phone=phone, amount=amount,
+                                        reason="VAS service unavailable.",
+                                    )
+
                                 data_topup = data_response.json()
                                 status_resp = VAS.status(
                                     bearer_token=vas_token, tx_ref=tx_reference
                                 )
+                                if status_resp is None:
+                                    return self._handle_data_failure(
+                                        user=user, phone=phone, amount=amount,
+                                        reason="Could not verify transaction status.",
+                                    )
                                 status_data = status_resp.json().get("data", {})
                                 if (
                                     status_data.get("transactionStatus") == "success"
@@ -889,14 +955,28 @@ class DataSubscriptionView(generics.GenericAPIView):
                         bearer_token=vas_token,
                         amount=amount,
                         productId=product_id,
-                        debitAccount=user_wallet.account_number,
+                        debitAccount=user_wallet.account_number if user_wallet else None,
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
+
+                    if data_response is None:
+                        return self._handle_data_failure(
+                            user=user, guest_id=guest_id,
+                            phone=phone, amount=amount,
+                            reason="VAS service unavailable.",
+                        )
+
                     data_topup = data_response.json()
                     status_resp = VAS.status(
                         bearer_token=vas_token, tx_ref=tx_reference
                     )
+                    if status_resp is None:
+                        return self._handle_data_failure(
+                            user=user, guest_id=guest_id,
+                            phone=phone, amount=amount,
+                            reason="Could not verify transaction status.",
+                        )
                     status_data = status_resp.json().get("data", {})
                     if (
                         status_data.get("transactionStatus") == "success"
@@ -1435,6 +1515,13 @@ class BillPaymentView(generics.GenericAPIView):
                                 reason="Debit for bill payment.",
                                 transactionReference="",
                             )
+
+                            if debit_response is None:
+                                return self._handle_failure(
+                                    user=user, guest_id=guest_id,
+                                    phone_number=phone_number, amount=amount,
+                                    reason="Wallet service unavailable.",
+                                )
 
                             if debit_response.status_code == 200:
                                 try:
