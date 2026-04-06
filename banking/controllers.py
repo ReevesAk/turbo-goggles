@@ -155,12 +155,9 @@ class Wallet:
                 timeout=180,
             )
             return response
-        except requests.exceptions.RequestException:
-            logging.error(f"Account creation API request error: {str(response.json())}")
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Account creation API request error: {str(e)}")
+            return None
 
     @staticmethod
     def UpgradeToTier2(
@@ -239,12 +236,9 @@ class Wallet:
                 timeout=180,
             )
             return response
-        except requests.exceptions.RequestException:
-            logging.error(f"Wallet upgrade API request error: {str(response.json())}")
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Wallet upgrade API request error: {str(e)}")
+            return None
 
     @staticmethod
     def UpgradefromTier2ToTier3(accountNumber, bvn, nin, proofOfAddressVerification):
@@ -280,14 +274,11 @@ class Wallet:
                 timeout=180,
             )
             return response
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
             logging.error(
-                f"Wallet upgrade to tier 3 API request error: {str(response.json())}"
+                f"Wallet upgrade to tier 3 API request error: {str(e)}"
             )
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return None
 
     @staticmethod
     def getWalletDetails(account_number):
@@ -317,14 +308,11 @@ class Wallet:
                 json=payload,
             )
             return response
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
             logging.error(
-                f"Get wallet details API request error: {str(response.json())}"
+                f"Get wallet details API request error: {str(e)}"
             )
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return None
 
     @staticmethod
     def Debit(debitAccount, amount, reason, merchantFeeAmount):
@@ -357,14 +345,11 @@ class Wallet:
             )
             return response
 
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
             logging.error(
-                f"Debiting an account API request error: {str(response.json())}"
+                f"Debiting an account API request error: {str(e)}"
             )
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return None
 
     @staticmethod
     def Credit(acct_no, amount, reason):
@@ -396,14 +381,11 @@ class Wallet:
             )
             return response
 
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
             logging.error(
-                f"Crediting a failed transaction account API request error: {str(response.json())}"
+                f"Crediting a failed transaction account API request error: {str(e)}"
             )
-            return Response(
-                {"error": str(response.json())},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return None
 
 
 # class Forex:
@@ -473,8 +455,9 @@ class Transfers:
                 headers=headers,
             )
             return response
-        except requests.exceptions.RequestException:
-            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Get all banks API request error: {str(e)}")
+            return None
 
     @staticmethod
     def getAccount(acct_num, bank_code):
@@ -536,8 +519,8 @@ class Transfers:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Get account API request error: {str(e)}")
-            return response
+            logging.error(f"Transaction requery API request error: {str(e)}")
+            return None
 
     @staticmethod
     def initiate_transfer(
@@ -585,9 +568,7 @@ class Transfers:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Transfer API request error: {str(e)}")
-            return Response(
-                {"error": str(response)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return None
 
     @staticmethod
     def complete_transfer(
@@ -607,10 +588,8 @@ class Transfers:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Transfer API request error: {str(e)}")
-            return Response(
-                {"error": str(response)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logging.error(f"Complete transfer API request error: {str(e)}")
+            return None
 
 
 class Paystack:

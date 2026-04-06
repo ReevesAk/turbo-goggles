@@ -1,4 +1,3 @@
-import sys
 import logging
 import random
 import string
@@ -35,7 +34,7 @@ class VAS:
             "password": vas_password,
         }
         HEADERS = {"Content-Type": "application/json"}
-        AUTH_URL = "http://102.216.128.75:9090/identity/api/v1/authenticate"
+        AUTH_URL = vas_base_url + "/identity/api/v1/authenticate"
 
         try:
             resp = requests.post(
@@ -45,9 +44,10 @@ class VAS:
             if resp.json().get("message") == "Authentication Successful":
                 token = resp.json()["data"].get("accessToken")
                 return token
+            return None
         except requests.RequestException as e:
-            logging.error("Request failed: %s", e)
-            sys.exit(1)
+            logging.error("VAS authentication failed: %s", e)
+            return None
 
     @staticmethod
     def status(tx_ref, bearer_token):
@@ -64,8 +64,8 @@ class VAS:
             )
             return resp
         except requests.RequestException as e:
-            logging.error("Request failed: %s", e)
-            sys.exit(1)
+            logging.error("VAS status check failed: %s", e)
+            return None
 
     @staticmethod
     def airtime_topup(
@@ -92,7 +92,7 @@ class VAS:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Airtime topup API request error: {str(e)}")
-            return response
+            return None
 
     @staticmethod
     def data(
@@ -119,8 +119,8 @@ class VAS:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Airtime topup API request error: {str(e)}")
-            return response
+            logging.error(f"Data topup API request error: {str(e)}")
+            return None
 
     @staticmethod
     def bill_payment_categories(bearer_token, category_id):
@@ -137,7 +137,7 @@ class VAS:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Biller Payment categories API request error: {str(e)}")
-            return response
+            return None
 
     @staticmethod
     def billers_categories(bearer_token, biller_id):
@@ -154,7 +154,7 @@ class VAS:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Billers categories API request error: {str(e)}")
-            return response
+            return None
 
     @staticmethod
     def verify_bill_payer(bearer_token, billerId, customerId, itemId, amount):
@@ -178,7 +178,7 @@ class VAS:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Verify bill payer API request error: {str(e)}")
-            return response
+            return None
 
     @staticmethod
     def bill_payment(
