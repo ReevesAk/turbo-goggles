@@ -442,6 +442,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                             )
 
                         airtime_data = airtime_response.json()
+                        logger.info(
+                            f"VAS airtime response (CARD): status={airtime_response.status_code}, body={airtime_data}"
+                        )
                         if (
                             user
                             and airtime_data.get("status") == "success"
