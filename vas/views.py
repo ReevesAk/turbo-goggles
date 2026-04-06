@@ -194,6 +194,11 @@ class AirTimeTopUp(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
         vas_token = VAS.authenticate()
+        if not vas_token:
+            return Response(
+                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         # Extract fields
         pin = user_data.get("pin")
@@ -685,6 +690,11 @@ class DataSubscriptionView(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
         vas_token = VAS.authenticate()
+        if not vas_token:
+            return Response(
+                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         # Apply cashback for payment
         if use_cashback:
@@ -930,6 +940,11 @@ class BillPaymentCategoriesView(APIView):
 
     def get(self, request, *args, **kwargs):
         token = VAS.authenticate()
+        if not token:
+            return Response(
+                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
         categories_resp = VAS.bill_payment_categories(
             bearer_token=token, category_id=kwargs.get("category_id")
         )
@@ -955,6 +970,11 @@ class BillersCategoriesView(APIView):
 
     def get(self, request, *args, **kwargs):
         token = VAS.authenticate()
+        if not token:
+            return Response(
+                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
         billers_resp = VAS.billers_categories(
             bearer_token=token, biller_id=kwargs.get("billers_id")
         )
@@ -997,6 +1017,11 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
         try:
             token = VAS.authenticate()
+            if not token:
+                return Response(
+                    data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             verify_biller = VAS.verify_bill_payer(
                 bearer_token=token,
                 billerId=user_data.get("billerId"),
@@ -1238,6 +1263,11 @@ class BillPaymentView(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
         vas_token = VAS.authenticate()
+        if not vas_token:
+            return Response(
+                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         # Lock wallet for authenticated users
         if user:
