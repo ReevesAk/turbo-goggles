@@ -61,6 +61,10 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
             )
         waitlist_user = serializer.save()
 
+        # Award 10 points for joining the waitlist
+        waitlist_user.points = 10
+        waitlist_user.save(update_fields=["points"])
+
         referral_code = serializer.validated_data.get("referral_code")
         if referral_code:
             try:
@@ -76,7 +80,8 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                     )
 
                 referrer.referral_count = (referrer.referral_count or 0) + 1
-                referrer.save(update_fields=["referral_count"])
+                referrer.points = (referrer.points or 0) + 50
+                referrer.save(update_fields=["referral_count", "points"])
 
             except WaitlistModel.DoesNotExist:
                 return Response(
@@ -98,6 +103,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                     "last_name": waitlist_user.l_name,
                     "email": waitlist_user.email,
                     "referral_code": waitlist_user.referral_code,
+                    "points": waitlist_user.points,
                     "whatsApp_group_link": "http://whatsapp.com/channel/0029Vb8AFp8EFeXqoKuXcu0y",
                 },
             },
@@ -138,6 +144,7 @@ class WaitlistDashboardView(APIView):
                     "phone": user.phone,
                     "referral_code": user.referral_code,
                     "referral_count": user.referral_count or 0,
+                    "points": user.points,
                     "is_student": user.is_student,
                     "institution": user.institution,
                 },
@@ -157,7 +164,7 @@ class PublicWaitlistListView(generics.ListAPIView):
     pagination_class = WaitlistPagination
 
     def get_queryset(self):
-        return WaitlistModel.objects.all().order_by("-id")
+        return WaitlistModel.objects.all().order_by("-points", "-id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -166,11 +173,12 @@ class PublicWaitlistListView(generics.ListAPIView):
 
         data = [
             {
-                "first_name": u.f_name,
-                "last_name": u.l_name,
-                "referral_code": u.referral_code,
+                "first_name": user.f_name,
+                "last_name": user.l_name,
+                "referral_code": user.referral_code,
+                "points": user.points,
             }
-            for u in users
+            for user in users
         ]
 
         if page is not None:
@@ -190,7 +198,7 @@ class AdminWaitlistListView(generics.ListAPIView):
     pagination_class = WaitlistPagination
 
     def get_queryset(self):
-        return WaitlistModel.objects.all().order_by("-id")
+        return WaitlistModel.objects.all().order_by("-points", "-id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -206,6 +214,7 @@ class AdminWaitlistListView(generics.ListAPIView):
                 "phone": u.phone,
                 "referral_code": u.referral_code,
                 "referral_count": u.referral_count or 0,
+                "points": u.points,
                 "is_student": u.is_student,
                 "institution": u.institution,
             }

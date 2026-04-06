@@ -16,6 +16,7 @@ class WaitlistModel(models.Model):
     phone = models.CharField(max_length=50, null=True, blank=True)
     referral_code = models.CharField(max_length=50, null=True)
     referral_count = models.SmallIntegerField(null=True, blank=True)
+    points = models.IntegerField(default=0)
     is_student = models.BooleanField(default=False, null=True)
     institution = models.CharField(max_length=150, null=True, blank=True)
 

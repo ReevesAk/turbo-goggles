@@ -65,7 +65,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)
     alert_type_choice = models.CharField(
-        choices=ALERT_TYPE, default="Email", max_length=50, null=True
+        choices=ALERT_TYPE, default="Both", max_length=50, null=True
     )
     is_bvn_verified = models.BooleanField(default=False)
     is_nin_verified = models.BooleanField(default=False)
