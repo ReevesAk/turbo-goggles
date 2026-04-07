@@ -268,6 +268,7 @@ class ListAllBrandAds(generics.ListAPIView):
             CreateAd.objects.filter(user=user)
             .select_related("user")
             .prefetch_related("brand_location")
+            .order_by("-created_at")
         )
 
     def list(self, request, *args, **kwargs):

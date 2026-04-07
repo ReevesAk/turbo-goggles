@@ -1,5 +1,6 @@
 import logging
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
@@ -543,7 +544,7 @@ class NewsletterUnsubscribeView(generics.GenericAPIView):
                 status=status.HTTP_200_OK,
             )
 
-        except NewsletterSubscribers.DoesNotExist:
+        except (NewsletterSubscribers.DoesNotExist, ValidationError):
             return Response(
                 data={
                     "status": "fail",
