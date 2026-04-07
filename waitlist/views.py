@@ -189,6 +189,7 @@ class PublicWaitlistListView(generics.ListAPIView):
                 "last_name": user.l_name,
                 "referral_code": user.referral_code,
                 "points": user.points,
+                "joined_at": user.joined_at,
             }
             for user in users
         ]
@@ -233,6 +234,7 @@ class AdminWaitlistListView(generics.ListAPIView):
                 "points": u.points,
                 "is_student": u.is_student,
                 "institution": u.institution,
+                "joined_at": u.joined_at,
             }
             for u in users
         ]

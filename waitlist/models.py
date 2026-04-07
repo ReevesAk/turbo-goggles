@@ -19,6 +19,7 @@ class WaitlistModel(models.Model):
     points = models.IntegerField(default=0)
     is_student = models.BooleanField(default=False, null=True)
     institution = models.CharField(max_length=150, null=True, blank=True)
+    joined_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     @classmethod
     def generate_referral_code(cls, first_name, length=4):
