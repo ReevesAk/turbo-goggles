@@ -30,6 +30,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 logger = logging.getLogger("accounts")
 
 WAITLIST_TARGET = 1000
+WAITLIST_REWARD = 500
 
 
 class JoinBetaUserWaitList(generics.GenericAPIView):
@@ -40,6 +41,24 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
 
     serializer_class = WaitlistSerialiser
     permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        total_users = WaitlistModel.objects.count()
+        remaining_slots = max(0, WAITLIST_TARGET - total_users)
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Waitlist slots retrieved successfully.",
+                "data": {
+                    "waitlist_target": WAITLIST_TARGET,
+                    "total_joined": total_users,
+                    "remaining_slots": remaining_slots,
+                    "reward": WAITLIST_REWARD,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
