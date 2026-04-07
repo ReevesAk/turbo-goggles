@@ -354,6 +354,10 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         paystack_signature = request.headers.get("x-paystack-signature")
+        if not paystack_signature:
+            logger.warning("Missing Paystack signature")
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
         computed_signature = hmac.new(
             secret_key.encode(),
             request.body,

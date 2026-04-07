@@ -12,6 +12,10 @@ vas_password = config("VAS_PASSWORD")
 vas_base_url = config("VAS_BASE_URL")
 
 
+def _build_vas_url(resource):
+    return f"{vas_base_url.rstrip('/')}/{resource.lstrip('/')}"
+
+
 class VAS:
     @staticmethod
     def generate_unique_code(prefix="Pica"):
@@ -60,7 +64,7 @@ class VAS:
 
         try:
             resp = requests.get(
-                url=vas_base_url + resource, headers=HEADERS, timeout=10
+                url=_build_vas_url(resource), headers=HEADERS, timeout=10
             )
             return resp
         except requests.RequestException as e:
@@ -74,20 +78,23 @@ class VAS:
         resource = "topup/airtime"
         payload = {
             "network": network,
-            "debitAccount": debitAccount,
             "amount": amount,
             "phoneNumber": phone_number,
             "transactionReference": tx_ref,
         }
+        # Some providers reject null debitAccount with 5xx; only send when available.
+        if debitAccount:
+            payload["debitAccount"] = debitAccount
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
         try:
             response = requests.post(
-                url=vas_base_url + resource,
+                url=_build_vas_url(resource),
                 json=payload,
                 headers=headers,
+                timeout=15,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -113,9 +120,10 @@ class VAS:
         }
         try:
             response = requests.post(
-                url=vas_base_url + resource,
+                url=_build_vas_url(resource),
                 json=payload,
                 headers=headers,
+                timeout=15,
             )
             return response
         except requests.exceptions.RequestException as e:

@@ -253,7 +253,7 @@ class AdminWaitlistListView(generics.ListAPIView):
                 "points": u.points,
                 "is_student": u.is_student,
                 "institution": u.institution,
-                "joined_at": u.joined_at,
+                "joined_at": u.joined_at.isoformat() if u.joined_at else None,
             }
             for u in users
         ]
@@ -264,6 +264,8 @@ class AdminWaitlistListView(generics.ListAPIView):
             return Response(data=encrypt(paginated), status=status.HTTP_200_OK)
 
         return Response(
-            data=encrypt({"status": "success", "data": data, "remaining_slots": remaining_slots}),
+            data=encrypt(
+                {"status": "success", "data": data, "remaining_slots": remaining_slots}
+            ),
             status=status.HTTP_200_OK,
         )

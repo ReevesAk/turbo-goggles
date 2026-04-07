@@ -14,7 +14,9 @@ def create_notification(user, title, message):
     UserNotification.objects.create(user=user, title=title, message=message)
 
 
-def create_activity(user, title, description):
+def create_activity(user=None, title=None, description=None, guest_id=None):
+    if guest_id and not user:
+        description = f"{description} [guest_id={guest_id}]"
     ActivityModel.objects.create(
         user=user,
         title=title,
