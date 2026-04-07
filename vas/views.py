@@ -110,7 +110,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             except Exception as e:
                 logging.error(f"Database query error: {str(e)}")
         else:
-            create_activity(guest_id=None, title=title, description=description)
+            create_activity(guest_id=guest_id, title=title, description=description)
 
         if user and user.has_done_survey:
             # Calculate points for service purchase activity
@@ -196,7 +196,12 @@ class AirTimeTopUp(generics.GenericAPIView):
         vas_token = VAS.authenticate()
         if not vas_token:
             return Response(
-                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -288,7 +293,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if airtime_response is None:
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 reason="VAS service unavailable.",
                             )
                         status_query = VAS.status(
@@ -296,7 +303,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if status_query is None:
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 reason="Could not verify transaction status.",
                             )
                         status_resp = status_query.json().get("data", {})
@@ -346,7 +355,9 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                             if debit_response is None:
                                 return self._handle_airtime_failure(
-                                    user=user, phone=phone, amount=amount,
+                                    user=user,
+                                    phone=phone,
+                                    amount=amount,
                                     reason="Wallet service unavailable.",
                                 )
 
@@ -362,7 +373,9 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                                 if airtime_response is None:
                                     return self._handle_airtime_failure(
-                                        user=user, phone=phone, amount=amount,
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
                                         reason="VAS service unavailable.",
                                     )
 
@@ -372,7 +385,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 )
                                 if status_resp is None:
                                     return self._handle_airtime_failure(
-                                        user=user, phone=phone, amount=amount,
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
                                         reason="Could not verify transaction status.",
                                     )
                                 status_data = status_resp.json().get("data", {})
@@ -412,7 +427,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if airtime_response is None:
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 reason="VAS service unavailable.",
                             )
                         return self._handle_airtime_success(
@@ -424,7 +441,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                     case "CARD":
-                        debit_account = user_wallet.account_number if user_wallet else None
+                        debit_account = (
+                            user_wallet.account_number if user_wallet else None
+                        )
                         airtime_response = VAS.airtime_topup(
                             network=network,
                             bearer_token=vas_token,
@@ -436,8 +455,10 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                         if airtime_response is None:
                             return self._handle_airtime_failure(
-                                user=user, guest_id=guest_id,
-                                phone=phone, amount=amount,
+                                user=user,
+                                guest_id=guest_id,
+                                phone=phone,
+                                amount=amount,
                                 reason="VAS service unavailable.",
                             )
 
@@ -446,12 +467,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                             f"VAS airtime response (CARD): status={airtime_response.status_code}, body={airtime_data}"
                         )
                         if (
-                            user
-                            and airtime_data.get("status") == "success"
+                            airtime_data.get("status") == "success"
                             and airtime_data.get("responseCode") == 200
                         ):
                             return self._handle_airtime_success(
                                 user=user,
+                                guest_id=guest_id,
                                 phone=phone,
                                 amount=amount,
                                 network=network,
@@ -739,7 +760,12 @@ class DataSubscriptionView(generics.GenericAPIView):
         vas_token = VAS.authenticate()
         if not vas_token:
             return Response(
-                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -816,13 +842,17 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
                 if data_response is None:
                     return self._handle_data_failure(
-                        user=user, phone=phone, amount=amount,
+                        user=user,
+                        phone=phone,
+                        amount=amount,
                         reason="VAS service unavailable.",
                     )
                 status_resp = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
                 if status_resp is None:
                     return self._handle_data_failure(
-                        user=user, phone=phone, amount=amount,
+                        user=user,
+                        phone=phone,
+                        amount=amount,
                         reason="Could not verify transaction status.",
                     )
                 status_data = status_resp.json().get("data", {})
@@ -882,7 +912,9 @@ class DataSubscriptionView(generics.GenericAPIView):
 
                             if debit_response is None:
                                 return self._handle_data_failure(
-                                    user=user, phone=phone, amount=amount,
+                                    user=user,
+                                    phone=phone,
+                                    amount=amount,
                                     reason="Wallet service unavailable.",
                                 )
 
@@ -899,7 +931,9 @@ class DataSubscriptionView(generics.GenericAPIView):
 
                                 if data_response is None:
                                     return self._handle_data_failure(
-                                        user=user, phone=phone, amount=amount,
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
                                         reason="VAS service unavailable.",
                                     )
 
@@ -909,7 +943,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                                 )
                                 if status_resp is None:
                                     return self._handle_data_failure(
-                                        user=user, phone=phone, amount=amount,
+                                        user=user,
+                                        phone=phone,
+                                        amount=amount,
                                         reason="Could not verify transaction status.",
                                     )
                                 status_data = status_resp.json().get("data", {})
@@ -958,15 +994,19 @@ class DataSubscriptionView(generics.GenericAPIView):
                         bearer_token=vas_token,
                         amount=amount,
                         productId=product_id,
-                        debitAccount=user_wallet.account_number if user_wallet else None,
+                        debitAccount=(
+                            user_wallet.account_number if user_wallet else None
+                        ),
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
 
                     if data_response is None:
                         return self._handle_data_failure(
-                            user=user, guest_id=guest_id,
-                            phone=phone, amount=amount,
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
                             reason="VAS service unavailable.",
                         )
 
@@ -976,8 +1016,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                     if status_resp is None:
                         return self._handle_data_failure(
-                            user=user, guest_id=guest_id,
-                            phone=phone, amount=amount,
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
                             reason="Could not verify transaction status.",
                         )
                     status_data = status_resp.json().get("data", {})
@@ -1030,7 +1072,12 @@ class BillPaymentCategoriesView(APIView):
         token = VAS.authenticate()
         if not token:
             return Response(
-                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         categories_resp = VAS.bill_payment_categories(
@@ -1060,7 +1107,12 @@ class BillersCategoriesView(APIView):
         token = VAS.authenticate()
         if not token:
             return Response(
-                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         billers_resp = VAS.billers_categories(
@@ -1107,7 +1159,12 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             token = VAS.authenticate()
             if not token:
                 return Response(
-                    data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "VAS service is temporarily unavailable.",
+                        }
+                    ),
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             verify_biller = VAS.verify_bill_payer(
@@ -1353,7 +1410,12 @@ class BillPaymentView(generics.GenericAPIView):
         vas_token = VAS.authenticate()
         if not vas_token:
             return Response(
-                data=encrypt({"status": "fail", "message": "VAS service is temporarily unavailable."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -1521,8 +1583,10 @@ class BillPaymentView(generics.GenericAPIView):
 
                             if debit_response is None:
                                 return self._handle_failure(
-                                    user=user, guest_id=guest_id,
-                                    phone_number=phone_number, amount=amount,
+                                    user=user,
+                                    guest_id=guest_id,
+                                    phone_number=phone_number,
+                                    amount=amount,
                                     reason="Wallet service unavailable.",
                                 )
 

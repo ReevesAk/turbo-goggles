@@ -373,7 +373,10 @@ cloudinary.config(
     api_secret=conf("CLOUDINARY_API_SECRET"),
 )
 
-TESTING = 'test' in sys.argv[1:]
+TESTING = (
+    any(arg in ("test", "pytest", "py.test") for arg in sys.argv)
+    or "PYTEST_CURRENT_TEST" in os.environ
+)
 if TESTING:
     print('=========================')
     print('In TEST Mode - Disabling Migrations')
@@ -395,6 +398,11 @@ if TESTING:
             return None
 
     MIGRATION_MODULES = DisableMigrations()
+
+    # Speed up test runs by avoiding expensive PBKDF2 hashing.
+    PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+    ]
 
 
 CRONJOBS = [

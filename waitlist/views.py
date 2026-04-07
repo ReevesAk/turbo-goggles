@@ -30,6 +30,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 logger = logging.getLogger("accounts")
 
 WAITLIST_TARGET = 1000
+WAITLIST_REWARD = 500
 
 
 class JoinBetaUserWaitList(generics.GenericAPIView):
@@ -40,6 +41,24 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
 
     serializer_class = WaitlistSerialiser
     permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        total_users = WaitlistModel.objects.count()
+        remaining_slots = max(0, WAITLIST_TARGET - total_users)
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Waitlist slots retrieved successfully.",
+                "data": {
+                    "waitlist_target": WAITLIST_TARGET,
+                    "total_joined": total_users,
+                    "remaining_slots": remaining_slots,
+                    "reward": WAITLIST_REWARD,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -189,6 +208,7 @@ class PublicWaitlistListView(generics.ListAPIView):
                 "last_name": user.l_name,
                 "referral_code": user.referral_code,
                 "points": user.points,
+                "joined_at": user.joined_at,
             }
             for user in users
         ]
@@ -233,6 +253,7 @@ class AdminWaitlistListView(generics.ListAPIView):
                 "points": u.points,
                 "is_student": u.is_student,
                 "institution": u.institution,
+                "joined_at": u.joined_at.isoformat() if u.joined_at else None,
             }
             for u in users
         ]
@@ -243,6 +264,8 @@ class AdminWaitlistListView(generics.ListAPIView):
             return Response(data=encrypt(paginated), status=status.HTTP_200_OK)
 
         return Response(
-            data=encrypt({"status": "success", "data": data, "remaining_slots": remaining_slots}),
+            data=encrypt(
+                {"status": "success", "data": data, "remaining_slots": remaining_slots}
+            ),
             status=status.HTTP_200_OK,
         )

@@ -24,3 +24,9 @@ showcron:
 
 removecron:
 	python manage.py crontab remove
+
+test:
+	.venv/bin/python -m pytest -v
+
+test-app:
+	.venv/bin/python -m pytest $(app)/tests.py -v

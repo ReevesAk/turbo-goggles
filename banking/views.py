@@ -152,7 +152,9 @@ class VerifYBVN(generics.GenericAPIView):
 
         # Handle non-200 status
         if bvn_response.status_code != 200:
-            logger.error(f"Dojah BVN returned {bvn_response.status_code}: {bvn_response.text}")
+            logger.error(
+                f"Dojah BVN returned {bvn_response.status_code}: {bvn_response.text}"
+            )
             return Response(
                 data=encrypt(
                     {
@@ -322,7 +324,9 @@ class VerifYNIN(generics.GenericAPIView):
 
         # If status is not 200
         if nin_response.status_code != 200:
-            logger.error(f"Dojah NIN returned {nin_response.status_code}: {nin_response.text}")
+            logger.error(
+                f"Dojah NIN returned {nin_response.status_code}: {nin_response.text}"
+            )
             return Response(
                 data=encrypt(
                     {

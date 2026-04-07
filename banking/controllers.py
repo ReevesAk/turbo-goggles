@@ -275,9 +275,7 @@ class Wallet:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(
-                f"Wallet upgrade to tier 3 API request error: {str(e)}"
-            )
+            logging.error(f"Wallet upgrade to tier 3 API request error: {str(e)}")
             return None
 
     @staticmethod
@@ -309,9 +307,7 @@ class Wallet:
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(
-                f"Get wallet details API request error: {str(e)}"
-            )
+            logging.error(f"Get wallet details API request error: {str(e)}")
             return None
 
     @staticmethod
@@ -346,9 +342,7 @@ class Wallet:
             return response
 
         except requests.exceptions.RequestException as e:
-            logging.error(
-                f"Debiting an account API request error: {str(e)}"
-            )
+            logging.error(f"Debiting an account API request error: {str(e)}")
             return None
 
     @staticmethod

@@ -15,7 +15,9 @@ class WaitlistSerialiser(serializers.ModelSerializer):
             "referral_code",
             "is_student",
             "institution",
+            "joined_at",
         ]
+        read_only_fields = ["joined_at"]
 
     # Removed institution logic; now handled in the view
 
