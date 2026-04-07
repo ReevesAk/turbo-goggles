@@ -441,9 +441,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                     case "CARD":
-                        debit_account = (
-                            user_wallet.account_number if user_wallet else None
-                        )
+                        # Card flow should not include debitAccount; upstream may reject it.
+                        debit_account = None
                         airtime_response = VAS.airtime_topup(
                             network=network,
                             bearer_token=vas_token,
@@ -466,6 +465,29 @@ class AirTimeTopUp(generics.GenericAPIView):
                         logger.info(
                             f"VAS airtime response (CARD): status={airtime_response.status_code}, body={airtime_data}"
                         )
+                        status_query = VAS.status(
+                            bearer_token=vas_token, tx_ref=tx_reference
+                        )
+                        if status_query is not None:
+                            status_data = status_query.json().get("data", {})
+                            logger.info(
+                                "VAS airtime status query (CARD): tx_ref=%s, body=%s",
+                                tx_reference,
+                                status_data,
+                            )
+                            if (
+                                status_data.get("transactionStatus") == "success"
+                                and status_data.get("responseCode") == 200
+                            ):
+                                return self._handle_airtime_success(
+                                    user=user,
+                                    guest_id=guest_id,
+                                    phone=phone,
+                                    amount=amount,
+                                    network=network,
+                                    tx_reference=tx_reference,
+                                )
+
                         if (
                             airtime_data.get("status") == "success"
                             and airtime_data.get("responseCode") == 200
@@ -485,7 +507,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 guest_id=guest_id,
                                 phone=phone,
                                 amount=amount,
-                                airtime_response=airtime_data,
+                                airtime_response=(status_query.json() if status_query is not None else airtime_data),
                                 reason=airtime_data.get(
                                     "response_description", "Transaction failed"
                                 ),

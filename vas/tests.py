@@ -1,4 +1,6 @@
+import json
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.test import TestCase
 from rest_framework import status
@@ -6,7 +8,7 @@ from rest_framework.test import APITestCase
 
 from vas import helpers
 from vas.helpers import VAS
-from security import decrypt
+from security import decrypt, encrypt
 
 
 class _MockResponse:
@@ -170,3 +172,54 @@ class VasEndpointCoverageTests(APITestCase):
                 else:
                     response = self.client.post(path, data=data or {})
                 self.assertIn(response.status_code, allowed)
+
+    @patch("vas.views.create_activity", return_value=None)
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.airtime_topup")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_guest_card_airtime_uses_status_query_before_failing(
+        self,
+        _mock_auth,
+        mock_airtime_topup,
+        mock_status,
+        _mock_activity,
+    ):
+        mock_airtime_topup.return_value = _MockResponse(
+            {
+                "timestamp": "2026-04-07T18:45:23.452+00:00",
+                "status": 500,
+                "error": "Internal Server Error",
+                "path": "/topup/airtime",
+            }
+        )
+        mock_status.return_value = _MockResponse(
+            {
+                "data": {
+                    "transactionStatus": "success",
+                    "responseCode": 200,
+                }
+            }
+        )
+
+        payload = json.dumps(
+            encrypt(
+                {
+                    "payment_option": "CARD",
+                    "phone_number": "08010000000",
+                    "amount": "500",
+                    "network": "MTN",
+                }
+            )
+        )
+        guest_id = str(uuid4())
+
+        response = self.client.post(
+            "/v1/vas/airtime-topup",
+            data=payload,
+            content_type="application/json",
+            HTTP_X_GUEST_ID=guest_id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
