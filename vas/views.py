@@ -461,19 +461,42 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 reason="VAS service unavailable.",
                             )
 
-                        airtime_data = airtime_response.json()
+                        try:
+                            airtime_data = airtime_response.json()
+                        except Exception:
+                            airtime_data = {}
                         logger.info(
                             f"VAS airtime response (CARD): status={airtime_response.status_code}, body={airtime_data}"
                         )
+
+                        # If initial airtime call succeeds, avoid depending on status endpoint.
+                        if (
+                            airtime_data.get("status") == "success"
+                            and airtime_data.get("responseCode") == 200
+                        ):
+                            return self._handle_airtime_success(
+                                user=user,
+                                guest_id=guest_id,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                            )
+
                         status_query = VAS.status(
                             bearer_token=vas_token, tx_ref=tx_reference
                         )
                         if status_query is not None:
-                            status_data = status_query.json().get("data", {})
+                            try:
+                                status_payload = status_query.json()
+                            except Exception:
+                                status_payload = {}
+                            status_data = status_payload.get("data", {})
                             logger.info(
-                                "VAS airtime status query (CARD): tx_ref=%s, body=%s",
+                                "VAS airtime status query (CARD): tx_ref=%s, status=%s, body=%s",
                                 tx_reference,
-                                status_data,
+                                getattr(status_query, "status_code", "unknown"),
+                                status_payload,
                             )
                             if (
                                 status_data.get("transactionStatus") == "success"
@@ -488,30 +511,16 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     tx_reference=tx_reference,
                                 )
 
-                        if (
-                            airtime_data.get("status") == "success"
-                            and airtime_data.get("responseCode") == 200
-                        ):
-                            return self._handle_airtime_success(
-                                user=user,
-                                guest_id=guest_id,
-                                phone=phone,
-                                amount=amount,
-                                network=network,
-                                tx_reference=tx_reference,
-                            )
-                        else:
-                            # Failure (user or guest)
-                            return self._handle_airtime_failure(
-                                user=user,
-                                guest_id=guest_id,
-                                phone=phone,
-                                amount=amount,
-                                airtime_response=(status_query.json() if status_query is not None else airtime_data),
-                                reason=airtime_data.get(
-                                    "response_description", "Transaction failed"
-                                ),
-                            )
+                        return self._handle_airtime_failure(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
+                            airtime_response=airtime_data,
+                            reason=airtime_data.get(
+                                "response_description", "Transaction failed"
+                            ),
+                        )
 
                     case _:
                         return Response(

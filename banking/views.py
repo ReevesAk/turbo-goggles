@@ -448,7 +448,27 @@ class CreateUserWallet(generics.GenericAPIView):
                 phoneNo=current_user.phone_number,
             )
 
-            response_data = wallet_response.json()
+            if wallet_response is None:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Wallet service unavailable.",
+                        }
+                    ),
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            # Wallet.Open may return requests.Response or DRF Response.
+            if hasattr(wallet_response, "json"):
+                response_data = wallet_response.json()
+            else:
+                response_data = (
+                    wallet_response.data
+                    if isinstance(getattr(wallet_response, "data", None), dict)
+                    else {"message": "Wallet creation failed"}
+                )
+
             response_message = response_data.get("message")
             wallet_status = response_data.get("status")
 
@@ -457,8 +477,9 @@ class CreateUserWallet(generics.GenericAPIView):
                 response_message == "Account Opening successful"
                 and wallet_status == "SUCCESS"
             ):
-                acct_no = (wallet_response.json()["data"]["accountNumber"],)
-                acct_name = wallet_response.json()["data"]["fullName"]
+                acct_data = response_data.get("data", {})
+                acct_no = acct_data.get("accountNumber")
+                acct_name = acct_data.get("fullName")
                 user_acc = WalletModel.objects.create(
                     user=current_user,
                     account_number=acct_no,
@@ -534,15 +555,15 @@ class CreateUserWallet(generics.GenericAPIView):
                 resp = {
                     "status": "success",
                     "message": "Open Account Operation was successful!",
-                    "account_number": wallet_response.json()["data"]["accountNumber"],
+                    "account_number": acct_no,
                     "customer_number": unique_code,
-                    "acct_name": wallet_response.json()["data"]["fullName"],
+                    "acct_name": acct_name,
                 }
                 return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
             else:
                 return Response(
-                    data=encrypt(wallet_response.json()),
-                    status=wallet_response.status_code,
+                    data=encrypt(response_data),
+                    status=getattr(wallet_response, "status_code", status.HTTP_400_BAD_REQUEST),
                 )
         except requests.exceptions.RequestException as e:
             logging.error(f"Wallet creation API request error: {str(e)}")
