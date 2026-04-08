@@ -53,6 +53,7 @@ def authenticate():
         )
         response.raise_for_status()
         data = response.json()
+        logger.info("Authentication successful, response data: %s", data)
         token = data.get("accessToken") or data.get("data", {}).get("accessToken")
         if token:
             return token
@@ -144,6 +145,7 @@ class Wallet:
         }
 
         bearer_token = authenticate()
+        logger.info("bearer token obtained for wallet creation: %s", bearer_token)
 
         if not bearer_token:
             logging.error("Bearer token is invalid or missing")
