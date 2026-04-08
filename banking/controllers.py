@@ -33,6 +33,10 @@ headers = {
 logger = logging.getLogger(__name__)
 
 
+def _build_ninepsb_url(resource):
+    return f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
+
+
 def authenticate():
     resource = "authenticate"
     payload = {
@@ -43,12 +47,18 @@ def authenticate():
     }
     try:
         response = requests.post(
-            url=base_url + resource,
+            url=_build_ninepsb_url(resource),
             json=payload,
+            timeout=20,
         )
-        token = response.json().get("accessToken")
+        response.raise_for_status()
+        data = response.json()
+        token = data.get("accessToken") or data.get("data", {}).get("accessToken")
         return token
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
+        logging.error("Authentication request failed: %s", str(e))
+        return None
+    except (ValueError, Exception) as e:
         logging.error(f"Authentication failed: {str(e)}")
         return None
 
@@ -149,7 +159,7 @@ class Wallet:
         logger.info("Wallet Creation request initiated.")
         try:
             response = requests.post(
-                url=base_url + resource,
+                url=_build_ninepsb_url(resource),
                 json=payload,
                 headers=headers,
                 timeout=180,
