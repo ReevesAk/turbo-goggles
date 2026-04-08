@@ -54,7 +54,8 @@ def authenticate():
         response.raise_for_status()
         data = response.json()
         token = data.get("accessToken") or data.get("data", {}).get("accessToken")
-        return token
+        if token:
+            return token
     except requests.exceptions.RequestException as e:
         logging.error("Authentication request failed: %s", str(e))
         return None
