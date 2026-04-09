@@ -461,7 +461,23 @@ class CreateUserWallet(generics.GenericAPIView):
 
             # Wallet.Open may return requests.Response or DRF Response.
             if hasattr(wallet_response, "json"):
-                response_data = wallet_response.json()
+                try:
+                    response_data = wallet_response.json()
+                except ValueError:
+                    provider_text = getattr(wallet_response, "text", "")
+                    logging.error(
+                        "Wallet provider returned non-JSON response for open_wallet: %s",
+                        provider_text[:300],
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Wallet provider returned an invalid response.",
+                            }
+                        ),
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
             else:
                 response_data = (
                     wallet_response.data
@@ -568,7 +584,7 @@ class CreateUserWallet(generics.GenericAPIView):
         except requests.exceptions.RequestException as e:
             logging.error(f"Wallet creation API request error: {str(e)}")
             return Response(
-                encrypt({"error": str(e)}), status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                encrypt({"error": str(e)}), status=status.HTTP_502_BAD_GATEWAY
             )
 
 
