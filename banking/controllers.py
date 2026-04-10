@@ -38,7 +38,7 @@ def _build_ninepsb_url(resource):
 
 
 def authenticate():
-    resource = "waas/api/v1/authenticate"
+    resource = "authenticate"
     payload = {
         "username": username,
         "password": password,
