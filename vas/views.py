@@ -44,7 +44,8 @@ from .utility import (
 )
 from .helpers import VAS
 from .models import ValueAddedServices
-from commons import Pay, Biometrics
+from commons import Pay, Biometrics, Messaging
+from banking.helpers import generate_transaction_sms
 from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,28 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
             Points.refresh_user_points(user)
 
+        # --- SMS Notification for Success ---
+        if (
+            user
+            and hasattr(user, "phone_number")
+            and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
+        ):
+            # Try to get wallet/account number and balance
+            wallet = getattr(user, "wallet", None)
+            account_number = getattr(wallet, "account_number", "") if wallet else ""
+            balance = getattr(wallet, "balance", "") if wallet else ""
+            sms_msg = generate_transaction_sms(
+                transaction_type="AIRTIME",
+                account_number=account_number,
+                amount=float(amount),
+                balance=float(balance) if balance else 0.0,
+                description=f"Airtime purchase for {phone}",
+                reference=tx_reference,
+            )
+            Messaging.send_sms(
+                phone_number=user.phone_number[1:],
+                msg=sms_msg,
+            )
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -466,7 +489,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         except Exception:
                             airtime_data = {}
                         logger.info(
-                            f"VAS airtime response (CARD): status={airtime_response.status_code}, body={airtime_data}"
+                            "VAS airtime response (CARD): status=%s, body=%s",
+                            getattr(airtime_response, "status_code", "unknown"),
+                            airtime_data,
                         )
 
                         # If initial airtime call succeeds, avoid depending on status endpoint.
@@ -701,6 +726,27 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         if cashback is not None:
             response_data["cashback_used"] = str(cashback)
+        # --- SMS Notification for Success ---
+        if (
+            user
+            and hasattr(user, "phone_number")
+            and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
+        ):
+            wallet = getattr(user, "wallet", None)
+            account_number = getattr(wallet, "account_number", "") if wallet else ""
+            balance = getattr(wallet, "balance", "") if wallet else ""
+            sms_msg = generate_transaction_sms(
+                transaction_type="DATA",
+                account_number=account_number,
+                amount=float(amount),
+                balance=float(balance) if balance else 0.0,
+                description=f"Data purchase for {phone}",
+                reference=tx_reference,
+            )
+            Messaging.send_sms(
+                phone_number=user.phone_number[1:],
+                msg=sms_msg,
+            )
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -1349,6 +1395,27 @@ class BillPaymentView(generics.GenericAPIView):
             )
             Points.refresh_user_points(user)
 
+        # --- SMS Notification for Success ---
+        if (
+            user
+            and hasattr(user, "phone_number")
+            and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
+        ):
+            wallet = getattr(user, "wallet", None)
+            account_number = getattr(wallet, "account_number", "") if wallet else ""
+            balance = getattr(wallet, "balance", "") if wallet else ""
+            sms_msg = generate_transaction_sms(
+                transaction_type="BILL",
+                account_number=account_number,
+                amount=float(amount),
+                balance=float(balance) if balance else 0.0,
+                description=f"Bill payment for {phone_number or customerName or customerId}",
+                reference=tx_reference,
+            )
+            Messaging.send_sms(
+                phone_number=user.phone_number[1:],
+                msg=sms_msg,
+            )
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     def _handle_failure(
