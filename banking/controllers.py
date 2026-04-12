@@ -157,7 +157,6 @@ class Wallet:
             "Authorization": f"Bearer {bearer_token}",
         }
 
-        logger.info("Wallet Creation request initiated.")
         try:
             response = requests.post(
                 url=_build_ninepsb_url(resource),

@@ -504,6 +504,13 @@ class CreateUserWallet(generics.GenericAPIView):
                     address=payload.get("address"),
                     walletType="INDIVIDUAL",
                 )
+                logger.info(
+                    "Wallet account created successfully: user=%s, account_number=%s, acct_name=%s, tracking_ref=%s",
+                    current_user.id,
+                    acct_no,
+                    acct_name,
+                    unique_code,
+                )
                 UserNotification.objects.create(
                     user=current_user,
                     title="Wallet Creation 🎉🎉🎉",
@@ -579,7 +586,9 @@ class CreateUserWallet(generics.GenericAPIView):
             else:
                 return Response(
                     data=encrypt(response_data),
-                    status=getattr(wallet_response, "status_code", status.HTTP_400_BAD_REQUEST),
+                    status=getattr(
+                        wallet_response, "status_code", status.HTTP_400_BAD_REQUEST
+                    ),
                 )
         except requests.exceptions.RequestException as e:
             logging.error(f"Wallet creation API request error: {str(e)}")

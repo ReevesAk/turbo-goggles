@@ -27,6 +27,8 @@ from permissions import IsAuthenticatedOrGuestWithValidId
 from decimal import Decimal
 from django.db import transaction
 from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards
+from banking.helpers import generate_transaction_sms
+from commons import Messaging
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +236,23 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     logger.exception(
                         "Unexpected error while attempting to award welcome bonus"
                     )
+
+        # Send SMS notification for wallet credit
+        if wallet and wallet.user and wallet.user.alert_type_choice in ("SMS", "Both"):
+            # Add source bank and account to the SMS description
+            inflow_desc = f"{description} (From: {source_bank} - {source_account})"
+            sms_msg = generate_transaction_sms(
+                transaction_type="CREDIT",
+                account_number=wallet.account_number,
+                amount=amount,
+                balance=wallet.balance,
+                description=inflow_desc,
+                reference=nipsessionid,
+            )
+            Messaging.send_sms(
+                phone_number=wallet.user.phone_number[1:],
+                msg=sms_msg,
+            )
 
         return Response(
             {
