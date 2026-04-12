@@ -93,6 +93,7 @@ class VAS:
         # Some providers reject null debitAccount with 5xx; only send when available.
         if debitAccount:
             payload["debitAccount"] = debitAccount
+            logging.info(f"VAS AIRTIME PAYLOAD {payload}")
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
