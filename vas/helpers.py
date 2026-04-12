@@ -47,7 +47,9 @@ class VAS:
             resp.raise_for_status()
             if resp.json().get("message") == "Authentication Successful":
                 token = resp.json()["data"].get("accessToken")
+                logging.info("VAS authentication successful. Token: %s", token)
                 return token
+            logging.warning("VAS authentication failed: %s", resp.json().get("message"))
             return None
         except requests.RequestException as e:
             logging.error("VAS authentication failed: %s", e)
@@ -62,10 +64,16 @@ class VAS:
             "Content-Type": "application/json",
         }
 
+        logging.info(f"VAS status REQUEST: url=%s, headers=%s", _build_vas_url(resource), HEADERS)
         try:
             resp = requests.get(
                 url=_build_vas_url(resource), headers=HEADERS, timeout=10
             )
+            try:
+                resp_json = resp.json()
+            except Exception:
+                resp_json = resp.text
+            logging.info(f"VAS status RESPONSE: status=%s, body=%s", resp.status_code, resp_json)
             return resp
         except requests.RequestException as e:
             logging.error("VAS status check failed: %s", e)
@@ -89,6 +97,7 @@ class VAS:
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
+        logging.info(f"VAS airtime_topup REQUEST: url=%s, payload=%s, headers=%s", _build_vas_url(resource), payload, headers)
         try:
             response = requests.post(
                 url=_build_vas_url(resource),
@@ -96,6 +105,11 @@ class VAS:
                 headers=headers,
                 timeout=15,
             )
+            try:
+                resp_json = response.json()
+            except Exception:
+                resp_json = response.text
+            logging.info(f"VAS airtime_topup RESPONSE: status=%s, body=%s", response.status_code, resp_json)
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Airtime topup API request error: {str(e)}")
