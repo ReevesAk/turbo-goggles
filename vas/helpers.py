@@ -97,12 +97,17 @@ class VAS:
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
+        # Log to logger and print to terminal
         logging.info(
             "VAS airtime_topup REQUEST: url=%s, payload=%s, headers=%s",
             _build_vas_url(resource),
             payload,
             headers,
         )
+        print("VAS airtime_topup REQUEST:")
+        print(f"  url: {_build_vas_url(resource)}")
+        print(f"  payload: {payload}")
+        print(f"  headers: {headers}")
         try:
             response = requests.post(
                 url=_build_vas_url(resource),

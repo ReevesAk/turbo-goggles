@@ -443,7 +443,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                         user=user,
                                         phone=phone,
                                         amount=amount,
-                                        airtime_response=airtime_data,
+                                        airtime_response=airtime_response,
                                         reason="Airtime top-up failed.",
                                     )
 
@@ -554,7 +554,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             guest_id=guest_id,
                             phone=phone,
                             amount=amount,
-                            airtime_response=airtime_data,
+                            airtime_response=airtime_response,
                             reason=airtime_data.get(
                                 "response_description", "Transaction failed"
                             ),
