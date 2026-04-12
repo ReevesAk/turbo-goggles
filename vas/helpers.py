@@ -104,10 +104,12 @@ class VAS:
             payload,
             headers,
         )
+        import sys
         print("VAS airtime_topup REQUEST:")
         print(f"  url: {_build_vas_url(resource)}")
         print(f"  payload: {payload}")
         print(f"  headers: {headers}")
+        sys.stdout.flush()
         try:
             response = requests.post(
                 url=_build_vas_url(resource),
