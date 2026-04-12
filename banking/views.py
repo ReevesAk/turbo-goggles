@@ -985,9 +985,15 @@ class GetAccountDetails(generics.GenericAPIView):
         wallet_details = Wallet.getWalletDetails(
             account_number=acct_details.account_number
         )
+        wallet_data = None
+        if wallet_details and hasattr(wallet_details, "json"):
+            try:
+                wallet_data = wallet_details.json()
+            except Exception:
+                wallet_data = None
 
-        if wallet_details and wallet_details.get("status") == "SUCCESS":
-            live_data = wallet_details.get("data", {})
+        if wallet_data and wallet_data.get("status") == "SUCCESS":
+            live_data = wallet_data.get("data", {})
             serializer = WalletEnquirySerializer(live_data)
             response = {
                 "status": "success",
