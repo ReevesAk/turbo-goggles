@@ -176,6 +176,10 @@ class AirTimeTopUp(generics.GenericAPIView):
             create_activity(guest_id=guest_id, title=title, description=description)
 
         logger.warning(description)
+        if airtime_response is not None:
+            logger.warning(f"Airtime failure response: {airtime_response}")
+        else:
+            logger.warning("Airtime failure: No response body from provider.")
 
         response_data = {
             "status": "fail",
@@ -217,6 +221,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
         vas_token = VAS.authenticate()
+        logger.info(f"VAS.authenticate() returned token: {vas_token}")
         if not vas_token:
             return Response(
                 data=encrypt(
@@ -750,21 +755,21 @@ class DataSubscriptionView(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
-    def _handle_data_failure(
+    def _handle_airtime_failure(
         self,
         user=None,
         guest_id=None,
         phone=None,
         amount=None,
-        data_response=None,
+        airtime_response=None,
         reason="",
     ):
-        """Handle failed Data purchase."""
-        title = "Failed data purchase"
-        message = f"Data purchase of {amount} on {phone} failed."
+        """Handle failed airtime purchase."""
+        title = "Failed airtime purchase"
+        message = f"Airtime purchase of {amount} on {phone} failed."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
-            f"failed to purchase data of {amount} on {phone}. {reason}"
+            f"failed to purchase airtime of {amount} on {phone}. {reason}"
         )
 
         if user:
@@ -774,18 +779,22 @@ class DataSubscriptionView(generics.GenericAPIView):
             create_activity(guest_id=guest_id, title=title, description=description)
 
         logger.warning(description)
+        # Log the actual response from the third party if available
+        if hasattr(airtime_response, 'status_code') and hasattr(airtime_response, 'text'):
+            logger.warning(f"Third-party response status: {airtime_response.status_code}")
+            logger.warning(f"Third-party response body: {airtime_response.text}")
+        elif airtime_response is not None:
+            logger.warning(f"Airtime failure response: {airtime_response}")
+        else:
+            logger.warning("Airtime failure: No response body from provider.")
 
         response_data = {
             "status": "fail",
-            "message": f"Data purchase failed. {reason}",
-            "error": data_response or {},
+            "message": f"Airtime purchase failed. {reason}",
+            "error": airtime_response or {},
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request):
-        guest_id = request.headers.get("X-Guest-ID")
-        idempotency_key = request.headers.get("Idempotency-Key")
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
