@@ -310,7 +310,7 @@ class Wallet:
         }
 
         try:
-            response = requests.get(
+            response = requests.post(
                 url=base_url + resource,
                 headers=headers,
                 json=payload,
