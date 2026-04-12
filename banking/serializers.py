@@ -155,11 +155,12 @@ class WalletEnquirySerializer(serializers.Serializer):
     balance = serializers.DecimalField(
         source="availableBalance", max_digits=12, decimal_places=2
     )
-    tier_level = serializers.CharField()
+    tier = serializers.CharField()
 
 
 class WalletDetailsSerializer(serializers.ModelSerializer):
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
+    tier = serializers.CharField(source="tier_level")
 
     class Meta:
         model = WalletModel
@@ -168,7 +169,7 @@ class WalletDetailsSerializer(serializers.ModelSerializer):
             "account_number",
             "transactionTrackingRef",
             "balance",
-            "tier_level",
+            "tier",
         ]
 
 
