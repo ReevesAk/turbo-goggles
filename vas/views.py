@@ -176,7 +176,15 @@ class AirTimeTopUp(generics.GenericAPIView):
             create_activity(guest_id=guest_id, title=title, description=description)
 
         logger.warning(description)
-        if airtime_response is not None:
+        # Log the actual response and payload if available
+        if hasattr(airtime_response, 'request') and hasattr(airtime_response, 'text'):
+            try:
+                logger.warning(f"Airtime failure request payload: {airtime_response.request.body}")
+            except Exception:
+                logger.warning("Airtime failure: Could not log request payload.")
+            logger.warning(f"Airtime failure response status: {airtime_response.status_code}")
+            logger.warning(f"Airtime failure response body: {airtime_response.text}")
+        elif airtime_response is not None:
             logger.warning(f"Airtime failure response: {airtime_response}")
         else:
             logger.warning("Airtime failure: No response body from provider.")

@@ -93,12 +93,16 @@ class VAS:
         # Some providers reject null debitAccount with 5xx; only send when available.
         if debitAccount:
             payload["debitAccount"] = debitAccount
-            logging.info(f"VAS AIRTIME PAYLOAD {payload}")
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
-        logging.info(f"VAS airtime_topup REQUEST: url=%s, payload=%s, headers=%s", _build_vas_url(resource), payload, headers)
+        logging.info(
+            "VAS airtime_topup REQUEST: url=%s, payload=%s, headers=%s",
+            _build_vas_url(resource),
+            payload,
+            headers,
+        )
         try:
             response = requests.post(
                 url=_build_vas_url(resource),
@@ -106,11 +110,21 @@ class VAS:
                 headers=headers,
                 timeout=15,
             )
+            # Log the actual request payload and raw response
+            try:
+                req_body = response.request.body
+            except Exception:
+                req_body = None
             try:
                 resp_json = response.json()
             except Exception:
                 resp_json = response.text
-            logging.info(f"VAS airtime_topup RESPONSE: status=%s, body=%s", response.status_code, resp_json)
+            logging.info(
+                "VAS airtime_topup RAW REQUEST BODY: %s", req_body
+            )
+            logging.info(
+                "VAS airtime_topup RESPONSE: status=%s, body=%s", response.status_code, resp_json
+            )
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Airtime topup API request error: {str(e)}")
