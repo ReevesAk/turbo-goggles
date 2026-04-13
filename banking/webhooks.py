@@ -149,6 +149,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 
         if merchant == "Picadailys":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
+            user = wallet.user if wallet else None
             if wallet:
                 # Record notification
                 UserNotification.objects.create(
@@ -186,7 +187,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                     )
                                 )
 
-                                user = wallet.user
+                                # user is already set above
                                 already_awarded = WelcomeBonusAward.objects.filter(
                                     user=user
                                 ).exists()
@@ -236,6 +237,10 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     logger.exception(
                         "Unexpected error while attempting to award welcome bonus"
                     )
+
+        print("USER:", user)
+        print("WALLET:", wallet)
+        print("ALERT TYPE:", getattr(user, 'alert_type_choice', None))
 
         # Send SMS notification for wallet credit
         if wallet and user and getattr(user, 'alert_type_choice', None) in ("SMS", "Both"):
