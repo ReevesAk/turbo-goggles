@@ -107,7 +107,7 @@ class Messaging:
         phone = "234" + phone_number
         payload = {
             "name": "Picadailys SMS",
-            "from": "YRoute",
+            "from": "DANG",
             "text": msg,
             "status": "running",
             "lists": [

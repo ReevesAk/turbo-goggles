@@ -283,7 +283,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     to_email=user.email,
                     subject=email_subject,
                     html_content=email_body,
-                   sender_email="notifications@picadailys.com",
+                    sender_email="notifications@picadailys.com",
                     body=email_body,
                 )
 
