@@ -245,7 +245,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
         print("WALLET:", wallet)
         print("ALERT TYPE:", getattr(user, 'alert_type_choice', None))
 
-        # Send SMS notification for wallet credit
+        # Send SMS and Email notification for wallet credit
         if wallet and user and getattr(user, 'alert_type_choice', None) in ("SMS", "Both"):
             # Add source bank and account to the SMS description
             inflow_desc = f"{description} (From: {source_bank} - {source_account})"
@@ -261,6 +261,31 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 phone_number=wallet.user.phone_number[1:],
                 msg=sms_msg,
             )
+        elif wallet and user and getattr(user, 'alert_type_choice', None) in ("Email", "Both"):
+            # Send email notification using table_email.html
+            from django.template.loader import render_to_string
+            email_subject = "Wallet Credit Notification"
+            email_context = {
+                "title": "Wallet Credit",
+                "rows": [
+                    {"label": "Amount", "value": f"₦{amount}"},
+                    {"label": "Account Number", "value": wallet.account_number},
+                    {"label": "Sender", "value": sender_name},
+                    {"label": "Source Bank", "value": source_bank},
+                    {"label": "Source Account", "value": source_account},
+                    {"label": "Narration", "value": description},
+                    {"label": "Reference", "value": nipsessionid},
+                ],
+            }
+            email_body = render_to_string("table_email.html", email_context)
+            if getattr(user, "email", None):
+                Messaging.send_email(
+                    to_email=user.email,
+                    subject=email_subject,
+                    html_content=email_body,
+                   sender_email="notifications@picadailys.com",
+                    body=email_body,
+                )
 
         return Response(
             {
