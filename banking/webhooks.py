@@ -238,7 +238,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     )
 
         # Send SMS notification for wallet credit
-        if wallet and wallet.user and wallet.user.alert_type_choice in ("SMS", "Both"):
+        if wallet and user and getattr(user, 'alert_type_choice', None) in ("SMS", "Both"):
             # Add source bank and account to the SMS description
             inflow_desc = f"{description} (From: {source_bank} - {source_account})"
             sms_msg = generate_transaction_sms(
