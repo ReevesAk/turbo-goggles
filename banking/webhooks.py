@@ -121,6 +121,9 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 
         logger.info(f"Received 9PSB inflow webhook: {webhook_data}")
 
+        user = None
+        wallet = None
+
         # Step 3: Extract key details (adjust to your serializer’s fields)
         merchant = webhook_data.get("merchant")
         account_number = webhook_data.get("accountnumber")
