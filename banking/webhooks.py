@@ -170,6 +170,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     reference=nipsessionid,
                 )
                 logger.info(f"SMS MSG TYPE: {sms_msg}")
+                logger.info(f"Sending SMS to {wallet.user.phone_number} with message: {sms_msg}")
                 Messaging.send_sms(
                     phone_number=wallet.user.phone_number[1:],
                     msg=sms_msg,
@@ -192,7 +193,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 email_body = render_to_string("table_email.html", email_context)
                 if getattr(user, "email", None):
                     Messaging.send_email(
-                        to_email=user.email,
+                        email=user.email,
                         subject=email_subject,
                         html_content=email_body,
                         sender_email="notifications@picadailys.com",
