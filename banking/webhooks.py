@@ -257,6 +257,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 description=inflow_desc,
                 reference=nipsessionid,
             )
+            print("SMS MSG TYPE:", sms_msg)
             Messaging.send_sms(
                 phone_number=wallet.user.phone_number[1:],
                 msg=sms_msg,
