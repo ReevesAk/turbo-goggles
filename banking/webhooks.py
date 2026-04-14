@@ -152,7 +152,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
             )
 
         logger.info("Triggering SMS for webhook")
-        if merchant == "Picadailys":
+        if merchant == "PICADAILYS":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
 
