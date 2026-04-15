@@ -177,12 +177,16 @@ class AirTimeTopUp(generics.GenericAPIView):
 
         logger.warning(description)
         # Log the actual response and payload if available
-        if hasattr(airtime_response, 'request') and hasattr(airtime_response, 'text'):
+        if hasattr(airtime_response, "request") and hasattr(airtime_response, "text"):
             try:
-                logger.warning(f"Airtime failure request payload: {airtime_response.request.body}")
+                logger.warning(
+                    f"Airtime failure request payload: {airtime_response.request.body}"
+                )
             except Exception:
                 logger.warning("Airtime failure: Could not log request payload.")
-            logger.warning(f"Airtime failure response status: {airtime_response.status_code}")
+            logger.warning(
+                f"Airtime failure response status: {airtime_response.status_code}"
+            )
             logger.warning(f"Airtime failure response body: {airtime_response.text}")
         elif airtime_response is not None:
             logger.warning(f"Airtime failure response: {airtime_response}")
@@ -192,7 +196,11 @@ class AirTimeTopUp(generics.GenericAPIView):
         response_data = {
             "status": "fail",
             "message": f"Airtime purchase failed. {reason}",
-            "error": airtime_response or {},
+            "error": (
+                airtime_response.json()
+                if hasattr(airtime_response, "json")
+                else str(airtime_response) if airtime_response else {}
+            ),
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
@@ -347,7 +355,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status_resp = status_query.json().get("data", {})
                         if (
                             status_resp.get("transactionStatus") == "success"
-                            and status_resp.get("responseCode") == 200
+                            and status_resp.get("responseCode") == "200"
                         ):
                             return self._handle_airtime_success(
                                 user=user,
@@ -397,7 +405,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     reason="Wallet service unavailable.",
                                 )
 
-                            if debit_response.status_code == 200:
+                            if debit_response.status_code == "200":
                                 airtime_response = VAS.airtime_topup(
                                     network=network,
                                     bearer_token=vas_token,
@@ -429,7 +437,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 status_data = status_resp.json().get("data", {})
                                 if (
                                     status_data.get("transactionStatus") == "success"
-                                    and status_data.get("responseCode") == 200
+                                    and status_data.get("responseCode") == "200"
                                 ):
                                     return self._handle_airtime_success(
                                         user=user,
@@ -510,7 +518,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         # If initial airtime call succeeds, avoid depending on status endpoint.
                         if (
                             airtime_data.get("status") == "success"
-                            and airtime_data.get("responseCode") == 200
+                            and airtime_data.get("responseCode") == "200"
                         ):
                             return self._handle_airtime_success(
                                 user=user,
@@ -538,7 +546,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             )
                             if (
                                 status_data.get("transactionStatus") == "success"
-                                and status_data.get("responseCode") == 200
+                                and status_data.get("responseCode") == "200"
                             ):
                                 return self._handle_airtime_success(
                                     user=user,
@@ -788,8 +796,12 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         logger.warning(description)
         # Log the actual response from the third party if available
-        if hasattr(airtime_response, 'status_code') and hasattr(airtime_response, 'text'):
-            logger.warning(f"Third-party response status: {airtime_response.status_code}")
+        if hasattr(airtime_response, "status_code") and hasattr(
+            airtime_response, "text"
+        ):
+            logger.warning(
+                f"Third-party response status: {airtime_response.status_code}"
+            )
             logger.warning(f"Third-party response body: {airtime_response.text}")
         elif airtime_response is not None:
             logger.warning(f"Airtime failure response: {airtime_response}")
@@ -803,12 +815,19 @@ class DataSubscriptionView(generics.GenericAPIView):
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
+
+        # Main POST Method
+
+    def post(self, request):
         decrypted_payload = decrypt(request.data)
         user_data = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+
         user = request.user if request.user.is_authenticated else None
+        guest_id = request.headers.get("X-Guest-ID")
+        idempotency_key = request.headers.get("Idempotency-Key")
 
         # Idempotency: check if this request was already processed
         if user and idempotency_key:

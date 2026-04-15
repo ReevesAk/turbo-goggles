@@ -156,9 +156,15 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
 
-            logger.info(f"Received 9PSB inflow webhook for user: {user.first_name} {user.last_name}")
+            logger.info(
+                f"Received 9PSB inflow webhook for user: {user.first_name} {user.last_name}"
+            )
             # Send SMS and Email notification for wallet credit
-            if wallet and user and getattr(user, 'alert_type_choice', None) in ("SMS", "Both"):
+            if (
+                wallet
+                and user
+                and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
+            ):
                 # Add source bank and account to the SMS description
                 inflow_desc = f"{description} (From: {source_bank} - {source_account})"
                 sms_msg = generate_transaction_sms(
@@ -170,12 +176,18 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     reference=nipsessionid,
                 )
                 logger.info(f"SMS MSG TYPE: {sms_msg}")
-                logger.info(f"Sending SMS to {wallet.user.phone_number} with message: {sms_msg}")
+                logger.info(
+                    f"Sending SMS to {wallet.user.phone_number} with message: {sms_msg}"
+                )
                 Messaging.send_sms(
                     phone_number=wallet.user.phone_number[1:],
                     msg=sms_msg,
                 )
-            if wallet and user and getattr(user, 'alert_type_choice', None) in ("Email", "Both"):
+            if (
+                wallet
+                and user
+                and getattr(user, "alert_type_choice", None) in ("Email", "Both")
+            ):
                 # Send email notification using table_email.html
                 email_subject = "Wallet Credit Notification"
                 email_context = {
@@ -290,7 +302,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 
             print("USER:", user)
             print("WALLET:", wallet)
-            print("ALERT TYPE:", getattr(user, 'alert_type_choice', None))
+            print("ALERT TYPE:", getattr(user, "alert_type_choice", None))
 
         return Response(
             {

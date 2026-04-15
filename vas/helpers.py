@@ -64,7 +64,9 @@ class VAS:
             "Content-Type": "application/json",
         }
 
-        logging.info(f"VAS status REQUEST: url=%s, headers=%s", _build_vas_url(resource), HEADERS)
+        logging.info(
+            f"VAS status REQUEST: url=%s, headers=%s", _build_vas_url(resource), HEADERS
+        )
         try:
             resp = requests.get(
                 url=_build_vas_url(resource), headers=HEADERS, timeout=10
@@ -73,7 +75,9 @@ class VAS:
                 resp_json = resp.json()
             except Exception:
                 resp_json = resp.text
-            logging.info(f"VAS status RESPONSE: status=%s, body=%s", resp.status_code, resp_json)
+            logging.info(
+                f"VAS status RESPONSE: status=%s, body=%s", resp.status_code, resp_json
+            )
             return resp
         except requests.RequestException as e:
             logging.error("VAS status check failed: %s", e)
@@ -105,6 +109,7 @@ class VAS:
             headers,
         )
         import sys
+
         print("VAS airtime_topup REQUEST:")
         print(f"  url: {_build_vas_url(resource)}")
         print(f"  payload: {payload}")
@@ -126,11 +131,11 @@ class VAS:
                 resp_json = response.json()
             except Exception:
                 resp_json = response.text
+            logging.info("VAS airtime_topup RAW REQUEST BODY: %s", req_body)
             logging.info(
-                "VAS airtime_topup RAW REQUEST BODY: %s", req_body
-            )
-            logging.info(
-                "VAS airtime_topup RESPONSE: status=%s, body=%s", response.status_code, resp_json
+                "VAS airtime_topup RESPONSE: status=%s, body=%s",
+                response.status_code,
+                resp_json,
             )
             return response
         except requests.exceptions.RequestException as e:
