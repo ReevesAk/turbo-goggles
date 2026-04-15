@@ -244,6 +244,8 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             # Delete old device
             DeviceId.objects.filter(user=user).delete()
 
+            device_id = device_id.strip().lower()
+
             # Save new device
             DeviceId.objects.create(
                 user=user,
