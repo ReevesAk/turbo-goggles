@@ -676,9 +676,9 @@ class Login(APIView):
             user = authenticate(phone_number=login, password=password)
             logger.info("Password authentication attempted for user: %s", login)
 
-        logger.info("INCOMING DEVICE ID:", device_id)
+        logger.info("INCOMING DEVICE ID: %s", device_id)
         stored = list(DeviceId.objects.filter(user=user).values_list("device_id", flat=True))
-        logger.info("STORED:", stored)
+        logger.info("STORED: %s", stored)
 
         # If authentication fails, return an error
         if not user:
@@ -768,19 +768,17 @@ class Login(APIView):
         device_name = str(device_name).strip().lower()
         device_os = str(device_os).strip().lower()
 
-        device = DeviceId.objects.filter(user=user).first()
-
-        # No device stored yet
-        if not device:
+        devices = DeviceId.objects.filter(user=user)
+        if not devices.exists():
             return True
 
-        # Check if device matches
-        if (
-            device.device_id == device_id
-            and device.device_name == device_name
-            and device.device_os == device_os
-        ):
-            return True
+        for device in devices:
+            if (
+                (device.device_id or "").strip().lower() == device_id
+                and (device.device_name or "").strip().lower() == device_name
+                and (device.device_os or "").strip().lower() == device_os
+            ):
+                return True
 
         return False
 
