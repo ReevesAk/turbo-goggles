@@ -83,7 +83,7 @@ class VAS:
     def airtime_topup(
         network, bearer_token, amount, debitAccount, phone_number, tx_ref
     ):
-        resource = "identity/api/v1/topup/airtime"
+        resource = "vas/api/v1/topup/airtime"
         payload = {
             "network": network,
             "amount": amount,
@@ -141,7 +141,7 @@ class VAS:
     def data(
         network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref
     ):
-        resource = "identity/api/v1/topup/data"
+        resource = "vas/api/v1/topup/data"
         payload = {
             "network": network,
             "debitAccount": debitAccount,
@@ -168,7 +168,7 @@ class VAS:
 
     @staticmethod
     def bill_payment_categories(bearer_token, category_id):
-        resource = f"identity/api/v1/billspayment/billers/{category_id}"
+        resource = f"vas/api/v1/billspayment/billers/{category_id}"
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
@@ -185,7 +185,7 @@ class VAS:
 
     @staticmethod
     def billers_categories(bearer_token, biller_id):
-        resource = f"identity/api/v1/billspayment/fields/{biller_id}"
+        resource = f"vas/api/v1/billspayment/fields/{biller_id}"
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
@@ -202,7 +202,7 @@ class VAS:
 
     @staticmethod
     def verify_bill_payer(bearer_token, billerId, customerId, itemId, amount):
-        resource = "identity/api/v1/billspayment/validate"
+        resource = "vas/api/v1/billspayment/validate"
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
@@ -237,7 +237,7 @@ class VAS:
         debitAccount,
         transactionReference,
     ):
-        resource = "identity/api/v1/billspayment/pay"
+        resource = "vas/api/v1/billspayment/pay"
         payload = {
             "customerId": customerId,
             "billerId": billerId,
