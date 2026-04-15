@@ -1,12 +1,8 @@
-from django.utils import timezone
-
 import logging
-
-from django.template.loader import render_to_string
 
 # Third party imports.
 from rest_framework import generics
-from django.contrib.auth import authenticate
+
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,8 +15,6 @@ from .serializers import (
     WaitlistSerialiser,
 )
 from .models import WaitlistModel
-from roles.models import ActivityModel
-from commons import Messaging
 from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt
 from rest_framework.permissions import IsAuthenticated
