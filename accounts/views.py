@@ -666,10 +666,6 @@ class Login(APIView):
         device_name = data.get("device_name")
         device_os = data.get("device_os")
 
-        logger.info("INCOMING DEVICE ID:", device_id)
-        stored = list(DeviceId.objects.filter(user=user).values_list("device_id", flat=True))
-        logger.info("STORED:", stored)
-
         logger.info("Login attempt for phone number: %s", login)
 
         # Check if biometrics is requested
@@ -679,6 +675,10 @@ class Login(APIView):
         else:
             user = authenticate(phone_number=login, password=password)
             logger.info("Password authentication attempted for user: %s", login)
+
+        logger.info("INCOMING DEVICE ID:", device_id)
+        stored = list(DeviceId.objects.filter(user=user).values_list("device_id", flat=True))
+        logger.info("STORED:", stored)
 
         # If authentication fails, return an error
         if not user:
