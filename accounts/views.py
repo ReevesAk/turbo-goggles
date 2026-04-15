@@ -705,6 +705,9 @@ class Login(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Normalize device ID for consistent comparison
+        device_id = str(device_id).strip().lower()
+
         # Check device limit for password login only
         is_known_device = self.check_device_limit(
             user, device_id, device_name, device_os
@@ -761,6 +764,10 @@ class Login(APIView):
 
     @staticmethod
     def check_device_limit(user, device_id, device_name, device_os):
+        device_id = str(device_id).strip().lower()
+        device_name = str(device_name).strip().lower()
+        device_os = str(device_os).strip().lower()
+
         device = DeviceId.objects.filter(user=user).first()
 
         # No device stored yet
