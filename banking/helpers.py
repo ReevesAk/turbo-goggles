@@ -103,7 +103,6 @@ def generate_transaction_sms(
     balance,
     description,
     reference,
-    app_name="Picadailys",
 ):
     masked_account = f"******{str(account_number)[-4:]}"
 
@@ -113,16 +112,11 @@ def generate_transaction_sms(
 
     message = f"""
     {transaction_type.upper()} ALERT
-
     Acct: {masked_account}
     Amt: NGN{amount:.2f}
     Desc: {description}
     Date: {timezone.now().strftime('%d-%b-%Y %H:%M')}
     Bal: NGN{balance:.2f}
-    Ref: {reference}
-
-    {extra_line}
-    {app_name}
     """
     return message.strip()
 
