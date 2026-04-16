@@ -342,6 +342,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 amount=amount,
                                 reason="VAS service unavailable.",
                             )
+                        # Log the raw response from VAS provider for audit
+                        try:
+                            logger.info("RAW VAS airtime response: %s", airtime_response.text)
+                        except Exception as e:
+                            logger.error("Failed to log VAS response: %s", str(e))
                         status_query = VAS.status(
                             bearer_token=vas_token, tx_ref=tx_reference
                         )
@@ -414,6 +419,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     phone_number=phone,
                                     tx_ref=tx_reference,
                                 )
+                                # Log the raw response from VAS provider for audit
+                                try:
+                                    logger.info("RAW VAS airtime response (WALLET): %s", airtime_response.text)
+                                except Exception as e:
+                                    logger.error("Failed to log VAS response (WALLET): %s", str(e))
 
                                 if airtime_response is None:
                                     return self._handle_airtime_failure(
