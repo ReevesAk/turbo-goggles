@@ -258,7 +258,7 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
 class ListAllBrandAds(generics.ListAPIView):
     serializer_class = AdSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin) | IsSuperAdmin]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
