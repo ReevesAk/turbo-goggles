@@ -27,6 +27,7 @@ from .notifications import (
     MarkNotificationsAsRead,
     DeleteNotification,
 )
+from templates.preview_picadailys_email_view import preview_picadailys_email
 
 app_name = "user_profile"
 
@@ -72,4 +73,10 @@ urlpatterns = [
         RateAgentViewByCustomer.as_view(),
         name="rate_agent_by_customer",
     ),
+    path(
+        "preview-picadailys-email",
+        preview_picadailys_email,
+        name="preview_picadailys_email",
+    ),
+    path("preview-email/", preview_picadailys_email, name="preview_picadailys_email"),
 ]

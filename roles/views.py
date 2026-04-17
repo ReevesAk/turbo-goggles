@@ -96,19 +96,22 @@ class RegisterSuperAdmin(generics.GenericAPIView):
     serializer_class = RegisterSuperAdminSerializer
 
     def post(self, request):
-        # Check if a SuperAdmin already exists.
-        # If yes, return a 403 Forbidden response.
-        if User.objects.filter(active_role="SuperAdmin").exists():
-            return Response(
-                data="Registration is not allowed. Super admin already exists.",
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         decrypted_payload = decrypt(request.data)
         payload = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+
+        # Check if an active and enabled SuperAdmin already exists.
+        # Only block registration if such a user exists.
+        if User.objects.filter(
+            active_role="SuperAdmin", is_active=True, is_disabled=False
+        ).exists():
+            return Response(
+                data="Registration is not allowed. Super admin already exists.",
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = self.serializer_class(data=payload)
         if serializer.is_valid(raise_exception=True):
             try:
@@ -135,6 +138,8 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 msg = f"Welcome SuperUser! This is a one-time signup. To protect your account, please enter this {otp}."
                 recipient = current_user.phone_number[1:]
 
+                logger.info(f"OTP generated for SuperAdmin: {otp}")
+                print(f"OTP for SuperAdmin registration: {otp}")
                 # Send OTP message
                 Messaging.send_sms(phone_number=recipient, msg=msg)
 

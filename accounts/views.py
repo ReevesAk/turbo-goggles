@@ -677,7 +677,9 @@ class Login(APIView):
             logger.info("Password authentication attempted for user: %s", login)
 
         logger.info("INCOMING DEVICE ID: %s", device_id)
-        stored = list(DeviceId.objects.filter(user=user).values_list("device_id", flat=True))
+        stored = list(
+            DeviceId.objects.filter(user=user).values_list("device_id", flat=True)
+        )
         logger.info("STORED: %s", stored)
 
         # If authentication fails, return an error

@@ -1,0 +1,112 @@
+<!-- templates/picadailys_email.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default:"Picadailys Notification" }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #0a2e75;
+            padding: 24px 0 16px 0;
+            text-align: center;
+        }
+
+        .header img {
+            height: 48px;
+        }
+
+        .title {
+            color: #0a2e75;
+            font-size: 22px;
+            font-weight: bold;
+            margin: 24px 0 8px 0;
+            text-align: center;
+        }
+
+        .content {
+            padding: 0 32px 24px 32px;
+            color: #222;
+            font-size: 16px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+        }
+
+        .table th,
+        .table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .footer {
+            background: #f0f0f0;
+            color: #888;
+            font-size: 13px;
+            text-align: center;
+            padding: 16px 0;
+        }
+    </style>
+</head>
+
+<body style="position: relative; min-height: 100vh;">
+    <!-- Watermark background -->
+    <div
+        style="background-image: url('{% static 'picadailys/logo.png' %}'); background-size: 50%; background-position: center center; background-repeat: no-repeat; opacity: 0.07; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; width: 100vw; height: 100vh; pointer-events: none;">
+    </div>
+    <div class="container" style="position: relative; z-index: 1;">
+        <div class="header">
+            <img src="{% static 'picadailys/logo.png' %}" alt="Picadailys Logo">
+        </div>
+        <div class="title">{{ title|default:"Notification" }}</div>
+        <div class="content">
+            {% if message %}
+            <p>{{ message }}</p>
+            {% endif %}
+            {% if rows %}
+            <table class="table">
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <th>{{ row.label }}</th>
+                        <td>{{ row.value }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>For further enquiries, please contact our customer support:</p>
+            <p>Email: <a href="mailto:{{support_email}}" style="color:#0a2e75; font-weight:600;">{{support_email}}</a>
+            </p>
+            <p>Phone: <a href="tel:{{picadailys_phone}}"
+                    style="color:#0a2e75; font-weight:600;">{{picadailys_phone}}</a></p>
+            <p style="margin-top: 1.5em;">&copy; {{ year|default:2026 }} Picadailys. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

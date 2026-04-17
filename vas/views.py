@@ -344,7 +344,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                             )
                         # Log the raw response from VAS provider for audit
                         try:
-                            logger.info("RAW VAS airtime response: %s", airtime_response.text)
+                            logger.info(
+                                "RAW VAS airtime response: %s", airtime_response.text
+                            )
                         except Exception as e:
                             logger.error("Failed to log VAS response: %s", str(e))
                         status_query = VAS.status(
@@ -411,7 +413,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 )
 
                             if debit_response.status_code == "200":
-                                logger.debug("About to call VAS.airtime_topup for WALLET payment option")
+                                logger.debug(
+                                    "About to call VAS.airtime_topup for WALLET payment option"
+                                )
                                 airtime_response = VAS.airtime_topup(
                                     network=network,
                                     bearer_token=vas_token,
@@ -420,13 +424,27 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     phone_number=phone,
                                     tx_ref=tx_reference,
                                 )
-                                logger.debug("airtime_response type: %s", type(airtime_response))
-                                logger.debug("airtime_response value: %s", str(airtime_response))
+                                logger.debug(
+                                    "airtime_response type: %s", type(airtime_response)
+                                )
+                                logger.debug(
+                                    "airtime_response value: %s", str(airtime_response)
+                                )
                                 # Log the raw response from VAS provider for audit
                                 try:
-                                    logger.info("RAW VAS airtime response (WALLET): %s", getattr(airtime_response, 'text', 'NO TEXT ATTRIBUTE'))
+                                    logger.info(
+                                        "RAW VAS airtime response (WALLET): %s",
+                                        getattr(
+                                            airtime_response,
+                                            "text",
+                                            "NO TEXT ATTRIBUTE",
+                                        ),
+                                    )
                                 except Exception as e:
-                                    logger.error("Failed to log VAS response (WALLET): %s", str(e))
+                                    logger.error(
+                                        "Failed to log VAS response (WALLET): %s",
+                                        str(e),
+                                    )
 
                                 if airtime_response is None:
                                     return self._handle_airtime_failure(
