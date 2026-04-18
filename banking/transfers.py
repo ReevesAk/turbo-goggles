@@ -467,13 +467,36 @@ class IntraBankTransfer(generics.CreateAPIView):
                                 "picadailys_phone": "+2347000000000",
                             },
                         )
-                        Messaging.send_email(
-                            email=email,
-                            html_content=html_content,
-                            sender_email="noreply@picadailys.com",
-                            subject="Debit Alert",
-                            body=sms_msg,
+                        # Prepare email context and body like inflows webhook
+                        email_subject = "Debit Alert"
+                        email_context = {
+                            "title": "Debit Alert",
+                            "rows": [
+                                {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
+                                {"label": "Account Number", "value": account_number},
+                                {"label": "Narration", "value": narration},
+                                {"label": "Reference", "value": idempotency_key},
+                                {
+                                    "label": "Datetime",
+                                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                                },
+                                {"label": "Tx Type", "value": "Debit"},
+                                {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
+                            ],
+                            "support_email": "notifications@picadailys.com",
+                            "picadailys_phone": "02012271894 02012271895",
+                        }
+                        email_body = render_to_string(
+                            "picadailys_email.html", email_context
                         )
+                        if email:
+                            Messaging.send_email(
+                                email=email,
+                                subject=email_subject,
+                                html_content=email_body,
+                                sender_email="notifications@picadailys.com",
+                                body=email_body,
+                            )
 
                     logger.info(
                         f"Transfer notification (SMS/Email) sent to user {authenticated_user.id}."
@@ -785,13 +808,36 @@ class InterBankTransfer(generics.CreateAPIView):
                                 "picadailys_phone": "+2347000000000",
                             },
                         )
-                        Messaging.send_email(
-                            email=email,
-                            html_content=html_content,
-                            sender_email="noreply@picadailys.com",
-                            subject="Debit Alert",
-                            body=sms_msg,
+                        # Prepare email context and body like inflows webhook
+                        email_subject = "Debit Alert"
+                        email_context = {
+                            "title": "Debit Alert",
+                            "rows": [
+                                {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
+                                {"label": "Account Number", "value": account_number},
+                                {"label": "Narration", "value": narration},
+                                {"label": "Reference", "value": idempotency_key},
+                                {
+                                    "label": "Datetime",
+                                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                                },
+                                {"label": "Tx Type", "value": "Debit"},
+                                {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
+                            ],
+                            "support_email": "notifications@picadailys.com",
+                            "picadailys_phone": "02012271894 02012271895",
+                        }
+                        email_body = render_to_string(
+                            "picadailys_email.html", email_context
                         )
+                        if email:
+                            Messaging.send_email(
+                                email=email,
+                                subject=email_subject,
+                                html_content=email_body,
+                                sender_email="notifications@picadailys.com",
+                                body=email_body,
+                            )
 
                     logger.info(
                         f"Transfer notification (SMS/Email) sent to user {authenticated_user.id}."

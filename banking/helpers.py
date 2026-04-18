@@ -111,7 +111,7 @@ def generate_transaction_sms(
         extra_line = "If not you, contact support immediately."
 
     message = f"""
-    {transaction_type.upper()} ALERT
+    {transaction_type.upper()}
     Acct: {masked_account}
     Amt: NGN{amount:.2f}
     Desc: {description}

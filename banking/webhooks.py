@@ -151,7 +151,6 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        logger.info("Triggering SMS for webhook")
         if merchant == "PICADAILYS":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
@@ -302,10 +301,6 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                         "Unexpected error while attempting to award welcome bonus"
                     )
 
-            print("USER:", user)
-            print("WALLET:", wallet)
-            print("ALERT TYPE:", getattr(user, "alert_type_choice", None))
-
         return Response(
             {
                 "success": True,
@@ -387,20 +382,35 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
 
         if status == "Completed":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
+            user = wallet.user if wallet else None
+
+            if (
+                wallet
+                and user
+                and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
+            ):
+                sms_msg = f"Dear {user.first_name}, your account with number {account_number} has been upgraded. Your new tier level is {self.extract_tier(message)}. Enjoy enhanced features and benefits with your upgraded account."
+                logger.info(
+                    f"Sending SMS to {user.phone_number} with message: {sms_msg}"
+                )
+                Messaging.send_sms(
+                    phone_number=user.phone_number[1:],
+                    msg=sms_msg,
+                )
 
             if wallet:
                 # Record notification
                 UserNotification.objects.create(
-                    user=wallet.user,
+                    user=user,
                     title="Account Upgrade",
                     message=message,
                 )
 
                 tier = self.extract_tier(message)
                 ActivityModel.objects.create(
-                    user=wallet.user,
+                    user=user,
                     title="Account Upgrade",
-                    description=f"{wallet.user.full_name}'s account has been upgraded to {tier}.",
+                    description=f"{user.full_name}'s account has been upgraded to {tier}.",
                 )
                 wallet.tier_level = tier
                 wallet.save()
