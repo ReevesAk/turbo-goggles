@@ -322,6 +322,20 @@ class IntraBankTransfer(generics.CreateAPIView):
                 account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
                     user=authenticated_user
                 )
+                # Sync local wallet balance with external after locking# Sync local wallet balance with external after locking
+                try:
+                    ext_resp = Wallet.getWalletDetails(account.account_number)
+                    if ext_resp and hasattr(ext_resp, "json"):
+                        ext_data = ext_resp.json()
+                        if ext_data.get("status") == "SUCCESS":
+                            ext_balance = Decimal(
+                                str(ext_data["data"].get("balance", account.balance))
+                            )
+                            if ext_balance != account.balance:
+                                account.balance = ext_balance
+                                account.save(update_fields=["balance"])
+                except Exception as e:
+                    logger.warning(f"Could not sync wallet balance from external: {e}")
 
                 pin = payload.get("pin")
                 biometrics = payload.get("use_biometrics")
@@ -655,6 +669,21 @@ class InterBankTransfer(generics.CreateAPIView):
                 account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
                     user=authenticated_user
                 )
+
+                # Sync local wallet balance with external after locking
+                try:
+                    ext_resp = Wallet.getWalletDetails(account.account_number)
+                    if ext_resp and hasattr(ext_resp, "json"):
+                        ext_data = ext_resp.json()
+                        if ext_data.get("status") == "SUCCESS":
+                            ext_balance = Decimal(
+                                str(ext_data["data"].get("balance", account.balance))
+                            )
+                            if ext_balance != account.balance:
+                                account.balance = ext_balance
+                                account.save(update_fields=["balance"])
+                except Exception as e:
+                    logger.warning(f"Could not sync wallet balance from external: {e}")
 
                 pin = payload.get("pin")
                 biometrics = payload.get("use_biometrics")
