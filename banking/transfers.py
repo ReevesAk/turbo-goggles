@@ -243,9 +243,7 @@ class IntraBankTransfer(generics.CreateAPIView):
         logger.info(f"Received transfer request from user: {authenticated_user.id}")
 
         # Extract idempotency key from request headers or body
-        idempotency_key = request.headers.get("Idempotency-Key") or request.data.get(
-            "idempotency_key"
-        )
+        idempotency_key = request.headers.get("Idempotency-Key")
 
         if not idempotency_key:
             logger.warning("Idempotency-Key header is missing.")
@@ -578,9 +576,7 @@ class InterBankTransfer(generics.CreateAPIView):
         logger.info(f"Received transfer request from user: {authenticated_user.id}")
 
         # Extract idempotency key from request headers or body
-        idempotency_key = request.headers.get("Idempotency-Key") or request.data.get(
-            "idempotency_key"
-        )
+        idempotency_key = request.headers.get("Idempotency-Key")
 
         if not idempotency_key:
             logger.warning("Idempotency-Key header is missing.")
