@@ -766,7 +766,7 @@ class InterBankTransfer(generics.CreateAPIView):
                         beneficiary_account_number=payload.get(
                             "beneficiary_account_number"
                         ),
-                        source_account_name=authenticated_user.full_name,
+                        sender_name=authenticated_user.full_name,
                         amount=payload.get("amount"),
                         available_balance=account.balance,
                     )
