@@ -5,6 +5,8 @@ import hmac
 import hashlib
 from decouple import config
 
+from banking.controllers import Wallet
+
 from django.http import HttpResponse
 from django.views import View
 from django.template.loader import render_to_string
@@ -166,11 +168,21 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
             ):
                 # Add source bank and account to the SMS description
                 inflow_desc = f"{description} (From: {source_bank} - {source_account})"
+                # Fetch latest balance using wallet enquiry
+                latest_balance = wallet.balance
+                if wallet.account_number:
+                    enquiry_resp = Wallet.getWalletDetails(wallet.account_number)
+                    if enquiry_resp and hasattr(enquiry_resp, "json"):
+                        enquiry_data = enquiry_resp.json()
+                        if isinstance(enquiry_data, dict):
+                            bal = enquiry_data.get("data", {}).get("availableBalance")
+                            if bal is not None:
+                                latest_balance = bal
                 sms_msg = generate_transaction_sms(
                     transaction_type="CREDIT",
                     account_number=wallet.account_number,
                     amount=amount,
-                    balance=wallet.balance,
+                    balance=latest_balance,
                     description=inflow_desc,
                     reference=nipsessionid,
                 )
