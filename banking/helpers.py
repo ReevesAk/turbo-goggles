@@ -106,19 +106,17 @@ def generate_transaction_sms(
 ):
     masked_account = f"******{str(account_number)[-4:]}"
 
-    extra_line = ""
+    lines = [
+        f"{transaction_type.upper()} ALERT",
+        f"Acct: {masked_account}",
+        f"Amt: NGN{amount:.2f}",
+        f"Desc: {description}",
+        f"Date: {timezone.now().strftime('%d-%b-%Y %H:%M')}",
+        f"Bal: NGN{balance:.2f}",
+    ]
     if transaction_type.upper() == "DEBIT":
-        extra_line = "If not you, contact support immediately."
-
-    message = f"""
-    {transaction_type.upper()}
-    Acct: {masked_account}
-    Amt: NGN{amount:.2f}
-    Desc: {description}
-    Date: {timezone.now().strftime('%d-%b-%Y %H:%M')}
-    Bal: NGN{balance:.2f}
-    """
-    return message.strip()
+        lines.append("If not you, contact support immediately.")
+    return "\n".join(lines)
 
 
 class ExportStatement:
