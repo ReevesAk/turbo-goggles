@@ -736,7 +736,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 )
 
                 transfer_resp = Transfers.initiate_transfer(
-                    bank=payload.get("beneficiary_bank_code"),
+                    bank_code=payload.get("beneficiary_bank_code"),
                     account_number=payload.get("beneficiary_account_number"),
                     name=payload.get("beneficiary_name"),
                     sender_name=account.acct_name,
