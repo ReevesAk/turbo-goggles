@@ -1,6 +1,6 @@
 import json as _json
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
@@ -130,16 +130,19 @@ class GetAccountDetailsTests(APITestCase):
         wallet = _create_wallet(user, account_number="1111222233")
         self.client.force_authenticate(user=user)
 
-        mock_live_wallet.return_value = {
-            "status": "SUCCESS",
-            "data": {
-                "name": wallet.acct_name,
-                "nuban": wallet.account_number,
-                "number": "CUST-001",
-                "availableBalance": "2500.00",
-                "tier": "1",
-            },
-        }
+        # Mock with .json() method as expected by the view
+        mock_live_wallet.return_value = MagicMock(
+            json=lambda: {
+                "status": "SUCCESS",
+                "data": {
+                    "name": wallet.acct_name,
+                    "nuban": wallet.account_number,
+                    "number": "CUST-001",
+                    "availableBalance": "2500.00",
+                    "tier": "1",
+                },
+            }
+        )
 
         response = self.client.get(self.url)
 

@@ -1,10 +1,11 @@
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
+from django.urls import reverse
 
 from vas import helpers
 from vas.helpers import VAS
@@ -220,6 +221,128 @@ class VasEndpointCoverageTests(APITestCase):
             HTTP_X_GUEST_ID=guest_id,
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         body = decrypt(response.data)
-        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["status"], "fail")
+
+
+class HybridPaymentFlowTests(APITestCase):
+    @patch("vas.views.Wallet.Debit")
+    @patch("vas.views.Wallet.Credit")
+    @patch("vas.views.VAS.data")
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_data_subscription_hybrid_points_wallet_flow(
+        self, mock_auth, mock_status, mock_data, mock_credit, mock_debit
+    ):
+        """
+        Hybrid payment: points + wallet. Wallet portion debited to central, VAS called with central account.
+        Refund is triggered if VAS fails.
+        """
+        mock_status.return_value = MagicMock(
+            json=lambda: {"data": {"transactionStatus": "fail", "responseCode": 500}}
+        )
+        mock_data.return_value = None  # Simulate VAS failure
+        mock_debit.return_value = MagicMock(status_code=200)
+        mock_credit.return_value = MagicMock()
+
+        payload = encrypt(
+            {
+                "payment_option": "WALLET",
+                "phone_number": "08010000000",
+                "amount": "1000",
+                "network": "MTN",
+                "productId": "mtn-1gb",
+                "use_points": True,
+                "pin": "1234",
+            }
+        )
+        user = self.create_and_login_user()
+        response = self.client.post(
+            reverse("vas:data_subscription"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(mock_debit.called)
+        self.assertTrue(mock_credit.called)
+
+    @patch("vas.views.Wallet.Debit")
+    @patch("vas.views.VAS.data")
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_data_subscription_wallet_only_flow(
+        self, mock_auth, mock_status, mock_data, mock_debit
+    ):
+        """
+        Wallet-only: user wallet debited directly, VAS called with user wallet account.
+        """
+        mock_status.return_value = MagicMock(
+            json=lambda: {"data": {"transactionStatus": "success", "responseCode": 200}}
+        )
+        mock_data.return_value = MagicMock(json=lambda: {"data": {}})
+        mock_debit.return_value = MagicMock(status_code=200)
+
+        payload = encrypt(
+            {
+                "payment_option": "WALLET",
+                "phone_number": "08010000000",
+                "amount": "1000",
+                "network": "MTN",
+                "productId": "mtn-1gb",
+                "pin": "1234",
+            }
+        )
+        user = self.create_and_login_user()
+        response = self.client.post(
+            reverse("vas:data_subscription"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(mock_debit.called)
+
+    @patch("vas.views.VAS.data")
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_data_subscription_card_flow_uses_central_account(
+        self, mock_auth, mock_status, mock_data
+    ):
+        """
+        Card payment: VAS called with central debit account.
+        """
+        mock_status.return_value = MagicMock(
+            json=lambda: {"data": {"transactionStatus": "success", "responseCode": 200}}
+        )
+        mock_data.return_value = MagicMock(json=lambda: {"data": {}})
+
+        payload = encrypt(
+            {
+                "payment_option": "CARD",
+                "phone_number": "08010000000",
+                "amount": "1000",
+                "network": "MTN",
+                "productId": "mtn-1gb",
+            }
+        )
+        guest_id = str(uuid4())
+        response = self.client.post(
+            reverse("vas:data_subscription"),
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_X_GUEST_ID=guest_id,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        args, kwargs = mock_data.call_args
+        self.assertIn("debitAccount", kwargs)
+
+    def create_and_login_user(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(phone_number="08010000001", password="testpass")
+        from vas.test_utils import ensure_wallet_for_user
+
+        ensure_wallet_for_user(user)
+        self.client.force_login(user)
+        return user

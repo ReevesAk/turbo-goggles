@@ -9,6 +9,10 @@ from csp.constants import NONCE
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Central accounts for VAS payment orchestration (from .env)
+CENTRAL_VAS_DEBIT_ACCOUNT = conf("CENTRAL_VAS_DEBIT_ACCOUNT")
+CENTRAL_COLLECTION_ACCOUNT = conf("CENTRAL_COLLECTION_ACCOUNT")
+CENTRAL_REFUND_ACCOUNT = conf("CENTRAL_REFUND_ACCOUNT")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
