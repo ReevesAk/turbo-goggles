@@ -329,7 +329,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                         ext_data = ext_resp.json()
                         if ext_data.get("status") == "SUCCESS":
                             ext_balance = Decimal(
-                                str(ext_data["data"].get("balance", account.balance))
+                                str(ext_data.get("data", {}).get("availableBalance", account.balance))
                             )
                             if ext_balance != account.balance:
                                 account.balance = ext_balance
@@ -677,7 +677,7 @@ class InterBankTransfer(generics.CreateAPIView):
                         ext_data = ext_resp.json()
                         if ext_data.get("status") == "SUCCESS":
                             ext_balance = Decimal(
-                                str(ext_data["data"].get("balance", account.balance))
+                                str(ext_data.get("data", {}).get("availableBalance", account.balance))
                             )
                             if ext_balance != account.balance:
                                 account.balance = ext_balance
