@@ -246,6 +246,24 @@ class SubmitJobApplication(generics.CreateAPIView):
         upload_cv = cloud.upload(cv_file)
         cv_url = upload_cv["url"]
 
+        cv_file = serializer.validated_data.pop("cv")
+        upload_cv = cloud.upload(cv_file)
+        cv_url = upload_cv["url"]
+
+        portfolio_file = serializer.validated_data.pop("portfolio", None)
+        if portfolio_file:
+            upload_portfolio = cloud.upload(portfolio_file)
+            portfolio_url = upload_portfolio["url"]
+        else:
+            portfolio_url = None
+
+        cover_letter_file = serializer.validated_data.pop("cover_letter", None)
+        if cover_letter_file:
+            upload_cover_letter = cloud.upload(cover_letter_file)
+            cover_letter_url = upload_cover_letter["url"]
+        else:
+            cover_letter_url = None
+
         # Prevent duplicate application per job
         if Applications.objects.filter(
             email=request.data.get("email"), job=job
@@ -260,6 +278,8 @@ class SubmitJobApplication(generics.CreateAPIView):
             job=job,
             job_title=job.title,  # ✅ from DB
             cv=cv_url,
+            portfolio=portfolio_url,
+            cover_letter=cover_letter_url,
         )
 
         text_content = render_to_string(
@@ -303,6 +323,8 @@ class SubmitJobApplication(generics.CreateAPIView):
                     "email": application.email,
                     "phone_number": application.phone_number,
                     "cv": cv_url,
+                    "portfolio": portfolio_url,
+                    "cover_letter": cover_letter_url,
                 },
             },
             status=status.HTTP_201_CREATED,

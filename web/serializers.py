@@ -68,6 +68,8 @@ class ListJobSerializer(serializers.ModelSerializer):
 
 class ApplicationsSerializers(serializers.ModelSerializer):
     cv = serializers.FileField(write_only=True)
+    portfolio = serializers.FileField(write_only=True, required=False)
+    cover_letter = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = Applications
@@ -81,6 +83,8 @@ class ApplicationsSerializers(serializers.ModelSerializer):
             "address",
             "email",
             "cv",
+            "portfolio",
+            "cover_letter",
         ]
 
 
@@ -99,6 +103,7 @@ class GetApplicationsWaitlistSerializers(serializers.ModelSerializer):
             "email",
             "waitlist",
             "cv",
+
         ]
 
 
@@ -116,6 +121,8 @@ class GetApplicationsSerializers(serializers.ModelSerializer):
             "address",
             "email",
             "cv",
+            "portfolio",
+            "cover_letter",
         ]
 
 
