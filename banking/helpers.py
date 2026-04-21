@@ -106,7 +106,7 @@ def generate_transaction_sms(
 ):
     masked_account = f"******{str(account_number)[-4:]}"
     support_phone = "02012271894"
-
+ 
     lines = [
         f"{transaction_type.upper()} ALERT",
         f"Acct: {masked_account}",
