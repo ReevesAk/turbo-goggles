@@ -105,6 +105,7 @@ def generate_transaction_sms(
     reference,
 ):
     masked_account = f"******{str(account_number)[-4:]}"
+    support_phone = "02012271894"
 
     lines = [
         f"{transaction_type.upper()} ALERT",
@@ -115,7 +116,8 @@ def generate_transaction_sms(
         f"Bal: NGN{balance:.2f}",
     ]
     if transaction_type.upper() == "DEBIT":
-        lines.append("If not you, contact support immediately.")
+        msg = f"If not you, contact support immediately. Call {support_phone}."
+        lines.append(msg)
     return "\n".join(lines)
 
 

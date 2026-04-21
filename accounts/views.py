@@ -155,7 +155,7 @@ class Register(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "012271894 0202012271895",
                 },
             )
 
