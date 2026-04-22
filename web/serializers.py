@@ -103,7 +103,6 @@ class GetApplicationsWaitlistSerializers(serializers.ModelSerializer):
             "email",
             "waitlist",
             "cv",
-
         ]
 
 

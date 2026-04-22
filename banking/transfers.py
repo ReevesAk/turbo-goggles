@@ -329,7 +329,11 @@ class IntraBankTransfer(generics.CreateAPIView):
                         ext_data = ext_resp.json()
                         if ext_data.get("status") == "SUCCESS":
                             ext_balance = Decimal(
-                                str(ext_data.get("data", {}).get("availableBalance", account.balance))
+                                str(
+                                    ext_data.get("data", {}).get(
+                                        "availableBalance", account.balance
+                                    )
+                                )
                             )
                             if ext_balance != account.balance:
                                 account.balance = ext_balance
@@ -492,7 +496,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                                     "label": "Datetime",
                                     "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
                                 },
-                                {"label": "Tx Type", "value": "Debit"},
+                                {"label": "Transaction Type", "value": "Debit"},
                                 {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
                             ],
                             "support_email": "notifications@picadailys.com",
@@ -677,7 +681,11 @@ class InterBankTransfer(generics.CreateAPIView):
                         ext_data = ext_resp.json()
                         if ext_data.get("status") == "SUCCESS":
                             ext_balance = Decimal(
-                                str(ext_data.get("data", {}).get("availableBalance", account.balance))
+                                str(
+                                    ext_data.get("data", {}).get(
+                                        "availableBalance", account.balance
+                                    )
+                                )
                             )
                             if ext_balance != account.balance:
                                 account.balance = ext_balance
@@ -846,7 +854,7 @@ class InterBankTransfer(generics.CreateAPIView):
                                     "label": "Datetime",
                                     "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
                                 },
-                                {"label": "Tx Type", "value": "Debit"},
+                                {"label": "Transaction Type", "value": "Debit"},
                                 {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
                             ],
                             "support_email": "notifications@picadailys.com",

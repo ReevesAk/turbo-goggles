@@ -200,9 +200,9 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                 and getattr(user, "alert_type_choice", None) in ("Email", "Both")
             ):
                 # Send email notification using picadailys_email.html
-                email_subject = "Wallet Credit Notification"
+                email_subject = "Credit Alert"
                 email_context = {
-                    "title": "Wallet Credit",
+                    "title": "Credit Alert",
                     "rows": [
                         {"label": "Amount", "value": f"₦{amount}"},
                         {"label": "Account Number", "value": wallet.account_number},
@@ -211,6 +211,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                         {"label": "Source Account", "value": source_account},
                         {"label": "Narration", "value": description},
                         {"label": "Reference", "value": nipsessionid},
+                        {"label": "Transaction Type", "value": "Credit"},
                     ],
                     "support_email": "notifications@picadailys.com",
                     "picadailys_phone": "02012271894 02012271895",
