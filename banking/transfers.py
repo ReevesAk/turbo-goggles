@@ -125,13 +125,19 @@ class Get9PSBWallet(generics.GenericAPIView):
             acc_resp = Wallet.getWalletDetails(
                 account_number=validated_data["account_number"]
             )
+            acc_data = None
+            if acc_resp is not None:
+                try:
+                    acc_data = acc_resp.json()
+                except Exception:
+                    acc_data = None
 
-            if acc_resp and acc_resp.get("status") == "SUCCESS":
-                serializer = Get9PSBWalletSerializer(acc_resp.get("data", {}))
+            if acc_data and acc_data.get("status") == "SUCCESS":
+                serializer = Get9PSBWalletSerializer(acc_data.get("data", {}))
                 response = {
                     "status": "success",
                     "message": "Account details for supplied account number retrieved successfully.",
-                    "data": acc_resp.get("data", {}),
+                    "data": acc_data.get("data", {}),
                 }
             else:
                 account_details = WalletModel.objects.filter(

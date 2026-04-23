@@ -19,7 +19,7 @@ clientSecret = config("CLIENT_SECRET")
 base_url = config("NINE_PSB_BASEURL")
 dojah_base_url = config("DOJAH_BASE_URL")
 
-picadailys_merchant_account = config("MERCHANT_ACCOUNT")
+picadailys_collection_account = config("CENTRAL_COLLECTION_ACCOUNT")
 
 app_id = config("APP_ID")
 authorization = config("AUTHORIZATION")
@@ -339,7 +339,7 @@ class Wallet:
             "narration": reason,
             "merchant": {
                 "isFee": False,
-                "merchantFeeAccount": picadailys_merchant_account,
+                "merchantFeeAccount": picadailys_collection_account,
                 "merchantFeeAmount": merchantFeeAmount,
             },
             "transactionType": "DEBIT_WALLET",

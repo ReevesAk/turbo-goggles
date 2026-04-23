@@ -67,8 +67,10 @@ class ListJobSerializer(serializers.ModelSerializer):
 
 
 class ApplicationsSerializers(serializers.ModelSerializer):
+
     cv = serializers.FileField(write_only=True)
-    portfolio = serializers.FileField(write_only=True, required=False)
+    portfolio_file = serializers.FileField(write_only=True, required=False, allow_null=True)
+    portfolio_text = serializers.CharField(write_only=True, required=False, allow_blank=True)
     cover_letter = serializers.FileField(write_only=True, required=False)
 
     class Meta:
@@ -83,9 +85,19 @@ class ApplicationsSerializers(serializers.ModelSerializer):
             "address",
             "email",
             "cv",
-            "portfolio",
+            "portfolio_file",
+            "portfolio_text",
             "cover_letter",
         ]
+
+    def validate(self, attrs):
+        portfolio_file = attrs.get("portfolio_file")
+        portfolio_text = attrs.get("portfolio_text", "").strip()
+        if portfolio_file and portfolio_text:
+            raise serializers.ValidationError("Provide either a portfolio file or text, not both.")
+        if not portfolio_file and not portfolio_text:
+            raise serializers.ValidationError("Portfolio (file or text) is required.")
+        return attrs
 
 
 class GetApplicationsWaitlistSerializers(serializers.ModelSerializer):

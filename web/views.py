@@ -242,20 +242,20 @@ class SubmitJobApplication(generics.CreateAPIView):
         serializer = ApplicationsSerializers(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cv_file = serializer.validated_data.pop("cv")
-        upload_cv = cloud.upload(cv_file)
-        cv_url = upload_cv["url"]
 
         cv_file = serializer.validated_data.pop("cv")
         upload_cv = cloud.upload(cv_file)
         cv_url = upload_cv["url"]
 
-        portfolio_file = serializer.validated_data.pop("portfolio", None)
+        portfolio_file = serializer.validated_data.pop("portfolio_file", None)
+        portfolio_text = serializer.validated_data.pop("portfolio_text", None)
         if portfolio_file:
             upload_portfolio = cloud.upload(portfolio_file)
-            portfolio_url = upload_portfolio["url"]
+            portfolio_value = upload_portfolio["url"]
+        elif portfolio_text:
+            portfolio_value = portfolio_text.strip()
         else:
-            portfolio_url = None
+            portfolio_value = None
 
         cover_letter_file = serializer.validated_data.pop("cover_letter", None)
         if cover_letter_file:
@@ -278,7 +278,7 @@ class SubmitJobApplication(generics.CreateAPIView):
             job=job,
             job_title=job.title,  # ✅ from DB
             cv=cv_url,
-            portfolio=portfolio_url,
+            portfolio=portfolio_value,
             cover_letter=cover_letter_url,
         )
 

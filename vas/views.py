@@ -383,7 +383,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     reason="Airtime top-up failed.",
                                 )
                         # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
-                        if wallet_debit_amount > 0:
+                        # Only perform local debit in hybrid cases
+                        if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
                             debit_response = Wallet.Debit(
                                 debitAccount=user_wallet.account_number,
                                 amount=wallet_debit_amount,
@@ -401,7 +402,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     amount=amount,
                                     reason="Wallet service unavailable or debit failed.",
                                 )
-                        vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                        vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                         airtime_response = VAS.airtime_topup(
                             network=network,
                             bearer_token=vas_token,
@@ -411,12 +412,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                             tx_ref=tx_reference,
                         )
                         if airtime_response is None:
-                            if wallet_debit_amount > 0:
+                            # Refund only if hybrid (points/cashback/bonus + wallet)
+                            if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                                 Wallet.Credit(
                                     acct_no=user_wallet.account_number,
                                     amount=wallet_debit_amount,
                                     reason="Refund after failed VAS purchase",
-                                    sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                                    sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                                 )
                             return self._handle_airtime_failure(
                                 user=user,
@@ -443,12 +445,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 cashback=cashback_used,
                             )
                         else:
-                            if wallet_debit_amount > 0:
+                            # Refund only if hybrid (points/cashback/bonus + wallet)
+                            if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                                 Wallet.Credit(
                                     acct_no=user_wallet.account_number,
                                     amount=wallet_debit_amount,
                                     reason="Refund after failed VAS purchase",
-                                    sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                                    sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                                 )
                             return self._handle_airtime_failure(
                                 user=user,
@@ -460,7 +463,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     case "CARD":
                         # Card payment: collect from card to central, call VAS with central debit account
                         # (Assume card payment is already processed and amount is in central collection)
-                        vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                        vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                         airtime_response = VAS.airtime_topup(
                             network=network,
                             bearer_token=vas_token,
@@ -999,7 +1002,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                             reason="Data subscription failed.",
                         )
                 # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
-                if wallet_debit_amount > 0:
+                # Only perform local debit in hybrid cases
+                if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
                     debit_response = Wallet.Debit(
                         debitAccount=user_wallet.account_number,
                         amount=wallet_debit_amount,
@@ -1017,7 +1021,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                             amount=amount,
                             reason="Wallet service unavailable or debit failed.",
                         )
-                vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 data_response = VAS.data(
                     network=network,
                     bearer_token=vas_token,
@@ -1028,12 +1032,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
-                    if wallet_debit_amount > 0:
+                    # Refund only if hybrid (points/cashback/bonus + wallet)
+                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
-                            sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_data_failure(
                         user=user,
@@ -1059,12 +1064,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                         cashback=cashback_used,
                     )
                 else:
-                    if wallet_debit_amount > 0:
+                    # Refund only if hybrid (points/cashback/bonus + wallet)
+                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
-                            sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_data_failure(
                         user=user,
@@ -1074,7 +1080,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Data subscription failed.",
                     )
             case "CARD":
-                vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 data_response = VAS.data(
                     network=network,
                     bearer_token=vas_token,
@@ -1713,7 +1719,8 @@ class BillPaymentView(generics.GenericAPIView):
                             reason="Bill payment failed.",
                         )
                 # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
-                if wallet_debit_amount > 0:
+                # Only perform local debit in hybrid cases
+                if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
                     debit_response = Wallet.Debit(
                         debitAccount=user_wallet.account_number,
                         amount=wallet_debit_amount,
@@ -1732,7 +1739,7 @@ class BillPaymentView(generics.GenericAPIView):
                             amount=amount,
                             reason="Wallet service unavailable or debit failed.",
                         )
-                vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 vas_response = VAS.bill_payment(
                     bearer_token=vas_token,
                     customerId=customerId,
@@ -1746,12 +1753,13 @@ class BillPaymentView(generics.GenericAPIView):
                     transactionReference=tx_reference,
                 )
                 if vas_response is None:
-                    if wallet_debit_amount > 0:
+                    # Refund only if hybrid (points/cashback/bonus + wallet)
+                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
-                            sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_failure(
                         user=user,
@@ -1782,12 +1790,13 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                     )
                 else:
-                    if wallet_debit_amount > 0:
+                    # Refund only if hybrid (points/cashback/bonus + wallet)
+                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
-                            sourceAccount=settings.CENTRAL_REFUND_ACCOUNT,
+                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_failure(
                         user=user,
@@ -1798,7 +1807,7 @@ class BillPaymentView(generics.GenericAPIView):
                         reason="Bill payment failed.",
                     )
             case "CARD":
-                vas_debit_account = settings.CENTRAL_VAS_DEBIT_ACCOUNT
+                vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 vas_response = VAS.bill_payment(
                     bearer_token=vas_token,
                     customerId=customerId,
