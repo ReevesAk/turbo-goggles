@@ -242,7 +242,6 @@ class SubmitJobApplication(generics.CreateAPIView):
         serializer = ApplicationsSerializers(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-
         cv_file = serializer.validated_data.pop("cv")
         upload_cv = cloud.upload(cv_file)
         cv_url = upload_cv["url"]

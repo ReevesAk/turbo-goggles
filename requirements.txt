@@ -39,6 +39,7 @@ python-decouple==3.8
 pytokens==0.4.1
 pytz==2025.2
 PyYAML==6.0.3
+rapidfuzz==3.14.5
 reportlab==4.4.10
 referencing==0.37.0
 requests==2.32.5

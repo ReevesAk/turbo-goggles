@@ -384,7 +384,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 )
                         # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
                         # Only perform local debit in hybrid cases
-                        if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
+                        if (
+                            use_points or use_cashback or use_bonus
+                        ) and wallet_debit_amount > 0:
                             debit_response = Wallet.Debit(
                                 debitAccount=user_wallet.account_number,
                                 amount=wallet_debit_amount,
@@ -413,7 +415,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                         if airtime_response is None:
                             # Refund only if hybrid (points/cashback/bonus + wallet)
-                            if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                            if wallet_debit_amount > 0 and (
+                                use_points or use_cashback or use_bonus
+                            ):
                                 Wallet.Credit(
                                     acct_no=user_wallet.account_number,
                                     amount=wallet_debit_amount,
@@ -446,7 +450,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                             )
                         else:
                             # Refund only if hybrid (points/cashback/bonus + wallet)
-                            if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                            if wallet_debit_amount > 0 and (
+                                use_points or use_cashback or use_bonus
+                            ):
                                 Wallet.Credit(
                                     acct_no=user_wallet.account_number,
                                     amount=wallet_debit_amount,
@@ -1003,7 +1009,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                         )
                 # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
                 # Only perform local debit in hybrid cases
-                if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
+                if (
+                    use_points or use_cashback or use_bonus
+                ) and wallet_debit_amount > 0:
                     debit_response = Wallet.Debit(
                         debitAccount=user_wallet.account_number,
                         amount=wallet_debit_amount,
@@ -1033,7 +1041,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
                 if data_response is None:
                     # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                    if wallet_debit_amount > 0 and (
+                        use_points or use_cashback or use_bonus
+                    ):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
@@ -1065,7 +1075,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 else:
                     # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                    if wallet_debit_amount > 0 and (
+                        use_points or use_cashback or use_bonus
+                    ):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
@@ -1720,7 +1732,9 @@ class BillPaymentView(generics.GenericAPIView):
                         )
                 # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
                 # Only perform local debit in hybrid cases
-                if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
+                if (
+                    use_points or use_cashback or use_bonus
+                ) and wallet_debit_amount > 0:
                     debit_response = Wallet.Debit(
                         debitAccount=user_wallet.account_number,
                         amount=wallet_debit_amount,
@@ -1754,7 +1768,9 @@ class BillPaymentView(generics.GenericAPIView):
                 )
                 if vas_response is None:
                     # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                    if wallet_debit_amount > 0 and (
+                        use_points or use_cashback or use_bonus
+                    ):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
@@ -1791,7 +1807,9 @@ class BillPaymentView(generics.GenericAPIView):
                     )
                 else:
                     # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                    if wallet_debit_amount > 0 and (
+                        use_points or use_cashback or use_bonus
+                    ):
                         Wallet.Credit(
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,

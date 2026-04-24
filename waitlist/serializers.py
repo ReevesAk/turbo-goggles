@@ -1,3 +1,5 @@
+from rapidfuzz import fuzz
+
 # Third party imports.
 from rest_framework import serializers
 
@@ -5,6 +7,55 @@ from .models import WaitlistModel
 
 
 class WaitlistSerialiser(serializers.ModelSerializer):
+
+    def validate(self, data):
+        import re
+        f = (data.get("f_name") or "").strip().lower()
+        l = (data.get("l_name") or "").strip().lower()
+        email = (data.get("email") or "").strip().lower()
+        phone = (data.get("phone") or "").strip().lower()
+
+        # Regex for real email validation
+        email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+        if not re.match(email_regex, email):
+            raise serializers.ValidationError('Please enter a valid email address.')
+
+        # 1. Block emails starting with 'eric'
+        if email.startswith("eric"):
+            raise serializers.ValidationError(
+                "Registrations from this email prefix are not allowed."
+            )
+
+        # 2. Block exact or swapped name duplicates
+        exists = (
+            WaitlistModel.objects.filter(f_name__iexact=f, l_name__iexact=l).exists()
+            or WaitlistModel.objects.filter(f_name__iexact=l, l_name__iexact=f).exists()
+        )
+        if exists:
+            raise serializers.ValidationError(
+                "A user with this name combination already exists."
+            )
+
+        # 3. Fuzzy name matching (for typos or small changes)
+        for user in WaitlistModel.objects.all():
+            uf = (user.f_name or "").strip().lower()
+            ul = (user.l_name or "").strip().lower()
+            # Check both orders
+            score1 = fuzz.ratio(f"{f} {l}", f"{uf} {ul}")
+            score2 = fuzz.ratio(f"{f} {l}", f"{ul} {uf}")
+            if max(score1, score2) > 90:
+                raise serializers.ValidationError(
+                    "A similar user already exists (fuzzy match)."
+                )
+
+        # 4. Block duplicate phone numbers (if not blank)
+        if phone and WaitlistModel.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError(
+                "A user with this phone number already exists."
+            )
+
+        return data
+
     class Meta:
         model = WaitlistModel
         fields = [
@@ -18,8 +69,6 @@ class WaitlistSerialiser(serializers.ModelSerializer):
             "joined_at",
         ]
         read_only_fields = ["joined_at"]
-
-    # Removed institution logic; now handled in the view
 
     def create(self, validated_data):
         first_name = validated_data.get("f_name")

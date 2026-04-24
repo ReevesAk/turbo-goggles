@@ -67,7 +67,7 @@ from .brand import (
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
-from waitlist.views import AdminWaitlistListView
+from waitlist.views import AdminWaitlistListView, AdminWaitlistDeleteDuplicatesView
 
 app_name = "roles"
 
@@ -247,5 +247,10 @@ urlpatterns = [
         "waitlist/all-users",
         AdminWaitlistListView.as_view(),
         name="admin_waitlist_users",
+    ),
+    path(
+        "waitlist/delete-duplicates/",
+        AdminWaitlistDeleteDuplicatesView.as_view(),
+        name="admin-waitlist-delete-duplicates",
     ),
 ]

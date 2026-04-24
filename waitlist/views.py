@@ -2,11 +2,16 @@ import logging
 
 # Third party imports.
 from rest_framework import generics
-
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from drf_spectacular.utils import extend_schema
 
@@ -262,4 +267,33 @@ class AdminWaitlistListView(generics.ListAPIView):
                 {"status": "success", "data": data, "remaining_slots": remaining_slots}
             ),
             status=status.HTTP_200_OK,
+        )
+
+
+class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
+    """
+    Admin endpoint to delete all duplicate waitlist users (including swapped names).
+    TaskAdmin & SuperAdmin only.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+
+    def delete(self, request, *args, **kwargs):
+        from collections import defaultdict
+
+        name_map = defaultdict(list)
+        for user in WaitlistModel.objects.all():
+            f = (user.f_name or "").strip().lower()
+            l = (user.l_name or "").strip().lower()
+            key = tuple(sorted([f, l]))
+            name_map[key].append(user.id)
+        duplicate_ids = [
+            uid for ids in name_map.values() if len(ids) > 1 for uid in ids
+        ]
+        qs = WaitlistModel.objects.filter(id__in=duplicate_ids)
+        count = qs.count()
+        qs.delete()
+        return Response(
+            {"status": "success", "deleted": count}, status=status.HTTP_200_OK
         )
