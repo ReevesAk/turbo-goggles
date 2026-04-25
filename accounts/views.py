@@ -1,4 +1,5 @@
 from django.utils import timezone
+from datetime import timedelta
 
 import logging
 
@@ -668,6 +669,22 @@ class Login(APIView):
 
         logger.info("Login attempt for phone number: %s", login)
 
+        # Get user object for password attempt tracking
+        user_obj = User.objects.filter(phone_number=login).first()
+        if (
+            user_obj
+            and user_obj.password_locked_until
+            and user_obj.password_locked_until > timezone.now()
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "error": "Account locked due to too many failed login attempts. Try again later."
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Check if biometrics is requested
         if biometrics:
             user = Biometrics.authenticate(login)
@@ -680,15 +697,40 @@ class Login(APIView):
         stored = list(
             DeviceId.objects.filter(user=user).values_list("device_id", flat=True)
         )
-        logger.info("STORED: %s", stored)
+        logger.info("STORED DEVICE ID: %s", stored)
 
-        # If authentication fails, return an error
+        # If authentication fails, increment attempts and maybe lock
         if not user:
             logger.warning("Invalid credentials for user: %s", login)
+            if user_obj:
+                user_obj.password_attempts = (user_obj.password_attempts or 0) + 1
+                if user_obj.password_attempts >= 4:
+                    user_obj.password_locked_until = timezone.now() + timedelta(
+                        minutes=30
+                    )
+                    user_obj.save(
+                        update_fields=["password_attempts", "password_locked_until"]
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "error": "Too many failed login attempts. Account locked for 30 minutes."
+                            }
+                        ),
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    user_obj.save(update_fields=["password_attempts"])
             return Response(
                 data=encrypt({"error": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        # Reset attempts on successful login
+        if user_obj:
+            user_obj.password_attempts = 0
+            user_obj.password_locked_until = None
+            user_obj.save(update_fields=["password_attempts", "password_locked_until"])
 
         # Ensure user is verified if using password login
         if not biometrics and not user.is_verified:

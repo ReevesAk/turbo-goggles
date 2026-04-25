@@ -87,6 +87,10 @@ class WalletModel(models.Model):
     status = models.BooleanField(default=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
+    # PIN security fields
+    pin_attempts = models.IntegerField(default=0, null=True)
+    pin_locked_until = models.DateTimeField(null=True, blank=True)
+
 
 class WalletUpgrade(WalletModel):
     wallet = models.ForeignKey(

@@ -9,6 +9,7 @@ from decouple import config
 
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
+from datetime import timedelta
 
 from .models import WalletModel
 
@@ -32,12 +33,36 @@ class Pin:
                 data={"message": "Invalid wallet ID"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if wallet:
-            is_pin_correct = check_password(pin, hashed_pin)
 
-            if is_pin_correct:
-                return True
+        # Check if wallet is locked
+        if wallet.pin_locked_until and wallet.pin_locked_until > timezone.now():
+            return Response(
+                data={"message": "PIN entry locked. Try again later."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        is_pin_correct = check_password(pin, hashed_pin)
+
+        if is_pin_correct:
+            # Reset attempts on success
+            wallet.pin_attempts = 0
+            wallet.pin_locked_until = None
+            wallet.save(update_fields=["pin_attempts", "pin_locked_until"])
+            return True
+        else:
+            wallet.pin_attempts = (wallet.pin_attempts or 0) + 1
+            if wallet.pin_attempts >= 4:
+                # Lock for 30 minutes (customize as needed)
+                wallet.pin_locked_until = timezone.now() + timedelta(minutes=30)
+                wallet.save(update_fields=["pin_attempts", "pin_locked_until"])
+                return Response(
+                    data={
+                        "message": "Too many wrong PIN attempts. Locked for 30 minutes."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             else:
+                wallet.save(update_fields=["pin_attempts"])
                 return False
 
 

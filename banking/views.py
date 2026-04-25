@@ -523,30 +523,36 @@ class CreateUserWallet(generics.GenericAPIView):
                     description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉.",
                 )
 
-                mail_msg = f"""
-                    Dear {current_user.first_name},
+                mail_lines = [
+                    f"Dear {current_user.first_name},",
+                    "",
+                    "CONGRATULATIONS! 🎊🎉",
+                    "",
+                    "Your wallet has been created successfully.",
+                    "",
+                    f"Account Name: {acct_name}",
+                    f"Account Number: {acct_no}",
+                    "",
+                    "You can now start using your wallet for transactions.",
+                    "",
+                    "Thank you for choosing Picadailys.",
+                ]
 
-                    Congratulations! 🎉
-
-                    Your wallet has been created successfully.
-
-                    Account Name: {acct_name}
-                    Account Number: {acct_no}
-
-                    You can now start using your wallet for transactions.
-
-                    Thank you for choosing Picadailys.
-                """
+                mail_msg = "\n".join(mail_lines)
 
                 if current_user.alert_type_choice in ("SMS", "Both"):
                     Messaging.send_sms(
                         phone_number=current_user.phone_number[1:],
-                        msg=f"""Congratulations! 🎊
-                        Your wallet has been created successfully 🥳🥳🥳.
-
-                        Account Name: {acct_name}
-                        Account Number: {acct_no}
-                        """,
+                        msg="\n".join(
+                            [
+                                "Congratulations!",
+                                "",
+                                "Your wallet has been created successfully 🥳🥳🥳.",
+                                "",
+                                f"Account Name: {acct_name}",
+                                f"Account Number: {acct_no}",
+                            ]
+                        ),
                     )
                 if current_user.alert_type_choice in ("Email", "Both"):
                     # Render the template with values

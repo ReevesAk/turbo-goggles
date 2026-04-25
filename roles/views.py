@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
 from django.core.cache import cache
+from datetime import timedelta
 
 from django.template.loader import render_to_string
 
@@ -103,7 +104,6 @@ class RegisterSuperAdmin(generics.GenericAPIView):
         }
 
         # Check if an active and enabled SuperAdmin already exists.
-        # Only block registration if such a user exists.
         if User.objects.filter(
             active_role="SuperAdmin", is_active=True, is_disabled=False
         ).exists():
@@ -119,7 +119,6 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 logger.info(
                     f"SuperAdmin registration initiated for user: {current_user.email}"
                 )
-
                 # Set the user's role and create AccountType
                 current_user.active_role = "SuperAdmin"
                 current_user.save()
@@ -199,10 +198,21 @@ class LoginAdmin(APIView):
         email = data.get("email")
         password = data.get("password")
 
-        try:
-            # Retrieve the user by email to get the phone number
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user_obj = User.objects.filter(email=email).first()
+        if (
+            user_obj
+            and user_obj.password_locked_until
+            and user_obj.password_locked_until > timezone.now()
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "error": "Account locked due to too many failed login attempts. Try again later."
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user_obj:
             logger.warning(f"Login attempt failed: User with email {email} not found.")
             return Response(
                 data=encrypt({"error": "Invalid credentials"}),
@@ -210,10 +220,15 @@ class LoginAdmin(APIView):
             )
 
         # Authenticate using the phone number and password
-        user = authenticate(phone_number=user.phone_number, password=password)
+        user = authenticate(phone_number=user_obj.phone_number, password=password)
 
         if user:
             logger.info(f"User {user.email} authenticated successfully.")
+
+            # Reset attempts on successful login
+            user_obj.password_attempts = 0
+            user_obj.password_locked_until = None
+            user_obj.save(update_fields=["password_attempts", "password_locked_until"])
 
             # Check if the user has more than two devices registered
             existing_device = DeviceId.objects.filter(user=user).exists()
@@ -304,6 +319,23 @@ class LoginAdmin(APIView):
             }
             return Response(data=encrypt(response), status=status.HTTP_200_OK)
         else:
+            # Increment attempts and maybe lock
+            user_obj.password_attempts = (user_obj.password_attempts or 0) + 1
+            if user_obj.password_attempts >= 4:
+                user_obj.password_locked_until = timezone.now() + timedelta(minutes=30)
+                user_obj.save(
+                    update_fields=["password_attempts", "password_locked_until"]
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "error": "Too many failed login attempts. Account locked for 30 minutes."
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                user_obj.save(update_fields=["password_attempts"])
             logger.warning(
                 f"Login attempt failed for user with email {email}. Invalid credentials."
             )
@@ -1392,7 +1424,55 @@ class AddRoleToAdmin(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if check_password(password=pin, encoded=request.user.admin_pin):
+        if (
+            request.user.agent_pin_locked_until
+            and request.user.agent_pin_locked_until > timezone.now()
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Too many wrong pin attempts. Try again later.",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not request.user.admin_pin or not check_password(
+            password=pin, encoded=request.user.admin_pin
+        ):
+            request.user.agent_pin_attempts = (request.user.agent_pin_attempts or 0) + 1
+            if request.user.agent_pin_attempts >= 4:
+                request.user.agent_pin_locked_until = timezone.now() + timedelta(
+                    minutes=30
+                )
+                request.user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Too many wrong pin attempts. Locked for 30 minutes.",
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                request.user.save(update_fields=["agent_pin_attempts"])
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Incorrect pin"}),
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        # Reset attempts on success
+        if request.user.agent_pin_attempts:
+            request.user.agent_pin_attempts = 0
+            request.user.agent_pin_locked_until = None
+            request.user.save(
+                update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+            )
+        if request.user.admin_pin and check_password(
+            password=pin, encoded=request.user.admin_pin
+        ):
             # Add the role
             AccountType.objects.create(user=is_user, user_type=new_role)
             logger.info("Role '%s' assigned to user: %s", new_role, is_user.email)
@@ -1464,7 +1544,54 @@ class RemoveAdminRole(generics.GenericAPIView):
             user=is_user, user_type=role_to_remove
         ).first()
 
-        if check_password(password=pin, encoded=request.user.admin_pin):
+        from datetime import timedelta
+
+        if (
+            request.user.agent_pin_locked_until
+            and request.user.agent_pin_locked_until > timezone.now()
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Too many wrong pin attempts. Try again later.",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not request.user.admin_pin or not check_password(
+            password=pin, encoded=request.user.admin_pin
+        ):
+            request.user.agent_pin_attempts = (request.user.agent_pin_attempts or 0) + 1
+            if request.user.agent_pin_attempts >= 4:
+                request.user.agent_pin_locked_until = timezone.now() + timedelta(
+                    minutes=30
+                )
+                request.user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Too many wrong pin attempts. Locked for 30 minutes.",
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                request.user.save(update_fields=["agent_pin_attempts"])
+                return Response(
+                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        # Reset attempts on success
+        if request.user.agent_pin_attempts:
+            request.user.agent_pin_attempts = 0
+            request.user.agent_pin_locked_until = None
+            request.user.save(
+                update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+            )
             if not account_type_instance:
                 logger.warning(
                     "Role '%s' not found for user: %s", role_to_remove, email
@@ -1552,7 +1679,56 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if check_password(password=pin, encoded=request.user.admin_pin):
+            from datetime import timedelta
+
+            if (
+                request.user.agent_pin_locked_until
+                and request.user.agent_pin_locked_until > timezone.now()
+            ):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Too many wrong pin attempts. Try again later.",
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if not request.user.admin_pin or not check_password(
+                password=pin, encoded=request.user.admin_pin
+            ):
+                request.user.agent_pin_attempts = (
+                    request.user.agent_pin_attempts or 0
+                ) + 1
+                if request.user.agent_pin_attempts >= 4:
+                    request.user.agent_pin_locked_until = timezone.now() + timedelta(
+                        minutes=30
+                    )
+                    request.user.save(
+                        update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Too many wrong pin attempts. Locked for 30 minutes.",
+                            }
+                        ),
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    request.user.save(update_fields=["agent_pin_attempts"])
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            # Reset attempts on success
+            if request.user.agent_pin_attempts:
+                request.user.agent_pin_attempts = 0
+                request.user.agent_pin_locked_until = None
+                request.user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
                 user.is_admin_disabled = True
                 user.save()
                 logger.info("Admin account for '%s' has been disabled.", email)
@@ -1627,7 +1803,56 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if check_password(password=pin, encoded=request.user.admin_pin):
+            from datetime import timedelta
+
+            if (
+                request.user.agent_pin_locked_until
+                and request.user.agent_pin_locked_until > timezone.now()
+            ):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Too many wrong pin attempts. Try again later.",
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if not request.user.admin_pin or not check_password(
+                password=pin, encoded=request.user.admin_pin
+            ):
+                request.user.agent_pin_attempts = (
+                    request.user.agent_pin_attempts or 0
+                ) + 1
+                if request.user.agent_pin_attempts >= 4:
+                    request.user.agent_pin_locked_until = timezone.now() + timedelta(
+                        minutes=30
+                    )
+                    request.user.save(
+                        update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                    )
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Too many wrong pin attempts. Locked for 30 minutes.",
+                            }
+                        ),
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    request.user.save(update_fields=["agent_pin_attempts"])
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            # Reset attempts on success
+            if request.user.agent_pin_attempts:
+                request.user.agent_pin_attempts = 0
+                request.user.agent_pin_locked_until = None
+                request.user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
                 user.is_admin_disabled = False
                 user.save()
                 logger.info("Admin account for '%s' has been re-enabled.", email)
@@ -1690,7 +1915,59 @@ class DeleteAdmin(generics.GenericAPIView):
                 user = User.objects.get(Q(id=email) | Q(email=email))
                 logger.info("Admin user found: %s", user.full_name)
 
-                if check_password(password=pin, encoded=request.user.admin_pin):
+                from datetime import timedelta
+
+                if (
+                    request.user.agent_pin_locked_until
+                    and request.user.agent_pin_locked_until > timezone.now()
+                ):
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": "Too many wrong pin attempts. Try again later.",
+                            }
+                        ),
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if not request.user.admin_pin or not check_password(
+                    password=pin, encoded=request.user.admin_pin
+                ):
+                    request.user.agent_pin_attempts = (
+                        request.user.agent_pin_attempts or 0
+                    ) + 1
+                    if request.user.agent_pin_attempts >= 4:
+                        request.user.agent_pin_locked_until = (
+                            timezone.now() + timedelta(minutes=30)
+                        )
+                        request.user.save(
+                            update_fields=[
+                                "agent_pin_attempts",
+                                "agent_pin_locked_until",
+                            ]
+                        )
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Too many wrong pin attempts. Locked for 30 minutes.",
+                                }
+                            ),
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                    else:
+                        request.user.save(update_fields=["agent_pin_attempts"])
+                        return Response(
+                            data=encrypt({"status": "fail", "error": "Incorrect pin"}),
+                            status=status.HTTP_401_UNAUTHORIZED,
+                        )
+                # Reset attempts on success
+                if request.user.agent_pin_attempts:
+                    request.user.agent_pin_attempts = 0
+                    request.user.agent_pin_locked_until = None
+                    request.user.save(
+                        update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                    )
                     user.delete()
                     logger.info("Admin user '%s' deleted successfully.", user.full_name)
 

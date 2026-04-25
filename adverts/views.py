@@ -98,7 +98,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 debit_response = Wallet.Debit(
                                     debitAccount=account.account_number,
                                     amount=wallet_debit_amount,
-                                    reason="Debit for brwand promotion.",
+                                    reason="Debit for brand promotion.",
                                     merchantFeeAmount=merchant_fee,
                                 )
 
@@ -108,7 +108,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     TxModel.objects.create(
                                         user=user,
                                         tx_reference=tx_reference,
-                                        tx_type="Brand Promostion",
+                                        tx_type="Brand Promotion",
                                         amount=wallet_debit_amount,
                                         description="Brand promotion payment",
                                         status="SUCCESS",

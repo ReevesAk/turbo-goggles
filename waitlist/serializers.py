@@ -10,6 +10,7 @@ class WaitlistSerialiser(serializers.ModelSerializer):
 
     def validate(self, data):
         import re
+
         f = (data.get("f_name") or "").strip().lower()
         l = (data.get("l_name") or "").strip().lower()
         email = (data.get("email") or "").strip().lower()
@@ -18,7 +19,7 @@ class WaitlistSerialiser(serializers.ModelSerializer):
         # Regex for real email validation
         email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
         if not re.match(email_regex, email):
-            raise serializers.ValidationError('Please enter a valid email address.')
+            raise serializers.ValidationError("Please enter a valid email address.")
 
         # 1. Block emails starting with 'eric'
         if email.startswith("eric"):

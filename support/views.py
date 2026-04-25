@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils import timezone
+from datetime import timedelta
 from django.db.models import Q
 
 from cloudinary import uploader as cloud
@@ -772,14 +773,40 @@ class CreateTicket(generics.CreateAPIView):
 
         attachment_url = None
 
-        if not check_password(password=pin, encoded=request.user.agent_pin):
+        if request.user.agent_pin_locked_until and request.user.agent_pin_locked_until > timezone.now():
             return Response(
                 data={
                     "status": "fail",
-                    "message": "Incorrect pin"
+                    "message": "Too many wrong pin attempts. Try again later."
                 },
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_403_FORBIDDEN
             )
+        if not request.user.agent_pin or not check_password(password=pin, encoded=request.user.agent_pin):
+            request.user.agent_pin_attempts = (request.user.agent_pin_attempts or 0) + 1
+            if request.user.agent_pin_attempts >= 4:
+                request.user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
+                request.user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Too many wrong pin attempts. Locked for 30 minutes."
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                request.user.save(update_fields=["agent_pin_attempts"])
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "Incorrect pin"
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+        # Reset attempts on success
+        if request.user.agent_pin_attempts:
+            request.user.agent_pin_attempts = 0
+            request.user.agent_pin_locked_until = None
+            request.user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
         try:
             user = User.objects.get(email=user_email)
             logger.info("User  found: %s", user)
@@ -904,11 +931,32 @@ class AssignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not check_password(pin, authenticated_user.agent_pin):
+        from datetime import timedelta
+        if authenticated_user.agent_pin_locked_until and authenticated_user.agent_pin_locked_until > timezone.now():
             return Response(
-                {"status": "fail", "error": "Incorrect pin"},
-                status=status.HTTP_401_UNAUTHORIZED,
+                {"status": "fail", "error": "Too many wrong pin attempts. Try again later."},
+                status=status.HTTP_403_FORBIDDEN,
             )
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+            authenticated_user.agent_pin_attempts = (authenticated_user.agent_pin_attempts or 0) + 1
+            if authenticated_user.agent_pin_attempts >= 4:
+                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
+                authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                return Response(
+                    {"status": "fail", "error": "Too many wrong pin attempts. Locked for 30 minutes."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                authenticated_user.save(update_fields=["agent_pin_attempts"])
+                return Response(
+                    {"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        # Reset attempts on success
+        if authenticated_user.agent_pin_attempts:
+            authenticated_user.agent_pin_attempts = 0
+            authenticated_user.agent_pin_locked_until = None
+            authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
 
         agent_email = serializer.validated_data["agent_email"]
         agent_role = serializer.validated_data["agent_role"]
@@ -1023,11 +1071,32 @@ class ReassignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not check_password(pin, authenticated_user.agent_pin):
+        from datetime import timedelta
+        if authenticated_user.agent_pin_locked_until and authenticated_user.agent_pin_locked_until > timezone.now():
             return Response(
-                {"status": "fail", "error": "Incorrect pin"},
-                status=status.HTTP_401_UNAUTHORIZED,
+                {"status": "fail", "error": "Too many wrong pin attempts. Try again later."},
+                status=status.HTTP_403_FORBIDDEN,
             )
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+            authenticated_user.agent_pin_attempts = (authenticated_user.agent_pin_attempts or 0) + 1
+            if authenticated_user.agent_pin_attempts >= 4:
+                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
+                authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                return Response(
+                    {"status": "fail", "error": "Too many wrong pin attempts. Locked for 30 minutes."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                authenticated_user.save(update_fields=["agent_pin_attempts"])
+                return Response(
+                    {"status": "fail", "error": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        # Reset attempts on success
+        if authenticated_user.agent_pin_attempts:
+            authenticated_user.agent_pin_attempts = 0
+            authenticated_user.agent_pin_locked_until = None
+            authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
 
         agent_email = serializer.validated_data["agent_email"]
         agent_role = serializer.validated_data["agent_role"]
@@ -1140,7 +1209,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not check_password(pin, authenticated_user.agent_pin):
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1227,7 +1296,7 @@ class EscalateTicketAPIView(APIView):
         from_role = ticket.agent_role
 
         pin = serializer.validated_data["pin"]
-        if not check_password(pin, authenticated_user.agent_pin):
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -2284,11 +2353,13 @@ class LoginAgent(APIView):
             )
 
         try:
-            # Retrieve the user by email to get the phone number
-            # Use filter().first() instead of get() to handle duplicates gracefully
-            user = User.objects.filter(email=email).first()
-
-            if not user:
+            user_obj = User.objects.filter(email=email).first()
+            if user_obj and user_obj.password_locked_until and user_obj.password_locked_until > timezone.now():
+                return Response(
+                    data={"status": "fail", "message": "Account locked due to too many failed login attempts. Try again later."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if not user_obj:
                 logger.warning(f"Login attempt failed: User with email {email} not found.")
                 return Response(
                     data={"status": "fail", "message": "Invalid credentials"},
@@ -2302,10 +2373,15 @@ class LoginAgent(APIView):
             )
 
         # Authenticate using the phone number and password
-        user = authenticate(phone_number=user.phone_number, password=password)
+        user = authenticate(phone_number=user_obj.phone_number, password=password)
 
         if user:
             logger.info(f"User {user.email} authenticated successfully.")
+
+            # Reset attempts on successful login
+            user_obj.password_attempts = 0
+            user_obj.password_locked_until = None
+            user_obj.save(update_fields=["password_attempts", "password_locked_until"])
 
             # Check if the user has more than two devices registered
             existing_device_count = DeviceId.objects.filter(user=user).count()
@@ -2389,6 +2465,17 @@ class LoginAgent(APIView):
             }
             return Response(data=response, status=status.HTTP_200_OK)
         else:
+            # Increment attempts and maybe lock
+            user_obj.password_attempts = (user_obj.password_attempts or 0) + 1
+            if user_obj.password_attempts >= 4:
+                user_obj.password_locked_until = timezone.now() + timedelta(minutes=30)
+                user_obj.save(update_fields=["password_attempts", "password_locked_until"])
+                return Response(
+                    data={"status": "fail", "message": "Too many failed login attempts. Account locked for 30 minutes."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            else:
+                user_obj.save(update_fields=["password_attempts"])
             logger.warning(
                 f"Login attempt failed for user with email {email}. Invalid credentials."
             )

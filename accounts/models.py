@@ -53,6 +53,9 @@ TRANSACTION_TYPE = (
 
 # User describes the database model for each user.
 class User(AbstractBaseUser, PermissionsMixin):
+    # Agent/admin pin brute-force protection
+    agent_pin_attempts = models.IntegerField(default=0, null=True)
+    agent_pin_locked_until = models.DateTimeField(null=True, blank=True)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
     full_name = models.CharField(max_length=255, null=True, blank=True)
@@ -94,6 +97,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_admin_disabled = models.BooleanField(default=False, null=True)
     is_agent_disabled = models.BooleanField(default=False, null=True)
     is_biometric_enabled = models.BooleanField(default=False, null=True)
+
+    password_attempts = models.IntegerField(default=0, null=True)
+    password_locked_until = models.DateTimeField(null=True, blank=True)
 
     # Brand details.
     has_promoted = models.BooleanField(default=False)

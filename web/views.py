@@ -322,7 +322,7 @@ class SubmitJobApplication(generics.CreateAPIView):
                     "email": application.email,
                     "phone_number": application.phone_number,
                     "cv": cv_url,
-                    "portfolio": portfolio_url,
+                    "portfolio": portfolio_value,
                     "cover_letter": cover_letter_url,
                 },
             },
