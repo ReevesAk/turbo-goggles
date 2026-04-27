@@ -128,7 +128,7 @@ urlpatterns = [
         VerifyCardPaymentTransaction.as_view(),
         name="verify_card_deposit",
     ),
-    path("redirecting", RedirectingPageView.as_view(), name="redirecting"),
+    path("redirecting/", RedirectingPageView.as_view(), name="redirecting"),
     path("dojah/redirect", DojahRedirectingPageView.as_view(), name="redirecting"),
     # Account + Notifications
     path("account-details", GetAccountDetails.as_view(), name="account_details"),
