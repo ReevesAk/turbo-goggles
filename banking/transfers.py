@@ -1194,7 +1194,7 @@ class FundWallet(generics.GenericAPIView):
 
                 tx = TxModel.objects.create(
                     user=user,
-                    tx_reference="",
+                    tx_reference=tx_id,
                     tx_type="Funding of wallet",
                     amount=amount,
                     description="You funded your wallet.",
