@@ -363,6 +363,8 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "staticfiles")
