@@ -13,7 +13,7 @@ from celery import shared_task
 # Django app imports
 from banking.helpers import generate_transaction_sms
 from commons import Messaging
-from .controllers import Forex, Account
+
 from .models import Cards
 
 scheduled_charges = {}
