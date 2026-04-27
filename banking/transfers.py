@@ -414,13 +414,30 @@ class IntraBankTransfer(generics.CreateAPIView):
                         "Transfer successful, updating balance and transaction status."
                     )
 
-                    # Update balance atomically
-                    account.balance -= amount
+
+                    # --- Sync wallet balance from external after transaction ---
+                    new_balance = account.balance - amount
+                    try:
+                        ext_resp = Wallet.getWalletDetails(account.account_number)
+                        if ext_resp and hasattr(ext_resp, "json"):
+                            ext_data = ext_resp.json()
+                            if ext_data.get("status") == "SUCCESS":
+                                ext_balance = Decimal(
+                                    str(
+                                        ext_data.get("data", {}).get(
+                                            "availableBalance", new_balance
+                                        )
+                                    )
+                                )
+                                new_balance = ext_balance
+                    except Exception as e:
+                        logger.warning(f"Could not sync wallet balance from external after transfer: {e}")
+
+                    # Update balance and transaction status after external sync
+                    account.balance = new_balance
                     account.save(update_fields=["balance"])
-                    # Mark transaction as successful
                     tx.status = "SUCCESS"
                     tx.save(update_fields=["status"])
-
                     TransferModel.objects.create(
                         user=authenticated_user,
                         tx=tx,
@@ -462,8 +479,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                         reference=idempotency_key,
                     )
                     narration = payload.get("description") or "No narration provided"
-                    from django.utils import timezone
-                    from django.template.loader import render_to_string
+
                     email_subject = "Debit Alert"
                     email_context = {
                         "title": "Debit Alert",
