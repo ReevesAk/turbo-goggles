@@ -445,18 +445,14 @@ class IntraBankTransfer(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
                     )
 
-                    # --- SMS and Email for Debit ---
 
-                    alert_type = getattr(
-                        authenticated_user, "alert_type_choice", "Both"
-                    )
+                    # --- SMS and Email for Debit via Celery ---
+                    alert_type = getattr(authenticated_user, "alert_type_choice", "Both")
                     phone_number = getattr(authenticated_user, "phone_number", None)
                     email = getattr(authenticated_user, "email", None)
                     account_number = getattr(account, "account_number", "")
                     balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = (
-                        float(payload["amount"]) if payload.get("amount") else 0.0
-                    )
+                    amount_val = float(payload["amount"]) if payload.get("amount") else 0.0
                     sms_msg = generate_transaction_sms(
                         transaction_type="DEBIT",
                         account_number=account_number,
@@ -465,64 +461,37 @@ class IntraBankTransfer(generics.CreateAPIView):
                         description=f"Transfer to {payload.get('beneficiary_account_number')}",
                         reference=idempotency_key,
                     )
-                    if alert_type in ("SMS", "Both") and phone_number:
-                        Messaging.send_sms(
-                            phone_number=phone_number[1:],
-                            msg=sms_msg,
-                        )
-                    if alert_type in ("Email", "Both") and email:
-                        narration = (
-                            payload.get("description") or "No narration provided"
-                        )
-                        html_content = render_to_string(
-                            "table_email.html",
-                            {
-                                "custom_text": authenticated_user.full_name,
-                                "name": authenticated_user.full_name,
-                                "narration": narration,
-                                "account_number": account_number,
-                                "amount": f"₦{amount_val:,.2f}",
-                                "datetime": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                                "tx_type": "Debit",
-                                "balance": f"₦{balance_val:,.2f}",
-                                "support_email": "support@picadailys.com",
-                                "picadailys_phone": "+2347000000000",
-                            },
-                        )
-                        # Prepare email context and body like inflows webhook
-                        email_subject = "Debit Alert"
-                        email_context = {
-                            "title": "Debit Alert",
-                            "rows": [
-                                {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
-                                {"label": "Account Number", "value": account_number},
-                                {"label": "Narration", "value": narration},
-                                {"label": "Reference", "value": idempotency_key},
-                                {
-                                    "label": "Datetime",
-                                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                                },
-                                {"label": "Transaction Type", "value": "Debit"},
-                                {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
-                            ],
-                            "support_email": "notifications@picadailys.com",
-                            "picadailys_phone": "02012271894 02012271895",
-                        }
-                        email_body = render_to_string(
-                            "picadailys_email.html", email_context
-                        )
-                        if email:
-                            Messaging.send_email(
-                                email=email,
-                                subject=email_subject,
-                                html_content=email_body,
-                                sender_email="notifications@picadailys.com",
-                                body=email_body,
-                            )
-
-                    logger.info(
-                        f"Transfer notification (SMS/Email) sent to user {authenticated_user.id}."
+                    narration = payload.get("description") or "No narration provided"
+                    from django.utils import timezone
+                    from django.template.loader import render_to_string
+                    email_subject = "Debit Alert"
+                    email_context = {
+                        "title": "Debit Alert",
+                        "rows": [
+                            {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
+                            {"label": "Account Number", "value": account_number},
+                            {"label": "Narration", "value": narration},
+                            {"label": "Reference", "value": idempotency_key},
+                            {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                            {"label": "Transaction Type", "value": "Debit"},
+                            {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
+                        ],
+                        "support_email": "notifications@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    }
+                    email_body = render_to_string("picadailys_email.html", email_context)
+                    from banking.tasks import send_transfer_notifications
+                    send_transfer_notifications.delay(
+                        authenticated_user.id,
+                        phone_number[1:] if phone_number else None,
+                        email,
+                        alert_type,
+                        sms_msg,
+                        email_subject,
+                        email_body,
+                        email_body,  # html_content
                     )
+                    logger.info(f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}.")
 
                     resp = {
                         "status": "success",
@@ -798,20 +767,14 @@ class InterBankTransfer(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
                     )
 
-                    # --- SMS and Email for Debit ---
-                    from banking.helpers import generate_transaction_sms
-                    from commons import Messaging
 
-                    alert_type = getattr(
-                        authenticated_user, "alert_type_choice", "Both"
-                    )
+                    # --- SMS and Email for Debit via Celery ---
+                    alert_type = getattr(authenticated_user, "alert_type_choice", "Both")
                     phone_number = getattr(authenticated_user, "phone_number", None)
                     email = getattr(authenticated_user, "email", None)
                     account_number = getattr(account, "account_number", "")
                     balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = (
-                        float(payload["amount"]) if payload.get("amount") else 0.0
-                    )
+                    amount_val = float(payload["amount"]) if payload.get("amount") else 0.0
                     sms_msg = generate_transaction_sms(
                         transaction_type="DEBIT",
                         account_number=account_number,
@@ -820,67 +783,37 @@ class InterBankTransfer(generics.CreateAPIView):
                         description=f"Transfer to {payload.get('beneficiary_account_number')}",
                         reference=idempotency_key,
                     )
-                    if alert_type in ("SMS", "Both") and phone_number:
-                        Messaging.send_sms(
-                            phone_number=phone_number[1:],
-                            msg=sms_msg,
-                        )
-                    if alert_type in ("Email", "Both") and email:
-                        from django.utils import timezone
-                        from django.template.loader import render_to_string
-
-                        narration = (
-                            payload.get("description") or "No narration provided"
-                        )
-                        html_content = render_to_string(
-                            "table_email.html",
-                            {
-                                "custom_text": authenticated_user.full_name,
-                                "name": authenticated_user.full_name,
-                                "narration": narration,
-                                "account_number": account_number,
-                                "amount": f"₦{amount_val:,.2f}",
-                                "datetime": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                                "tx_type": "Debit",
-                                "balance": f"₦{balance_val:,.2f}",
-                                "support_email": "support@picadailys.com",
-                                "picadailys_phone": "+2347000000000",
-                            },
-                        )
-                        # Prepare email context and body like inflows webhook
-                        email_subject = "Debit Alert"
-                        email_context = {
-                            "title": "Debit Alert",
-                            "rows": [
-                                {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
-                                {"label": "Account Number", "value": account_number},
-                                {"label": "Narration", "value": narration},
-                                {"label": "Reference", "value": idempotency_key},
-                                {
-                                    "label": "Datetime",
-                                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                                },
-                                {"label": "Transaction Type", "value": "Debit"},
-                                {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
-                            ],
-                            "support_email": "notifications@picadailys.com",
-                            "picadailys_phone": "02012271894 02012271895",
-                        }
-                        email_body = render_to_string(
-                            "picadailys_email.html", email_context
-                        )
-                        if email:
-                            Messaging.send_email(
-                                email=email,
-                                subject=email_subject,
-                                html_content=email_body,
-                                sender_email="notifications@picadailys.com",
-                                body=email_body,
-                            )
-
-                    logger.info(
-                        f"Transfer notification (SMS/Email) sent to user {authenticated_user.id}."
+                    narration = payload.get("description") or "No narration provided"
+                    from django.utils import timezone
+                    from django.template.loader import render_to_string
+                    email_subject = "Debit Alert"
+                    email_context = {
+                        "title": "Debit Alert",
+                        "rows": [
+                            {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
+                            {"label": "Account Number", "value": account_number},
+                            {"label": "Narration", "value": narration},
+                            {"label": "Reference", "value": idempotency_key},
+                            {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                            {"label": "Transaction Type", "value": "Debit"},
+                            {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
+                        ],
+                        "support_email": "notifications@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    }
+                    email_body = render_to_string("picadailys_email.html", email_context)
+                    from banking.tasks import send_transfer_notifications
+                    send_transfer_notifications.delay(
+                        authenticated_user.id,
+                        phone_number[1:] if phone_number else None,
+                        email,
+                        alert_type,
+                        sms_msg,
+                        email_subject,
+                        email_body,
+                        email_body,  # html_content
                     )
+                    logger.info(f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}.")
 
                     resp = {
                         "status": "success",
