@@ -363,7 +363,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 else {}
                             )
                             if (
-                                status_resp.get("transactionStatus") == "success"
+                                status_resp.get("status") == "success"
                                 and status_resp.get("responseCode") == "200"
                             ):
                                 return self._handle_airtime_success(
@@ -437,7 +437,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             status_query.json().get("data", {}) if status_query else {}
                         )
                         if (
-                            status_resp.get("transactionStatus") == "success"
+                            status_resp.get("status") == "success"
                             and status_resp.get("responseCode") == "200"
                         ):
                             return self._handle_airtime_success(
@@ -493,7 +493,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             status_query.json().get("data", {}) if status_query else {}
                         )
                         if (
-                            status_resp.get("transactionStatus") == "success"
+                            status_resp.get("status") == "success"
                             and status_resp.get("responseCode") == "200"
                         ):
                             return self._handle_airtime_success(
@@ -926,7 +926,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 status_data = status_resp.json().get("data", {})
                 if (
-                    status_data.get("transactionStatus") == "success"
+                    status_data.get("status") == "success"
                     and status_data.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
@@ -987,7 +987,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         status_query.json().get("data", {}) if status_query else {}
                     )
                     if (
-                        status_resp.get("transactionStatus") == "success"
+                        status_resp.get("status") == "success"
                         and status_resp.get("responseCode") == 200
                     ):
                         return self._handle_data_success(
@@ -1115,7 +1115,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status_query.json().get("data", {}) if status_query else {}
                 )
                 if (
-                    status_resp.get("transactionStatus") == "success"
+                    status_resp.get("status") == "success"
                     and status_resp.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
@@ -1636,7 +1636,7 @@ class BillPaymentView(generics.GenericAPIView):
                     status_data = {}
 
                 if (
-                    status_data.get("transactionStatus") == "success"
+                    status_data.get("status") == "success"
                     and status_data.get("responseCode") == 200
                 ):
                     return self._handle_success(
@@ -1705,7 +1705,7 @@ class BillPaymentView(generics.GenericAPIView):
                         status_query.json().get("data", {}) if status_query else {}
                     )
                     if (
-                        status_resp.get("transactionStatus") == "success"
+                        status_resp.get("status") == "success"
                         and status_resp.get("responseCode") == 200
                     ):
                         return self._handle_success(
@@ -1789,7 +1789,7 @@ class BillPaymentView(generics.GenericAPIView):
                     status_query.json().get("data", {}) if status_query else {}
                 )
                 if (
-                    status_resp.get("transactionStatus") == "success"
+                    status_resp.get("status") == "success"
                     and status_resp.get("responseCode") == 200
                 ):
                     return self._handle_success(
@@ -1851,7 +1851,7 @@ class BillPaymentView(generics.GenericAPIView):
                     status_query.json().get("data", {}) if status_query else {}
                 )
                 if (
-                    status_resp.get("transactionStatus") == "success"
+                    status_resp.get("status") == "success"
                     and status_resp.get("responseCode") == 200
                 ):
                     return self._handle_success(
