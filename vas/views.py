@@ -733,15 +733,15 @@ class DataSubscriptionView(generics.GenericAPIView):
         guest_id=None,
         phone=None,
         amount=None,
-        airtime_response=None,
+        data_response=None,
         reason="",
     ):
-        """Handle failed airtime purchase."""
-        title = "Failed airtime purchase"
-        message = f"Airtime purchase of {amount} on {phone} failed."
+        """Handle failed data purchase."""
+        title = "Failed data purchase"
+        message = f"Data purchase of {amount} on {phone} failed."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
-            f"failed to purchase airtime of {amount} on {phone}. {reason}"
+            f"failed to purchase data of {amount} on {phone}. {reason}"
         )
 
         if user:
@@ -752,22 +752,22 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         logger.warning(description)
         # Log the actual response from the third party if available
-        if hasattr(airtime_response, "status_code") and hasattr(
-            airtime_response, "text"
+        if hasattr(data_response, "status_code") and hasattr(
+            data_response, "text"
         ):
             logger.warning(
-                f"Third-party response status: {airtime_response.status_code}"
+                f"Third-party response status: {data_response.status_code}"
             )
-            logger.warning(f"Third-party response body: {airtime_response.text}")
-        elif airtime_response is not None:
-            logger.warning(f"Airtime failure response: {airtime_response}")
+            logger.warning(f"Third-party response body: {data_response.text}")
+        elif data_response is not None:
+            logger.warning(f"Data failure response: {data_response}")
         else:
-            logger.warning("Airtime failure: No response body from provider.")
+            logger.warning("Data failure: No response body from provider.")
 
         response_data = {
             "status": "fail",
-            "message": f"Airtime purchase failed. {reason}",
-            "error": airtime_response or {},
+            "message": f"Data purchase failed. {reason}",
+            "error": data_response or {},
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
