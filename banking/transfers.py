@@ -72,26 +72,33 @@ class GetAllBanks(APIView):
 
         # Call Transfers service to get all banks
         all_banks_resp = Transfers.getAllBanks()
-        if all_banks_resp.json().get("status") == "SUCCESS":
-            logger.info("Successfully retrieved financial institutions data.")
+        try:
+            resp_json = all_banks_resp.json()
+        except Exception as e:
+            logger.error(f"Failed to parse response JSON: {e}")
+            resp_json = {}
 
+        status_val = resp_json.get("status")
+        data_val = resp_json.get("data")
+
+        if status_val == "SUCCESS" and data_val is not None:
+            logger.info("Successfully retrieved financial institutions data.")
             resp = {
                 "status": "success",
                 "message": "All financial institutions retrieved successfully.",
-                "data": all_banks_resp.json()["data"],
+                "data": data_val,
             }
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         else:
             logger.error(
-                f"Failed to retrieve financial institutions. Status code: {all_banks_resp.status_code}"
+                f"Failed to retrieve financial institutions. Status code: {getattr(all_banks_resp, 'status_code', 'N/A')}"
             )
-
             err_resp = {
                 "status": "fail",
                 "error": "Could not retrieve financial institution.",
-                "data": all_banks_resp.json()["data"],
+                "data": data_val if data_val is not None else resp_json,
             }
-            return Response(data=encrypt(err_resp), status=all_banks_resp.status_code)
+            return Response(data=encrypt(err_resp), status=getattr(all_banks_resp, 'status_code', status.HTTP_500_INTERNAL_SERVER_ERROR))
 
 
 class Get9PSBWallet(generics.GenericAPIView):

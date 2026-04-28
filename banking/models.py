@@ -67,7 +67,7 @@ class Cashback(models.Model):
 class WalletModel(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
     transactionTrackingRef = models.CharField(max_length=50, null=True)
-    account_number = models.CharField(max_length=100, null=True)
+    account_number = models.CharField(max_length=100, null=True, db_index=True)
     otherNames = models.CharField(max_length=100, null=True)
     lastName = models.CharField(max_length=100, null=True)
     phoneNo = models.CharField(max_length=100, null=True)
@@ -172,10 +172,10 @@ class TransferModel(models.Model):
         max_length=100, null=True, blank=True
     )  # "bank"
     beneficiary_account_number = models.CharField(
-        max_length=30, null=True, blank=True
+        max_length=30, null=True, blank=True, db_index=True
     )  # "number"
     sender_account_number = models.CharField(
-        max_length=30, null=True, blank=True
+        max_length=30, null=True, blank=True, db_index=True
     )  # "senderaccountnumber"
     beneficiary_name = models.CharField(max_length=150, null=True, blank=True)  # "name"
     sender_name = models.CharField(max_length=150, null=True, blank=True)
