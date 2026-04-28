@@ -1,4 +1,3 @@
-
 # Standard library imports
 import logging
 import time
@@ -8,20 +7,27 @@ from datetime import date, timedelta
 import schedule
 from celery import shared_task
 
-
 # Django app imports
 from banking.helpers import generate_transaction_sms
 from commons import Messaging
 
-
 scheduled_charges = {}
-
 
 
 default_from_email = "notifications@picadailys.com"
 
+
 @shared_task
-def send_transfer_notifications(user_id, phone_number, email, alert_type, sms_msg, email_subject, email_body, html_content=None):
+def send_transfer_notifications(
+    user_id,
+    phone_number,
+    email,
+    alert_type,
+    sms_msg,
+    email_subject,
+    email_body,
+    html_content=None,
+):
     if alert_type in ("SMS", "Both") and phone_number:
         Messaging.send_sms(phone_number, sms_msg)
     if alert_type in ("Email", "Both") and email:
@@ -32,6 +38,7 @@ def send_transfer_notifications(user_id, phone_number, email, alert_type, sms_ms
             subject=email_subject,
             body=email_body,
         )
+
 
 # def charge_cards_every_30_days():
 #     today = date.today()

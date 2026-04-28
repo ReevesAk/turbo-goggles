@@ -925,9 +925,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Could not verify transaction status.",
                     )
                 status_data = status_resp.json().get("data", {})
-                if (
-                    status_data.get("status") == "success"
-                    and status_data.get("responseCode") == 200
+                if status_data.get("status") == "success" and (
+                    status_data.get("responseCode") == "200"
+                    or status_data.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
                         user=user,
@@ -938,14 +938,22 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         cashback=cashback_used,
                     )
-
-            return self._handle_data_failure(
-                user=user,
-                phone=phone,
-                amount=amount,
-                data_response=data_response.json() if data_response else None,
-                reason="Insufficient bonus balance.",
-            )
+                else:
+                    return self._handle_data_failure(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        data_response=data_response.json() if data_response else None,
+                        reason="Insufficient bonus balance.",
+                    )
+            else:
+                return self._handle_data_failure(
+                    user=user,
+                    phone=phone,
+                    amount=amount,
+                    data_response=data_response.json() if data_response else None,
+                    reason="Insufficient bonus balance.",
+                )
 
         # Centralized payment orchestration (mirrors AirTimeTopUp logic)
         from django.conf import settings
@@ -986,9 +994,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status_resp = (
                         status_query.json().get("data", {}) if status_query else {}
                     )
-                    if (
-                        status_resp.get("status") == "success"
-                        and status_resp.get("responseCode") == 200
+                    if status_resp.get("status") == "success" and (
+                        status_resp.get("responseCode") == "200"
+                        or status_resp.get("responseCode") == 200
                     ):
                         return self._handle_data_success(
                             user=user,
@@ -1060,9 +1068,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 status_resp = (
                     status_query.json().get("data", {}) if status_query else {}
                 )
-                if (
-                    status_resp.get("transactionStatus") == "success"
-                    and status_resp.get("responseCode") == 200
+                if status_resp.get("transactionStatus") == "success" and (
+                    status_resp.get("responseCode") == "200"
+                    or status_resp.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
                         user=user,
@@ -1114,9 +1122,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 status_resp = (
                     status_query.json().get("data", {}) if status_query else {}
                 )
-                if (
-                    status_resp.get("status") == "success"
-                    and status_resp.get("responseCode") == 200
+                if status_resp.get("status") == "success" and (
+                    status_resp.get("responseCode") == "200"
+                    or status_resp.get("responseCode") == 200
                 ):
                     return self._handle_data_success(
                         user=user,

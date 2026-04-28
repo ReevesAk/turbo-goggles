@@ -98,7 +98,12 @@ class GetAllBanks(APIView):
                 "error": "Could not retrieve financial institution.",
                 "data": data_val if data_val is not None else resp_json,
             }
-            return Response(data=encrypt(err_resp), status=getattr(all_banks_resp, 'status_code', status.HTTP_500_INTERNAL_SERVER_ERROR))
+            return Response(
+                data=encrypt(err_resp),
+                status=getattr(
+                    all_banks_resp, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+            )
 
 
 class Get9PSBWallet(generics.GenericAPIView):
@@ -421,7 +426,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                         "Transfer successful, updating balance and transaction status."
                     )
 
-
                     # --- Sync wallet balance from external after transaction ---
                     new_balance = account.balance - amount
                     try:
@@ -438,7 +442,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                                 )
                                 new_balance = ext_balance
                     except Exception as e:
-                        logger.warning(f"Could not sync wallet balance from external after transfer: {e}")
+                        logger.warning(
+                            f"Could not sync wallet balance from external after transfer: {e}"
+                        )
 
                     # Update balance and transaction status after external sync
                     account.balance = new_balance
@@ -469,14 +475,17 @@ class IntraBankTransfer(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
                     )
 
-
                     # --- SMS and Email for Debit via Celery ---
-                    alert_type = getattr(authenticated_user, "alert_type_choice", "Both")
+                    alert_type = getattr(
+                        authenticated_user, "alert_type_choice", "Both"
+                    )
                     phone_number = getattr(authenticated_user, "phone_number", None)
                     email = getattr(authenticated_user, "email", None)
                     account_number = getattr(account, "account_number", "")
                     balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = float(payload["amount"]) if payload.get("amount") else 0.0
+                    amount_val = (
+                        float(payload["amount"]) if payload.get("amount") else 0.0
+                    )
                     sms_msg = generate_transaction_sms(
                         transaction_type="DEBIT",
                         account_number=account_number,
@@ -495,15 +504,21 @@ class IntraBankTransfer(generics.CreateAPIView):
                             {"label": "Account Number", "value": account_number},
                             {"label": "Narration", "value": narration},
                             {"label": "Reference", "value": idempotency_key},
-                            {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                            {
+                                "label": "Datetime",
+                                "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                            },
                             {"label": "Transaction Type", "value": "Debit"},
                             {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
                         ],
                         "support_email": "notifications@picadailys.com",
                         "picadailys_phone": "02012271894 02012271895",
                     }
-                    email_body = render_to_string("picadailys_email.html", email_context)
+                    email_body = render_to_string(
+                        "picadailys_email.html", email_context
+                    )
                     from banking.tasks import send_transfer_notifications
+
                     send_transfer_notifications.delay(
                         authenticated_user.id,
                         phone_number[1:] if phone_number else None,
@@ -514,7 +529,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                         email_body,
                         email_body,  # html_content
                     )
-                    logger.info(f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}.")
+                    logger.info(
+                        f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}."
+                    )
 
                     resp = {
                         "status": "success",
@@ -790,14 +807,17 @@ class InterBankTransfer(generics.CreateAPIView):
                         description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
                     )
 
-
                     # --- SMS and Email for Debit via Celery ---
-                    alert_type = getattr(authenticated_user, "alert_type_choice", "Both")
+                    alert_type = getattr(
+                        authenticated_user, "alert_type_choice", "Both"
+                    )
                     phone_number = getattr(authenticated_user, "phone_number", None)
                     email = getattr(authenticated_user, "email", None)
                     account_number = getattr(account, "account_number", "")
                     balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = float(payload["amount"]) if payload.get("amount") else 0.0
+                    amount_val = (
+                        float(payload["amount"]) if payload.get("amount") else 0.0
+                    )
                     sms_msg = generate_transaction_sms(
                         transaction_type="DEBIT",
                         account_number=account_number,
@@ -809,6 +829,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     narration = payload.get("description") or "No narration provided"
                     from django.utils import timezone
                     from django.template.loader import render_to_string
+
                     email_subject = "Debit Alert"
                     email_context = {
                         "title": "Debit Alert",
@@ -817,15 +838,21 @@ class InterBankTransfer(generics.CreateAPIView):
                             {"label": "Account Number", "value": account_number},
                             {"label": "Narration", "value": narration},
                             {"label": "Reference", "value": idempotency_key},
-                            {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                            {
+                                "label": "Datetime",
+                                "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                            },
                             {"label": "Transaction Type", "value": "Debit"},
                             {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
                         ],
                         "support_email": "notifications@picadailys.com",
                         "picadailys_phone": "02012271894 02012271895",
                     }
-                    email_body = render_to_string("picadailys_email.html", email_context)
+                    email_body = render_to_string(
+                        "picadailys_email.html", email_context
+                    )
                     from banking.tasks import send_transfer_notifications
+
                     send_transfer_notifications.delay(
                         authenticated_user.id,
                         phone_number[1:] if phone_number else None,
@@ -836,7 +863,9 @@ class InterBankTransfer(generics.CreateAPIView):
                         email_body,
                         email_body,  # html_content
                     )
-                    logger.info(f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}.")
+                    logger.info(
+                        f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}."
+                    )
 
                     resp = {
                         "status": "success",

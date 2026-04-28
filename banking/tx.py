@@ -34,7 +34,7 @@ class AllTransactions(generics.ListAPIView):
         return transactions
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset().order_by('-date')
+        queryset = self.get_queryset().order_by("-date")
 
         page = self.paginate_queryset(queryset)
         if page is not None:
