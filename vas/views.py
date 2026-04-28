@@ -727,7 +727,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
-    def _handle_airtime_failure(
+    def _handle_data_failure(
         self,
         user=None,
         guest_id=None,
