@@ -347,6 +347,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 phone_number=phone,
                                 tx_ref=tx_reference,
                             )
+                            logger.info(f"VAS.airtime_topup() response: {airtime_response}")
                             if airtime_response is None:
                                 return self._handle_airtime_failure(
                                     user=user,
@@ -357,6 +358,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             status_query = VAS.status(
                                 bearer_token=vas_token, tx_ref=tx_reference
                             )
+                            logger.info(f"VAS.status() response: {status_query}")
                             status_resp = (
                                 status_query.json().get("data", {})
                                 if status_query
@@ -436,6 +438,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         status_resp = (
                             status_query.json().get("data", {}) if status_query else {}
                         )
+                        logger.info(f"VAS.status() response: {status_resp}")
                         if (
                             status_resp.get("status") == "success"
                             and status_resp.get("responseCode") == "200"
