@@ -14,7 +14,7 @@ class CashbackService:
 
     @classmethod
     @transaction.atomic
-    def reward_cashback(user, amount, service, tx_ref):
+    def reward_cashback(cls, user, amount, service, tx_ref):
 
         try:
             rule = CashbackRule.objects.get(service_type=service, is_active=True)
