@@ -355,6 +355,19 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     amount=amount,
                                     reason="VAS service unavailable.",
                                 )
+                            # Check if airtime_response is successful
+                            airtime_success = False
+                            try:
+                                if hasattr(airtime_response, "status_code") and (
+                                    str(airtime_response.status_code) == "200" or airtime_response.status_code == 200
+                                ):
+                                    airtime_json = airtime_response.json() if hasattr(airtime_response, "json") else {}
+                                    airtime_data = airtime_json.get("data", {}) if isinstance(airtime_json, dict) else {}
+                                    if airtime_data.get("status") == "success" or airtime_json.get("status") == "success":
+                                        airtime_success = True
+                            except Exception as e:
+                                logger.warning(f"Error parsing airtime_response: {e}")
+
                             status_query = VAS.status(
                                 bearer_token=vas_token, tx_ref=tx_reference
                             )
@@ -364,10 +377,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 if status_query
                                 else {}
                             )
-                            if (
+                            status_success = (
                                 status_resp.get("status") == "success"
-                                and status_resp.get("responseCode") == "200"
-                            ):
+                                or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                            )
+
+                            if airtime_success or status_success:
                                 return self._handle_airtime_success(
                                     user=user,
                                     phone=phone,
@@ -991,16 +1006,31 @@ class DataSubscriptionView(generics.GenericAPIView):
                             amount=amount,
                             reason="VAS service unavailable.",
                         )
+                    # Check if data_response is successful
+                    data_success = False
+                    try:
+                        if hasattr(data_response, "status_code") and (
+                            str(data_response.status_code) == "200" or data_response.status_code == 200
+                        ):
+                            data_json = data_response.json() if hasattr(data_response, "json") else {}
+                            data_data = data_json.get("data", {}) if isinstance(data_json, dict) else {}
+                            if data_data.get("status") == "success" or data_json.get("status") == "success":
+                                data_success = True
+                    except Exception as e:
+                        logger.warning(f"Error parsing data_response: {e}")
+
                     status_query = VAS.status(
                         bearer_token=vas_token, tx_ref=tx_reference
                     )
                     status_resp = (
                         status_query.json().get("data", {}) if status_query else {}
                     )
-                    if status_resp.get("status") == "success" and (
-                        status_resp.get("responseCode") == "200"
-                        or status_resp.get("responseCode") == 200
-                    ):
+                    status_success = (
+                        status_resp.get("status") == "success"
+                        or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                    )
+
+                    if data_success or status_success:
                         return self._handle_data_success(
                             user=user,
                             phone=phone,
@@ -1709,16 +1739,31 @@ class BillPaymentView(generics.GenericAPIView):
                             amount=amount,
                             reason="VAS service unavailable.",
                         )
+                    # Check if vas_response is successful
+                    bill_success = False
+                    try:
+                        if hasattr(vas_response, "status_code") and (
+                            str(vas_response.status_code) == "200" or vas_response.status_code == 200
+                        ):
+                            bill_json = vas_response.json() if hasattr(vas_response, "json") else {}
+                            bill_data = bill_json.get("data", {}) if isinstance(bill_json, dict) else {}
+                            if bill_data.get("status") == "success" or bill_json.get("status") == "success":
+                                bill_success = True
+                    except Exception as e:
+                        logger.warning(f"Error parsing vas_response: {e}")
+
                     status_query = VAS.status(
                         bearer_token=vas_token, tx_ref=tx_reference
                     )
                     status_resp = (
                         status_query.json().get("data", {}) if status_query else {}
                     )
-                    if (
+                    status_success = (
                         status_resp.get("status") == "success"
-                        and status_resp.get("responseCode") == 200
-                    ):
+                        or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                    )
+
+                    if bill_success or status_success:
                         return self._handle_success(
                             user=user,
                             guest_id=guest_id,
