@@ -34,6 +34,7 @@ from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
 from banking.helpers import generate_transaction_sms
+from banking.tasks import send_transfer_notifications
 from commons import Messaging
 from decimal import Decimal
 from django.db import transaction
@@ -517,7 +518,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                     email_body = render_to_string(
                         "picadailys_email.html", email_context
                     )
-                    from banking.tasks import send_transfer_notifications
 
                     send_transfer_notifications.delay(
                         authenticated_user.id,

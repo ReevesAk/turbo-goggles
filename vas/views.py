@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.template.loader import render_to_string
 
 from rest_framework.views import APIView
 from rest_framework import generics, status
@@ -30,6 +31,7 @@ from accounts.models import TxModel
 from banking.models import WalletModel
 from banking.controllers import Wallet
 from banking.cashback_service import CashbackService
+from banking.tasks import send_transfer_notifications
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
 from banking.cashback_service import CashbackService
@@ -107,9 +109,66 @@ class AirTimeTopUp(generics.GenericAPIView):
                     CashbackService.reward_cashback(
                         user=user, amount=amount, service="airtime", tx_ref=tx_reference
                     )
-
             except Exception as e:
                 logging.error(f"Database query error: {str(e)}")
+
+            # --- Notification Block (Email/SMS) using Celery task (like transfer) ---
+            support_email = "support@picadailys.com"
+            alert_type = getattr(user, "alert_type_choice", "Both")
+            phone_number = getattr(user, "phone_number", None)
+            email = getattr(user, "email", None)
+
+            wallet = getattr(user, "wallet", None)
+            account_number = getattr(wallet, "account_number", "") if wallet else ""
+            balance = float(getattr(wallet, "balance", 0.0)) if wallet else 0.0
+            # Query latest balance from third party if account_number exists
+            if account_number:
+                enquiry_resp = Wallet.getWalletDetails(account_number)
+                if enquiry_resp and hasattr(enquiry_resp, "json"):
+                    enquiry_data = enquiry_resp.json()
+                    if isinstance(enquiry_data, dict):
+                        bal = enquiry_data.get("data", {}).get("availableBalance")
+                        if bal is not None:
+                            balance = bal
+
+            sms_msg = generate_transaction_sms(
+                transaction_type="AIRTIME",
+                account_number=account_number,
+                amount=float(amount),
+                balance=float(balance) if balance else 0.0,
+                description=f"Airtime purchase for {phone}",
+                reference=tx_reference,
+            )
+            sms_msg += f"\nIf you did not authorize this transaction, contact support: {support_email}"
+
+            email_subject = "Airtime Purchase Confirmation"
+            email_context = {
+                "title": "Airtime Purchase Confirmation",
+                "rows": [
+                    {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
+                    {"label": "Account Number", "value": account_number},
+                    {"label": "Phone", "value": phone},
+                    {"label": "Network", "value": network},
+                    {"label": "Reference", "value": tx_reference},
+                    {"label": "Datetime", "value": ""},  # Optionally add timestamp
+                    {"label": "Transaction Type", "value": "Airtime"},
+                    {"label": "Balance", "value": f"₦{balance:,.2f}"},
+                ],
+                "support_email": support_email,
+                "picadailys_phone": "02012271894 02012271895",
+            }
+
+            email_body = render_to_string("picadailys_email.html", email_context)
+            send_transfer_notifications.delay(
+                user.id,
+                phone_number[1:] if phone_number else None,
+                email,
+                alert_type,
+                sms_msg,
+                email_subject,
+                email_body,
+                email_body,  # html_content
+            )
         else:
             create_activity(guest_id=guest_id, title=title, description=description)
 
@@ -127,28 +186,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
             Points.refresh_user_points(user)
 
-        # --- SMS Notification for Success ---
-        if (
-            user
-            and hasattr(user, "phone_number")
-            and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
-        ):
-            # Try to get wallet/account number and balance
-            wallet = getattr(user, "wallet", None)
-            account_number = getattr(wallet, "account_number", "") if wallet else ""
-            balance = getattr(wallet, "balance", "") if wallet else ""
-            sms_msg = generate_transaction_sms(
-                transaction_type="AIRTIME",
-                account_number=account_number,
-                amount=float(amount),
-                balance=float(balance) if balance else 0.0,
-                description=f"Airtime purchase for {phone}",
-                reference=tx_reference,
-            )
-            Messaging.send_sms(
-                phone_number=user.phone_number[1:],
-                msg=sms_msg,
-            )
+        # (Notification is now handled above via send_transfer_notifications)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -710,26 +748,26 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         if cashback is not None:
             response_data["cashback_used"] = str(cashback)
-        # --- SMS Notification for Success ---
-        if (
-            user
-            and hasattr(user, "phone_number")
-            and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
-        ):
+        # --- Notification Block (Email/SMS) using Celery task (like airtime) ---
+        if user:
+            support_email = "support@picadailys.com"
+            alert_type = getattr(user, "alert_type_choice", "Both")
+            phone_number = getattr(user, "phone_number", None)
+            email = getattr(user, "email", None)
             wallet = getattr(user, "wallet", None)
             account_number = getattr(wallet, "account_number", "") if wallet else ""
-            balance = getattr(wallet, "balance", "") if wallet else ""
-            # Use wallet enquiry to get latest balance
+            balance = float(getattr(wallet, "balance", 0.0)) if wallet else 0.0
+            # Query latest balance from third party if account_number exists
             if account_number:
-                from banking.controllers import Wallet
-
-                enquiry_resp = Wallet.getWalletDetails(account_number)
+                from banking.controllers import Wallet as WalletController
+                enquiry_resp = WalletController.getWalletDetails(account_number)
                 if enquiry_resp and hasattr(enquiry_resp, "json"):
                     enquiry_data = enquiry_resp.json()
                     if isinstance(enquiry_data, dict):
                         bal = enquiry_data.get("data", {}).get("availableBalance")
                         if bal is not None:
                             balance = bal
+
             sms_msg = generate_transaction_sms(
                 transaction_type="DATA",
                 account_number=account_number,
@@ -738,9 +776,36 @@ class DataSubscriptionView(generics.GenericAPIView):
                 description=f"Data purchase for {phone}",
                 reference=tx_reference,
             )
-            Messaging.send_sms(
-                phone_number=user.phone_number[1:],
-                msg=sms_msg,
+            sms_msg += f"\nIf you did not authorize this transaction, contact support: {support_email}"
+
+            email_subject = "Data Purchase Confirmation"
+            email_context = {
+                "title": "Data Purchase Confirmation",
+                "rows": [
+                    {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
+                    {"label": "Account Number", "value": account_number},
+                    {"label": "Phone", "value": phone},
+                    {"label": "Network", "value": network},
+                    {"label": "Reference", "value": tx_reference},
+                    {"label": "Datetime", "value": ""},  # Optionally add timestamp
+                    {"label": "Transaction Type", "value": "Data"},
+                    {"label": "Balance", "value": f"₦{balance:,.2f}"},
+                ],
+                "support_email": support_email,
+                "picadailys_phone": "02012271894 02012271895",
+            }
+            from django.template.loader import render_to_string
+            email_body = render_to_string("picadailys_email.html", email_context)
+            from banking.tasks import send_transfer_notifications
+            send_transfer_notifications.delay(
+                user.id,
+                phone_number[1:] if phone_number else None,
+                email,
+                alert_type,
+                sms_msg,
+                email_subject,
+                email_body,
+                email_body,  # html_content
             )
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
