@@ -911,7 +911,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         payment_option = user_data.get("payment_option")
         network = user_data.get("network")
-        product_id = user_data.get("productId")
+        product_id = user_data.get("product_id")
         biometrics = user_data.get("use_biometrics")
         use_cashback = user_data.get("use_cashback")
 
