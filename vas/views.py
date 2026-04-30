@@ -1082,6 +1082,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
+                    logger.info(f"VAS.data() response: {data_response}")
                     if data_response is None:
                         return self._handle_data_failure(
                             user=user,
