@@ -37,3 +37,18 @@ class WaitlistModel(models.Model):
 
             if not cls.objects.filter(referral_code=code).exists():
                 return code
+
+
+class Referral(models.Model):
+    referrer = models.ForeignKey(
+        WaitlistModel, related_name="referrals_made", on_delete=models.CASCADE
+    )
+    referred = models.ForeignKey(
+        WaitlistModel, related_name="referrals_received", on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return (
+            f"{self.referrer.email} referred {self.referred.email} at {self.created_at}"
+        )

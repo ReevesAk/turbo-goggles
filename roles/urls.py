@@ -67,7 +67,11 @@ from .brand import (
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
-from waitlist.views import AdminWaitlistListView, AdminWaitlistDeleteDuplicatesView
+from waitlist.views import (
+    AdminWaitlistListView,
+    AdminWaitlistDeleteDuplicatesView,
+    WeeklyTopReferrersView,
+)
 
 app_name = "roles"
 
@@ -252,5 +256,10 @@ urlpatterns = [
         "waitlist/delete-duplicates/",
         AdminWaitlistDeleteDuplicatesView.as_view(),
         name="admin-waitlist-delete-duplicates",
+    ),
+    path(
+        "waitlist/weekly-top-referrers",
+        WeeklyTopReferrersView.as_view(),
+        name="weekly_top_referrers",
     ),
 ]

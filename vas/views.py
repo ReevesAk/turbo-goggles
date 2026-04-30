@@ -385,7 +385,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 phone_number=phone,
                                 tx_ref=tx_reference,
                             )
-                            logger.info(f"VAS.airtime_topup() response: {airtime_response}")
+                            logger.info(
+                                f"VAS.airtime_topup() response: {airtime_response}"
+                            )
                             if airtime_response is None:
                                 return self._handle_airtime_failure(
                                     user=user,
@@ -397,11 +399,23 @@ class AirTimeTopUp(generics.GenericAPIView):
                             airtime_success = False
                             try:
                                 if hasattr(airtime_response, "status_code") and (
-                                    str(airtime_response.status_code) == "200" or airtime_response.status_code == 200
+                                    str(airtime_response.status_code) == "200"
+                                    or airtime_response.status_code == 200
                                 ):
-                                    airtime_json = airtime_response.json() if hasattr(airtime_response, "json") else {}
-                                    airtime_data = airtime_json.get("data", {}) if isinstance(airtime_json, dict) else {}
-                                    if airtime_data.get("status") == "success" or airtime_json.get("status") == "success":
+                                    airtime_json = (
+                                        airtime_response.json()
+                                        if hasattr(airtime_response, "json")
+                                        else {}
+                                    )
+                                    airtime_data = (
+                                        airtime_json.get("data", {})
+                                        if isinstance(airtime_json, dict)
+                                        else {}
+                                    )
+                                    if (
+                                        airtime_data.get("status") == "success"
+                                        or airtime_json.get("status") == "success"
+                                    ):
                                         airtime_success = True
                             except Exception as e:
                                 logger.warning(f"Error parsing airtime_response: {e}")
@@ -415,9 +429,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 if status_query
                                 else {}
                             )
-                            status_success = (
-                                status_resp.get("status") == "success"
-                                or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                            status_success = status_resp.get("status") == "success" or (
+                                status_resp.get("responseCode") == "200"
+                                or status_resp.get("responseCode") == 200
                             )
 
                             if airtime_success or status_success:
@@ -760,6 +774,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             # Query latest balance from third party if account_number exists
             if account_number:
                 from banking.controllers import Wallet as WalletController
+
                 enquiry_resp = WalletController.getWalletDetails(account_number)
                 if enquiry_resp and hasattr(enquiry_resp, "json"):
                     enquiry_data = enquiry_resp.json()
@@ -794,9 +809,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 "support_email": support_email,
                 "picadailys_phone": "02012271894 02012271895",
             }
-            from django.template.loader import render_to_string
             email_body = render_to_string("picadailys_email.html", email_context)
-            from banking.tasks import send_transfer_notifications
             send_transfer_notifications.delay(
                 user.id,
                 phone_number[1:] if phone_number else None,
@@ -835,22 +848,29 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         logger.warning(description)
         # Log the actual response from the third party if available
-        if hasattr(data_response, "status_code") and hasattr(
-            data_response, "text"
-        ):
-            logger.warning(
-                f"Third-party response status: {data_response.status_code}"
-            )
+        if hasattr(data_response, "status_code") and hasattr(data_response, "text"):
+            logger.warning(f"Third-party response status: {data_response.status_code}")
             logger.warning(f"Third-party response body: {data_response.text}")
         elif data_response is not None:
             logger.warning(f"Data failure response: {data_response}")
         else:
             logger.warning("Data failure: No response body from provider.")
 
+        # Ensure error is always JSON serializable
+        if data_response is not None:
+            if hasattr(data_response, "data"):
+                error_detail = data_response.data
+            elif hasattr(data_response, "text"):
+                error_detail = data_response.text
+            else:
+                error_detail = str(data_response)
+        else:
+            error_detail = {}
+
         response_data = {
             "status": "fail",
             "message": f"Data purchase failed. {reason}",
-            "error": data_response or {},
+            "error": error_detail,
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
@@ -990,6 +1010,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     amount=amount,
                     debitAccount=user_wallet.account_number,
                     phone_number=phone,
+                    productId=product_id,
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
@@ -1038,9 +1059,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Insufficient bonus balance.",
                 )
 
-        # Centralized payment orchestration (mirrors AirTimeTopUp logic)
-        from django.conf import settings
-
         pts_amt = 0
         if use_points:
             _, pts_amt = Pay.with_pts(user=user, amount=int(amount))
@@ -1075,11 +1093,23 @@ class DataSubscriptionView(generics.GenericAPIView):
                     data_success = False
                     try:
                         if hasattr(data_response, "status_code") and (
-                            str(data_response.status_code) == "200" or data_response.status_code == 200
+                            str(data_response.status_code) == "200"
+                            or data_response.status_code == 200
                         ):
-                            data_json = data_response.json() if hasattr(data_response, "json") else {}
-                            data_data = data_json.get("data", {}) if isinstance(data_json, dict) else {}
-                            if data_data.get("status") == "success" or data_json.get("status") == "success":
+                            data_json = (
+                                data_response.json()
+                                if hasattr(data_response, "json")
+                                else {}
+                            )
+                            data_data = (
+                                data_json.get("data", {})
+                                if isinstance(data_json, dict)
+                                else {}
+                            )
+                            if (
+                                data_data.get("status") == "success"
+                                or data_json.get("status") == "success"
+                            ):
                                 data_success = True
                     except Exception as e:
                         logger.warning(f"Error parsing data_response: {e}")
@@ -1090,9 +1120,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     status_resp = (
                         status_query.json().get("data", {}) if status_query else {}
                     )
-                    status_success = (
-                        status_resp.get("status") == "success"
-                        or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                    status_success = status_resp.get("status") == "success" or (
+                        status_resp.get("responseCode") == "200"
+                        or status_resp.get("responseCode") == 200
                     )
 
                     if data_success or status_success:
@@ -1808,11 +1838,23 @@ class BillPaymentView(generics.GenericAPIView):
                     bill_success = False
                     try:
                         if hasattr(vas_response, "status_code") and (
-                            str(vas_response.status_code) == "200" or vas_response.status_code == 200
+                            str(vas_response.status_code) == "200"
+                            or vas_response.status_code == 200
                         ):
-                            bill_json = vas_response.json() if hasattr(vas_response, "json") else {}
-                            bill_data = bill_json.get("data", {}) if isinstance(bill_json, dict) else {}
-                            if bill_data.get("status") == "success" or bill_json.get("status") == "success":
+                            bill_json = (
+                                vas_response.json()
+                                if hasattr(vas_response, "json")
+                                else {}
+                            )
+                            bill_data = (
+                                bill_json.get("data", {})
+                                if isinstance(bill_json, dict)
+                                else {}
+                            )
+                            if (
+                                bill_data.get("status") == "success"
+                                or bill_json.get("status") == "success"
+                            ):
                                 bill_success = True
                     except Exception as e:
                         logger.warning(f"Error parsing vas_response: {e}")
@@ -1823,9 +1865,9 @@ class BillPaymentView(generics.GenericAPIView):
                     status_resp = (
                         status_query.json().get("data", {}) if status_query else {}
                     )
-                    status_success = (
-                        status_resp.get("status") == "success"
-                        or (status_resp.get("responseCode") == "200" or status_resp.get("responseCode") == 200)
+                    status_success = status_resp.get("status") == "success" or (
+                        status_resp.get("responseCode") == "200"
+                        or status_resp.get("responseCode") == 200
                     )
 
                     if bill_success or status_success:

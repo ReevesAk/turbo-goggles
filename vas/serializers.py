@@ -63,6 +63,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "network",
+            "productId",
             "amount",
             "phone_number",
             "pin",

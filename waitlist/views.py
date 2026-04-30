@@ -19,12 +19,15 @@ from drf_spectacular.utils import extend_schema
 from .serializers import (
     WaitlistSerialiser,
 )
-from .models import WaitlistModel
+from .models import WaitlistModel, Referral
 from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import Count
 
 logger = logging.getLogger("accounts")
 
@@ -102,6 +105,9 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                 referrer.referral_count = (referrer.referral_count or 0) + 1
                 referrer.points = (referrer.points or 0) + 50
                 referrer.save(update_fields=["referral_count", "points"])
+
+                # Create a Referral record for this event
+                Referral.objects.create(referrer=referrer, referred=waitlist_user)
 
             except WaitlistModel.DoesNotExist:
                 return Response(
@@ -296,4 +302,59 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
         qs.delete()
         return Response(
             {"status": "success", "deleted": count}, status=status.HTTP_200_OK
+        )
+
+
+class WeeklyTopReferrersView(APIView):
+    """
+    WeeklyTopReferrersView is the GET request method that returns
+    the top 5 referrers for the current week.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+
+    def get(self, request, *args, **kwargs):
+        # Get the start and end of the current week (Monday to Sunday)
+        now = timezone.now()
+        start_of_week = now - timedelta(days=now.weekday())
+        end_of_week = start_of_week + timedelta(days=7)
+
+        # Aggregate referrals made this week
+        weekly_referrals = (
+            Referral.objects.filter(
+                created_at__gte=start_of_week, created_at__lt=end_of_week
+            )
+            .values("referrer")
+            .annotate(referral_count=Count("id"))
+            .order_by("-referral_count")[:5]
+        )
+        # Fetch user details for the top referrers
+        referrer_ids = [item["referrer"] for item in weekly_referrals]
+        users = {u.id: u for u in WaitlistModel.objects.filter(id__in=referrer_ids)}
+        data = []
+        for item in weekly_referrals:
+            user = users.get(item["referrer"])
+            if user:
+                data.append(
+                    {
+                        "first_name": user.f_name,
+                        "last_name": user.l_name,
+                        "email": user.email,
+                        "referral_code": user.referral_code,
+                        "referral_count": item["referral_count"],
+                        "points": user.points,
+                        "joined_at": user.joined_at,
+                    }
+                )
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": data,
+                    "week_start": start_of_week.isoformat(),
+                    "week_end": end_of_week.isoformat(),
+                }
+            ),
+            status=status.HTTP_200_OK,
         )
