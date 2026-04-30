@@ -155,6 +155,13 @@ class VAS:
             "productId": productId,
             "transactionReference": tx_ref,
         }
+        # Log the payload and parameters being sent
+        logging.info(
+            "VAS.data REQUEST: url=%s, payload=%s, headers=%s",
+            _build_vas_url(resource),
+            payload,
+            {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"},
+        )
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
