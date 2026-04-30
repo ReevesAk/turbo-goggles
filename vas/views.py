@@ -1073,6 +1073,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             case "WALLET":
                 if not use_points and not use_cashback and not use_bonus:
                     # Wallet-only: debit user wallet directly
+                    logger.info("network=%s, amount=%s, debitAccount=%s, phone_number=%s, tx_ref=%s", network, amount, user_wallet.account_number, phone, tx_reference)
                     data_response = VAS.data(
                         network=network,
                         bearer_token=vas_token,
