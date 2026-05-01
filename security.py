@@ -39,7 +39,7 @@ def decrypt(cipher_text):
 
 
 def encrypt(json_data: dict):
-    data_str = json.dumps(json_data)
+    data_str = json.dumps(json_data, default=str)
 
     try:
         # Encrypt the data

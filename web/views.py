@@ -340,7 +340,7 @@ class SingleJobApplicationsList(generics.ListAPIView):
     PIN is validated manually from request body.
     """
 
-    serializer_class = ApplicationsSerializers
+    serializer_class = GetApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
     authentication_classes = [JWTAuthentication]
 

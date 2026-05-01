@@ -301,7 +301,7 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
         count = qs.count()
         qs.delete()
         return Response(
-            {"status": "success", "deleted": count}, status=status.HTTP_200_OK
+            data={"status": "success", "deleted": count}, status=status.HTTP_200_OK
         )
 
 
@@ -347,13 +347,11 @@ class WeeklyTopReferrersView(APIView):
                     }
                 )
         return Response(
-            data=encrypt(
-                {
-                    "status": "success",
-                    "data": data,
-                    "week_start": start_of_week.isoformat(),
-                    "week_end": end_of_week.isoformat(),
-                }
-            ),
+            data={
+                "status": "success",
+                "data": data,
+                "week_start": start_of_week.isoformat(),
+                "week_end": end_of_week.isoformat(),
+            },
             status=status.HTTP_200_OK,
         )
