@@ -19,6 +19,7 @@ from .views import (
     JoinApplicationWaitlist,
     WaitlistApplicationList,
 )
+from waitlist.views import WeeklyTopReferrersView
 
 app_name = "web"
 
@@ -77,4 +78,9 @@ urlpatterns = [
     ),
     path("join-waitlist", JoinApplicationWaitlist.as_view(), name="join_waitlist"),
     path("get-waitlist", WaitlistApplicationList.as_view(), name="get_waitlist"),
+    path(
+        "waitlist/weekly-top-referrers",
+        WeeklyTopReferrersView.as_view(),
+        name="weekly_top_referrers",
+    ),
 ]

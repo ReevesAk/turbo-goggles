@@ -311,8 +311,7 @@ class WeeklyTopReferrersView(APIView):
     the top 5 referrers for the current week.
     """
 
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+    permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
         # Get the start and end of the current week (Monday to Sunday)

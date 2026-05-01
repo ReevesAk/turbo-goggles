@@ -1,5 +1,6 @@
 import logging
-import json
+import tempfile
+import os
 import requests
 from decouple import config
 from accounts.otp import otp_manager
@@ -1479,24 +1480,39 @@ class GenerateAccountStatement(generics.GenericAPIView):
         match format_type:
             case "CSV":
                 file_content = ExportStatement.to_csv(transactions)
-                attachment = ("account_statement.csv", file_content, "text/csv")
-
+                suffix = ".csv"
+                mime_type = "text/csv"
             case "PDF":
                 file_content = ExportStatement.to_pdf(transactions)
-                attachment = ("account_statement.pdf", file_content, "application/pdf")
-
+                suffix = ".pdf"
+                mime_type = "application/pdf"
             case _:
                 return Response(
                     {"error": "Invalid format requested"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Write file_content to a temporary file and pass its path to get_asset_id
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            if isinstance(file_content, str):
+                tmp_file.write(file_content.encode("utf-8"))
+            else:
+                tmp_file.write(file_content)
+            tmp_file_path = tmp_file.name
+
         msg = (
             f"Your account statement from {start_date} to {end_date} "
             f"has been generated successfully. Please find the statement attached."
         )
 
-        result = get_asset_id(file=attachment)
+        result = get_asset_id(file=tmp_file_path)
+
+        # Clean up the temp file
+        try:
+            os.remove(tmp_file_path)
+        except Exception:
+            pass
+
         if not result["success"]:
             return Response(
                 data=encrypt(

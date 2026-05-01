@@ -160,7 +160,10 @@ class VAS:
             "VAS.data REQUEST: url=%s, payload=%s, headers=%s",
             _build_vas_url(resource),
             payload,
-            {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"},
+            {
+                "Authorization": f"Bearer {bearer_token}",
+                "Content-Type": "application/json",
+            },
         )
         headers = {
             "Authorization": f"Bearer {bearer_token}",

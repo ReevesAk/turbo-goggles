@@ -1073,7 +1073,14 @@ class DataSubscriptionView(generics.GenericAPIView):
             case "WALLET":
                 if not use_points and not use_cashback and not use_bonus:
                     # Wallet-only: debit user wallet directly
-                    logger.info("network=%s, amount=%s, debitAccount=%s, phone_number=%s, tx_ref=%s", network, amount, user_wallet.account_number, phone, tx_reference)
+                    logger.info(
+                        "network=%s, amount=%s, debitAccount=%s, phone_number=%s, tx_ref=%s",
+                        network,
+                        amount,
+                        user_wallet.account_number,
+                        phone,
+                        tx_reference,
+                    )
                     data_response = VAS.data(
                         network=network,
                         bearer_token=vas_token,
@@ -1083,7 +1090,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
-                    logger.info(f"VAS.data() response: {data_response.json() if data_response else 'No response'}")
+                    logger.info(
+                        f"VAS.data() response: {data_response.json() if data_response else 'No response'}"
+                    )
                     if data_response is None:
                         return self._handle_data_failure(
                             user=user,
