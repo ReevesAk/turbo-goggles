@@ -342,7 +342,7 @@ class WeeklyTopReferrersView(APIView):
                         "email": user.email,
                         "referral_code": user.referral_code,
                         "referral_count": item["referral_count"],
-                        "points": user.points,
+                        "total_points": user.points,
                         "joined_at": user.joined_at,
                     }
                 )
