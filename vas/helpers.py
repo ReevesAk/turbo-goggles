@@ -144,7 +144,6 @@ class VAS:
 
     @staticmethod
     def dataplans(
-        network,
         bearer_token,
         phone_number,
     ):

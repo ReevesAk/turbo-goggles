@@ -617,16 +617,14 @@ class GetNetworkProvider(generics.RetrieveAPIView):
         },
     )
     def get(self, request, *args, **kwargs):
-        # Get phone number from query params
+        # Only require phone_number from query param
         phone_number = request.query_params.get("phone_number")
         if not phone_number:
             return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Phone number is required as a query parameter.",
-                    }
-                ),
+                data=encrypt({
+                    "status": "fail",
+                    "message": "phone_number (query param) is required."
+                }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -634,25 +632,21 @@ class GetNetworkProvider(generics.RetrieveAPIView):
         token = VAS.authenticate()
         if not token:
             return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Failed to authenticate with VAS provider.",
-                    }
-                ),
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Failed to authenticate with VAS provider."
+                }),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Fetch data plans from VAS
+        # Pass only phone_number to VAS.dataplans (network can be None or empty)
         vas_response = VAS.dataplans(token, phone_number)
         if not vas_response or vas_response.status_code != 200:
             return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Failed to fetch data plans from VAS provider.",
-                    }
-                ),
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Failed to fetch data plans from VAS provider."
+                }),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -661,12 +655,10 @@ class GetNetworkProvider(generics.RetrieveAPIView):
         except Exception as e:
             logger.error(f"Error parsing VAS data plans response: {str(e)}")
             return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Invalid response format from VAS provider.",
-                    }
-                ),
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Invalid response format from VAS provider."
+                }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
