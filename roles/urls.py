@@ -266,6 +266,6 @@ urlpatterns = [
     path(
         "waitlist/bulk-delete/",
         BulkDeleteWaitlistUsers.as_view(),
-        name="waitlist-bulk-delete"
+        name="waitlist-bulk-delete",
     ),
 ]

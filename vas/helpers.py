@@ -143,6 +143,37 @@ class VAS:
             return None
 
     @staticmethod
+    def dataplans(
+        network,
+        bearer_token,
+        phone_number,
+    ):
+        resource = f"/vas/api/v1/topup/dataPlans?phone={phone_number}"
+        # Log the payload and parameters being sent
+        logging.info(
+            "VAS.data REQUEST: url=%s, headers=%s",
+            _build_vas_url(resource),
+            {
+                "Authorization": f"Bearer {bearer_token}",
+                "Content-Type": "application/json",
+            },
+        )
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = requests.post(
+                url=_build_vas_url(resource),
+                headers=headers,
+                timeout=15,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Data plans API request error: {str(e)}")
+            return None
+
+    @staticmethod
     def data(
         network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref
     ):

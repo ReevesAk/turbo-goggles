@@ -607,14 +607,6 @@ class AirTimeTopUp(generics.GenericAPIView):
 class GetNetworkProvider(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
 
-    # Map full service IDs to their corresponding filenames
-    SERVICE_MAPPINGS = {
-        "MTN": "mtn_grouped_dataplans_by_validity.json",
-        "AIRTEL": "airtel_grouped_dataplans_by_validity.json",
-        "GLO": "glo_grouped_data_set.json",
-        "9MOBILE": "nine_mobile_grouped_dataplans_by_validity.json",
-    }
-
     @extend_schema(
         description="Retrieve variation codes for network providers",
         responses={
@@ -625,72 +617,63 @@ class GetNetworkProvider(generics.RetrieveAPIView):
         },
     )
     def get(self, request, *args, **kwargs):
-        # Get the full service ID (e.g. 'mtn-data', 'etisalat-data')
-        service_id = kwargs.get("network", "").lower().strip()
-
-        # derive provider token and normalize to mapping keys (MTN, AIRTEL, GLO, 9MOBILE)
-        provider = service_id.split("-")[0].upper() if service_id else ""
-        filename = self.SERVICE_MAPPINGS.get(provider)
-
-        if not filename:
+        # Get phone number from query params
+        phone_number = request.query_params.get("phone_number")
+        if not phone_number:
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
-                        "message": f"Unsupported service provider: {service_id}",
-                        "supported_providers": list(self.SERVICE_MAPPINGS.keys()),
+                        "status": "fail",
+                        "message": "Phone number is required as a query parameter.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            json_path = os.path.join(settings.BASE_DIR, "vas", "data_plans", filename)
-            logger.debug(f"Checking for file at: {json_path}")
-
-            if not os.path.isfile(json_path):
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "error",
-                            "message": f"Network data plans file not found for {service_id}",
-                            "expected_filename": filename,
-                        }
-                    ),
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            with open(json_path, "r") as f:
-                variation_data = json.load(f)
-
-            variation_data = CashbackService.add_cashback_to_bundles(variation_data)
-
-            return Response(
-                data=encrypt(
-                    {"status": "success", "service": service_id, "data": variation_data}
-                ),
-                status=status.HTTP_200_OK,
-            )
-
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON format in file: {filename}")
+        # Authenticate to get bearer token
+        token = VAS.authenticate()
+        if not token:
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
-                        "message": "Invalid data format in data plans file",
+                        "status": "fail",
+                        "message": "Failed to authenticate with VAS provider.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # Fetch data plans from VAS
+        vas_response = VAS.dataplans(token, phone_number)
+        if not vas_response or vas_response.status_code != 200:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Failed to fetch data plans from VAS provider.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            plans_data = vas_response.json()
+        except Exception as e:
+            logger.error(f"Error parsing VAS data plans response: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid response format from VAS provider.",
                     }
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        except Exception as e:
-            logger.error(f"Error loading data plans: {str(e)}")
-            return Response(
-                data=encrypt(
-                    {"status": "error", "message": "Failed to load data plans"}
-                ),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+
+        return Response(
+            data=encrypt({"status": "success", "data": plans_data}),
+            status=status.HTTP_200_OK,
+        )
 
 
 class DataSubscriptionView(generics.GenericAPIView):
