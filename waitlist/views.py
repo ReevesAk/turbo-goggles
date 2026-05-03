@@ -355,3 +355,15 @@ class WeeklyTopReferrersView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class BulkDeleteWaitlistUsers(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+
+    def post(self, request):
+        emails = request.data.get("emails", [])
+        if not isinstance(emails, list) or not emails:
+            return Response({"status": "fail", "message": "A list of emails is required."}, status=status.HTTP_400_BAD_REQUEST)
+        deleted, _ = WaitlistModel.objects.filter(email__in=emails).delete()
+        return Response({"status": "success", "deleted_count": deleted}, status=status.HTTP_200_OK)

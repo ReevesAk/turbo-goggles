@@ -71,6 +71,7 @@ from waitlist.views import (
     AdminWaitlistListView,
     AdminWaitlistDeleteDuplicatesView,
     WeeklyTopReferrersView,
+    BulkDeleteWaitlistUsers,
 )
 
 app_name = "roles"
@@ -261,5 +262,10 @@ urlpatterns = [
         "waitlist/weekly-top-referrers",
         WeeklyTopReferrersView.as_view(),
         name="weekly_top_referrers",
+    ),
+    path(
+        "waitlist/bulk-delete/",
+        BulkDeleteWaitlistUsers.as_view(),
+        name="waitlist-bulk-delete"
     ),
 ]
