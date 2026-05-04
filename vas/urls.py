@@ -19,7 +19,7 @@ urlpatterns = [
         name="airtime_topup",
     ),
     path(
-        "get-productIds/",
+        "get-productIds/<str:phone_number>/",
         GetDataPlans.as_view(),
         name="variation_codes",
     ),
