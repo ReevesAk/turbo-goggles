@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     AirTimeTopUp,
     DataSubscriptionView,
-    GetNetworkProvider,
+    GetDataPlans,
     BillPaymentCategoriesView,
     BillersCategoriesView,
     VerifyBillerAccountView,
@@ -20,7 +20,7 @@ urlpatterns = [
     ),
     path(
         "get-productIds/",
-        GetNetworkProvider.as_view(),
+        GetDataPlans.as_view(),
         name="variation_codes",
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),

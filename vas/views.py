@@ -604,7 +604,7 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
 
 
-class GetNetworkProvider(generics.RetrieveAPIView):
+class GetDataPlans(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
 
     @extend_schema(
@@ -617,20 +617,30 @@ class GetNetworkProvider(generics.RetrieveAPIView):
         },
     )
     def get(self, request, *args, **kwargs):
-        # Only require phone_number from query param
-        phone_number = request.query_params.get("phone_number")
+        logger.info("[GetDataPlans] Incoming request: path=%s, method=%s, GET=%s, POST=%s, ARGS=%s, KWARGS=%s", request.path, request.method, request.GET, request.POST, args, kwargs)
+
+
+        # Try to extract phone_number from kwargs first, then query param
+        phone_number = kwargs.get("phone_number")
+        logger.info("[GetDataPlans] Extracted phone_number from kwargs: %s", phone_number)
         if not phone_number:
+            phone_number = request.query_params.get("phone_number")
+            logger.info("[GetNetworkProvider] Extracted phone_number from query params: %s", phone_number)
+        if not phone_number:
+            logger.warning("[GetNetworkProvider] Missing phone_number in kwargs and query params. Returning 400.")
             return Response(
                 data=encrypt({
                     "status": "fail",
-                    "message": "phone_number (query param) is required."
+                    "message": "phone_number (query param or path) is required."
                 }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Authenticate to get bearer token
         token = VAS.authenticate()
+        logger.info("[GetNetworkProvider] VAS.authenticate() returned token: %s", token)
         if not token:
+            logger.error("[GetNetworkProvider] Failed to authenticate with VAS provider. Returning 502.")
             return Response(
                 data=encrypt({
                     "status": "fail",
@@ -640,8 +650,21 @@ class GetNetworkProvider(generics.RetrieveAPIView):
             )
 
         # Pass only phone_number to VAS.dataplans (network can be None or empty)
-        vas_response = VAS.dataplans(token, phone_number)
-        if not vas_response or vas_response.status_code != 200:
+        logger.info("[GetNetworkProvider] Calling VAS.dataplans with phone_number=%s", phone_number)
+        vas_response = VAS.dataplans(bearer_token=token, phone_number=phone_number)
+        logger.info("[GetNetworkProvider] VAS.dataplans response: %s", vas_response)
+        if not vas_response:
+            logger.error("[GetNetworkProvider] No response from VAS.dataplans. Returning 502.")
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": "Failed to fetch data plans from VAS provider."
+                }),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        logger.info("[GetNetworkProvider] VAS.dataplans status_code: %s, text: %s", getattr(vas_response, 'status_code', None), getattr(vas_response, 'text', None))
+        if vas_response.status_code != 200:
+            logger.error("[GetNetworkProvider] VAS.dataplans returned non-200 status: %s", vas_response.status_code)
             return Response(
                 data=encrypt({
                     "status": "fail",
@@ -652,8 +675,9 @@ class GetNetworkProvider(generics.RetrieveAPIView):
 
         try:
             plans_data = vas_response.json()
+            logger.info("[GetNetworkProvider] Successfully parsed VAS.dataplans JSON response.")
         except Exception as e:
-            logger.error(f"Error parsing VAS data plans response: {str(e)}")
+            logger.error(f"[GetNetworkProvider] Error parsing VAS data plans response: {str(e)}")
             return Response(
                 data=encrypt({
                     "status": "fail",
@@ -662,6 +686,7 @@ class GetNetworkProvider(generics.RetrieveAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        logger.info("[GetNetworkProvider] Returning success response with data.")
         return Response(
             data=encrypt({"status": "success", "data": plans_data}),
             status=status.HTTP_200_OK,
