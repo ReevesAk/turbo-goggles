@@ -1,6 +1,7 @@
 import logging
 import random
 import string
+import sys
 import requests
 from decouple import config
 
@@ -149,14 +150,18 @@ class VAS:
     ):
         resource = f"/vas/api/v1/topup/dataPlans?phone={phone_number}"
         # Log the payload and parameters being sent
-        logging.info(
-            "VAS.data REQUEST: url=%s, headers=%s",
+        logging.warning(
+            "[!!!] VAS.data REQUEST: url=%s, headers=%s",
             _build_vas_url(resource),
             {
                 "Authorization": f"Bearer {bearer_token}",
                 "Content-Type": "application/json",
             },
         )
+        print("[!!!] VAS.data REQUEST:")
+        print(f"  url: {_build_vas_url(resource)}")
+        print(f"  headers: {{'Authorization': f'Bearer {bearer_token}', 'Content-Type': 'application/json'}}")
+        sys.stdout.flush()
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
