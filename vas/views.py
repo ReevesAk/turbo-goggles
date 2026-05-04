@@ -1384,6 +1384,7 @@ class BillersCategoriesView(APIView):
         billers_resp = VAS.billers_categories(
             bearer_token=token, biller_id=kwargs.get("billers_id")
         )
+        logger.info(f"VAS.billers_categories response: {billers_resp.json() if billers_resp else 'No response'}")
         billers = billers_resp.json().get("data", [])
 
         return Response(
