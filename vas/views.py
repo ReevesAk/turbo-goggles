@@ -1660,6 +1660,7 @@ class BillPaymentView(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
 
     # --- POST flow (mirrors DataSubscription flow) ---
+    @transaction.atomic
     def post(self, request):
         guest_id = request.headers.get("X-Guest-ID")
         idempotency_key = request.headers.get("Idempotency-Key")
