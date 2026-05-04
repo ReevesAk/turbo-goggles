@@ -1292,6 +1292,41 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
 
 
+class GetPaymentCategoriesView(APIView):
+    """
+    GetPaymentCategoriesView is the GET request handler that returns a list of
+    bill payment categories.
+    """
+
+    def get(self, request, *args, **kwargs):
+        token = VAS.authenticate()
+        if not token:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "VAS service is temporarily unavailable.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        categories_resp = VAS.get_categories(
+            bearer_token=token
+        )
+        categories = categories_resp.json().get("data", [])
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success.",
+                    "message": "Categories retrieved successfully.",
+                    "categories": categories,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
 class BillPaymentCategoriesView(APIView):
     """
     BillPaymentCategoriesView is the GET request handler that returns a list of

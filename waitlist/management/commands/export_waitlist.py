@@ -1,6 +1,6 @@
 import csv
 from django.core.management.base import BaseCommand
-from waitlist.models import WaitlistModel
+from waitlist.models import WaitlistModel, Referral
 
 
 class Command(BaseCommand):
@@ -15,6 +15,8 @@ class Command(BaseCommand):
             "email",
             "phone",
             "referral_code",
+            "joined_with_referral_code",
+            "referrer_name",
             "referral_count",
             "points",
             "is_student",
@@ -25,6 +27,13 @@ class Command(BaseCommand):
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for user in WaitlistModel.objects.all():
+                # Find the referral where this user is the referred
+                ref = Referral.objects.filter(referred=user).select_related('referrer').first()
+                referrer_name = None
+                joined_with_referral_code = None
+                if ref and ref.referrer:
+                    referrer_name = f"{ref.referrer.f_name or ''} {ref.referrer.l_name or ''}".strip()
+                    joined_with_referral_code = ref.referrer.referral_code
                 writer.writerow(
                     {
                         "id": user.id,
@@ -33,6 +42,8 @@ class Command(BaseCommand):
                         "email": user.email,
                         "phone": user.phone,
                         "referral_code": user.referral_code,
+                        "joined_with_referral_code": joined_with_referral_code,
+                        "referrer_name": referrer_name,
                         "referral_count": user.referral_count or 0,
                         "points": user.points,
                         "is_student": user.is_student,

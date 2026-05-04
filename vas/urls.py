@@ -3,6 +3,7 @@ from .views import (
     AirTimeTopUp,
     DataSubscriptionView,
     GetDataPlans,
+    GetPaymentCategoriesView,
     BillPaymentCategoriesView,
     BillersCategoriesView,
     VerifyBillerAccountView,
@@ -24,6 +25,11 @@ urlpatterns = [
         name="variation_codes",
     ),
     path("subscribe-data", DataSubscriptionView.as_view(), name="data_subscription"),
+    path(
+        "bill-payment-categories/",
+        BillPaymentCategoriesView.as_view(),
+        name="bill_payment_categories",
+    ),
     path(
         "bill-payment-categories/<str:category_id>/",
         BillPaymentCategoriesView.as_view(),

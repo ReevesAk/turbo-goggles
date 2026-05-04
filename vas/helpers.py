@@ -217,6 +217,23 @@ class VAS:
             return None
 
     @staticmethod
+    def get_categories(bearer_token):
+        resource = f"vas/api/v1/billspayment/catergories"
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = requests.get(
+                url=_build_vas_url(resource),
+                headers=headers,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Categories API request error: {str(e)}")
+            return None
+
+    @staticmethod
     def bill_payment_categories(bearer_token, category_id):
         resource = f"vas/api/v1/billspayment/billers/{category_id}"
         headers = {
