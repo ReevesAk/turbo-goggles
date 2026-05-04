@@ -280,6 +280,12 @@ class VAS:
             "itemId": itemId,
             "amount": amount,
         }
+        logging.warning(
+            "VAS verify_bill_payer REQUEST: url=%s, payload=%s, headers=%s",
+            _build_vas_url(resource),
+            payload,
+            headers,
+        )
         try:
             response = requests.post(
                 url=_build_vas_url(resource),
@@ -316,6 +322,15 @@ class VAS:
             "debitAccount": debitAccount,
             "transactionReference": transactionReference,
         }
+        logging.warning(
+            "VAS bill_payment REQUEST: url=%s, payload=%s, headers=%s",
+            _build_vas_url(resource),
+            payload,
+            {
+                "Authorization": f"Bearer {bearer_token}",
+                "Content-Type": "application/json",
+            },
+        )
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
@@ -323,7 +338,7 @@ class VAS:
 
         try:
             response = requests.post(
-                url=vas_base_url + resource,
+                url=_build_vas_url(resource),
                 json=payload,
                 headers=headers,
             )

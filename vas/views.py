@@ -1447,7 +1447,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
             if (
                 biller_response.get("status") == "success"
-                and biller_response.get("responseCode") == 200
+                and biller_response.get("responseCode") in [200, "200"]
             ):
                 response_data = {
                     "data": biller_response,
