@@ -1348,6 +1348,7 @@ class BillPaymentCategoriesView(APIView):
         categories_resp = VAS.bill_payment_categories(
             bearer_token=token, category_id=kwargs.get("category_id")
         )
+        logger.info(f"VAS.bill_payment_categories response: {categories_resp.json() if categories_resp else 'No response'}")
         categories = categories_resp.json().get("data", [])
 
         return Response(
