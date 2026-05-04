@@ -1320,7 +1320,7 @@ class GetPaymentCategoriesView(APIView):
                 {
                     "status": "success.",
                     "message": "Categories retrieved successfully.",
-                    "categories": categories,
+                    "categories": categories.json().get("data", []),
                 }
             ),
             status=status.HTTP_200_OK,
