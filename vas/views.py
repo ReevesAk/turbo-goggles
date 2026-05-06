@@ -651,7 +651,7 @@ class GetDataPlans(generics.RetrieveAPIView):
 
         # Pass only phone_number to VAS.dataplans (network can be None or empty)
         logger.info("[GetNetworkProvider] Calling VAS.dataplans with phone_number=%s", phone_number)
-        vas_response = VAS.dataplans(phone_number=phone_number)
+        vas_response = VAS.dataplans(bearer_token=token, phone_number=phone_number)
         logger.info("[GetNetworkProvider] VAS.dataplans response: %s", vas_response)
         if not vas_response:
             logger.error("[GetNetworkProvider] No response from VAS.dataplans. Returning 502.")

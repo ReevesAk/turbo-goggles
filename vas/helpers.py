@@ -92,8 +92,7 @@ class VAS:
             return None
 
     @staticmethod
-    def dataplans(phone_number):
-        bearer_token = "eyJ0eXAiOiJKV1QiLCJrZXlJZCI6InZhc19qd3QiLCJhbGciOiJIUzUxMiJ9.eyJhdXRob3JpdGllcyI6WyJCSUxMU19QQVlNRU5UIiwiVE9QX1VQIl0sInN1YiI6IjlQU0IiLCJpc3MiOiI5cHNiLmNvbS5uZyIsImlhdCI6MTY5Njg2NzIyOCwianRpIjoiMGVjMDE5MTgtYWUyMy00OGQyLWE2YjItYmMwNDIwZmMwYTE1IiwiZXhwIjoxNjk2ODc0NDI4fQ.ppLP2K92QXSWXeYXKEQtsFzI8-DDT8Sbg-4g7OV8vPw9S3VxLx_Zntb_3F1PrxnupqRp5SOXCKqI6hjwn1LJ2w"
+    def dataplans(bearer_token, phone_number):
         resource = f"topup/dataPlans?phone={phone_number}"
         url = _build_vas_url(resource)
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
