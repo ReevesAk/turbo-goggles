@@ -554,6 +554,11 @@ class Transfers:
                     "sendername": sender_name,
                 }
             },
+            "merchant": {
+                "isFee": False,
+                "merchantFeeAccount": "",
+                "merchantFeeAmount": "",
+            },
             "order": {
                 "amount": amount,
                 "currency": "NGN",
