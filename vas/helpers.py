@@ -148,7 +148,7 @@ class VAS:
         bearer_token,
         phone_number,
     ):
-        resource = f"/vas/api/v1/topup/dataPlans?phone={phone_number}"
+        resource = f"topup/dataPlans?phone={phone_number}"
         # Log the payload and parameters being sent
         logging.warning(
             "[!!!] VAS.data REQUEST: url=%s, headers=%s",
