@@ -565,13 +565,24 @@ class Transfers:
             "transactionType": transactionType,
         }
 
+        url = base_url + resource
+        logging.warning(
+            "TRANSFER initiate_transfer REQUEST: url=%s | payload=%s | headers=%s",
+            url, payload, headers,
+        )
         try:
-            response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+            response = requests.post(url=url, headers=headers, json=payload)
+            try:
+                resp_body = response.json()
+            except Exception:
+                resp_body = response.text
+            logging.warning(
+                "TRANSFER initiate_transfer RESPONSE: status=%s | body=%s",
+                response.status_code, resp_body,
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Transfer API request error: {str(e)}")
+            logging.warning("TRANSFER initiate_transfer ERROR: %s", e)
             return None
 
     @staticmethod
