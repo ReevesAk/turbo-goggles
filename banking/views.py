@@ -675,17 +675,6 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
 
         # Perform the upgrade logic here
         try:
-            def _fmt_date(val):
-                if not val:
-                    return val
-                from datetime import datetime
-                for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d"):
-                    try:
-                        return datetime.strptime(str(val), fmt).strftime("%d-%m-%Y")
-                    except ValueError:
-                        continue
-                return val
-
             upgrade_response = Wallet.UpgradeToTier2(
                 acct_name=user_wallet.acct_name,
                 phone_number=current_user.phone_number,
@@ -696,8 +685,8 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 userPhoto=payload.get("userPhoto"),
                 idType=payload.get("idType"),
                 idNumber=payload.get("idNumber"),
-                idIssueDate=_fmt_date(payload.get("idIssueDate")),
-                idExpiryDate=_fmt_date(payload.get("idExpiryDate")),
+                idIssueDate=payload.get("idIssueDate"),
+                idExpiryDate=payload.get("idExpiryDate"),
                 idCardFront=payload.get("idCardFront"),
                 idCardBack=payload.get("idCardBack"),
                 utilityBill=payload.get("utilityBill"),
