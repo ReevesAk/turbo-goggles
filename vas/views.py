@@ -1718,6 +1718,7 @@ class BillPaymentView(generics.GenericAPIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+
         # Lock wallet for authenticated users
         if user:
             try:

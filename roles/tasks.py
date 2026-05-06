@@ -75,12 +75,17 @@ class CreateStepCampaign(generics.GenericAPIView):
         )
 
         survey_users = User.objects.filter(has_done_survey=True)
-        for user in survey_users:
-            UserNotification.objects.create(
-                user=user,
-                title="New Step Count Campaign",
-                message=f"A new step count campaign '{serializer.validated_data['name']}' has been assigned to you.",
-            )
+        UserNotification.objects.bulk_create(
+            [
+                UserNotification(
+                    user=user,
+                    title="New Step Count Campaign",
+                    message=f"A new step count campaign '{serializer.validated_data['name']}' has been assigned to you.",
+                )
+                for user in survey_users
+            ],
+            batch_size=500,
+        )
 
         return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 

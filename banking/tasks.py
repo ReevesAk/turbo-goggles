@@ -2,10 +2,13 @@
 import logging
 import time
 from datetime import date, timedelta
+from decimal import Decimal
 
 # Third-party imports
 import schedule
 from celery import shared_task
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 # Django app imports
 from banking.helpers import generate_transaction_sms
@@ -38,6 +41,101 @@ def send_transfer_notifications(
             subject=email_subject,
             body=email_body,
         )
+
+
+@shared_task(autoretry_for=(Exception,), max_retries=3, default_retry_delay=10)
+def post_transfer_update(
+    user_id,
+    tx_id,
+    account_number,
+    beneficiary_account_number,
+    sender_full_name,
+    amount_str,
+    narration,
+    idempotency_key,
+    alert_type,
+    phone_number,
+    email,
+):
+    from accounts.models import UserNotification
+    from banking.models import WalletModel, TransferModel
+    from banking.controllers import Wallet
+    from accounts.models import TxModel
+    from roles.models import ActivityModel
+    from accounts.models import User
+
+    try:
+        user = User.objects.get(id=user_id)
+        tx = TxModel.objects.get(id=tx_id)
+        amount = Decimal(amount_str)
+
+        new_balance = Decimal("0")
+        try:
+            post_sync = Wallet.getWalletDetails(account_number)
+            if post_sync and hasattr(post_sync, "json"):
+                post_data = post_sync.json()
+                if post_data.get("status") == "SUCCESS":
+                    new_balance = Decimal(
+                        str(post_data["data"].get("availableBalance", 0))
+                    )
+                    WalletModel.objects.filter(user=user).update(balance=new_balance)
+        except Exception as e:
+            logging.warning(f"post_transfer_update: could not sync balance: {e}")
+
+        TransferModel.objects.create(
+            user=user,
+            tx=tx,
+            beneficiary_account_number=beneficiary_account_number,
+            sender_name=sender_full_name,
+            amount=amount_str,
+            available_balance=new_balance,
+        )
+
+        message = f"Dear {sender_full_name},\nYour transfer of ₦{amount_str} has been confirmed. Your available balance is ₦{new_balance}."
+        UserNotification.objects.create(user=user, title="Bank Transfer", message=message)
+        ActivityModel.objects.create(
+            user=user,
+            title="Bank Transfer",
+            description=f"{sender_full_name} made a transfer of ₦{amount_str}. Available balance is ₦{new_balance}.",
+        )
+
+        amount_val = float(amount)
+        balance_val = float(new_balance)
+        sms_msg = generate_transaction_sms(
+            transaction_type="DEBIT",
+            account_number=account_number,
+            amount=amount_val,
+            balance=balance_val,
+            description=f"Transfer to {beneficiary_account_number}",
+            reference=idempotency_key,
+        )
+        email_context = {
+            "title": "Debit Alert",
+            "rows": [
+                {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
+                {"label": "Account Number", "value": account_number},
+                {"label": "Narration", "value": narration or "No narration provided"},
+                {"label": "Reference", "value": idempotency_key},
+                {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                {"label": "Transaction Type", "value": "Debit"},
+                {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
+            ],
+            "support_email": "notifications@picadailys.com",
+            "picadailys_phone": "02012271894 02012271895",
+        }
+        email_body = render_to_string("picadailys_email.html", email_context)
+        send_transfer_notifications.delay(
+            user_id,
+            phone_number[1:] if phone_number else None,
+            email,
+            alert_type,
+            sms_msg,
+            "Debit Alert",
+            email_body,
+            email_body,
+        )
+    except Exception as e:
+        logging.exception(f"post_transfer_update failed for user {user_id}: {e}")
 
 
 # def charge_cards_every_30_days():

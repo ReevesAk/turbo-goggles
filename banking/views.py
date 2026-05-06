@@ -1454,8 +1454,8 @@ class GenerateAccountStatement(generics.GenericAPIView):
         transactions = TxModel.objects.filter(
             user=request.user,
             date__date__range=[start_date, end_date],
-            status__iexact="SUCCESS",
-        )
+            status="SUCCESS",
+        ).only("date", "tx_reference", "tx_type", "amount", "description", "status")
 
         if not transactions.exists():
             return Response(

@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
+from django.db.models import Count, Q
 
 # In project imports.
 from .serializers import (
@@ -54,13 +55,8 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             brand_ad = User.objects.get(id=user_id)
             logger.info(f"Successfully retrieved User object for user_id: {user_id}.")
 
-            account_types = AccountType.objects.filter(user=brand_ad)
-            logger.debug(
-                f"Retrieved account types for user_id: {user_id}: {account_types}."
-            )
-
-            # Check if any AccountType has "BrandAd" in user_type
-            is_brandAd = any(acct.user_type == "BrandAd" for acct in account_types)
+            is_brandAd = AccountType.objects.filter(user=brand_ad, user_type="BrandAd").exists()
+            logger.debug(f"BrandAd account type check for user_id {user_id}: {is_brandAd}.")
             if not is_brandAd:
                 logger.warning(
                     f"User with id {user_id} is not registered as a BrandAd."
@@ -233,12 +229,14 @@ class AdStatsView(generics.RetrieveAPIView):
             if cached_data:
                 return Response(encrypt(cached_data), status=status.HTTP_200_OK)
 
-            # Filter by user correctly
-            user_ads = CreateAd.objects.filter(user_id=user_id)
-
-            ad_requests = user_ads.count()
-            active_ads = user_ads.filter(is_active=True).count()
-            completed_ads = user_ads.filter(is_active=False).count()
+            stats = CreateAd.objects.filter(user_id=user_id).aggregate(
+                total=Count("id"),
+                active=Count("id", filter=Q(is_active=True)),
+                completed=Count("id", filter=Q(is_active=False)),
+            )
+            ad_requests = stats["total"]
+            active_ads = stats["active"]
+            completed_ads = stats["completed"]
 
             # If no extra status field exists,
 

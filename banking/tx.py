@@ -11,11 +11,7 @@ from accounts.models import TxModel
 from vas.models import ValueAddedServices
 
 from banking.serializers import TxModelSerializer
-from vas.serializers import (
-    AirtimeTopupSerializer,
-    DataSubscriptionSerializer,
-    BillPaymentSerializer,
-)
+from vas.serializers import BillPaymentSerializer
 from security import encrypt
 
 
@@ -39,11 +35,10 @@ class AllTransactions(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            return self.get_paginated_response(encrypt(serializer.data))
 
         serializer = self.serializer_class(queryset, many=True)
-        encrypt_resp = encrypt(serializer.data)
-        return Response(data=encrypt_resp, status=status.HTTP_200_OK)
+        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
 class RetrieveTransaction(generics.GenericAPIView):
@@ -54,58 +49,32 @@ class RetrieveTransaction(generics.GenericAPIView):
         user = request.user
 
         try:
-            # Attempt to retrieve from AirtimeTopup
-            airtime_instance = ValueAddedServices.objects.filter(
-                user=user, tx_reference=tx_reference
-            ).first()
-            if airtime_instance:
-                serializer = AirtimeTopupSerializer(airtime_instance)
-                resp = {
-                    "status": "success",
-                    "message:": f"Transaction for {tx_reference} found!",
-                    "data": serializer.data,
-                }
-                encrypt_resp = encrypt(resp)
+            tx = TxModel.objects.filter(user=user, tx_reference=tx_reference).first()
+            if tx:
+                serializer = TxModelSerializer(tx)
                 return Response(
-                    data=encrypt_resp,
+                    data=encrypt({
+                        "status": "success",
+                        "message": f"Transaction for {tx_reference} found!",
+                        "data": serializer.data,
+                    }),
                     status=status.HTTP_200_OK,
                 )
 
-            # Attempt to retrieve from DataSubscription
-            data_instance = ValueAddedServices.objects.filter(
+            vas = ValueAddedServices.objects.filter(
                 user=user, tx_reference=tx_reference
             ).first()
-            if data_instance:
-                serializer = DataSubscriptionSerializer(data_instance)
-                resp = {
-                    "status": "success",
-                    "message:": f"Transaction for {tx_reference} found!",
-                    "data": serializer.data,
-                }
-                encrypt_resp = encrypt(resp)
+            if vas:
+                serializer = BillPaymentSerializer(vas)
                 return Response(
-                    data=encrypt_resp,
+                    data=encrypt({
+                        "status": "success",
+                        "message": f"Transaction for {tx_reference} found!",
+                        "data": serializer.data,
+                    }),
                     status=status.HTTP_200_OK,
                 )
 
-            # Attempt to retrieve from VAS.
-            tvSub_instance = ValueAddedServices.objects.filter(
-                user=user, tx_reference=tx_reference
-            ).first()
-            if tvSub_instance:
-                serializer = BillPaymentSerializer(tvSub_instance)
-                resp = {
-                    "status": "success",
-                    "message:": f"Transaction for {tx_reference} found!",
-                    "data": serializer.data,
-                }
-                encrypt_resp = encrypt(resp)
-                return Response(
-                    data=encrypt_resp,
-                    status=status.HTTP_200_OK,
-                )
-
-            # If none of the above, return 404
             return Response(
                 data=encrypt({"status": "fail", "detail": "Transaction not found."}),
                 status=status.HTTP_404_NOT_FOUND,

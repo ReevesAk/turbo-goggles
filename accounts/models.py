@@ -192,7 +192,7 @@ class TxModel(models.Model):
     description = models.CharField(max_length=255, null=True)
     rwd = models.FloatField(null=True)
     status = models.CharField(max_length=20, default="PENDING", choices=STATUS_CHOICES)
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateTimeField(auto_now_add=True, db_index=True)
 
 
 class Rewards(models.Model):

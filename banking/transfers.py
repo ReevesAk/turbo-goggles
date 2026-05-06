@@ -7,7 +7,6 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
@@ -33,8 +32,7 @@ from .helpers import Pin
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
-from banking.helpers import generate_transaction_sms
-from banking.tasks import send_transfer_notifications
+from banking.tasks import post_transfer_update, send_transfer_notifications
 from commons import Messaging
 from decimal import Decimal
 from django.db import transaction
@@ -336,29 +334,33 @@ class IntraBankTransfer(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Use select_for_update() to lock the wallet row during atomic transaction
-            with transaction.atomic():
-                account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
+            # Sync balance from external BEFORE acquiring the lock so the
+            # HTTP call does not hold the DB row lock.
+            try:
+                _acct_num = WalletModel.objects.filter(
                     user=authenticated_user
-                )
-                # Sync local wallet balance with external after locking# Sync local wallet balance with external after locking
-                try:
-                    ext_resp = Wallet.getWalletDetails(account.account_number)
-                    if ext_resp and hasattr(ext_resp, "json"):
-                        ext_data = ext_resp.json()
-                        if ext_data.get("status") == "SUCCESS":
-                            ext_balance = Decimal(
-                                str(
-                                    ext_data.get("data", {}).get(
-                                        "availableBalance", account.balance
-                                    )
+                ).values_list("account_number", flat=True).first()
+                if _acct_num:
+                    pre_sync = Wallet.getWalletDetails(_acct_num)
+                    if pre_sync and hasattr(pre_sync, "json"):
+                        pre_data = pre_sync.json()
+                        if pre_data.get("status") == "SUCCESS":
+                            WalletModel.objects.filter(
+                                user=authenticated_user
+                            ).update(
+                                balance=Decimal(
+                                    str(pre_data["data"].get("availableBalance", 0))
                                 )
                             )
-                            if ext_balance != account.balance:
-                                account.balance = ext_balance
-                                account.save(update_fields=["balance"])
-                except Exception as e:
-                    logger.warning(f"Could not sync wallet balance from external: {e}")
+            except Exception as e:
+                logger.warning(f"Could not pre-sync wallet balance: {e}")
+
+            # Lock only for PIN check, balance check, and PENDING record.
+            # External call happens after the lock is released.
+            with transaction.atomic():
+                account = WalletModel.objects.select_for_update().get(
+                    user=authenticated_user
+                )
 
                 pin = payload.get("pin")
                 biometrics = payload.get("use_biometrics")
@@ -381,7 +383,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
-                # Check balance before proceeding
                 amount = Decimal(str(payload.get("amount")))
                 if account.balance < amount:
                     logger.error(
@@ -394,146 +395,55 @@ class IntraBankTransfer(generics.CreateAPIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                logger.info("Verification successful, proceeding with transfer.")
-
-                # Generate TRA-prefixed transaction ID for third party (max 18 chars)
                 external_tx_id = self._generate_transaction_id(prefix="TRA")
+                sender_name = account.acct_name
+                account_number = account.account_number
 
-                # Record transaction BEFORE external call with PENDING status
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=idempotency_key,  # Use idempotency key for deduplication
-                    external_tx_reference=external_tx_id,  # TRA-prefixed ID for third party
+                    tx_reference=idempotency_key,
+                    external_tx_reference=external_tx_id,
                     tx_type="Intra-Bank Transfer",
                     amount=payload.get("amount"),
                     description=payload.get("description"),
-                    status="PENDING",  # Mark as pending until confirmed
+                    status="PENDING",
+                )
+            # Lock released — external call proceeds without holding the DB lock
+
+            logger.info("Verification successful, proceeding with transfer.")
+            transfer_resp = Transfers.initiate_transfer(
+                bank_code=payload.get("beneficiary_bank_code"),
+                account_number=payload.get("beneficiary_account_number"),
+                name=payload.get("beneficiary_name"),
+                sender_name=sender_name,
+                sender_account_number=payload.get("sender_account_number"),
+                amount=payload.get("amount"),
+                description=payload.get("description"),
+                transactionType="INTRA_BANK",
+                tx_ref=external_tx_id,
+            )
+
+            if transfer_resp.status_code == 200:
+                logger.info("Transfer successful, updating transaction status.")
+                tx.status = "SUCCESS"
+                tx.save(update_fields=["status"])
+
+                post_transfer_update.delay(
+                    user_id=authenticated_user.id,
+                    tx_id=tx.id,
+                    account_number=account_number,
+                    beneficiary_account_number=payload.get("beneficiary_account_number"),
+                    sender_full_name=authenticated_user.full_name,
+                    amount_str=str(payload.get("amount")),
+                    narration=payload.get("description"),
+                    idempotency_key=idempotency_key,
+                    alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                    phone_number=getattr(authenticated_user, "phone_number", None),
+                    email=getattr(authenticated_user, "email", None),
                 )
 
-                transfer_resp = Transfers.initiate_transfer(
-                    bank_code=payload.get("beneficiary_bank_code"),
-                    account_number=payload.get("beneficiary_account_number"),
-                    name=payload.get("beneficiary_name"),
-                    sender_name=account.acct_name,
-                    sender_account_number=payload.get("sender_account_number"),
-                    amount=payload.get("amount"),
-                    description=payload.get("description"),
-                    transactionType="INTRA_BANK",
-                    tx_ref=external_tx_id,  # Pass TRA-prefixed ID to external service
-                )
-
-                if transfer_resp.status_code == 200:
-                    logger.info(
-                        "Transfer successful, updating balance and transaction status."
-                    )
-
-                    # --- Sync wallet balance from external after transaction ---
-                    new_balance = account.balance - amount
-                    try:
-                        ext_resp = Wallet.getWalletDetails(account.account_number)
-                        if ext_resp and hasattr(ext_resp, "json"):
-                            ext_data = ext_resp.json()
-                            if ext_data.get("status") == "SUCCESS":
-                                ext_balance = Decimal(
-                                    str(
-                                        ext_data.get("data", {}).get(
-                                            "availableBalance", new_balance
-                                        )
-                                    )
-                                )
-                                new_balance = ext_balance
-                    except Exception as e:
-                        logger.warning(
-                            f"Could not sync wallet balance from external after transfer: {e}"
-                        )
-
-                    # Update balance and transaction status after external sync
-                    account.balance = new_balance
-                    account.save(update_fields=["balance"])
-                    tx.status = "SUCCESS"
-                    tx.save(update_fields=["status"])
-                    TransferModel.objects.create(
-                        user=authenticated_user,
-                        tx=tx,
-                        beneficiary_account_number=payload.get(
-                            "beneficiary_account_number"
-                        ),
-                        sender_name=authenticated_user.full_name,
-                        amount=payload.get("amount"),
-                        available_balance=account.balance,
-                    )
-
-                    # Notify user (SMS and Email for debit)
-                    message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account.balance}."
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Bank Transfer",
-                        message=message,
-                    )
-                    ActivityModel.objects.create(
-                        user=authenticated_user,
-                        title="Bank Transfer",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
-                    )
-
-                    # --- SMS and Email for Debit via Celery ---
-                    alert_type = getattr(
-                        authenticated_user, "alert_type_choice", "Both"
-                    )
-                    phone_number = getattr(authenticated_user, "phone_number", None)
-                    email = getattr(authenticated_user, "email", None)
-                    account_number = getattr(account, "account_number", "")
-                    balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = (
-                        float(payload["amount"]) if payload.get("amount") else 0.0
-                    )
-                    sms_msg = generate_transaction_sms(
-                        transaction_type="DEBIT",
-                        account_number=account_number,
-                        amount=amount_val,
-                        balance=balance_val,
-                        description=f"Transfer to {payload.get('beneficiary_account_number')}",
-                        reference=idempotency_key,
-                    )
-                    narration = payload.get("description") or "No narration provided"
-
-                    email_subject = "Debit Alert"
-                    email_context = {
-                        "title": "Debit Alert",
-                        "rows": [
-                            {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
-                            {"label": "Account Number", "value": account_number},
-                            {"label": "Narration", "value": narration},
-                            {"label": "Reference", "value": idempotency_key},
-                            {
-                                "label": "Datetime",
-                                "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                            },
-                            {"label": "Transaction Type", "value": "Debit"},
-                            {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
-                        ],
-                        "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
-                    }
-                    email_body = render_to_string(
-                        "picadailys_email.html", email_context
-                    )
-
-                    send_transfer_notifications.delay(
-                        authenticated_user.id,
-                        phone_number[1:] if phone_number else None,
-                        email,
-                        alert_type,
-                        sms_msg,
-                        email_subject,
-                        email_body,
-                        email_body,  # html_content
-                    )
-                    logger.info(
-                        f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}."
-                    )
-
-                    resp = {
+                return Response(
+                    data=encrypt({
                         "status": "success",
                         "message": "Transfer successful.",
                         "data": {
@@ -544,25 +454,17 @@ class IntraBankTransfer(generics.CreateAPIView):
                             "beneficiaryBank": "Picadailys/9PSB",
                             "transactionReference": idempotency_key,
                         },
-                    }
-                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-                else:
-                    logger.error(
-                        "Transfer failed, received error from external service."
-                    )
-
-                    # Mark transaction as failed
-                    tx.status = "FAILED"
-                    tx.save(update_fields=["status"])
-
-                    err_resp = {
-                        "status": "fail",
-                        "error": "Transfer failed.",
-                        "data": transfer_resp.json(),
-                    }
-                    return Response(
-                        data=encrypt(err_resp), status=transfer_resp.status_code
-                    )
+                    }),
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                logger.error("Transfer failed, received error from external service.")
+                tx.status = "FAILED"
+                tx.save(update_fields=["status"])
+                return Response(
+                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": transfer_resp.json()}),
+                    status=transfer_resp.status_code,
+                )
 
         except WalletModel.DoesNotExist:
             logger.error(f"Account for user {authenticated_user.id} not found.")
@@ -683,30 +585,33 @@ class InterBankTransfer(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Use select_for_update() to lock the wallet row during atomic transaction
-            with transaction.atomic():
-                account = WalletModel.objects.select_for_update().get(  # Lock the row to prevent race conditions
+            # Sync balance from external BEFORE acquiring the lock so the
+            # HTTP call does not hold the DB row lock.
+            try:
+                _acct_num = WalletModel.objects.filter(
                     user=authenticated_user
-                )
-
-                # Sync local wallet balance with external after locking
-                try:
-                    ext_resp = Wallet.getWalletDetails(account.account_number)
-                    if ext_resp and hasattr(ext_resp, "json"):
-                        ext_data = ext_resp.json()
-                        if ext_data.get("status") == "SUCCESS":
-                            ext_balance = Decimal(
-                                str(
-                                    ext_data.get("data", {}).get(
-                                        "availableBalance", account.balance
-                                    )
+                ).values_list("account_number", flat=True).first()
+                if _acct_num:
+                    pre_sync = Wallet.getWalletDetails(_acct_num)
+                    if pre_sync and hasattr(pre_sync, "json"):
+                        pre_data = pre_sync.json()
+                        if pre_data.get("status") == "SUCCESS":
+                            WalletModel.objects.filter(
+                                user=authenticated_user
+                            ).update(
+                                balance=Decimal(
+                                    str(pre_data["data"].get("availableBalance", 0))
                                 )
                             )
-                            if ext_balance != account.balance:
-                                account.balance = ext_balance
-                                account.save(update_fields=["balance"])
-                except Exception as e:
-                    logger.warning(f"Could not sync wallet balance from external: {e}")
+            except Exception as e:
+                logger.warning(f"Could not pre-sync wallet balance: {e}")
+
+            # Lock only for PIN check, balance check, and PENDING record.
+            # External call happens after the lock is released.
+            with transaction.atomic():
+                account = WalletModel.objects.select_for_update().get(
+                    user=authenticated_user
+                )
 
                 pin = payload.get("pin")
                 biometrics = payload.get("use_biometrics")
@@ -729,7 +634,6 @@ class InterBankTransfer(generics.CreateAPIView):
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
-                # Check balance before proceeding
                 amount = Decimal(str(payload.get("amount")))
                 if account.balance < amount:
                     logger.error(
@@ -742,132 +646,55 @@ class InterBankTransfer(generics.CreateAPIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                logger.info("Verification successful, proceeding with transfer.")
-
-                # Generate TRA-prefixed transaction ID for third party (max 18 chars)
                 external_tx_id = self._generate_transaction_id(prefix="TRA")
+                sender_name = account.acct_name
+                account_number = account.account_number
 
-                # Record transaction BEFORE external call with PENDING status
                 tx = TxModel.objects.create(
                     user=authenticated_user,
-                    tx_reference=idempotency_key,  # Use idempotency key for deduplication
-                    external_tx_reference=external_tx_id,  # TRA-prefixed ID for third party
+                    tx_reference=idempotency_key,
+                    external_tx_reference=external_tx_id,
                     tx_type="Inter-Bank Transfer",
                     amount=payload.get("amount"),
                     description=payload.get("description"),
-                    status="PENDING",  # Mark as pending until confirmed
+                    status="PENDING",
+                )
+            # Lock released — external call proceeds without holding the DB lock
+
+            logger.info("Verification successful, proceeding with transfer.")
+            transfer_resp = Transfers.initiate_transfer(
+                bank_code=payload.get("beneficiary_bank_code"),
+                account_number=payload.get("beneficiary_account_number"),
+                name=payload.get("beneficiary_name"),
+                sender_name=sender_name,
+                sender_account_number=payload.get("sender_account_number"),
+                amount=payload.get("amount"),
+                description=payload.get("description"),
+                transactionType="INTER_BANK",
+                tx_ref=external_tx_id,
+            )
+
+            if transfer_resp.status_code == 200:
+                logger.info("Transfer successful, updating transaction status.")
+                tx.status = "SUCCESS"
+                tx.save(update_fields=["status"])
+
+                post_transfer_update.delay(
+                    user_id=authenticated_user.id,
+                    tx_id=tx.id,
+                    account_number=account_number,
+                    beneficiary_account_number=payload.get("beneficiary_account_number"),
+                    sender_full_name=authenticated_user.full_name,
+                    amount_str=str(payload.get("amount")),
+                    narration=payload.get("description"),
+                    idempotency_key=idempotency_key,
+                    alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                    phone_number=getattr(authenticated_user, "phone_number", None),
+                    email=getattr(authenticated_user, "email", None),
                 )
 
-                transfer_resp = Transfers.initiate_transfer(
-                    bank_code=payload.get("beneficiary_bank_code"),
-                    account_number=payload.get("beneficiary_account_number"),
-                    name=payload.get("beneficiary_name"),
-                    sender_name=account.acct_name,
-                    sender_account_number=payload.get("sender_account_number"),
-                    amount=payload.get("amount"),
-                    description=payload.get("description"),
-                    transactionType="INTER_BANK",
-                    tx_ref=external_tx_id,  # Pass TRA-prefixed ID to external service
-                )
-
-                if transfer_resp.status_code == 200:
-                    logger.info(
-                        "Transfer successful, updating balance and transaction status."
-                    )
-
-                    # Update balance atomically
-                    account.balance -= amount
-                    account.save(update_fields=["balance"])
-
-                    # Mark transaction as successful
-                    tx.status = "SUCCESS"
-                    tx.save(update_fields=["status"])
-
-                    TransferModel.objects.create(
-                        user=authenticated_user,
-                        tx=tx,
-                        beneficiary_account_number=payload.get(
-                            "beneficiary_account_number"
-                        ),
-                        sender_name=authenticated_user.full_name,
-                        amount=payload.get("amount"),
-                        available_balance=account.balance,
-                    )
-
-                    # Notify user (SMS and Email for debit)
-                    message = f"Dear {authenticated_user.full_name},\nYour transfer of ₦{payload['amount']} has been confirmed. Your available balance is ₦{account.balance}."
-                    UserNotification.objects.create(
-                        user=authenticated_user,
-                        title="Bank Transfer",
-                        message=message,
-                    )
-                    ActivityModel.objects.create(
-                        user=authenticated_user,
-                        title="Bank Transfer",
-                        description=f"{authenticated_user.first_name} {authenticated_user.last_name} made a transfer of ₦{payload['amount']}. Available balance is ₦{account.balance}.",
-                    )
-
-                    # --- SMS and Email for Debit via Celery ---
-                    alert_type = getattr(
-                        authenticated_user, "alert_type_choice", "Both"
-                    )
-                    phone_number = getattr(authenticated_user, "phone_number", None)
-                    email = getattr(authenticated_user, "email", None)
-                    account_number = getattr(account, "account_number", "")
-                    balance_val = float(account.balance) if account.balance else 0.0
-                    amount_val = (
-                        float(payload["amount"]) if payload.get("amount") else 0.0
-                    )
-                    sms_msg = generate_transaction_sms(
-                        transaction_type="DEBIT",
-                        account_number=account_number,
-                        amount=amount_val,
-                        balance=balance_val,
-                        description=f"Transfer to {payload.get('beneficiary_account_number')}",
-                        reference=idempotency_key,
-                    )
-                    narration = payload.get("description") or "No narration provided"
-                    from django.utils import timezone
-                    from django.template.loader import render_to_string
-
-                    email_subject = "Debit Alert"
-                    email_context = {
-                        "title": "Debit Alert",
-                        "rows": [
-                            {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
-                            {"label": "Account Number", "value": account_number},
-                            {"label": "Narration", "value": narration},
-                            {"label": "Reference", "value": idempotency_key},
-                            {
-                                "label": "Datetime",
-                                "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
-                            },
-                            {"label": "Transaction Type", "value": "Debit"},
-                            {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
-                        ],
-                        "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
-                    }
-                    email_body = render_to_string(
-                        "picadailys_email.html", email_context
-                    )
-                    from banking.tasks import send_transfer_notifications
-
-                    send_transfer_notifications.delay(
-                        authenticated_user.id,
-                        phone_number[1:] if phone_number else None,
-                        email,
-                        alert_type,
-                        sms_msg,
-                        email_subject,
-                        email_body,
-                        email_body,  # html_content
-                    )
-                    logger.info(
-                        f"Transfer notification (SMS/Email) task sent to Celery for user {authenticated_user.id}."
-                    )
-
-                    resp = {
+                return Response(
+                    data=encrypt({
                         "status": "success",
                         "message": "Transfer successful.",
                         "data": {
@@ -878,25 +705,17 @@ class InterBankTransfer(generics.CreateAPIView):
                             "beneficiaryBank": payload.get("beneficiary_bank_code"),
                             "transactionReference": idempotency_key,
                         },
-                    }
-                    return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-                else:
-                    logger.error(
-                        "Transfer failed, received error from external service."
-                    )
-
-                    # Mark transaction as failed
-                    tx.status = "FAILED"
-                    tx.save(update_fields=["status"])
-
-                    err_resp = {
-                        "status": "fail",
-                        "error": "Transfer failed.",
-                        "data": transfer_resp.json(),
-                    }
-                    return Response(
-                        data=encrypt(err_resp), status=transfer_resp.status_code
-                    )
+                    }),
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                logger.error("Transfer failed, received error from external service.")
+                tx.status = "FAILED"
+                tx.save(update_fields=["status"])
+                return Response(
+                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": transfer_resp.json()}),
+                    status=transfer_resp.status_code,
+                )
 
         except WalletModel.DoesNotExist:
             logger.error(f"Account for user {authenticated_user.id} not found.")
@@ -1288,15 +1107,18 @@ class FundWallet(generics.GenericAPIView):
                     },
                 )
 
-                Messaging.send_email(
-                    sender_email="notifications@picadailys.com",
-                    body=message,
-                    subject="Wallet Funding",
-                    html_content=text_content,
-                    email=user.email,
+                send_transfer_notifications.delay(
+                    user.id,
+                    None,
+                    user.email,
+                    "Email",
+                    message,
+                    "Wallet Funding",
+                    text_content,
+                    text_content,
                 )
                 logger.info(
-                    "Confirmation email sent to user %s at %s", user.id, user.email
+                    "Wallet funding email task sent to Celery for user %s", user.id
                 )
 
                 resp = {

@@ -1402,7 +1402,7 @@ class GetAllSupportTickets(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         logger.info("Received request to list all support tickets.")
 
-        tickets = Ticket.objects.all().order_by("-created_at")
+        tickets = Ticket.objects.select_related("assigned_to").order_by("-created_at")
         logger.debug("Total tickets found: %d", tickets.count())
 
         paginator = self.pagination_class()
