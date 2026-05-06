@@ -99,7 +99,7 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("dataplans", url, headers=headers)
         try:
-            response = requests.post(url=url, headers=headers, timeout=15)
+            response = requests.get(url=url, headers=headers, timeout=15)
             _log_response("dataplans", response)
             return response
         except requests.RequestException as e:
