@@ -1,20 +1,30 @@
 import logging
 import random
 import string
-import sys
 import requests
 from decouple import config
-
-from rest_framework import status
-from rest_framework.response import Response
 
 vas_username = config("VAS_USERNAME")
 vas_password = config("VAS_PASSWORD")
 vas_base_url = config("VAS_BASE_URL")
 
+logger = logging.getLogger(__name__)
+
 
 def _build_vas_url(resource):
     return f"{vas_base_url.rstrip('/')}/{resource.lstrip('/')}"
+
+
+def _log_request(label, url, payload=None, headers=None):
+    logger.warning("VAS %s REQUEST: url=%s | payload=%s | headers=%s", label, url, payload, headers)
+
+
+def _log_response(label, response):
+    try:
+        body = response.json()
+    except Exception:
+        body = response.text
+    logger.warning("VAS %s RESPONSE: status=%s | body=%s", label, response.status_code, body)
 
 
 class VAS:
@@ -22,166 +32,84 @@ class VAS:
     def generate_unique_code(prefix="Pica"):
         min_length = 18
         max_length = 25
-
-        # Calculate available length for the random part
         prefix_part = f"{prefix}-"
         remaining_length = random.randint(min_length, max_length) - len(prefix_part)
         remaining_length = max(1, remaining_length)
-
         random_part = "".join(random.choices(string.digits, k=remaining_length))
-
         return f"{prefix_part}{random_part}"
 
     @staticmethod
     def authenticate():
-        PAYLOAD = {
-            "username": vas_username,
-            "password": vas_password,
-        }
-        HEADERS = {"Content-Type": "application/json"}
-        AUTH_URL = vas_base_url + "/identity/api/v1/authenticate"
-
+        payload = {"username": vas_username, "password": vas_password}
+        headers = {"Content-Type": "application/json"}
+        url = vas_base_url + "/identity/api/v1/authenticate"
+        _log_request("authenticate", url, payload={"username": vas_username, "password": "***"}, headers=headers)
         try:
-            resp = requests.post(
-                url=AUTH_URL, json=PAYLOAD, headers=HEADERS, timeout=10
-            )
+            resp = requests.post(url=url, json=payload, headers=headers, timeout=10)
+            _log_response("authenticate", resp)
             resp.raise_for_status()
             if resp.json().get("message") == "Authentication Successful":
-                token = resp.json()["data"].get("accessToken")
-                logging.info("VAS authentication successful. Token: %s", token)
-                return token
-            logging.warning("VAS authentication failed: %s", resp.json().get("message"))
+                return resp.json()["data"].get("accessToken")
             return None
         except requests.RequestException as e:
-            logging.error("VAS authentication failed: %s", e)
+            logger.warning("VAS authenticate ERROR: %s", e)
             return None
 
     @staticmethod
     def status(tx_ref, bearer_token):
         resource = f"identity/api/v1/topup/status?transReference={tx_ref}"
-
-        HEADERS = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
-
-        logging.info(
-            f"VAS status REQUEST: url=%s, headers=%s", _build_vas_url(resource), HEADERS
-        )
+        url = _build_vas_url(resource)
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("status", url, headers=headers)
         try:
-            resp = requests.get(
-                url=_build_vas_url(resource), headers=HEADERS, timeout=10
-            )
-            try:
-                resp_json = resp.json()
-            except Exception:
-                resp_json = resp.text
-            logging.info(
-                f"VAS status RESPONSE: status=%s, body=%s", resp.status_code, resp_json
-            )
+            resp = requests.get(url=url, headers=headers, timeout=10)
+            _log_response("status", resp)
             return resp
         except requests.RequestException as e:
-            logging.error("VAS status check failed: %s", e)
+            logger.warning("VAS status ERROR: %s", e)
             return None
 
     @staticmethod
-    def airtime_topup(
-        network, bearer_token, amount, debitAccount, phone_number, tx_ref
-    ):
+    def airtime_topup(network, bearer_token, amount, debitAccount, phone_number, tx_ref):
         resource = "vas/api/v1/topup/airtime"
+        url = _build_vas_url(resource)
         payload = {
             "network": network,
             "amount": amount,
             "phoneNumber": phone_number,
             "transactionReference": tx_ref,
         }
-        # Some providers reject null debitAccount with 5xx; only send when available.
         if debitAccount:
             payload["debitAccount"] = debitAccount
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
-        # Log to logger and print to terminal
-        logging.info(
-            "VAS airtime_topup REQUEST: url=%s, payload=%s, headers=%s",
-            _build_vas_url(resource),
-            payload,
-            headers,
-        )
-        import sys
-
-        print("VAS airtime_topup REQUEST:")
-        print(f"  url: {_build_vas_url(resource)}")
-        print(f"  payload: {payload}")
-        print(f"  headers: {headers}")
-        sys.stdout.flush()
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("airtime_topup", url, payload=payload, headers=headers)
         try:
-            response = requests.post(
-                url=_build_vas_url(resource),
-                json=payload,
-                headers=headers,
-                timeout=15,
-            )
-            # Log the actual request payload and raw response
-            try:
-                req_body = response.request.body
-            except Exception:
-                req_body = None
-            try:
-                resp_json = response.json()
-            except Exception:
-                resp_json = response.text
-            logging.info("VAS airtime_topup RAW REQUEST BODY: %s", req_body)
-            logging.info(
-                "VAS airtime_topup RESPONSE: status=%s, body=%s",
-                response.status_code,
-                resp_json,
-            )
+            response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            _log_response("airtime_topup", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Airtime topup API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS airtime_topup ERROR: %s", e)
             return None
 
     @staticmethod
-    def dataplans(
-        bearer_token,
-        phone_number,
-    ):
+    def dataplans(phone_number):
+        bearer_token = "eyJ0eXAiOiJKV1QiLCJrZXlJZCI6InZhc19qd3QiLCJhbGciOiJIUzUxMiJ9.eyJhdXRob3JpdGllcyI6WyJCSUxMU19QQVlNRU5UIiwiVE9QX1VQIl0sInN1YiI6IjlQU0IiLCJpc3MiOiI5cHNiLmNvbS5uZyIsImlhdCI6MTY5Njg2NzIyOCwianRpIjoiMGVjMDE5MTgtYWUyMy00OGQyLWE2YjItYmMwNDIwZmMwYTE1IiwiZXhwIjoxNjk2ODc0NDI4fQ.ppLP2K92QXSWXeYXKEQtsFzI8-DDT8Sbg-4g7OV8vPw9S3VxLx_Zntb_3F1PrxnupqRp5SOXCKqI6hjwn1LJ2w"
         resource = f"topup/dataPlans?phone={phone_number}"
-        # Log the payload and parameters being sent
-        logging.warning(
-            "[!!!] VAS.data REQUEST: url=%s, headers=%s",
-            _build_vas_url(resource),
-            {
-                "Authorization": f"Bearer {bearer_token}",
-                "Content-Type": "application/json",
-            },
-        )
-        print("[!!!] VAS.data REQUEST:")
-        print(f"  url: {_build_vas_url(resource)}")
-        print(f"  headers: {{'Authorization': f'Bearer {bearer_token}', 'Content-Type': 'application/json'}}")
-        sys.stdout.flush()
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
+        url = _build_vas_url(resource)
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("dataplans", url, headers=headers)
         try:
-            response = requests.post(
-                url=_build_vas_url(resource),
-                headers=headers,
-                timeout=15,
-            )
+            response = requests.post(url=url, headers=headers, timeout=15)
+            _log_response("dataplans", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Data plans API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS dataplans ERROR: %s", e)
             return None
 
     @staticmethod
-    def data(
-        network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref
-    ):
+    def data(network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref):
         resource = "vas/api/v1/topup/data"
+        url = _build_vas_url(resource)
         payload = {
             "network": network,
             "debitAccount": debitAccount,
@@ -190,111 +118,71 @@ class VAS:
             "productId": productId,
             "transactionReference": tx_ref,
         }
-        # Log the payload and parameters being sent
-        logging.info(
-            "VAS.data REQUEST: url=%s, payload=%s, headers=%s",
-            _build_vas_url(resource),
-            payload,
-            {
-                "Authorization": f"Bearer {bearer_token}",
-                "Content-Type": "application/json",
-            },
-        )
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("data", url, payload=payload, headers=headers)
         try:
-            response = requests.post(
-                url=_build_vas_url(resource),
-                json=payload,
-                headers=headers,
-                timeout=15,
-            )
+            response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            _log_response("data", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Data topup API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS data ERROR: %s", e)
             return None
 
     @staticmethod
     def get_categories(bearer_token):
-        resource = f"vas/api/v1/billspayment/catergories"
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
+        resource = "vas/api/v1/billspayment/catergories"
+        url = _build_vas_url(resource)
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("get_categories", url, headers=headers)
         try:
-            response = requests.get(
-                url=_build_vas_url(resource),
-                headers=headers,
-            )
+            response = requests.get(url=url, headers=headers)
+            _log_response("get_categories", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Categories API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS get_categories ERROR: %s", e)
             return None
 
     @staticmethod
     def bill_payment_categories(bearer_token, category_id):
         resource = f"vas/api/v1/billspayment/billers/{category_id}"
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
+        url = _build_vas_url(resource)
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("bill_payment_categories", url, headers=headers)
         try:
-            response = requests.get(
-                url=_build_vas_url(resource),
-                headers=headers,
-            )
+            response = requests.get(url=url, headers=headers)
+            _log_response("bill_payment_categories", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Biller Payment categories API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS bill_payment_categories ERROR: %s", e)
             return None
 
     @staticmethod
     def billers_categories(bearer_token, biller_id):
         resource = f"vas/api/v1/billspayment/fields/{biller_id}"
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
+        url = _build_vas_url(resource)
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("billers_categories", url, headers=headers)
         try:
-            response = requests.get(
-                url=_build_vas_url(resource),
-                headers=headers,
-            )
+            response = requests.get(url=url, headers=headers)
+            _log_response("billers_categories", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Billers categories API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS billers_categories ERROR: %s", e)
             return None
 
     @staticmethod
     def verify_bill_payer(bearer_token, billerId, customerId, itemId, amount):
         resource = "vas/api/v1/billspayment/validate"
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "billerId": billerId,
-            "customerId": customerId,
-            "itemId": itemId,
-            "amount": amount,
-        }
-        logging.warning(
-            "VAS verify_bill_payer REQUEST: url=%s, payload=%s, headers=%s",
-            _build_vas_url(resource),
-            payload,
-            headers,
-        )
+        url = _build_vas_url(resource)
+        payload = {"billerId": billerId, "customerId": customerId, "itemId": itemId, "amount": amount}
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("verify_bill_payer", url, payload=payload, headers=headers)
         try:
-            response = requests.post(
-                url=_build_vas_url(resource),
-                headers=headers,
-                json=payload,
-            )
+            response = requests.post(url=url, headers=headers, json=payload)
+            _log_response("verify_bill_payer", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Verify bill payer API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS verify_bill_payer ERROR: %s", e)
             return None
 
     @staticmethod
@@ -311,6 +199,7 @@ class VAS:
         transactionReference,
     ):
         resource = "vas/api/v1/billspayment/pay"
+        url = _build_vas_url(resource)
         payload = {
             "customerId": customerId,
             "billerId": billerId,
@@ -322,27 +211,12 @@ class VAS:
             "debitAccount": debitAccount,
             "transactionReference": transactionReference,
         }
-        logging.warning(
-            "VAS bill_payment REQUEST: url=%s, payload=%s, headers=%s",
-            _build_vas_url(resource),
-            payload,
-            {
-                "Authorization": f"Bearer {bearer_token}",
-                "Content-Type": "application/json",
-            },
-        )
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
-
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        _log_request("bill_payment", url, payload=payload, headers=headers)
         try:
-            response = requests.post(
-                url=_build_vas_url(resource),
-                json=payload,
-                headers=headers,
-            )
+            response = requests.post(url=url, json=payload, headers=headers)
+            _log_response("bill_payment", response)
             return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Bill payment API request error: {str(e)}")
+        except requests.RequestException as e:
+            logger.warning("VAS bill_payment ERROR: %s", e)
             return None
