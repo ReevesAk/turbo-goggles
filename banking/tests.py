@@ -1,8 +1,10 @@
 import json as _json
+import time
+import uuid
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 
 from rest_framework import status

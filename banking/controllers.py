@@ -6,6 +6,7 @@ from datetime import datetime
 import uuid
 import requests
 from decouple import config
+from django.core.cache import cache
 
 from .helpers import cloudinary_to_base64
 
@@ -37,7 +38,11 @@ def _build_ninepsb_url(resource):
     return f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
 
 
-def authenticate():
+_NINE_PSB_TOKEN_KEY = "nine_psb_bearer_token"
+_NINE_PSB_TOKEN_TTL = 25 * 60  # 25 minutes — refresh before 9PSB token expires
+
+
+def _fetch_fresh_token():
     resource = "authenticate"
     payload = {
         "username": username,
@@ -55,13 +60,22 @@ def authenticate():
         data = response.json()
         token = data.get("accessToken") or data.get("data", {}).get("accessToken")
         if token:
+            cache.set(_NINE_PSB_TOKEN_KEY, token, _NINE_PSB_TOKEN_TTL)
             return token
     except requests.exceptions.RequestException as e:
         logging.error("Authentication request failed: %s", str(e))
-        return None
-    except (ValueError, Exception) as e:
-        logging.error(f"Authentication failed: {str(e)}")
-        return None
+    except Exception as e:
+        logging.error("Authentication failed: %s", str(e))
+    return None
+
+
+def authenticate(force_refresh=False):
+    """Return cached 9PSB token; fetch a fresh one only when missing or force_refresh=True."""
+    if not force_refresh:
+        token = cache.get(_NINE_PSB_TOKEN_KEY)
+        if token:
+            return token
+    return _fetch_fresh_token()
 
 
 class KYC:
@@ -320,7 +334,18 @@ class Wallet:
                 url=base_url + resource,
                 headers=headers,
                 json=payload,
+                timeout=15,
             )
+            if response.status_code == 401:
+                bearer_token = authenticate(force_refresh=True)
+                if bearer_token:
+                    headers["Authorization"] = f"Bearer {bearer_token}"
+                    response = requests.post(
+                        url=base_url + resource,
+                        headers=headers,
+                        json=payload,
+                        timeout=15,
+                    )
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Get wallet details API request error: {str(e)}")
@@ -582,7 +607,12 @@ class Transfers:
             url, payload, headers,
         )
         try:
-            response = requests.post(url=url, headers=headers, json=payload)
+            response = requests.post(url=url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 401:
+                bearer_token = authenticate(force_refresh=True)
+                if bearer_token:
+                    headers["Authorization"] = f"Bearer {bearer_token}"
+                    response = requests.post(url=url, headers=headers, json=payload, timeout=30)
             try:
                 resp_body = response.json()
             except Exception:

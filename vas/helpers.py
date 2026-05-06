@@ -3,10 +3,14 @@ import random
 import string
 import requests
 from decouple import config
+from django.core.cache import cache
 
 vas_username = config("VAS_USERNAME")
 vas_password = config("VAS_PASSWORD")
 vas_base_url = config("VAS_BASE_URL")
+
+_VAS_TOKEN_KEY = "vas_bearer_token"
+_VAS_TOKEN_TTL = 25 * 60  # 25 minutes
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +43,7 @@ class VAS:
         return f"{prefix_part}{random_part}"
 
     @staticmethod
-    def authenticate():
+    def _fetch_fresh_token():
         payload = {"username": vas_username, "password": vas_password}
         headers = {"Content-Type": "application/json"}
         url = vas_base_url + "/identity/api/v1/authenticate"
@@ -49,11 +53,23 @@ class VAS:
             _log_response("authenticate", resp)
             resp.raise_for_status()
             if resp.json().get("message") == "Authentication Successful":
-                return resp.json()["data"].get("accessToken")
+                token = resp.json()["data"].get("accessToken")
+                if token:
+                    cache.set(_VAS_TOKEN_KEY, token, _VAS_TOKEN_TTL)
+                return token
             return None
         except requests.RequestException as e:
             logger.warning("VAS authenticate ERROR: %s", e)
             return None
+
+    @staticmethod
+    def authenticate(force_refresh=False):
+        """Return cached VAS token; fetch a fresh one only when missing or force_refresh=True."""
+        if not force_refresh:
+            token = cache.get(_VAS_TOKEN_KEY)
+            if token:
+                return token
+        return VAS._fetch_fresh_token()
 
     @staticmethod
     def status(tx_ref, bearer_token):
@@ -63,6 +79,11 @@ class VAS:
         _log_request("status", url, headers=headers)
         try:
             resp = requests.get(url=url, headers=headers, timeout=10)
+            if resp.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    resp = requests.get(url=url, headers=headers, timeout=10)
             _log_response("status", resp)
             return resp
         except requests.RequestException as e:
@@ -85,6 +106,11 @@ class VAS:
         _log_request("airtime_topup", url, payload=payload, headers=headers)
         try:
             response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.post(url=url, json=payload, headers=headers, timeout=15)
             _log_response("airtime_topup", response)
             return response
         except requests.RequestException as e:
@@ -99,6 +125,11 @@ class VAS:
         _log_request("dataplans", url, headers=headers)
         try:
             response = requests.get(url=url, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.get(url=url, headers=headers, timeout=15)
             _log_response("dataplans", response)
             return response
         except requests.RequestException as e:
@@ -121,6 +152,11 @@ class VAS:
         _log_request("data", url, payload=payload, headers=headers)
         try:
             response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.post(url=url, json=payload, headers=headers, timeout=15)
             _log_response("data", response)
             return response
         except requests.RequestException as e:
@@ -134,7 +170,12 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("get_categories", url, headers=headers)
         try:
-            response = requests.get(url=url, headers=headers)
+            response = requests.get(url=url, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.get(url=url, headers=headers, timeout=15)
             _log_response("get_categories", response)
             return response
         except requests.RequestException as e:
@@ -148,7 +189,12 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("bill_payment_categories", url, headers=headers)
         try:
-            response = requests.get(url=url, headers=headers)
+            response = requests.get(url=url, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.get(url=url, headers=headers, timeout=15)
             _log_response("bill_payment_categories", response)
             return response
         except requests.RequestException as e:
@@ -162,7 +208,12 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("billers_categories", url, headers=headers)
         try:
-            response = requests.get(url=url, headers=headers)
+            response = requests.get(url=url, headers=headers, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.get(url=url, headers=headers, timeout=15)
             _log_response("billers_categories", response)
             return response
         except requests.RequestException as e:
@@ -177,7 +228,12 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("verify_bill_payer", url, payload=payload, headers=headers)
         try:
-            response = requests.post(url=url, headers=headers, json=payload)
+            response = requests.post(url=url, headers=headers, json=payload, timeout=15)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.post(url=url, headers=headers, json=payload, timeout=15)
             _log_response("verify_bill_payer", response)
             return response
         except requests.RequestException as e:
@@ -213,7 +269,12 @@ class VAS:
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("bill_payment", url, payload=payload, headers=headers)
         try:
-            response = requests.post(url=url, json=payload, headers=headers)
+            response = requests.post(url=url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 401:
+                fresh = VAS.authenticate(force_refresh=True)
+                if fresh:
+                    headers["Authorization"] = f"Bearer {fresh}"
+                    response = requests.post(url=url, json=payload, headers=headers, timeout=30)
             _log_response("bill_payment", response)
             return response
         except requests.RequestException as e:
