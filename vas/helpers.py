@@ -93,7 +93,7 @@ class VAS:
 
     @staticmethod
     def dataplans(bearer_token, phone_number):
-        resource = f"topup/dataPlans?phone={phone_number}"
+        resource = f"/vas/api/v1/topup/dataPlans?phone={phone_number}"
         url = _build_vas_url(resource)
         headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
         _log_request("dataplans", url, headers=headers)

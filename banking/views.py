@@ -375,6 +375,7 @@ class VerifYNIN(generics.GenericAPIView):
         kyc.nin = user_data["nin"]
         kyc.nin_dob = supplied_dob
         kyc.is_nin_img_a_match = True
+        kyc.nin_name = f"{nin_data['entity'].get('first_name', '')} {nin_data['entity'].get('last_name', '')}".strip()
         kyc.save()
 
         user.is_nin_verified = True
@@ -676,7 +677,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
         # Perform the upgrade logic here
         try:
             upgrade_response = Wallet.UpgradeToTier2(
-                acct_name=user_wallet.acct_name,
+                acct_name=user_kyc.nin_name or user_wallet.acct_name,
                 phone_number=current_user.phone_number,
                 email=current_user.email,
                 acct_no=user_wallet.account_number,

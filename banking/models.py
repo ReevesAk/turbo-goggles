@@ -36,6 +36,7 @@ class UserKYC(models.Model):
     nin = models.CharField(max_length=100, null=True, unique=True)
     is_nin_img_a_match = models.BooleanField(default=False, null=True)
     nin_dob = models.CharField(max_length=40, null=True)
+    nin_name = models.CharField(max_length=200, null=True)
     bvn_phone = models.CharField(max_length=15, null=True)
 
 
