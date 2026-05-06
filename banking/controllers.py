@@ -223,7 +223,6 @@ class Wallet:
             "customerSignature": cloudinary_to_base64(customerSignature),
         }
 
-        logger.info("Wallet Upgrade request initiated.")
         bearer_token = authenticate()
 
         if not bearer_token:
@@ -237,17 +236,24 @@ class Wallet:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {bearer_token}",
         }
-
+        url = base_url + resource
+        logging.warning(
+            "WALLET UpgradeToTier2 REQUEST: url=%s | payload=%s | headers=%s",
+            url, payload, headers,
+        )
         try:
-            response = requests.post(
-                url=base_url + resource,
-                json=payload,
-                headers=headers,
-                timeout=180,
+            response = requests.post(url=url, json=payload, headers=headers, timeout=180)
+            try:
+                resp_body = response.json()
+            except Exception:
+                resp_body = response.text
+            logging.warning(
+                "WALLET UpgradeToTier2 RESPONSE: status=%s | body=%s",
+                response.status_code, resp_body,
             )
             return response
         except requests.exceptions.RequestException as e:
-            logging.error(f"Wallet upgrade API request error: {str(e)}")
+            logging.warning("WALLET UpgradeToTier2 ERROR: %s", e)
             return None
 
     @staticmethod
