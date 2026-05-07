@@ -32,7 +32,7 @@ from .helpers import Pin
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
-from banking.tasks import post_transfer_update, send_transfer_notifications
+from banking.tasks import post_transfer_update, send_transfer_notifications, resolve_pending_transfer
 from commons import Messaging
 from decimal import Decimal
 from django.db import transaction
@@ -400,12 +400,32 @@ class IntraBankTransfer(generics.CreateAPIView):
             )
 
             if transfer_resp is None:
-                logger.error("Transfer timed out or no response from 9PSB.")
-                tx.status = "FAILED"
-                tx.save(update_fields=["status"])
+                logger.error("Intra-bank transfer timed out, keeping PENDING for resolution.")
+                resolve_pending_transfer.apply_async(
+                    kwargs=dict(
+                        tx_id=tx.id,
+                        user_id=authenticated_user.id,
+                        account_number=account_number,
+                        external_tx_reference=external_tx_id,
+                        beneficiary_account_number=payload.get("beneficiary_account_number"),
+                        sender_full_name=authenticated_user.full_name,
+                        amount_str=str(payload.get("amount")),
+                        narration=payload.get("description"),
+                        idempotency_key=idempotency_key,
+                        alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                        phone_number=getattr(authenticated_user, "phone_number", None),
+                        email=getattr(authenticated_user, "email", None),
+                        beneficiary_name=payload.get("beneficiary_name"),
+                    ),
+                    countdown=30,
+                )
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer service timed out. Please try again."}),
-                    status=status.HTTP_504_GATEWAY_TIMEOUT,
+                    data=encrypt({
+                        "status": "pending",
+                        "message": "Transfer is being processed. You will be notified once confirmed.",
+                        "transactionReference": idempotency_key,
+                    }),
+                    status=status.HTTP_202_ACCEPTED,
                 )
 
             if transfer_resp.status_code == 200:
@@ -637,12 +657,32 @@ class InterBankTransfer(generics.CreateAPIView):
             )
 
             if transfer_resp is None:
-                logger.error("Transfer timed out or no response from 9PSB.")
-                tx.status = "FAILED"
-                tx.save(update_fields=["status"])
+                logger.error("Inter-bank transfer timed out, keeping PENDING for resolution.")
+                resolve_pending_transfer.apply_async(
+                    kwargs=dict(
+                        tx_id=tx.id,
+                        user_id=authenticated_user.id,
+                        account_number=account_number,
+                        external_tx_reference=external_tx_id,
+                        beneficiary_account_number=payload.get("beneficiary_account_number"),
+                        sender_full_name=authenticated_user.full_name,
+                        amount_str=str(payload.get("amount")),
+                        narration=payload.get("description"),
+                        idempotency_key=idempotency_key,
+                        alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                        phone_number=getattr(authenticated_user, "phone_number", None),
+                        email=getattr(authenticated_user, "email", None),
+                        beneficiary_name=payload.get("beneficiary_name"),
+                    ),
+                    countdown=30,
+                )
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer service timed out. Please try again."}),
-                    status=status.HTTP_504_GATEWAY_TIMEOUT,
+                    data=encrypt({
+                        "status": "pending",
+                        "message": "Transfer is being processed. You will be notified once confirmed.",
+                        "transactionReference": idempotency_key,
+                    }),
+                    status=status.HTTP_202_ACCEPTED,
                 )
 
             if transfer_resp.status_code == 200:
