@@ -56,6 +56,7 @@ def post_transfer_update(
     alert_type,
     phone_number,
     email,
+    beneficiary_name=None,
 ):
     from accounts.models import UserNotification
     from banking.models import WalletModel, TransferModel
@@ -113,7 +114,10 @@ def post_transfer_update(
             "title": "Debit Alert",
             "rows": [
                 {"label": "Amount", "value": f"₦{amount_val:,.2f}"},
-                {"label": "Account Number", "value": account_number},
+                {"label": "Sender Name", "value": sender_full_name},
+                {"label": "Sender Account", "value": account_number},
+                {"label": "Receiver Name", "value": beneficiary_name or "N/A"},
+                {"label": "Receiver Account", "value": beneficiary_account_number},
                 {"label": "Narration", "value": narration or "No narration provided"},
                 {"label": "Reference", "value": idempotency_key},
                 {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
@@ -136,6 +140,94 @@ def post_transfer_update(
         )
     except Exception as e:
         logging.exception(f"post_transfer_update failed for user {user_id}: {e}")
+
+
+@shared_task(autoretry_for=(Exception,), max_retries=3, default_retry_delay=10)
+def post_vas_update(
+    user_id,
+    account_number,
+    amount_str,
+    tx_reference,
+    service_type,
+    phone,
+    network,
+    alert_type,
+    phone_number,
+    email,
+):
+    from accounts.models import User
+    from banking.models import WalletModel
+    from banking.controllers import Wallet
+    from gamification.points import Points
+    from gamification.utils import NextBee
+
+    try:
+        user = User.objects.get(id=user_id)
+
+        balance = 0.0
+        if account_number:
+            try:
+                enquiry_resp = Wallet.getWalletDetails(account_number)
+                if enquiry_resp and hasattr(enquiry_resp, "json"):
+                    enquiry_data = enquiry_resp.json()
+                    if isinstance(enquiry_data, dict):
+                        bal = enquiry_data.get("data", {}).get("availableBalance")
+                        if bal is not None:
+                            balance = float(bal)
+                            WalletModel.objects.filter(user=user).update(balance=balance)
+            except Exception as e:
+                logging.warning(f"post_vas_update: could not sync balance: {e}")
+
+        if getattr(user, "has_done_survey", False):
+            try:
+                points = Points.determine(activity_type="service_purchase", level=user.level)
+                NextBee.member_activity(
+                    member_email=user.email, activityId="8474", numericValue=str(points)
+                )
+                Points.refresh_user_points(user)
+            except Exception as e:
+                logging.warning(f"post_vas_update: points update failed: {e}")
+
+        support_email = "support@picadailys.com"
+        sms_msg = generate_transaction_sms(
+            transaction_type=service_type,
+            account_number=account_number or "",
+            amount=float(amount_str),
+            balance=balance,
+            description=f"{service_type.title()} purchase for {phone}",
+            reference=tx_reference,
+        )
+        sms_msg += f"\nIf you did not authorize this transaction, contact support: {support_email}"
+
+        email_subject = f"{service_type.title()} Purchase Confirmation"
+        email_context = {
+            "title": email_subject,
+            "rows": [
+                {"label": "Amount", "value": f"₦{float(amount_str):,.2f}"},
+                {"label": "Account Number", "value": account_number or ""},
+                {"label": "Phone", "value": phone or ""},
+                {"label": "Network", "value": network or ""},
+                {"label": "Reference", "value": tx_reference},
+                {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                {"label": "Transaction Type", "value": service_type.title()},
+                {"label": "Balance", "value": f"₦{balance:,.2f}"},
+            ],
+            "support_email": support_email,
+            "picadailys_phone": "02012271894 02012271895",
+        }
+        email_body = render_to_string("picadailys_email.html", email_context)
+        send_transfer_notifications.delay(
+            user_id,
+            phone_number[1:] if phone_number else None,
+            email,
+            alert_type,
+            sms_msg,
+            email_subject,
+            email_body,
+            email_body,
+        )
+    except Exception as e:
+        logging.exception(f"post_vas_update failed for user {user_id}: {e}")
 
 
 # def charge_cards_every_30_days():
