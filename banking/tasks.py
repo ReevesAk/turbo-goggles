@@ -230,6 +230,57 @@ def post_vas_update(
         logging.exception(f"post_vas_update failed for user {user_id}: {e}")
 
 
+@shared_task(autoretry_for=(Exception,), max_retries=5, default_retry_delay=30)
+def resolve_pending_transfer(tx_id, user_id, account_number, external_tx_reference,
+                             beneficiary_account_number, sender_full_name, amount_str,
+                             narration, idempotency_key, alert_type, phone_number,
+                             email, beneficiary_name=None):
+    from accounts.models import TxModel
+    from banking.controllers import Transfers
+
+    try:
+        tx = TxModel.objects.get(id=tx_id)
+
+        if tx.status != "PENDING":
+            return
+
+        resp = Transfers.complete_transfer(transactionId=external_tx_reference)
+        if resp is None:
+            raise Exception("No response from complete_transfer, will retry.")
+
+        resp_data = resp.json() if hasattr(resp, "json") else {}
+        tx_status = resp_data.get("status", "").upper()
+
+        if tx_status == "SUCCESS":
+            tx.status = "SUCCESS"
+            tx.save(update_fields=["status"])
+            post_transfer_update.delay(
+                user_id=user_id,
+                tx_id=tx_id,
+                account_number=account_number,
+                beneficiary_account_number=beneficiary_account_number,
+                sender_full_name=sender_full_name,
+                amount_str=amount_str,
+                narration=narration,
+                idempotency_key=idempotency_key,
+                alert_type=alert_type,
+                phone_number=phone_number,
+                email=email,
+                beneficiary_name=beneficiary_name,
+            )
+        elif tx_status in ("FAILED", "REVERSED", "REJECTED"):
+            tx.status = "FAILED"
+            tx.save(update_fields=["status"])
+        else:
+            raise Exception(f"Transfer still pending ({tx_status}), will retry.")
+
+    except TxModel.DoesNotExist:
+        logging.error(f"resolve_pending_transfer: TxModel {tx_id} not found.")
+    except Exception as e:
+        logging.warning(f"resolve_pending_transfer: {e}")
+        raise
+
+
 # def charge_cards_every_30_days():
 #     today = date.today()
 #     cards = Cards.objects.filter(auto_approve=True)  # Filter eligible cards
