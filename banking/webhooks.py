@@ -23,7 +23,7 @@ from .serializers import (
     TransferNotificationWebhookSerializer,
     UpgradeNotificationWebhookSerializer,
 )
-from accounts.models import UserNotification, User
+from accounts.models import UserNotification, User, TxModel
 from roles.models import ActivityModel
 from security import encrypt, decrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
@@ -227,7 +227,17 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     )
 
             if wallet:
-                # Record notification
+                TxModel.objects.get_or_create(
+                    tx_reference=nipsessionid,
+                    defaults={
+                        "user": wallet.user,
+                        "tx_type": "Wallet Credit",
+                        "amount": amount,
+                        "description": f"Credit from {sender_name} ({source_bank}): {description}",
+                        "status": "SUCCESS",
+                    },
+                )
+
                 UserNotification.objects.create(
                     user=wallet.user,
                     title="Wallet Credit",
