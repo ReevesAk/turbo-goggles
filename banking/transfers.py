@@ -399,6 +399,15 @@ class IntraBankTransfer(generics.CreateAPIView):
                 tx_ref=external_tx_id,
             )
 
+            if transfer_resp is None:
+                logger.error("Transfer timed out or no response from 9PSB.")
+                tx.status = "FAILED"
+                tx.save(update_fields=["status"])
+                return Response(
+                    data=encrypt({"status": "fail", "error": "Transfer service timed out. Please try again."}),
+                    status=status.HTTP_504_GATEWAY_TIMEOUT,
+                )
+
             if transfer_resp.status_code == 200:
                 logger.info("Transfer successful, updating transaction status.")
                 tx.status = "SUCCESS"
@@ -626,6 +635,15 @@ class InterBankTransfer(generics.CreateAPIView):
                 transactionType="INTER_BANK",
                 tx_ref=external_tx_id,
             )
+
+            if transfer_resp is None:
+                logger.error("Transfer timed out or no response from 9PSB.")
+                tx.status = "FAILED"
+                tx.save(update_fields=["status"])
+                return Response(
+                    data=encrypt({"status": "fail", "error": "Transfer service timed out. Please try again."}),
+                    status=status.HTTP_504_GATEWAY_TIMEOUT,
+                )
 
             if transfer_resp.status_code == 200:
                 logger.info("Transfer successful, updating transaction status.")
