@@ -334,29 +334,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Sync balance from external BEFORE acquiring the lock so the
-            # HTTP call does not hold the DB row lock.
-            try:
-                _acct_num = WalletModel.objects.filter(
-                    user=authenticated_user
-                ).values_list("account_number", flat=True).first()
-                if _acct_num:
-                    pre_sync = Wallet.getWalletDetails(_acct_num)
-                    if pre_sync and hasattr(pre_sync, "json"):
-                        pre_data = pre_sync.json()
-                        if pre_data.get("status") == "SUCCESS":
-                            WalletModel.objects.filter(
-                                user=authenticated_user
-                            ).update(
-                                balance=Decimal(
-                                    str(pre_data["data"].get("availableBalance", 0))
-                                )
-                            )
-            except Exception as e:
-                logger.warning(f"Could not pre-sync wallet balance: {e}")
-
-            # Lock only for PIN check, balance check, and PENDING record.
-            # External call happens after the lock is released.
             with transaction.atomic():
                 account = WalletModel.objects.select_for_update().get(
                     user=authenticated_user
@@ -408,7 +385,6 @@ class IntraBankTransfer(generics.CreateAPIView):
                     description=payload.get("description"),
                     status="PENDING",
                 )
-            # Lock released — external call proceeds without holding the DB lock
 
             logger.info("Verification successful, proceeding with transfer.")
             transfer_resp = Transfers.initiate_transfer(
@@ -440,6 +416,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
                     phone_number=getattr(authenticated_user, "phone_number", None),
                     email=getattr(authenticated_user, "email", None),
+                    beneficiary_name=payload.get("beneficiary_name"),
                 )
 
                 return Response(
@@ -585,29 +562,6 @@ class InterBankTransfer(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Sync balance from external BEFORE acquiring the lock so the
-            # HTTP call does not hold the DB row lock.
-            try:
-                _acct_num = WalletModel.objects.filter(
-                    user=authenticated_user
-                ).values_list("account_number", flat=True).first()
-                if _acct_num:
-                    pre_sync = Wallet.getWalletDetails(_acct_num)
-                    if pre_sync and hasattr(pre_sync, "json"):
-                        pre_data = pre_sync.json()
-                        if pre_data.get("status") == "SUCCESS":
-                            WalletModel.objects.filter(
-                                user=authenticated_user
-                            ).update(
-                                balance=Decimal(
-                                    str(pre_data["data"].get("availableBalance", 0))
-                                )
-                            )
-            except Exception as e:
-                logger.warning(f"Could not pre-sync wallet balance: {e}")
-
-            # Lock only for PIN check, balance check, and PENDING record.
-            # External call happens after the lock is released.
             with transaction.atomic():
                 account = WalletModel.objects.select_for_update().get(
                     user=authenticated_user
@@ -659,7 +613,6 @@ class InterBankTransfer(generics.CreateAPIView):
                     description=payload.get("description"),
                     status="PENDING",
                 )
-            # Lock released — external call proceeds without holding the DB lock
 
             logger.info("Verification successful, proceeding with transfer.")
             transfer_resp = Transfers.initiate_transfer(
@@ -691,6 +644,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
                     phone_number=getattr(authenticated_user, "phone_number", None),
                     email=getattr(authenticated_user, "email", None),
+                    beneficiary_name=payload.get("beneficiary_name"),
                 )
 
                 return Response(

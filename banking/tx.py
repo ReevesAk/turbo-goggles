@@ -26,7 +26,7 @@ class AllTransactions(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        transactions = TxModel.objects.filter(user=self.request.user)
+        transactions = TxModel.objects.filter(user=self.request.user).prefetch_related("transfers")
         return transactions
 
     def list(self, request, *args, **kwargs):

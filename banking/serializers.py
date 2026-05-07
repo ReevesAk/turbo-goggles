@@ -114,6 +114,11 @@ class ResetPinSerializer(serializers.ModelSerializer):
 
 
 class TxModelSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_account_number = serializers.SerializerMethodField()
+    beneficiary_name = serializers.SerializerMethodField()
+    beneficiary_account_number = serializers.SerializerMethodField()
+
     class Meta:
         model = TxModel
         fields = [
@@ -123,7 +128,40 @@ class TxModelSerializer(serializers.ModelSerializer):
             "description",
             "rwd",
             "date",
+            "sender_name",
+            "sender_account_number",
+            "beneficiary_name",
+            "beneficiary_account_number",
         ]
+
+    def _get_transfer(self, obj):
+        transfers = obj.transfers.all()
+        return transfers[0] if transfers else None
+
+    def get_sender_name(self, obj):
+        t = self._get_transfer(obj)
+        return t.sender_name if t else None
+
+    def get_sender_account_number(self, obj):
+        t = self._get_transfer(obj)
+        return t.sender_account_number if t else None
+
+    def get_beneficiary_name(self, obj):
+        t = self._get_transfer(obj)
+        return t.beneficiary_name if t else None
+
+    def get_beneficiary_account_number(self, obj):
+        t = self._get_transfer(obj)
+        return t.beneficiary_account_number if t else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not instance.transfers.all():
+            data.pop("sender_name", None)
+            data.pop("sender_account_number", None)
+            data.pop("beneficiary_name", None)
+            data.pop("beneficiary_account_number", None)
+        return data
 
 
 class BankNtfnSerializer(serializers.ModelSerializer):
