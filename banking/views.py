@@ -632,6 +632,11 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
         user_wallet = WalletModel.objects.filter(user=current_user).first()
 
         if pin:
+            if not user_wallet or not user_wallet.pin:
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Wallet PIN not set. Please set your PIN first."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if not check_password(pin, user_wallet.pin):
                 return Response(
                     data=encrypt({"status": "fail", "message": "Invalid PIN."}),

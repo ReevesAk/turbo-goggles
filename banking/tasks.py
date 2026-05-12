@@ -87,7 +87,9 @@ def post_transfer_update(
             user=user,
             tx=tx,
             beneficiary_account_number=beneficiary_account_number,
+            beneficiary_name=beneficiary_name,
             sender_name=sender_full_name,
+            sender_account_number=account_number,
             amount=amount_str,
             available_balance=new_balance,
         )
