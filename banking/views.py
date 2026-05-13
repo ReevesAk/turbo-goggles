@@ -1332,9 +1332,9 @@ class ResetPin(generics.CreateAPIView):
             )
 
             ActivityModel.objects.create(
-                user=user,
+                user=authenticated_user,
                 title="Reset Wallet Pin",
-                description=f"{user.first_name} {user.last_name} has reset their wallet pin.",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} has reset their wallet pin.",
             )
 
             # send transactional email.

@@ -561,6 +561,10 @@ class GetDataPlans(generics.RetrieveAPIView):
             )
 
         logger.info("[GetNetworkProvider] Returning success response with data.")
+        try:
+            plans_data = CashbackService.add_cashback_to_bundles(plans_data)
+        except Exception as e:
+            logger.warning(f"[GetNetworkProvider] Could not attach cashback to bundles: {e}")
         return Response(
             data=encrypt({"status": "success", "data": plans_data}),
             status=status.HTTP_200_OK,
