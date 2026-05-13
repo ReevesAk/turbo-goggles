@@ -140,7 +140,14 @@ class TxModelSerializer(serializers.ModelSerializer):
 
     def get_sender_name(self, obj):
         t = self._get_transfer(obj)
-        return t.sender_name if t else None
+        if t:
+            return t.sender_name
+        if obj.tx_type == "Wallet Credit" and obj.description:
+            import re
+            match = re.search(r"Credit from (.+?) \(", obj.description)
+            if match:
+                return match.group(1)
+        return None
 
     def get_sender_account_number(self, obj):
         t = self._get_transfer(obj)
@@ -156,8 +163,14 @@ class TxModelSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if not instance.transfers.all():
+        has_transfer = bool(instance.transfers.all())
+        is_wallet_credit = instance.tx_type == "Wallet Credit"
+        if not has_transfer and not is_wallet_credit:
             data.pop("sender_name", None)
+            data.pop("sender_account_number", None)
+            data.pop("beneficiary_name", None)
+            data.pop("beneficiary_account_number", None)
+        elif is_wallet_credit and not has_transfer:
             data.pop("sender_account_number", None)
             data.pop("beneficiary_name", None)
             data.pop("beneficiary_account_number", None)
