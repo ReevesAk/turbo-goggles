@@ -92,6 +92,17 @@ class WalletModel(models.Model):
     pin_attempts = models.IntegerField(default=0, null=True)
     pin_locked_until = models.DateTimeField(null=True, blank=True)
 
+    UPGRADE_STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+    ]
+    tier2_upgrade_status = models.CharField(
+        max_length=10,
+        choices=UPGRADE_STATUS_CHOICES,
+        null=True,
+        blank=True,
+    )
+
 
 class WalletUpgrade(WalletModel):
     wallet = models.ForeignKey(

@@ -667,6 +667,17 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
+        if user_wallet.tier2_upgrade_status == "PENDING":
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "You already have a pending upgrade request. Please wait for approval.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user_kyc = UserKYC.objects.filter(user=current_user).first()
         if user_wallet.tier_level >= 2:
             return Response(
@@ -717,6 +728,8 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                     data=encrypt(response_data),
                     status=upgrade_response.status_code,
                 )
+            user_wallet.tier2_upgrade_status = "PENDING"
+            user_wallet.save(update_fields=["tier2_upgrade_status"])
             return Response(
                 data=encrypt(
                     {

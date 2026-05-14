@@ -436,7 +436,8 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                     description=f"{user.full_name}'s account has been upgraded to {tier}.",
                 )
                 wallet.tier_level = tier
-                wallet.save()
+                wallet.tier2_upgrade_status = "APPROVED"
+                wallet.save(update_fields=["tier_level", "tier2_upgrade_status"])
 
                 logger.info(f"Wallet: {account_number} successfully upgraded.")
 
