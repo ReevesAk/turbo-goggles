@@ -1,6 +1,7 @@
 import math
 import random
 import logging
+import token
 import requests
 
 
@@ -117,6 +118,99 @@ class Messaging:
         }
         response = requests.post(url, headers=headers, json=payload)
         return response.json()
+    
+    @staticmethod
+    def whatsApp(phone_number, otp):
+        url = yournotify_base_url + "campaigns/whatsapp/"
+
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
+
+        phone = "234" + phone_number
+        payload = {
+            "name": "Picadailys OTP",
+            "status": "running",
+            "send_at": None,
+            "lists": [
+            phone
+            ],
+            "channel": "whatsapp",
+            "from": "1038875632647675",
+            "template_id": "auth_verify_code:en_US",
+            "template_params": [
+                "#123456",
+                "Delivered"
+            ],
+            "attribs": {
+        "whatsapp_template": {
+            "name": "auth_login_code",
+            "language": "en_US"
+        },
+        "template_id": "auth_login_code:en_US",
+        "template_name": "auth_login_code",
+        "components": [
+            {
+            "type": "body",
+            "parameters": [
+                {
+                "type": "text",
+                "text": otp
+                }
+            ]
+            },
+            {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [
+                {
+                "type": "text",
+                "text": otp
+                }
+            ]
+            }
+        ]
+        }
+    }
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
+
+    @staticmethod
+    def _otp_sent(response):
+        try:
+            return response.get("status") == "success"
+        except Exception:
+            return False
+
+    @staticmethod
+    def send_otp_whatsapp_first(phone_number, otp, msg):
+        """WhatsApp first, SMS fallback — used for registration."""
+        try:
+            result = Messaging.whatsApp(phone_number=phone_number, otp=otp)
+            if Messaging._otp_sent(result):
+                return
+        except Exception:
+            pass
+        try:
+            Messaging.send_sms(phone_number=phone_number, msg=msg)
+        except Exception:
+            pass
+
+    @staticmethod
+    def send_otp_whatsapp_fallback(phone_number, otp, msg):
+        """SMS first, WhatsApp fallback — used on resend for non-registration OTPs."""
+        try:
+            result = Messaging.send_sms(phone_number=phone_number, msg=msg)
+            if Messaging._otp_sent(result):
+                return
+        except Exception:
+            pass
+        try:
+            Messaging.whatsApp(phone_number=phone_number, otp=otp)
+        except Exception:
+            pass
 
 
 class Allocate:

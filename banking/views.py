@@ -1222,7 +1222,7 @@ class PinResendOTP(generics.GenericAPIView):
 
         status_msg = ""
         if user.alert_type_choice in ("SMS", "Both"):
-            Messaging.send_sms(phone_number=phone_number, msg=msg)
+            Messaging.send_otp_whatsapp_fallback(phone_number=phone_number, otp=otp, msg=msg)
             status_msg = "Otp resent Successfully. Check your phone for validation"
         if user.alert_type_choice in ("Email", "Both"):
             text_content = render_to_string(
