@@ -1266,6 +1266,11 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                 amount=user_data.get("amount"),
             )
 
+            if verify_biller is None:
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Bill verification service is unavailable. Please try again."}),
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             biller_response = verify_biller.json()
             logger.info(f"Biller verification response: {biller_response}")
 
