@@ -253,17 +253,22 @@ class Wallet:
         url = base_url + resource
         logging.warning(
             "WALLET UpgradeToTier2 REQUEST: url=%s | payload=%s | headers=%s",
-            url, payload, headers,
+            url,
+            payload,
+            headers,
         )
         try:
-            response = requests.post(url=url, json=payload, headers=headers, timeout=180)
+            response = requests.post(
+                url=url, json=payload, headers=headers, timeout=180
+            )
             try:
                 resp_body = response.json()
             except Exception:
                 resp_body = response.text
             logging.warning(
                 "WALLET UpgradeToTier2 RESPONSE: status=%s | body=%s",
-                response.status_code, resp_body,
+                response.status_code,
+                resp_body,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -604,7 +609,9 @@ class Transfers:
         url = base_url + resource
         logging.warning(
             "TRANSFER initiate_transfer REQUEST: url=%s | payload=%s | headers=%s",
-            url, payload, headers,
+            url,
+            payload,
+            headers,
         )
         try:
             response = requests.post(url=url, headers=headers, json=payload, timeout=30)
@@ -612,14 +619,17 @@ class Transfers:
                 bearer_token = authenticate(force_refresh=True)
                 if bearer_token:
                     headers["Authorization"] = f"Bearer {bearer_token}"
-                    response = requests.post(url=url, headers=headers, json=payload, timeout=30)
+                    response = requests.post(
+                        url=url, headers=headers, json=payload, timeout=30
+                    )
             try:
                 resp_body = response.json()
             except Exception:
                 resp_body = response.text
             logging.warning(
                 "TRANSFER initiate_transfer RESPONSE: status=%s | body=%s",
-                response.status_code, resp_body,
+                response.status_code,
+                resp_body,
             )
             return response
         except requests.exceptions.RequestException as e:

@@ -26,7 +26,9 @@ class AllTransactions(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        transactions = TxModel.objects.filter(user=self.request.user).prefetch_related("transfers")
+        transactions = TxModel.objects.filter(user=self.request.user).prefetch_related(
+            "transfers"
+        )
         return transactions
 
     def list(self, request, *args, **kwargs):
@@ -53,11 +55,13 @@ class RetrieveTransaction(generics.GenericAPIView):
             if tx:
                 serializer = TxModelSerializer(tx)
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": f"Transaction for {tx_reference} found!",
+                            "data": serializer.data,
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
 
@@ -67,11 +71,13 @@ class RetrieveTransaction(generics.GenericAPIView):
             if vas:
                 serializer = BillPaymentSerializer(vas)
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": f"Transaction for {tx_reference} found!",
-                        "data": serializer.data,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": f"Transaction for {tx_reference} found!",
+                            "data": serializer.data,
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
 
