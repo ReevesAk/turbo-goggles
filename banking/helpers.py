@@ -45,6 +45,9 @@ class Pin:
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        if not hashed_pin:
+            return False
+
         is_pin_correct = check_password(pin, hashed_pin)
 
         if is_pin_correct:

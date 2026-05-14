@@ -1322,8 +1322,8 @@ class ResetPin(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            user.pin = pin
-            user.save()
+            user.pin = make_password(pin)
+            user.save(update_fields=["pin"])
 
             UserNotification.objects.create(
                 user=authenticated_user,
