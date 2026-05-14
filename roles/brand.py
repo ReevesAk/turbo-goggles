@@ -55,8 +55,12 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             brand_ad = User.objects.get(id=user_id)
             logger.info(f"Successfully retrieved User object for user_id: {user_id}.")
 
-            is_brandAd = AccountType.objects.filter(user=brand_ad, user_type="BrandAd").exists()
-            logger.debug(f"BrandAd account type check for user_id {user_id}: {is_brandAd}.")
+            is_brandAd = AccountType.objects.filter(
+                user=brand_ad, user_type="BrandAd"
+            ).exists()
+            logger.debug(
+                f"BrandAd account type check for user_id {user_id}: {is_brandAd}."
+            )
             if not is_brandAd:
                 logger.warning(
                     f"User with id {user_id} is not registered as a BrandAd."

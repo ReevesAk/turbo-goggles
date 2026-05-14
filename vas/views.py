@@ -335,7 +335,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         logger.info(f"VAS.airtime_topup() response: {airtime_response}")
                         if airtime_response is None:
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 reason="VAS service unavailable.",
                             )
                         airtime_success = False
@@ -362,9 +364,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                         except Exception as e:
                             logger.warning(f"Error parsing airtime_response: {e}")
 
-                        status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
+                        status_query = VAS.status(
+                            bearer_token=vas_token, tx_ref=tx_reference
+                        )
                         logger.info(f"VAS.status() response: {status_query}")
-                        status_resp = status_query.json().get("data", {}) if status_query else {}
+                        status_resp = (
+                            status_query.json().get("data", {}) if status_query else {}
+                        )
                         status_success = status_resp.get("status") == "success" or (
                             status_resp.get("responseCode") == "200"
                             or status_resp.get("responseCode") == 200
@@ -372,19 +378,27 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                         if airtime_success or status_success:
                             return self._handle_airtime_success(
-                                user=user, phone=phone, amount=amount, network=network,
-                                tx_reference=tx_reference, cashback=cashback_used,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
                                 account_number=account_number,
                             )
                         else:
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 airtime_response=airtime_response,
                                 reason="Airtime top-up failed.",
                             )
 
                     # Hybrid: debit wallet portion to central, call VAS with central account
-                    if (use_points or use_cashback or use_bonus) and wallet_debit_amount > 0:
+                    if (
+                        use_points or use_cashback or use_bonus
+                    ) and wallet_debit_amount > 0:
                         debit_response = Wallet.Debit(
                             debitAccount=account_number,
                             amount=wallet_debit_amount,
@@ -392,82 +406,132 @@ class AirTimeTopUp(generics.GenericAPIView):
                             merchantFeeAmount="",
                             destinationAccount=settings.CENTRAL_COLLECTION_ACCOUNT,
                         )
-                        if debit_response is None or str(debit_response.status_code) != "200":
+                        if (
+                            debit_response is None
+                            or str(debit_response.status_code) != "200"
+                        ):
                             return self._handle_airtime_failure(
-                                user=user, phone=phone, amount=amount,
+                                user=user,
+                                phone=phone,
+                                amount=amount,
                                 reason="Wallet service unavailable or debit failed.",
                             )
                     vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                     airtime_response = VAS.airtime_topup(
-                        network=network, bearer_token=vas_token, amount=amount,
-                        debitAccount=vas_debit_account, phone_number=phone, tx_ref=tx_reference,
+                        network=network,
+                        bearer_token=vas_token,
+                        amount=amount,
+                        debitAccount=vas_debit_account,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
                     if airtime_response is None:
-                        if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                        if wallet_debit_amount > 0 and (
+                            use_points or use_cashback or use_bonus
+                        ):
                             Wallet.Credit(
-                                acct_no=account_number, amount=wallet_debit_amount,
+                                acct_no=account_number,
+                                amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
                                 sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                             )
                         return self._handle_airtime_failure(
-                            user=user, phone=phone, amount=amount,
+                            user=user,
+                            phone=phone,
+                            amount=amount,
                             reason="VAS service unavailable.",
                         )
-                    status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
-                    status_resp = status_query.json().get("data", {}) if status_query else {}
+                    status_query = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_resp = (
+                        status_query.json().get("data", {}) if status_query else {}
+                    )
                     logger.info(f"VAS.status() response: {status_resp}")
                     if (
                         status_resp.get("status") == "success"
                         and status_resp.get("responseCode") == "200"
                     ):
                         return self._handle_airtime_success(
-                            user=user, phone=phone, amount=amount, network=network,
-                            tx_reference=tx_reference, cashback=cashback_used,
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                            cashback=cashback_used,
                             account_number=account_number,
                         )
                     else:
-                        if wallet_debit_amount > 0 and (use_points or use_cashback or use_bonus):
+                        if wallet_debit_amount > 0 and (
+                            use_points or use_cashback or use_bonus
+                        ):
                             Wallet.Credit(
-                                acct_no=account_number, amount=wallet_debit_amount,
+                                acct_no=account_number,
+                                amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
                                 sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                             )
                         return self._handle_airtime_failure(
-                            user=user, phone=phone, amount=amount,
-                            airtime_response=airtime_response, reason="Airtime top-up failed.",
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            airtime_response=airtime_response,
+                            reason="Airtime top-up failed.",
                         )
 
                 case "CARD":
                     vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                     airtime_response = VAS.airtime_topup(
-                        network=network, bearer_token=vas_token, amount=amount,
-                        debitAccount=vas_debit_account, phone_number=phone, tx_ref=tx_reference,
+                        network=network,
+                        bearer_token=vas_token,
+                        amount=amount,
+                        debitAccount=vas_debit_account,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
                     if airtime_response is None:
                         return self._handle_airtime_failure(
-                            user=user, guest_id=guest_id, phone=phone, amount=amount,
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
                             reason="VAS service unavailable.",
                         )
-                    status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
-                    status_resp = status_query.json().get("data", {}) if status_query else {}
+                    status_query = VAS.status(
+                        bearer_token=vas_token, tx_ref=tx_reference
+                    )
+                    status_resp = (
+                        status_query.json().get("data", {}) if status_query else {}
+                    )
                     if (
                         status_resp.get("status") == "success"
                         and status_resp.get("responseCode") == "200"
                     ):
                         return self._handle_airtime_success(
-                            user=user, guest_id=guest_id, phone=phone, amount=amount,
-                            network=network, tx_reference=tx_reference, cashback=cashback_used,
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                            cashback=cashback_used,
                             account_number=account_number,
                         )
                     else:
                         return self._handle_airtime_failure(
-                            user=user, guest_id=guest_id, phone=phone, amount=amount,
-                            airtime_response=airtime_response, reason="Airtime top-up failed.",
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
+                            airtime_response=airtime_response,
+                            reason="Airtime top-up failed.",
                         )
 
                 case _:
                     return Response(
-                        data=encrypt({"status": "fail", "message": "Invalid payment option"}),
+                        data=encrypt(
+                            {"status": "fail", "message": "Invalid payment option"}
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         except Exception as e:
@@ -491,22 +555,38 @@ class GetDataPlans(generics.RetrieveAPIView):
         },
     )
     def get(self, request, *args, **kwargs):
-        logger.info("[GetDataPlans] Incoming request: path=%s, method=%s, GET=%s, POST=%s, ARGS=%s, KWARGS=%s", request.path, request.method, request.GET, request.POST, args, kwargs)
-
+        logger.info(
+            "[GetDataPlans] Incoming request: path=%s, method=%s, GET=%s, POST=%s, ARGS=%s, KWARGS=%s",
+            request.path,
+            request.method,
+            request.GET,
+            request.POST,
+            args,
+            kwargs,
+        )
 
         # Try to extract phone_number from kwargs first, then query param
         phone_number = kwargs.get("phone_number")
-        logger.info("[GetDataPlans] Extracted phone_number from kwargs: %s", phone_number)
+        logger.info(
+            "[GetDataPlans] Extracted phone_number from kwargs: %s", phone_number
+        )
         if not phone_number:
             phone_number = request.query_params.get("phone_number")
-            logger.info("[GetNetworkProvider] Extracted phone_number from query params: %s", phone_number)
+            logger.info(
+                "[GetNetworkProvider] Extracted phone_number from query params: %s",
+                phone_number,
+            )
         if not phone_number:
-            logger.warning("[GetNetworkProvider] Missing phone_number in kwargs and query params. Returning 400.")
+            logger.warning(
+                "[GetNetworkProvider] Missing phone_number in kwargs and query params. Returning 400."
+            )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "phone_number (query param or path) is required."
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "phone_number (query param or path) is required.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -514,49 +594,75 @@ class GetDataPlans(generics.RetrieveAPIView):
         token = VAS.authenticate()
         logger.info("[GetNetworkProvider] VAS.authenticate() returned token: %s", token)
         if not token:
-            logger.error("[GetNetworkProvider] Failed to authenticate with VAS provider. Returning 502.")
+            logger.error(
+                "[GetNetworkProvider] Failed to authenticate with VAS provider. Returning 502."
+            )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Failed to authenticate with VAS provider."
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Failed to authenticate with VAS provider.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
         # Pass only phone_number to VAS.dataplans (network can be None or empty)
-        logger.info("[GetNetworkProvider] Calling VAS.dataplans with phone_number=%s", phone_number)
+        logger.info(
+            "[GetNetworkProvider] Calling VAS.dataplans with phone_number=%s",
+            phone_number,
+        )
         vas_response = VAS.dataplans(bearer_token=token, phone_number=phone_number)
         logger.info("[GetNetworkProvider] VAS.dataplans response: %s", vas_response)
         if not vas_response:
-            logger.error("[GetNetworkProvider] No response from VAS.dataplans. Returning 502.")
+            logger.error(
+                "[GetNetworkProvider] No response from VAS.dataplans. Returning 502."
+            )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Failed to fetch data plans from VAS provider."
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Failed to fetch data plans from VAS provider.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        logger.info("[GetNetworkProvider] VAS.dataplans status_code: %s, text: %s", getattr(vas_response, 'status_code', None), getattr(vas_response, 'text', None))
+        logger.info(
+            "[GetNetworkProvider] VAS.dataplans status_code: %s, text: %s",
+            getattr(vas_response, "status_code", None),
+            getattr(vas_response, "text", None),
+        )
         if vas_response.status_code != 200:
-            logger.error("[GetNetworkProvider] VAS.dataplans returned non-200 status: %s", vas_response.status_code)
+            logger.error(
+                "[GetNetworkProvider] VAS.dataplans returned non-200 status: %s",
+                vas_response.status_code,
+            )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Failed to fetch data plans from VAS provider."
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Failed to fetch data plans from VAS provider.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
         try:
             plans_data = vas_response.json()
-            logger.info("[GetNetworkProvider] Successfully parsed VAS.dataplans JSON response.")
+            logger.info(
+                "[GetNetworkProvider] Successfully parsed VAS.dataplans JSON response."
+            )
         except Exception as e:
-            logger.error(f"[GetNetworkProvider] Error parsing VAS data plans response: {str(e)}")
+            logger.error(
+                f"[GetNetworkProvider] Error parsing VAS data plans response: {str(e)}"
+            )
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "message": "Invalid response format from VAS provider."
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid response format from VAS provider.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -564,7 +670,9 @@ class GetDataPlans(generics.RetrieveAPIView):
         try:
             plans_data = CashbackService.add_cashback_to_bundles(plans_data)
         except Exception as e:
-            logger.warning(f"[GetNetworkProvider] Could not attach cashback to bundles: {e}")
+            logger.warning(
+                f"[GetNetworkProvider] Could not attach cashback to bundles: {e}"
+            )
         return Response(
             data=encrypt({"status": "success", "data": plans_data}),
             status=status.HTTP_200_OK,
@@ -1134,9 +1242,7 @@ class GetPaymentCategoriesView(APIView):
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        categories_resp = VAS.get_categories(
-            bearer_token=token
-        )
+        categories_resp = VAS.get_categories(bearer_token=token)
         categories = categories_resp.json().get("data", [])
 
         return Response(
@@ -1172,7 +1278,9 @@ class BillPaymentCategoriesView(APIView):
         categories_resp = VAS.bill_payment_categories(
             bearer_token=token, category_id=kwargs.get("category_id")
         )
-        logger.info(f"VAS.bill_payment_categories response: {categories_resp.json() if categories_resp else 'No response'}")
+        logger.info(
+            f"VAS.bill_payment_categories response: {categories_resp.json() if categories_resp else 'No response'}"
+        )
         categories = categories_resp.json().get("data", [])
 
         return Response(
@@ -1208,7 +1316,9 @@ class BillersCategoriesView(APIView):
         billers_resp = VAS.billers_categories(
             bearer_token=token, biller_id=kwargs.get("billers_id")
         )
-        logger.info(f"VAS.billers_categories response: {billers_resp.json() if billers_resp else 'No response'}")
+        logger.info(
+            f"VAS.billers_categories response: {billers_resp.json() if billers_resp else 'No response'}"
+        )
         billers = billers_resp.json().get("data", [])
 
         return Response(
@@ -1268,16 +1378,20 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
             if verify_biller is None:
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Bill verification service is unavailable. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Bill verification service is unavailable. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             biller_response = verify_biller.json()
             logger.info(f"Biller verification response: {biller_response}")
 
-            if (
-                biller_response.get("status") == "success"
-                and biller_response.get("responseCode") in [200, "200"]
-            ):
+            if biller_response.get("status") == "success" and biller_response.get(
+                "responseCode"
+            ) in [200, "200"]:
                 response_data = {
                     "data": biller_response,
                 }
@@ -1520,7 +1634,6 @@ class BillPaymentView(generics.GenericAPIView):
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
 
         # Acquire and immediately release wallet lock
         user_wallet = None

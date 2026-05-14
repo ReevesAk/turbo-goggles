@@ -95,7 +95,9 @@ def post_transfer_update(
         )
 
         message = f"Dear {sender_full_name},\nYour transfer of ₦{amount_str} has been confirmed. Your available balance is ₦{new_balance}."
-        UserNotification.objects.create(user=user, title="Bank Transfer", message=message)
+        UserNotification.objects.create(
+            user=user, title="Bank Transfer", message=message
+        )
         ActivityModel.objects.create(
             user=user,
             title="Bank Transfer",
@@ -122,7 +124,10 @@ def post_transfer_update(
                 {"label": "Receiver Account", "value": beneficiary_account_number},
                 {"label": "Narration", "value": narration or "No narration provided"},
                 {"label": "Reference", "value": idempotency_key},
-                {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                {
+                    "label": "Datetime",
+                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                },
                 {"label": "Transaction Type", "value": "Debit"},
                 {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
             ],
@@ -176,13 +181,17 @@ def post_vas_update(
                         bal = enquiry_data.get("data", {}).get("availableBalance")
                         if bal is not None:
                             balance = float(bal)
-                            WalletModel.objects.filter(user=user).update(balance=balance)
+                            WalletModel.objects.filter(user=user).update(
+                                balance=balance
+                            )
             except Exception as e:
                 logging.warning(f"post_vas_update: could not sync balance: {e}")
 
         if getattr(user, "has_done_survey", False):
             try:
-                points = Points.determine(activity_type="service_purchase", level=user.level)
+                points = Points.determine(
+                    activity_type="service_purchase", level=user.level
+                )
                 NextBee.member_activity(
                     member_email=user.email, activityId="8474", numericValue=str(points)
                 )
@@ -210,7 +219,10 @@ def post_vas_update(
                 {"label": "Phone", "value": phone or ""},
                 {"label": "Network", "value": network or ""},
                 {"label": "Reference", "value": tx_reference},
-                {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                {
+                    "label": "Datetime",
+                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                },
                 {"label": "Transaction Type", "value": service_type.title()},
                 {"label": "Balance", "value": f"₦{balance:,.2f}"},
             ],
@@ -233,10 +245,21 @@ def post_vas_update(
 
 
 @shared_task(autoretry_for=(Exception,), max_retries=5, default_retry_delay=30)
-def resolve_pending_transfer(tx_id, user_id, account_number, external_tx_reference,
-                             beneficiary_account_number, sender_full_name, amount_str,
-                             narration, idempotency_key, alert_type, phone_number,
-                             email, beneficiary_name=None):
+def resolve_pending_transfer(
+    tx_id,
+    user_id,
+    account_number,
+    external_tx_reference,
+    beneficiary_account_number,
+    sender_full_name,
+    amount_str,
+    narration,
+    idempotency_key,
+    alert_type,
+    phone_number,
+    email,
+    beneficiary_name=None,
+):
     from accounts.models import TxModel
     from banking.controllers import Transfers
 

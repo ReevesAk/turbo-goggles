@@ -32,7 +32,11 @@ from .helpers import Pin
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
-from banking.tasks import post_transfer_update, send_transfer_notifications, resolve_pending_transfer
+from banking.tasks import (
+    post_transfer_update,
+    send_transfer_notifications,
+    resolve_pending_transfer,
+)
 from commons import Messaging
 from decimal import Decimal
 from django.db import transaction
@@ -400,19 +404,25 @@ class IntraBankTransfer(generics.CreateAPIView):
             )
 
             if transfer_resp is None:
-                logger.error("Intra-bank transfer timed out, keeping PENDING for resolution.")
+                logger.error(
+                    "Intra-bank transfer timed out, keeping PENDING for resolution."
+                )
                 resolve_pending_transfer.apply_async(
                     kwargs=dict(
                         tx_id=tx.id,
                         user_id=authenticated_user.id,
                         account_number=account_number,
                         external_tx_reference=external_tx_id,
-                        beneficiary_account_number=payload.get("beneficiary_account_number"),
+                        beneficiary_account_number=payload.get(
+                            "beneficiary_account_number"
+                        ),
                         sender_full_name=sender_name,
                         amount_str=str(payload.get("amount")),
                         narration=payload.get("description"),
                         idempotency_key=idempotency_key,
-                        alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                        alert_type=getattr(
+                            authenticated_user, "alert_type_choice", "Both"
+                        ),
                         phone_number=getattr(authenticated_user, "phone_number", None),
                         email=getattr(authenticated_user, "email", None),
                         beneficiary_name=payload.get("beneficiary_name"),
@@ -420,11 +430,13 @@ class IntraBankTransfer(generics.CreateAPIView):
                     countdown=30,
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "pending",
-                        "message": "Transfer is being processed. You will be notified once confirmed.",
-                        "transactionReference": idempotency_key,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "pending",
+                            "message": "Transfer is being processed. You will be notified once confirmed.",
+                            "transactionReference": idempotency_key,
+                        }
+                    ),
                     status=status.HTTP_202_ACCEPTED,
                 )
 
@@ -437,7 +449,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                     user_id=authenticated_user.id,
                     tx_id=tx.id,
                     account_number=account_number,
-                    beneficiary_account_number=payload.get("beneficiary_account_number"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
                     sender_full_name=sender_name,
                     amount_str=str(payload.get("amount")),
                     narration=payload.get("description"),
@@ -449,18 +463,22 @@ class IntraBankTransfer(generics.CreateAPIView):
                 )
 
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Transfer successful.",
-                        "data": {
-                            "credit_account": payload.get("beneficiary_account_number"),
-                            "debit_account": payload.get("sender_account_number"),
-                            "amount": payload.get("amount"),
-                            "narration": payload.get("description"),
-                            "beneficiaryBank": "Picadailys/9PSB",
-                            "transactionReference": idempotency_key,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": {
+                                "credit_account": payload.get(
+                                    "beneficiary_account_number"
+                                ),
+                                "debit_account": payload.get("sender_account_number"),
+                                "amount": payload.get("amount"),
+                                "narration": payload.get("description"),
+                                "beneficiaryBank": "Picadailys/9PSB",
+                                "transactionReference": idempotency_key,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             else:
@@ -468,7 +486,13 @@ class IntraBankTransfer(generics.CreateAPIView):
                 tx.status = "FAILED"
                 tx.save(update_fields=["status"])
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": transfer_resp.json()}),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Transfer failed.",
+                            "data": transfer_resp.json(),
+                        }
+                    ),
                     status=transfer_resp.status_code,
                 )
 
@@ -657,19 +681,25 @@ class InterBankTransfer(generics.CreateAPIView):
             )
 
             if transfer_resp is None:
-                logger.error("Inter-bank transfer timed out, keeping PENDING for resolution.")
+                logger.error(
+                    "Inter-bank transfer timed out, keeping PENDING for resolution."
+                )
                 resolve_pending_transfer.apply_async(
                     kwargs=dict(
                         tx_id=tx.id,
                         user_id=authenticated_user.id,
                         account_number=account_number,
                         external_tx_reference=external_tx_id,
-                        beneficiary_account_number=payload.get("beneficiary_account_number"),
+                        beneficiary_account_number=payload.get(
+                            "beneficiary_account_number"
+                        ),
                         sender_full_name=sender_name,
                         amount_str=str(payload.get("amount")),
                         narration=payload.get("description"),
                         idempotency_key=idempotency_key,
-                        alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
+                        alert_type=getattr(
+                            authenticated_user, "alert_type_choice", "Both"
+                        ),
                         phone_number=getattr(authenticated_user, "phone_number", None),
                         email=getattr(authenticated_user, "email", None),
                         beneficiary_name=payload.get("beneficiary_name"),
@@ -677,11 +707,13 @@ class InterBankTransfer(generics.CreateAPIView):
                     countdown=30,
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "pending",
-                        "message": "Transfer is being processed. You will be notified once confirmed.",
-                        "transactionReference": idempotency_key,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "pending",
+                            "message": "Transfer is being processed. You will be notified once confirmed.",
+                            "transactionReference": idempotency_key,
+                        }
+                    ),
                     status=status.HTTP_202_ACCEPTED,
                 )
 
@@ -694,7 +726,9 @@ class InterBankTransfer(generics.CreateAPIView):
                     user_id=authenticated_user.id,
                     tx_id=tx.id,
                     account_number=account_number,
-                    beneficiary_account_number=payload.get("beneficiary_account_number"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
                     sender_full_name=sender_name,
                     amount_str=str(payload.get("amount")),
                     narration=payload.get("description"),
@@ -706,18 +740,22 @@ class InterBankTransfer(generics.CreateAPIView):
                 )
 
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Transfer successful.",
-                        "data": {
-                            "credit_account": payload.get("beneficiary_account_number"),
-                            "debit_account": payload.get("sender_account_number"),
-                            "amount": payload.get("amount"),
-                            "narration": payload.get("description"),
-                            "beneficiaryBank": payload.get("beneficiary_bank_code"),
-                            "transactionReference": idempotency_key,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": {
+                                "credit_account": payload.get(
+                                    "beneficiary_account_number"
+                                ),
+                                "debit_account": payload.get("sender_account_number"),
+                                "amount": payload.get("amount"),
+                                "narration": payload.get("description"),
+                                "beneficiaryBank": payload.get("beneficiary_bank_code"),
+                                "transactionReference": idempotency_key,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             else:
@@ -725,7 +763,13 @@ class InterBankTransfer(generics.CreateAPIView):
                 tx.status = "FAILED"
                 tx.save(update_fields=["status"])
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": transfer_resp.json()}),
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "error": "Transfer failed.",
+                            "data": transfer_resp.json(),
+                        }
+                    ),
                     status=transfer_resp.status_code,
                 )
 

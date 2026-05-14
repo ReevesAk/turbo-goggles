@@ -197,19 +197,28 @@ class ExportStatement:
         light_grey = colors.HexColor("#F5F5F5")
 
         title_style = ParagraphStyle(
-            "title", parent=styles["Normal"],
-            fontSize=20, fontName="Helvetica-Bold",
-            textColor=brand_green, spaceAfter=2,
+            "title",
+            parent=styles["Normal"],
+            fontSize=20,
+            fontName="Helvetica-Bold",
+            textColor=brand_green,
+            spaceAfter=2,
         )
         subtitle_style = ParagraphStyle(
-            "subtitle", parent=styles["Normal"],
-            fontSize=9, fontName="Helvetica",
-            textColor=mid_grey, spaceAfter=0,
+            "subtitle",
+            parent=styles["Normal"],
+            fontSize=9,
+            fontName="Helvetica",
+            textColor=mid_grey,
+            spaceAfter=0,
         )
         ref_style = ParagraphStyle(
-            "ref", parent=styles["Normal"],
-            fontSize=7, fontName="Helvetica",
-            textColor=mid_grey, wordWrap="CJK",
+            "ref",
+            parent=styles["Normal"],
+            fontSize=7,
+            fontName="Helvetica",
+            textColor=mid_grey,
+            wordWrap="CJK",
         )
 
         elements = []
@@ -222,11 +231,15 @@ class ExportStatement:
         # Divider
         divider_data = [[""]]
         divider = Table(divider_data, colWidths=[doc.width])
-        divider.setStyle(TableStyle([
-            ("LINEABOVE", (0, 0), (-1, 0), 1.5, brand_green),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
+        divider.setStyle(
+            TableStyle(
+                [
+                    ("LINEABOVE", (0, 0), (-1, 0), 1.5, brand_green),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
         elements.append(divider)
         elements.append(Spacer(1, 0.2 * inch))
 
@@ -244,9 +257,13 @@ class ExportStatement:
         for tx in transactions:
             status_text = tx.status or "—"
             status_color = (
-                colors.HexColor("#2E7D32") if status_text == "SUCCESS"
-                else colors.HexColor("#C62828") if status_text == "FAILED"
-                else colors.HexColor("#E65100")
+                colors.HexColor("#2E7D32")
+                if status_text == "SUCCESS"
+                else (
+                    colors.HexColor("#C62828")
+                    if status_text == "FAILED"
+                    else colors.HexColor("#E65100")
+                )
             )
             row = [
                 Paragraph(tx.date.strftime("%d %b %Y"), styles["Normal"]),
@@ -255,48 +272,56 @@ class ExportStatement:
                 Paragraph(f"{float(tx.amount):,.2f}", styles["Normal"]),
                 Paragraph(
                     f'<font color="{status_color.hexval()}">{status_text}</font>',
-                    styles["Normal"]
+                    styles["Normal"],
                 ),
             ]
             table_data.append(row)
 
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        table.setStyle(TableStyle([
-            # Header row
-            ("BACKGROUND", (0, 0), (-1, 0), brand_green),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 9),
-            ("TOPPADDING", (0, 0), (-1, 0), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-            # Data rows
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 8),
-            ("TOPPADDING", (0, 1), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
-            # Alternating row colors
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, light_grey]),
-            # Grid
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E0E0E0")),
-            ("LINEBELOW", (0, 0), (-1, 0), 1.5, brand_green),
-            # Alignment
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (3, 0), (3, -1), "RIGHT"),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    # Header row
+                    ("BACKGROUND", (0, 0), (-1, 0), brand_green),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 9),
+                    ("TOPPADDING", (0, 0), (-1, 0), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                    # Data rows
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 8),
+                    ("TOPPADDING", (0, 1), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+                    # Alternating row colors
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, light_grey]),
+                    # Grid
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E0E0E0")),
+                    ("LINEBELOW", (0, 0), (-1, 0), 1.5, brand_green),
+                    # Alignment
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+                ]
+            )
+        )
         elements.append(table)
         elements.append(Spacer(1, 0.3 * inch))
 
         # Footer note
         footer_style = ParagraphStyle(
-            "footer", parent=styles["Normal"],
-            fontSize=7, fontName="Helvetica",
+            "footer",
+            parent=styles["Normal"],
+            fontSize=7,
+            fontName="Helvetica",
             textColor=mid_grey,
         )
-        elements.append(Paragraph(
-            "This statement is auto-generated by Picadailys. "
-            "For queries, contact support@picadailys.com or call 02012271894 / 02012271895.",
-            footer_style,
-        ))
+        elements.append(
+            Paragraph(
+                "This statement is auto-generated by Picadailys. "
+                "For queries, contact support@picadailys.com or call 02012271894 / 02012271895.",
+                footer_style,
+            )
+        )
 
         doc.build(elements)
         return buffer.getvalue()

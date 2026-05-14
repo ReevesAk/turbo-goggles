@@ -28,7 +28,11 @@ class Command(BaseCommand):
             writer.writeheader()
             for user in WaitlistModel.objects.all():
                 # Find the referral where this user is the referred
-                ref = Referral.objects.filter(referred=user).select_related('referrer').first()
+                ref = (
+                    Referral.objects.filter(referred=user)
+                    .select_related("referrer")
+                    .first()
+                )
                 referrer_name = None
                 joined_with_referral_code = None
                 if ref and ref.referrer:

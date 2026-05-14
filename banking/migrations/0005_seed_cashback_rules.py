@@ -16,9 +16,7 @@ def seed_cashback_rules(apps, schema_editor):
 
 def reverse_seed(apps, schema_editor):
     CashbackRule = apps.get_model("banking", "CashbackRule")
-    CashbackRule.objects.filter(
-        service_type__in=["airtime", "data"]
-    ).delete()
+    CashbackRule.objects.filter(service_type__in=["airtime", "data"]).delete()
 
 
 class Migration(migrations.Migration):

@@ -144,6 +144,7 @@ class TxModelSerializer(serializers.ModelSerializer):
             return t.sender_name
         if obj.tx_type == "Wallet Credit" and obj.description:
             import re
+
             match = re.search(r"Credit from (.+?) \(", obj.description)
             if match:
                 return match.group(1)
