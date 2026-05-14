@@ -139,8 +139,8 @@ class RegisterSuperAdmin(generics.GenericAPIView):
 
                 logger.info(f"OTP generated for SuperAdmin: {otp}")
                 print(f"OTP for SuperAdmin registration: {otp}")
-                # Send OTP message
-                Messaging.send_sms(phone_number=recipient, msg=msg)
+                # Send OTP message — WhatsApp first (registration), SMS fallback
+                Messaging.send_otp_whatsapp_first(phone_number=recipient, otp=otp, msg=msg)
 
                 # Log the creation of the SuperUser
                 UserNotification.objects.create(

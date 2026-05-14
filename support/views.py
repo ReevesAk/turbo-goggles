@@ -102,8 +102,8 @@ class RegisterManager(generics.GenericAPIView):
                 msg = f"Welcome Manager! This is a one-time signup. To protect your account, please enter this {otp}."
                 recipient = current_user.phone_number[1:]
 
-                # Send OTP message
-                Messaging.send_sms(phone_number=recipient, msg=msg)
+                # Send OTP message — WhatsApp first (registration), SMS fallback
+                Messaging.send_otp_whatsapp_first(phone_number=recipient, otp=otp, msg=msg)
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
