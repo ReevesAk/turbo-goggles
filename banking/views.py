@@ -1084,12 +1084,9 @@ class SetWalletPin(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Hash the pin using make_password
             hashed_pin = make_password(pin)
-
-            # set the hashed_pin and save it in the 'pin' flag on the db.
             user.pin = hashed_pin
-            user.save()
+            user.save(update_fields=["pin"])
 
             authenticated_user.has_created_pin = True
             authenticated_user.save()
