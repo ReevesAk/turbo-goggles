@@ -29,6 +29,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # In-projects imports.
 from .helpers import Pin
+from .transfer_charge import TransferCharge
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
@@ -365,9 +366,16 @@ class IntraBankTransfer(generics.CreateAPIView):
                     )
 
                 amount = Decimal(str(payload.get("amount")))
-                if account.balance < amount:
+
+                intra_count = TxModel.objects.filter(
+                    user=authenticated_user, tx_type="Intra-Bank Transfer"
+                ).count()
+                intra_merchant_fee = Decimal("10") if intra_count >= 5 else Decimal("0")
+                total = amount + intra_merchant_fee
+
+                if account.balance < total:
                     logger.error(
-                        f"Insufficient balance. Available: {account.balance}, Required: {amount}"
+                        f"Insufficient balance. Available: {account.balance}, Required: {total}"
                     )
                     return Response(
                         data=encrypt(
@@ -385,7 +393,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     tx_reference=idempotency_key,
                     external_tx_reference=external_tx_id,
                     tx_type="Intra-Bank Transfer",
-                    amount=payload.get("amount"),
+                    amount=str(total),
                     description=payload.get("description"),
                     status="PENDING",
                 )
@@ -401,6 +409,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                 description=payload.get("description"),
                 transactionType="INTRA_BANK",
                 tx_ref=external_tx_id,
+                merchant_fee=int(intra_merchant_fee) if intra_merchant_fee else None,
             )
 
             if transfer_resp is None:
@@ -417,7 +426,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                             "beneficiary_account_number"
                         ),
                         sender_full_name=sender_name,
-                        amount_str=str(payload.get("amount")),
+                        amount_str=str(total),
                         narration=payload.get("description"),
                         idempotency_key=idempotency_key,
                         alert_type=getattr(
@@ -453,7 +462,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                         "beneficiary_account_number"
                     ),
                     sender_full_name=sender_name,
-                    amount_str=str(payload.get("amount")),
+                    amount_str=str(total),
                     narration=payload.get("description"),
                     idempotency_key=idempotency_key,
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
@@ -462,21 +471,24 @@ class IntraBankTransfer(generics.CreateAPIView):
                     beneficiary_name=payload.get("beneficiary_name"),
                 )
 
+                resp_data = {
+                    "credit_account": payload.get("beneficiary_account_number"),
+                    "debit_account": payload.get("sender_account_number"),
+                    "amount": str(amount),
+                    "narration": payload.get("description"),
+                    "beneficiaryBank": "Picadailys/9PSB",
+                    "transactionReference": idempotency_key,
+                    "total_debited": str(total),
+                }
+                if intra_merchant_fee:
+                    resp_data["merchant_fee"] = str(intra_merchant_fee)
+
                 return Response(
                     data=encrypt(
                         {
                             "status": "success",
                             "message": "Transfer successful.",
-                            "data": {
-                                "credit_account": payload.get(
-                                    "beneficiary_account_number"
-                                ),
-                                "debit_account": payload.get("sender_account_number"),
-                                "amount": payload.get("amount"),
-                                "narration": payload.get("description"),
-                                "beneficiaryBank": "Picadailys/9PSB",
-                                "transactionReference": idempotency_key,
-                            },
+                            "data": resp_data,
                         }
                     ),
                     status=status.HTTP_200_OK,
@@ -642,9 +654,12 @@ class InterBankTransfer(generics.CreateAPIView):
                     )
 
                 amount = Decimal(str(payload.get("amount")))
-                if account.balance < amount:
+                charge = TransferCharge.breakdown(amount)
+                total = Decimal(charge["total"])
+
+                if account.balance < total:
                     logger.error(
-                        f"Insufficient balance. Available: {account.balance}, Required: {amount}"
+                        f"Insufficient balance. Available: {account.balance}, Required: {total}"
                     )
                     return Response(
                         data=encrypt(
@@ -662,7 +677,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     tx_reference=idempotency_key,
                     external_tx_reference=external_tx_id,
                     tx_type="Inter-Bank Transfer",
-                    amount=payload.get("amount"),
+                    amount=charge["total"],
                     description=payload.get("description"),
                     status="PENDING",
                 )
@@ -678,6 +693,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 description=payload.get("description"),
                 transactionType="INTER_BANK",
                 tx_ref=external_tx_id,
+                merchant_fee=5,
             )
 
             if transfer_resp is None:
@@ -694,7 +710,7 @@ class InterBankTransfer(generics.CreateAPIView):
                             "beneficiary_account_number"
                         ),
                         sender_full_name=sender_name,
-                        amount_str=str(payload.get("amount")),
+                        amount_str=charge["total"],
                         narration=payload.get("description"),
                         idempotency_key=idempotency_key,
                         alert_type=getattr(
@@ -730,7 +746,7 @@ class InterBankTransfer(generics.CreateAPIView):
                         "beneficiary_account_number"
                     ),
                     sender_full_name=sender_name,
-                    amount_str=str(payload.get("amount")),
+                    amount_str=charge["total"],
                     narration=payload.get("description"),
                     idempotency_key=idempotency_key,
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
@@ -749,7 +765,11 @@ class InterBankTransfer(generics.CreateAPIView):
                                     "beneficiary_account_number"
                                 ),
                                 "debit_account": payload.get("sender_account_number"),
-                                "amount": payload.get("amount"),
+                                "amount": charge["principal"],
+                                "transfer_fee": charge["transfer_fee"],
+                                "vat": charge["vat"],
+                                "merchant_fee": charge["merchant_fee"],
+                                "total_debited": charge["total"],
                                 "narration": payload.get("description"),
                                 "beneficiaryBank": payload.get("beneficiary_bank_code"),
                                 "transactionReference": idempotency_key,

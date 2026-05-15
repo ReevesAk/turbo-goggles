@@ -4,8 +4,8 @@ from django.db import migrations
 def seed_cashback_rules(apps, schema_editor):
     CashbackRule = apps.get_model("banking", "CashbackRule")
     rules = [
-        {"service_type": "airtime", "percentage": 1.00},
-        {"service_type": "data", "percentage": 1.00},
+        {"service_type": "airtime", "percentage": 1.50},
+        {"service_type": "data", "percentage": 1.50},
     ]
     for rule in rules:
         CashbackRule.objects.get_or_create(

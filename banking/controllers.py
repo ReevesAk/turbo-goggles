@@ -573,6 +573,7 @@ class Transfers:
         description,
         transactionType,
         tx_ref,
+        merchant_fee=None,
     ):
         resource = "wallet_other_banks"
         bearer_token = authenticate()
@@ -580,6 +581,7 @@ class Transfers:
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
         }
+        is_fee = merchant_fee is not None
         payload = {
             "customer": {
                 "account": {
@@ -591,9 +593,9 @@ class Transfers:
                 }
             },
             "merchant": {
-                "isFee": False,
-                "merchantFeeAccount": "",
-                "merchantFeeAmount": "",
+                "isFee": is_fee,
+                "merchantFeeAccount": picadailys_collection_account if is_fee else "",
+                "merchantFeeAmount": str(merchant_fee) if is_fee else "",
             },
             "order": {
                 "amount": amount,
