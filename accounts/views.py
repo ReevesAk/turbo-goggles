@@ -547,7 +547,9 @@ class ResendOTP(generics.GenericAPIView):
             msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
                 otp=otp
             )
-            Messaging.send_otp_whatsapp_first(phone_number=phone_number, otp=otp, msg=msg)
+            Messaging.send_otp_whatsapp_first(
+                phone_number=phone_number, otp=otp, msg=msg
+            )
 
             # Prepare response
             response = {
@@ -599,7 +601,9 @@ class PasswordResendOTP(generics.GenericAPIView):
 
                 # Send OTP — WhatsApp as fallback since initial was SMS
                 if user.alert_type_choice in ("SMS", "Both"):
-                    Messaging.send_otp_whatsapp_fallback(phone_number=phone_number, otp=otp, msg=msg)
+                    Messaging.send_otp_whatsapp_fallback(
+                        phone_number=phone_number, otp=otp, msg=msg
+                    )
                 if user.alert_type_choice in ("Email", "Both"):
                     text_content = render_to_string(
                         template_name="empty_email.html",

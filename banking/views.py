@@ -1043,6 +1043,8 @@ class GetAccountDetails(generics.GenericAPIView):
             response["data"]["live_enquiry_failed"] = True
             response["data"]["is_live_balance"] = False
 
+        response["data"]["upgrade_status"] = acct_details.tier2_upgrade_status
+
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
@@ -1222,7 +1224,9 @@ class PinResendOTP(generics.GenericAPIView):
 
         status_msg = ""
         if user.alert_type_choice in ("SMS", "Both"):
-            Messaging.send_otp_whatsapp_fallback(phone_number=phone_number, otp=otp, msg=msg)
+            Messaging.send_otp_whatsapp_fallback(
+                phone_number=phone_number, otp=otp, msg=msg
+            )
             status_msg = "Otp resent Successfully. Check your phone for validation"
         if user.alert_type_choice in ("Email", "Both"):
             text_content = render_to_string(
