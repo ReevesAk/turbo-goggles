@@ -194,6 +194,13 @@ class TxModel(models.Model):
     status = models.CharField(max_length=20, default="PENDING", choices=STATUS_CHOICES)
     date = models.DateTimeField(auto_now_add=True, db_index=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "tx_type"]),
+            models.Index(fields=["user", "date"]),
+            models.Index(fields=["user", "status"]),
+        ]
+
 
 class Rewards(models.Model):
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)

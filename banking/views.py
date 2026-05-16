@@ -47,6 +47,7 @@ from .serializers import (
 )
 from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
+from .tasks import create_notification, create_activity
 from .models import WalletModel, UserKYC, AddressVerificationModel
 from .controllers import KYC, Wallet, Paystack
 from .helpers import (
@@ -207,14 +208,14 @@ class VerifYBVN(generics.GenericAPIView):
         user.is_bvn_verified = True
         user.save()
 
-        UserNotification.objects.create(
-            user=user,
+        create_notification.delay(
+            user_id=user.id,
             title="BVN Verification",
             message="Your BVN verification was successful.",
         )
 
-        ActivityModel.objects.create(
-            user=user,
+        create_activity.delay(
+            user_id=user.id,
             title="BVN Verification",
             description=f"{user.first_name}, {user.last_name} verified their BVN successfully.",
         )
@@ -381,14 +382,14 @@ class VerifYNIN(generics.GenericAPIView):
         user.is_nin_verified = True
         user.save()
 
-        UserNotification.objects.create(
-            user=user,
+        create_notification.delay(
+            user_id=user.id,
             title="NIN Verification",
             message="Your NIN verification was successful.",
         )
 
-        ActivityModel.objects.create(
-            user=user,
+        create_activity.delay(
+            user_id=user.id,
             title="NIN Verification",
             description=f"{user.first_name}, {user.last_name} verified their NIN successfully.",
         )
@@ -513,14 +514,14 @@ class CreateUserWallet(generics.GenericAPIView):
                     acct_name,
                     unique_code,
                 )
-                UserNotification.objects.create(
-                    user=current_user,
+                create_notification.delay(
+                    user_id=current_user.id,
                     title="Wallet Creation 🎉🎉🎉",
                     message="Congratulations! 🎊🎉🎊🎉 Your wallet has been created successfully. 🥳🥳🥳",
                 )
 
-                ActivityModel.objects.create(
-                    user=current_user,
+                create_activity.delay(
+                    user_id=current_user.id,
                     title="Wallet Creation",
                     description=f"{current_user.first_name} {current_user.last_name} created a virtual account 🎊🎉.",
                 )

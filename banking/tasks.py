@@ -21,6 +21,27 @@ default_from_email = "notifications@picadailys.com"
 
 
 @shared_task
+def create_notification(user_id, title, message):
+    from accounts.models import UserNotification, User
+    try:
+        user = User.objects.get(id=user_id)
+        UserNotification.objects.create(user=user, title=title, message=message)
+    except Exception as e:
+        logging.warning(f"create_notification task failed: {e}")
+
+
+@shared_task
+def create_activity(user_id, title, description):
+    from roles.models import ActivityModel
+    from accounts.models import User
+    try:
+        user = User.objects.get(id=user_id)
+        ActivityModel.objects.create(user=user, title=title, description=description)
+    except Exception as e:
+        logging.warning(f"create_activity task failed: {e}")
+
+
+@shared_task
 def send_transfer_notifications(
     user_id,
     phone_number,
