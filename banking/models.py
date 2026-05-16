@@ -212,6 +212,12 @@ class TransferModel(models.Model):
 
     created_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["beneficiary_account_number", "created_at"]),
+        ]
+
     def __str__(self):
         return f"Transfer {self.tx_reference} - {self.beneficiary_name or 'Unknown'}"
 

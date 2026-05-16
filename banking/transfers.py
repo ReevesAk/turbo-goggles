@@ -716,7 +716,7 @@ class InterBankTransfer(generics.CreateAPIView):
                             "beneficiary_account_number"
                         ),
                         sender_full_name=sender_name,
-                        amount_str=charge["total"],
+                        amount_str=charge["principal"],
                         narration=payload.get("description"),
                         idempotency_key=idempotency_key,
                         alert_type=getattr(
@@ -752,7 +752,7 @@ class InterBankTransfer(generics.CreateAPIView):
                         "beneficiary_account_number"
                     ),
                     sender_full_name=sender_name,
-                    amount_str=charge["total"],
+                    amount_str=charge["principal"],
                     narration=payload.get("description"),
                     idempotency_key=idempotency_key,
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
@@ -773,9 +773,7 @@ class InterBankTransfer(generics.CreateAPIView):
                                 "debit_account": payload.get("sender_account_number"),
                                 "amount": charge["principal"],
                                 "transfer_fee": charge["transfer_fee"],
-                                "vat_on_transfer": charge["vat_on_transfer"],
-                                "merchant_fee": charge["merchant_fee"],
-                                "vat_on_merchant": charge["vat_on_merchant"],
+                                "vat": charge["vat"],
                                 "total_charges": charge["total_charges"],
                                 "total_debited": charge["total"],
                                 "narration": payload.get("description"),
