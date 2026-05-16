@@ -189,6 +189,7 @@ class TxModel(models.Model):
     )  # TRA-prefixed ID for third party
     tx_type = models.CharField(choices=TRANSACTION_TYPE, max_length=200, null=True)
     amount = models.FloatField(default=Decimal("0.00"), null=True)
+    vat = models.FloatField(null=True, blank=True)
     description = models.CharField(max_length=255, null=True)
     rwd = models.FloatField(null=True)
     status = models.CharField(max_length=20, default="PENDING", choices=STATUS_CHOICES)
