@@ -76,7 +76,7 @@ class MemberSurveyService:
         # 🔒 Lock user row to prevent race conditions
         user = type(user).objects.select_for_update().get(pk=user.pk)
 
-        # ❌ Idempotency check
+        # ❌ NIdempotency check
         if MemberSurvey.objects.filter(user=user).exists():
             raise ValidationError("Survey already completed.")
 
