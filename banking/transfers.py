@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.template.loader import render_to_string
 
 from drf_spectacular.utils import extend_schema
@@ -367,8 +368,13 @@ class IntraBankTransfer(generics.CreateAPIView):
 
                 amount = Decimal(str(payload.get("amount")))
 
+                beneficiary_account = payload.get("beneficiary_account_number")
+                today = timezone.now().date()
                 intra_count = TxModel.objects.filter(
-                    user=authenticated_user, tx_type="Intra-Bank Transfer"
+                    user=authenticated_user,
+                    tx_type="Intra-Bank Transfer",
+                    transfers__beneficiary_account_number=beneficiary_account,
+                    date__date=today,
                 ).count()
                 intra_merchant_fee = Decimal("10") if intra_count >= 5 else Decimal("0")
                 total = amount + intra_merchant_fee
@@ -767,8 +773,10 @@ class InterBankTransfer(generics.CreateAPIView):
                                 "debit_account": payload.get("sender_account_number"),
                                 "amount": charge["principal"],
                                 "transfer_fee": charge["transfer_fee"],
-                                "vat": charge["vat"],
+                                "vat_on_transfer": charge["vat_on_transfer"],
                                 "merchant_fee": charge["merchant_fee"],
+                                "vat_on_merchant": charge["vat_on_merchant"],
+                                "total_charges": charge["total_charges"],
                                 "total_debited": charge["total"],
                                 "narration": payload.get("description"),
                                 "beneficiaryBank": payload.get("beneficiary_bank_code"),
