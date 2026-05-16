@@ -208,16 +208,17 @@ def post_vas_update(
             except Exception as e:
                 logging.warning(f"post_vas_update: could not sync balance: {e}")
 
-        try:
-            points = Points.determine(
-                activity_type="service_purchase", level=user.level
-            )
-            NextBee.member_activity(
-                member_email=user.email, activityId="8474", numericValue=str(points)
-            )
-            Points.refresh_user_points(user)
-        except Exception as e:
-            logging.warning(f"post_vas_update: points update failed: {e}")
+        if getattr(user, "has_done_survey", False):
+            try:
+                points = Points.determine(
+                    activity_type="service_purchase", level=user.level
+                )
+                NextBee.member_activity(
+                    member_email=user.email, activityId="8474", numericValue=str(points)
+                )
+                Points.refresh_user_points(user)
+            except Exception as e:
+                logging.warning(f"post_vas_update: points update failed: {e}")
 
         support_email = "support@picadailys.com"
         sms_msg = generate_transaction_sms(
