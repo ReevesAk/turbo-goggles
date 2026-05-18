@@ -1612,7 +1612,9 @@ class BillPaymentView(generics.GenericAPIView):
         payment_option = user_data.get("payment_option")
         customerId = user_data.get("customerId")
         billerId = user_data.get("billerId")
-        phone_number = user_data.get("phone_number") or (user.phone_number if user else None)
+        phone_number = user_data.get("phone_number") or (
+            user.phone_number if user else None
+        )
         customerName = user_data.get("customerName")
         itemId = user_data.get("itemId")
         otherField = user_data.get("otherField")

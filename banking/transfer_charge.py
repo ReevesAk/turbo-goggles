@@ -1,9 +1,8 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-
-VAT_RATE = Decimal("0.075")      # 7.5% VAT
+VAT_RATE = Decimal("0.075")  # 7.5% VAT
 TRANSFER_FEE = Decimal("10.00")  # Flat NIP transfer fee
-MERCHANT_FEE = Decimal("5.00")   # Picadailys flat merchant fee
+MERCHANT_FEE = Decimal("5.00")  # Picadailys flat merchant fee
 
 
 class TransferCharge:
@@ -35,12 +34,14 @@ class TransferCharge:
         combined_fee = TRANSFER_FEE + MERCHANT_FEE
         combined_vat = vat_on_transfer + vat_on_merchant
         total_charges = combined_fee + combined_vat
-        total = (amount + total_charges).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total = (amount + total_charges).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
         return {
-            "principal":    str(amount.quantize(Decimal("0.01"))),
+            "principal": str(amount.quantize(Decimal("0.01"))),
             "transfer_fee": str(combined_fee),
-            "vat":          str(combined_vat.quantize(Decimal("0.01"))),
+            "vat": str(combined_vat.quantize(Decimal("0.01"))),
             "total_charges": str(total_charges.quantize(Decimal("0.01"))),
-            "total":        str(total),
+            "total": str(total),
         }
