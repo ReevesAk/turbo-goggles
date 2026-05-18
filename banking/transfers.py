@@ -685,6 +685,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     tx_type="Inter-Bank Transfer",
                     amount=charge["total"],
                     vat=charge["vat"],
+                    transfer_fee=charge["transfer_fee"],
                     description=payload.get("description"),
                     status="PENDING",
                 )

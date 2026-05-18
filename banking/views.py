@@ -1045,6 +1045,8 @@ class GetAccountDetails(generics.GenericAPIView):
             response["data"]["is_live_balance"] = False
 
         response["data"]["upgrade_status"] = acct_details.tier2_upgrade_status
+        response["data"]["transfer_fee"] = "15.00"
+        response["data"]["vat"] = "1.13"
 
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 

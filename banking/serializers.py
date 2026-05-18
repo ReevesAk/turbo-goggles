@@ -126,6 +126,7 @@ class TxModelSerializer(serializers.ModelSerializer):
             "tx_type",
             "amount",
             "vat",
+            "transfer_fee",
             "description",
             "rwd",
             "date",
@@ -178,6 +179,8 @@ class TxModelSerializer(serializers.ModelSerializer):
             data.pop("beneficiary_account_number", None)
         if data.get("vat") is None:
             data.pop("vat", None)
+        if data.get("transfer_fee") is None:
+            data.pop("transfer_fee", None)
         return data
 
 
