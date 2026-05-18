@@ -20,7 +20,7 @@ clientSecret = config("CLIENT_SECRET")
 base_url = config("NINE_PSB_BASEURL")
 dojah_base_url = config("DOJAH_BASE_URL")
 
-picadailys_collection_account = config("CENTRAL_COLLECTION_ACCOUNT")
+picadailys_operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT")
 
 app_id = config("APP_ID")
 authorization = config("AUTHORIZATION")
@@ -375,7 +375,7 @@ class Wallet:
             "narration": reason,
             "merchant": {
                 "isFee": False,
-                "merchantFeeAccount": picadailys_collection_account,
+                "merchantFeeAccount": picadailys_operational_account,
                 "merchantFeeAmount": merchantFeeAmount,
             },
             "transactionType": "DEBIT_WALLET",
@@ -594,7 +594,7 @@ class Transfers:
             },
             "merchant": {
                 "isFee": is_fee,
-                "merchantFeeAccount": picadailys_collection_account if is_fee else "",
+                "merchantFeeAccount": picadailys_operational_account if is_fee else "",
                 "merchantFeeAmount": str(merchant_fee) if is_fee else "",
             },
             "order": {

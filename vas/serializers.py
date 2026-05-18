@@ -97,6 +97,9 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
+    customerId = serializers.CharField(required=True)
+    billerId = serializers.CharField(required=True)
+    itemId = serializers.CharField(required=True)
 
     class Meta:
         model = ValueAddedServices
