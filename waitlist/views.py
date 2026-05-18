@@ -372,11 +372,15 @@ class BulkDeleteWaitlistUsers(APIView):
             deleted, _ = WaitlistModel.objects.filter(email__in=emails).delete()
             logger.info("Bulk deleted %d waitlist users.", deleted)
             return Response(
-                {"status": "success", "deleted_count": deleted}, status=status.HTTP_200_OK
+                {"status": "success", "deleted_count": deleted},
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.exception("BulkDeleteWaitlistUsers failed: %s", e)
             return Response(
-                {"status": "error", "message": "An error occurred while deleting users."},
+                {
+                    "status": "error",
+                    "message": "An error occurred while deleting users.",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
