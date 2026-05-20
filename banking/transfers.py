@@ -533,6 +533,53 @@ class IntraBankTransfer(generics.CreateAPIView):
             )
 
 
+class IntraBankFreeTransferCount(APIView):
+    """
+    Returns how many free intra-bank transfers remain today for a given beneficiary.
+    Each user gets 5 free transfers to the same beneficiary per day.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        beneficiary_account = request.query_params.get("beneficiary_account_number")
+        if not beneficiary_account:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "beneficiary_account_number is required.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = timezone.now().date()
+        used = TxModel.objects.filter(
+            user=request.user,
+            tx_type="Intra-Bank Transfer",
+            transfers__beneficiary_account_number=beneficiary_account,
+            date__date=today,
+        ).count()
+
+        free_limit = 5
+        remaining = max(0, free_limit - used)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "free_transfers_used": used,
+                    "free_transfers_remaining": remaining,
+                    "free_limit": free_limit,
+                    "fee_after_limit": "10.00",
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
 class InterBankTransfer(generics.CreateAPIView):
     """
     InterBankTransfer handles the POST request of transferring funds to other
@@ -701,7 +748,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 description=payload.get("description"),
                 transactionType="INTER_BANK",
                 tx_ref=external_tx_id,
-                merchant_fee=5,
+                merchant_fee=charge["merchant_fee_total"],
             )
 
             if transfer_resp is None:
