@@ -23,6 +23,7 @@ from .transfers import (
     Get9PSBWallet,
     ValidateAccountOfOtherBank,
     IntraBankTransfer,
+    IntraBankFreeTransferCount,
     InterBankTransfer,
     TransactionStatus,
     PayWithCard,
@@ -76,6 +77,11 @@ urlpatterns = [
         name="validate_account",
     ),
     path("transfers/intra-bank", IntraBankTransfer.as_view(), name="intra_bank"),
+    path(
+        "transfers/intra-bank/free-count",
+        IntraBankFreeTransferCount.as_view(),
+        name="intra_bank_free_count",
+    ),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
     path(
         "transfers/<int:tx_reference>/status",
