@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
+from .models import Points as PointsModel
 from .utils import NextBee
 
 
@@ -94,7 +95,7 @@ class Points:
                 available_points, latest_balance
             )
 
-            points_obj, _ = user.points_set.get_or_create(user=user)
+            points_obj, _ = PointsModel.objects.get_or_create(user=user)
 
             # Update naira value of points.
             user.points_naira_value = naira_value
@@ -102,10 +103,9 @@ class Points:
 
             with transaction.atomic():
                 points_obj.balance = available_points
-                points_obj.redeemable = redeemable_points
                 points_obj.tier = tier_name
                 points_obj.naira_value = naira_value
-                points_obj.save(update_fields=["balance", "redeemable", "tier", "naira_value"])
+                points_obj.save(update_fields=["balance", "tier", "naira_value"])
         else:
             logging.warning(f"Could not refresh points for {user.email}: {response.text}")
 
