@@ -404,7 +404,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                             amount=wallet_debit_amount,
                             reason="Debit for airtime recharge (to central collection)",
                             merchantFeeAmount="",
-                            destinationAccount=settings.CENTRAL_COLLECTION_ACCOUNT,
                         )
                         if (
                             debit_response is None
@@ -433,7 +432,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 acct_no=account_number,
                                 amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
-                                sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                             )
                         return self._handle_airtime_failure(
                             user=user,
@@ -469,7 +467,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 acct_no=account_number,
                                 amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
-                                sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                             )
                         return self._handle_airtime_failure(
                             user=user,
@@ -1096,7 +1093,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                         amount=wallet_debit_amount,
                         reason="Debit for data subscription (to central collection)",
                         merchantFeeAmount="",
-                        destinationAccount=settings.CENTRAL_COLLECTION_ACCOUNT,
                     )
                     if (
                         debit_response is None
@@ -1127,7 +1123,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
-                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_data_failure(
                         user=user,
@@ -1161,7 +1156,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                             acct_no=user_wallet.account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
-                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_data_failure(
                         user=user,
@@ -1881,7 +1875,6 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=wallet_debit_amount,
                         reason="Debit for bill payment (to central collection)",
                         merchantFeeAmount="",
-                        destinationAccount=settings.CENTRAL_COLLECTION_ACCOUNT,
                     )
                     if (
                         debit_response is None
@@ -1916,7 +1909,6 @@ class BillPaymentView(generics.GenericAPIView):
                             acct_no=account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
-                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_failure(
                         user=user,
@@ -1956,7 +1948,6 @@ class BillPaymentView(generics.GenericAPIView):
                             acct_no=account_number,
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
-                            sourceAccount=settings.CENTRAL_OPERATIONAL_ACCOUNT,
                         )
                     return self._handle_failure(
                         user=user,
