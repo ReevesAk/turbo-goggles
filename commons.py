@@ -3,6 +3,7 @@ import random
 import logging
 import token
 import requests
+from decimal import Decimal
 
 
 from decouple import config
@@ -228,15 +229,20 @@ class Pay:
         except Points.DoesNotExist:
             return "Not Found", 0
 
-        if pts.naira_value >= amount:
-            pts.balance -= amount
-            pts.save()
+        naira_available = pts.naira_value
+        if naira_available <= 0:
+            return "Not Enough", 0
+
+        if naira_available >= amount:
+            pts.balance = max(0, pts.balance - 400)
+            pts.naira_value = Decimal("0.00")
+            pts.save(update_fields=["balance", "naira_value"])
             return "Enough", amount
         else:
-            amount = pts.balance
-            pts.balance = 0
-            pts.save()
-            return "Not Enough", amount
+            pts.balance = max(0, pts.balance - 400)
+            pts.naira_value = Decimal("0.00")
+            pts.save(update_fields=["balance", "naira_value"])
+            return "Not Enough", naira_available
 
 
 # class CamelCaseJSONRenderer(JSONRenderer):
