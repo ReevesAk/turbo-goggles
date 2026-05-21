@@ -1771,6 +1771,12 @@ class BillPaymentView(generics.GenericAPIView):
             )
 
         # Centralized payment orchestration (mirrors AirTimeTopUp logic)
+        cashback_used = Decimal("0")
+        if use_cashback and user:
+            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
+            amount = payment["wallet_amount"]
+            cashback_used = payment["cashback_used"]
+
         pts_amt = 0
         if use_points:
             _, pts_amt = Pay.with_pts(user=user, amount=int(amount))
