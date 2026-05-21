@@ -52,3 +52,9 @@ class Referral(models.Model):
         return (
             f"{self.referrer.email} referred {self.referred.email} at {self.created_at}"
         )
+
+
+class WaitlistDeviceId(models.Model):
+    user = models.ForeignKey(to=WaitlistModel, on_delete=models.CASCADE)
+    device_id = models.CharField(max_length=250, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)

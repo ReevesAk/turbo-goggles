@@ -19,7 +19,7 @@ from drf_spectacular.utils import extend_schema
 from .serializers import (
     WaitlistSerialiser,
 )
-from .models import WaitlistModel, Referral
+from .models import WaitlistModel, Referral, WaitlistDeviceId
 from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt
 from rest_framework.permissions import IsAuthenticated
@@ -66,6 +66,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
         data = request.data.copy()
         is_student = data.get("is_student")
         institution = data.get("institution")
+        device_id = data.get("device_id", "").strip()
 
         # Only students can select institution
         if not is_student and institution:
@@ -77,12 +78,24 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if device_id and WaitlistDeviceId.objects.filter(device_id=device_id).exists():
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "This device has already been used to join the waitlist.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = self.serializer_class(data=data)
         if not serializer.is_valid(raise_exception=True):
             return Response(
                 data=(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
         waitlist_user = serializer.save()
+
+        if device_id:
+            WaitlistDeviceId.objects.create(user=waitlist_user, device_id=device_id)
 
         # Award 10 points for joining the waitlist
         waitlist_user.points = 10
@@ -148,6 +161,8 @@ class WaitlistDashboardView(APIView):
 
     def get(self, request, *args, **kwargs):
         email = request.query_params.get("email")
+        device_id = request.query_params.get("device_id", "").strip()
+
         if not email:
             return Response(
                 {"status": "fail", "message": "Email is required."},
@@ -161,6 +176,17 @@ class WaitlistDashboardView(APIView):
                 {"status": "fail", "message": "User not found on the waitlist."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        existing_device = WaitlistDeviceId.objects.filter(user=user).first()
+
+        if device_id and not existing_device:
+            taken = (
+                WaitlistDeviceId.objects.filter(device_id=device_id)
+                .exclude(user=user)
+                .exists()
+            )
+            if not taken:
+                WaitlistDeviceId.objects.create(user=user, device_id=device_id)
 
         total_users = WaitlistModel.objects.count()
         remaining_slots = max(0, WAITLIST_TARGET - total_users)
