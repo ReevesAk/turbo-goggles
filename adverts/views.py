@@ -81,80 +81,87 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             if not is_verified:
                 return error_response
 
+            wallet_debit_amount = int(Decimal(str(amount)))
+
             match payment_option:
                 case "WALLET":
-                    wallet_debit_amount = int(Decimal(str(amount)))
+                    try:
+                        with transaction.atomic():
+                            account = WalletModel.objects.select_for_update().get(
+                                user=user
+                            )
 
-                    # Debit user's account
-                    if wallet_debit_amount > 0:
-                        try:
-                            with transaction.atomic():
+                            enquiry = Wallet.getWalletDetails(account.account_number)
+                            if enquiry and hasattr(enquiry, "json"):
+                                enquiry_data = enquiry.json()
+                                live_balance = Decimal(str(enquiry_data.get("data", {}).get("availableBalance", 0)))
+                            else:
+                                live_balance = account.balance
 
-                                account = WalletModel.objects.select_for_update().get(
-                                    user=user
+                            if live_balance < wallet_debit_amount:
+                                return Response(
+                                    data=encrypt({"status": "fail", "message": "Insufficient balance."}),
+                                    status=status.HTTP_400_BAD_REQUEST,
                                 )
 
-                                merchant_fee = "0.00"
-                                debit_response = Wallet.Debit(
-                                    debitAccount=account.account_number,
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=wallet_debit_amount,
+                                reason="Debit for brand promotion.",
+                                merchantFeeAmount="0.00",
+                            )
+
+                            if debit_response is not None and debit_response.status_code == 200:
+                                create_ad = serializer.save()
+
+                                TxModel.objects.create(
+                                    user=user,
+                                    tx_reference=tx_reference,
+                                    tx_type="Brand Promotion",
                                     amount=wallet_debit_amount,
-                                    reason="Debit for brand promotion.",
-                                    merchantFeeAmount=merchant_fee,
+                                    description="Brand promotion payment",
+                                    status="SUCCESS",
                                 )
 
-                                if debit_response.status_code == 200:
-                                    create_ad = serializer.save()
+                                UserNotification.objects.create(
+                                    user=user,
+                                    title="Brand Promotion",
+                                    message=f"Your payment of {wallet_debit_amount} for brand promotion was successful.",
+                                )
 
-                                    TxModel.objects.create(
-                                        user=user,
-                                        tx_reference=tx_reference,
-                                        tx_type="Brand Promotion",
-                                        amount=wallet_debit_amount,
-                                        description="Brand promotion payment",
-                                        status="SUCCESS",
-                                    )
+                                ActivityModel.objects.create(
+                                    user=user,
+                                    title="Brand Promotion",
+                                    description=f"{user} promoted their brand successfully.",
+                                )
 
-                                    UserNotification.objects.create(
-                                        user=user,
-                                        title="Brand Promotion",
-                                        message=f"Your payment of {wallet_debit_amount} for brand promotion was successful.",
-                                    )
+                                logger.info(
+                                    "Brand promotion payment successful for user %s",
+                                    user.email,
+                                )
 
-                                    ActivityModel.objects.create(
-                                        user=user,
-                                        title="Brand Promotion",
-                                        description=f"{user} promoted their brand successfully.",
-                                    )
-
-                                    logger.info(
-                                        "Brand promotion payment successful for user %s",
-                                        user.email,
-                                    )
-
-                                    response_data = {
+                                return Response(
+                                    data=encrypt({
                                         "status": "Success!",
                                         "message": "Brand advert promoted successfully.",
-                                    }
-                                    encrypted_success = encrypt(response_data)
-                                    return Response(
-                                        data=encrypted_success,
-                                        status=status.HTTP_200_OK,
-                                    )
-                                else:
-                                    return Response(
-                                        data=encrypt(debit_response.json()),
-                                        status=debit_response.status_code,
-                                    )
-                        except Exception as e:
-                            logger.exception(
-                                f"Transaction error during wallet bill payment: {e}"
-                            )
-                            return Response(
-                                data=encrypt(
-                                    {"status": "fail", "message": "Transaction failed"}
-                                ),
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            )
+                                    }),
+                                    status=status.HTTP_200_OK,
+                                )
+                            else:
+                                return Response(
+                                    data=encrypt({"status": "fail", "message": "Debit failed. Please try again."}),
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+                    except Exception as e:
+                        logger.exception(
+                            f"Transaction error during wallet bill payment: {e}"
+                        )
+                        return Response(
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
                 case "CARD":
                     create_ad = serializer.save()
@@ -171,24 +178,22 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         title="Brand Promotion",
                         message=f"Your payment of {wallet_debit_amount} for brand promotion was successful.",
                     )
-
                     ActivityModel.objects.create(
                         user=user,
                         title="Brand Promotion",
                         description=f"{user} promoted their brand successfully.",
                     )
-
                     logger.info(
                         "Brand promotion payment successful for user %s",
                         user.email,
                     )
-
-                    response_data = {
-                        "status": "Success!",
-                        "message": "Brand advert promoted successfully.",
-                    }
-                    encrypted_success = encrypt(response_data)
-                    return Response(data=encrypted_success, status=status.HTTP_200_OK)
+                    return Response(
+                        data=encrypt({
+                            "status": "Success!",
+                            "message": "Brand advert promoted successfully.",
+                        }),
+                        status=status.HTTP_200_OK,
+                    )
 
                 case _:
                     return Response(
@@ -196,11 +201,6 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             {"status": "fail", "message": "Invalid payment option"}
                         ),
                         status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                    return Response(
-                        encrypt(CreateAdSerializers(create_ad).data),
-                        status=status.HTTP_201_CREATED,
                     )
 
         except Exception as err:
