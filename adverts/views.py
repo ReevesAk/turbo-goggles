@@ -310,7 +310,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
 
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
 
     def retrieve(self, request, *args, **kwargs):
         email = request.query_params.get("email")
