@@ -20,7 +20,7 @@ from .serializers import (
 )
 
 # from mail import send_email
-from accounts.models import User, UserNotification, AccountType
+from accounts.models import User, UserNotification, AccountType, TxModel
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
 from .models import CreateAd
 from banking.helpers import verify_wallet_auth
