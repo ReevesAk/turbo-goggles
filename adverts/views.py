@@ -289,18 +289,13 @@ class ListAllBrandAds(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         serializer = (
             self.serializer_class(page, many=True)
-            if page
+            if page is not None
             else self.serializer_class(queryset, many=True)
-        )
-        response_data = (
-            self.get_paginated_response(serializer.data).data
-            if page
-            else serializer.data
         )
         response = {
             "status": "success",
             "message": "All created ads retrieved successfully!",
-            "data": response_data,
+            "data": list(serializer.data),
         }
 
         # Save to cache (short TTL)
