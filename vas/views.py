@@ -293,7 +293,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     payment = CashbackService.apply_cashback_payment(
                         user=user, amount=amount
                     )
-                    amount = payment["wallet_amount"]
+                    amount = int(payment["wallet_amount"])
                     cashback_used = payment["cashback_used"]
 
                 pts_amt = 0
@@ -873,7 +873,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         # Apply cashback for payment
         if use_cashback:
             payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
-            amount = payment["wallet_amount"]
+            amount = int(payment["wallet_amount"])
             cashback_used = payment["cashback_used"]
 
         # Guest validations
@@ -1768,7 +1768,7 @@ class BillPaymentView(generics.GenericAPIView):
         cashback_used = Decimal("0")
         if use_cashback and user:
             payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
-            amount = payment["wallet_amount"]
+            amount = int(payment["wallet_amount"])
             cashback_used = payment["cashback_used"]
 
         pts_amt = 0
