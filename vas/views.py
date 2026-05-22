@@ -280,6 +280,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         user_wallet = None
         account_number = ""
         cashback_used = 0
+        purchase_amount = int(amount) if amount else 0
         wallet_debit_amount = int(amount) if amount else 0
 
         try:
@@ -409,17 +410,19 @@ class AirTimeTopUp(generics.GenericAPIView):
                             debit_response is None
                             or str(debit_response.status_code) != "200"
                         ):
+                            if cashback_used:
+                                CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                             return self._handle_airtime_failure(
                                 user=user,
                                 phone=phone,
-                                amount=amount,
+                                amount=purchase_amount,
                                 reason="Wallet service unavailable or debit failed.",
                             )
                     vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                     airtime_response = VAS.airtime_topup(
                         network=network,
                         bearer_token=vas_token,
-                        amount=amount,
+                        amount=purchase_amount,
                         debitAccount=vas_debit_account,
                         phone_number=phone,
                         tx_ref=tx_reference,
@@ -433,27 +436,30 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
                             )
+                        if cashback_used:
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
-                            amount=amount,
+                            amount=purchase_amount,
                             reason="VAS service unavailable.",
                         )
-                    status_query = VAS.status(
-                        bearer_token=vas_token, tx_ref=tx_reference
-                    )
-                    status_resp = (
-                        status_query.json().get("data", {}) if status_query else {}
-                    )
-                    logger.info(f"VAS.status() response: {status_resp}")
-                    if (
-                        status_resp.get("status") == "success"
-                        and status_resp.get("responseCode") == "200"
-                    ):
+                    airtime_success = False
+                    try:
+                        airtime_json = airtime_response.json() if hasattr(airtime_response, "json") else {}
+                        airtime_data = airtime_json.get("data", {}) if isinstance(airtime_json, dict) else {}
+                        if (
+                            airtime_data.get("status") == "success"
+                            or airtime_json.get("status") == "success"
+                        ):
+                            airtime_success = True
+                    except Exception as e:
+                        logger.warning(f"Error parsing hybrid airtime_response: {e}")
+                    if airtime_success:
                         return self._handle_airtime_success(
                             user=user,
                             phone=phone,
-                            amount=amount,
+                            amount=purchase_amount,
                             network=network,
                             tx_reference=tx_reference,
                             cashback=cashback_used,
@@ -468,10 +474,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 amount=wallet_debit_amount,
                                 reason="Refund after failed VAS purchase",
                             )
+                        if cashback_used:
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
-                            amount=amount,
+                            amount=purchase_amount,
                             airtime_response=airtime_response,
                             reason="Airtime top-up failed.",
                         )
@@ -871,6 +879,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
 
         # Apply cashback for payment
+        purchase_amount = int(amount) if amount else 0
         if use_cashback:
             payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
             amount = int(payment["wallet_amount"])
@@ -1098,17 +1107,19 @@ class DataSubscriptionView(generics.GenericAPIView):
                         debit_response is None
                         or str(debit_response.status_code) != "200"
                     ):
+                        if cashback_used:
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                         return self._handle_data_failure(
                             user=user,
                             phone=phone,
-                            amount=amount,
+                            amount=purchase_amount,
                             reason="Wallet service unavailable or debit failed.",
                         )
                 vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 data_response = VAS.data(
                     network=network,
                     bearer_token=vas_token,
-                    amount=amount,
+                    amount=purchase_amount,
                     productId=product_id,
                     debitAccount=vas_debit_account,
                     phone_number=phone,
@@ -1124,25 +1135,31 @@ class DataSubscriptionView(generics.GenericAPIView):
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
                         )
+                    if cashback_used:
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
-                        amount=amount,
+                        amount=purchase_amount,
                         reason="VAS service unavailable.",
                     )
-                status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
-                status_resp = (
-                    status_query.json().get("data", {}) if status_query else {}
-                )
-                if status_resp.get("transactionStatus") == "success" and (
-                    status_resp.get("responseCode") == "200"
-                    or status_resp.get("responseCode") == 200
-                ):
+                data_success = False
+                try:
+                    data_json = data_response.json() if hasattr(data_response, "json") else {}
+                    data_data = data_json.get("data", {}) if isinstance(data_json, dict) else {}
+                    if (
+                        data_data.get("status") == "success"
+                        or data_json.get("status") == "success"
+                    ):
+                        data_success = True
+                except Exception as e:
+                    logger.warning(f"Error parsing hybrid data_response: {e}")
+                if data_success:
                     return self._handle_data_success(
                         user=user,
                         phone=phone,
                         productId=product_id,
-                        amount=amount,
+                        amount=purchase_amount,
                         network=network,
                         tx_reference=tx_reference,
                         cashback=cashback_used,
@@ -1157,10 +1174,12 @@ class DataSubscriptionView(generics.GenericAPIView):
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS data purchase",
                         )
+                    if cashback_used:
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
-                        amount=amount,
+                        amount=purchase_amount,
                         data_response=data_response,
                         reason="Data subscription failed.",
                     )
@@ -1766,6 +1785,7 @@ class BillPaymentView(generics.GenericAPIView):
 
         # Centralized payment orchestration (mirrors AirTimeTopUp logic)
         cashback_used = Decimal("0")
+        purchase_amount = int(amount) if amount else 0
         if use_cashback and user:
             payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
             amount = int(payment["wallet_amount"])
@@ -1880,11 +1900,13 @@ class BillPaymentView(generics.GenericAPIView):
                         debit_response is None
                         or str(debit_response.status_code) != "200"
                     ):
+                        if cashback_used:
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                         return self._handle_failure(
                             user=user,
                             guest_id=guest_id,
                             phone_number=phone_number,
-                            amount=amount,
+                            amount=purchase_amount,
                             reason="Wallet service unavailable or debit failed.",
                         )
                 vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
@@ -1893,7 +1915,7 @@ class BillPaymentView(generics.GenericAPIView):
                     customerId=customerId,
                     billerId=billerId,
                     itemId=itemId,
-                    amount=amount,
+                    amount=purchase_amount,
                     customerPhone=phone_number,
                     customerName=customerName,
                     otherField=otherField,
@@ -1910,28 +1932,34 @@ class BillPaymentView(generics.GenericAPIView):
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
                         )
+                    if cashback_used:
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=amount,
+                        amount=purchase_amount,
                         reason="VAS service unavailable.",
                     )
-                status_query = VAS.status(bearer_token=vas_token, tx_ref=tx_reference)
-                status_resp = (
-                    status_query.json().get("data", {}) if status_query else {}
-                )
-                if (
-                    status_resp.get("status") == "success"
-                    and status_resp.get("responseCode") == 200
-                ):
+                bill_success = False
+                try:
+                    bill_json = vas_response.json() if hasattr(vas_response, "json") else {}
+                    bill_data = bill_json.get("data", {}) if isinstance(bill_json, dict) else {}
+                    if (
+                        bill_data.get("status") == "success"
+                        or bill_json.get("status") == "success"
+                    ):
+                        bill_success = True
+                except Exception as e:
+                    logger.warning(f"Error parsing hybrid bill vas_response: {e}")
+                if bill_success:
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
                         customerId=customerId,
                         billerId=billerId,
                         itemId=itemId,
-                        amount=amount,
+                        amount=purchase_amount,
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
@@ -1949,11 +1977,13 @@ class BillPaymentView(generics.GenericAPIView):
                             amount=wallet_debit_amount,
                             reason="Refund after failed VAS bill payment",
                         )
+                    if cashback_used:
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=amount,
+                        amount=purchase_amount,
                         vas_response=vas_response,
                         reason="Bill payment failed.",
                     )

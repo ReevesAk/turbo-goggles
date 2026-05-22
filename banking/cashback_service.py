@@ -61,6 +61,15 @@ class CashbackService:
         return {"wallet_amount": remaining_amount, "cashback_used": cashback_used}
 
     @classmethod
+    @transaction.atomic
+    def refund_cashback(cls, user, cashback_amount):
+        if not cashback_amount or Decimal(str(cashback_amount)) <= 0:
+            return
+        wallet = WalletModel.objects.select_for_update().get(user=user)
+        wallet.cashback_balance += Decimal(str(cashback_amount))
+        wallet.save(update_fields=["cashback_balance"])
+
+    @classmethod
     def add_cashback_to_bundles(self, data):
 
         for category, bundles in data.items():
