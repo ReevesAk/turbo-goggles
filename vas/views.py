@@ -279,9 +279,8 @@ class AirTimeTopUp(generics.GenericAPIView):
         # Acquire lock, apply cashback/points deductions, then release before VAS call
         user_wallet = None
         account_number = ""
-        cashback_used = 0
+        cashback_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
-        wallet_debit_amount = int(amount) if amount else 0
 
         try:
             with transaction.atomic():
@@ -290,28 +289,55 @@ class AirTimeTopUp(generics.GenericAPIView):
                 elif user:
                     user_wallet = WalletModel.objects.filter(user=user).first()
 
-                if use_cashback:
-                    payment = CashbackService.apply_cashback_payment(
-                        user=user, amount=amount
+                if (use_cashback or use_points) and payment_option == "WALLET":
+                    avail_cashback = (
+                        user_wallet.cashback_balance
+                        if (user_wallet and use_cashback)
+                        else Decimal("0")
                     )
-                    amount = int(payment["wallet_amount"])
-                    cashback_used = payment["cashback_used"]
+                    avail_pts = Decimal("0")
+                    if use_points:
+                        try:
+                            from gamification.models import Points as PointsModel
 
-                pts_amt = 0
-                if use_points:
-                    _, pts_amt = Pay.with_pts(user=user, amount=int(amount))
-                if use_points and pts_amt >= int(amount):
-                    wallet_debit_amount = 0
-                elif use_points and pts_amt < int(amount):
-                    wallet_debit_amount = int(amount) - pts_amt
-                else:
-                    wallet_debit_amount = int(amount)
+                            pts_obj = PointsModel.objects.get(user=user)
+                            avail_pts = pts_obj.naira_value
+                        except Exception:
+                            pass
+                    if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
+                        raise ValueError("insufficient_hybrid_balance")
+                    if use_cashback:
+                        payment = CashbackService.apply_cashback_payment(
+                            user=user, amount=purchase_amount
+                        )
+                        cashback_used = payment["cashback_used"]
+                        remaining = int(payment["wallet_amount"])
+                    else:
+                        remaining = purchase_amount
+                    if use_points and remaining > 0:
+                        Pay.with_pts(user=user, amount=remaining)
 
                 account_number = user_wallet.account_number if user_wallet else ""
         except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"status": "fail", "message": "Wallet not found"}),
                 status=404,
+            )
+        except ValueError as e:
+            if "insufficient_hybrid_balance" in str(e):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Insufficient points/cashback balance to complete this purchase.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            logger.exception(f"Error preparing airtime purchase: {e}")
+            return Response(
+                data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         except Exception as e:
             logger.exception(f"Error preparing airtime purchase: {e}")
@@ -396,28 +422,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 reason="Airtime top-up failed.",
                             )
 
-                    # Hybrid: debit wallet portion to central, call VAS with central account
-                    if (
-                        use_points or use_cashback or use_bonus
-                    ) and wallet_debit_amount > 0:
-                        debit_response = Wallet.Debit(
-                            debitAccount=account_number,
-                            amount=wallet_debit_amount,
-                            reason="Debit for airtime recharge (to central collection)",
-                            merchantFeeAmount="",
-                        )
-                        if (
-                            debit_response is None
-                            or str(debit_response.status_code) != "200"
-                        ):
-                            if cashback_used:
-                                CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
-                            return self._handle_airtime_failure(
-                                user=user,
-                                phone=phone,
-                                amount=purchase_amount,
-                                reason="Wallet service unavailable or debit failed.",
-                            )
+                    # Hybrid: cashback/points cover full purchase — call VAS from central account
                     vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                     airtime_response = VAS.airtime_topup(
                         network=network,
@@ -428,16 +433,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                         tx_ref=tx_reference,
                     )
                     if airtime_response is None:
-                        if wallet_debit_amount > 0 and (
-                            use_points or use_cashback or use_bonus
-                        ):
-                            Wallet.Credit(
-                                acct_no=account_number,
-                                amount=wallet_debit_amount,
-                                reason="Refund after failed VAS purchase",
-                            )
                         if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                            CashbackService.refund_cashback(
+                                user=user, cashback_amount=cashback_used
+                            )
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
@@ -446,8 +445,16 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                     airtime_success = False
                     try:
-                        airtime_json = airtime_response.json() if hasattr(airtime_response, "json") else {}
-                        airtime_data = airtime_json.get("data", {}) if isinstance(airtime_json, dict) else {}
+                        airtime_json = (
+                            airtime_response.json()
+                            if hasattr(airtime_response, "json")
+                            else {}
+                        )
+                        airtime_data = (
+                            airtime_json.get("data", {})
+                            if isinstance(airtime_json, dict)
+                            else {}
+                        )
                         if (
                             airtime_data.get("status") == "success"
                             or airtime_json.get("status") == "success"
@@ -466,16 +473,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                             account_number=account_number,
                         )
                     else:
-                        if wallet_debit_amount > 0 and (
-                            use_points or use_cashback or use_bonus
-                        ):
-                            Wallet.Credit(
-                                acct_no=account_number,
-                                amount=wallet_debit_amount,
-                                reason="Refund after failed VAS purchase",
-                            )
                         if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                            CashbackService.refund_cashback(
+                                user=user, cashback_amount=cashback_used
+                            )
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
@@ -878,12 +879,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Apply cashback for payment
         purchase_amount = int(amount) if amount else 0
-        if use_cashback:
-            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
-            amount = int(payment["wallet_amount"])
-            cashback_used = payment["cashback_used"]
 
         # Guest validations
         if not user:
@@ -997,15 +993,43 @@ class DataSubscriptionView(generics.GenericAPIView):
                     reason="Insufficient bonus balance.",
                 )
 
-        pts_amt = 0
-        if use_points:
-            _, pts_amt = Pay.with_pts(user=user, amount=int(amount))
-        if use_points and pts_amt >= int(amount):
-            wallet_debit_amount = 0
-        elif use_points and pts_amt < int(amount):
-            wallet_debit_amount = int(amount) - pts_amt
-        else:
-            wallet_debit_amount = int(amount)
+        if (use_cashback or use_points) and payment_option == "WALLET" and user:
+            avail_cashback = Decimal("0")
+            if use_cashback:
+                try:
+                    w = WalletModel.objects.get(user=user)
+                    avail_cashback = w.cashback_balance
+                except WalletModel.DoesNotExist:
+                    pass
+            avail_pts = Decimal("0")
+            if use_points:
+                try:
+                    from gamification.models import Points as PointsModel
+
+                    pts_obj = PointsModel.objects.get(user=user)
+                    avail_pts = pts_obj.naira_value
+                except Exception:
+                    pass
+            if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Insufficient points/cashback balance to complete this purchase.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if use_cashback:
+                payment = CashbackService.apply_cashback_payment(
+                    user=user, amount=purchase_amount
+                )
+                cashback_used = payment["cashback_used"]
+                remaining = int(payment["wallet_amount"])
+            else:
+                remaining = purchase_amount
+            if use_points and remaining > 0:
+                Pay.with_pts(user=user, amount=remaining)
 
         match payment_option:
             case "WALLET":
@@ -1092,29 +1116,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                             data_response=data_response,
                             reason="Data subscription failed.",
                         )
-                # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
-                # Only perform local debit in hybrid cases
-                if (
-                    use_points or use_cashback or use_bonus
-                ) and wallet_debit_amount > 0:
-                    debit_response = Wallet.Debit(
-                        debitAccount=user_wallet.account_number,
-                        amount=wallet_debit_amount,
-                        reason="Debit for data subscription (to central collection)",
-                        merchantFeeAmount="",
-                    )
-                    if (
-                        debit_response is None
-                        or str(debit_response.status_code) != "200"
-                    ):
-                        if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
-                        return self._handle_data_failure(
-                            user=user,
-                            phone=phone,
-                            amount=purchase_amount,
-                            reason="Wallet service unavailable or debit failed.",
-                        )
+                # Hybrid: cashback/points cover full purchase — call VAS from central account
                 vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 data_response = VAS.data(
                     network=network,
@@ -1126,17 +1128,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
-                    # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (
-                        use_points or use_cashback or use_bonus
-                    ):
-                        Wallet.Credit(
-                            acct_no=user_wallet.account_number,
-                            amount=wallet_debit_amount,
-                            reason="Refund after failed VAS data purchase",
-                        )
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1145,8 +1140,12 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 data_success = False
                 try:
-                    data_json = data_response.json() if hasattr(data_response, "json") else {}
-                    data_data = data_json.get("data", {}) if isinstance(data_json, dict) else {}
+                    data_json = (
+                        data_response.json() if hasattr(data_response, "json") else {}
+                    )
+                    data_data = (
+                        data_json.get("data", {}) if isinstance(data_json, dict) else {}
+                    )
                     if (
                         data_data.get("status") == "success"
                         or data_json.get("status") == "success"
@@ -1165,17 +1164,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                         cashback=cashback_used,
                     )
                 else:
-                    # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (
-                        use_points or use_cashback or use_bonus
-                    ):
-                        Wallet.Credit(
-                            acct_no=user_wallet.account_number,
-                            amount=wallet_debit_amount,
-                            reason="Refund after failed VAS data purchase",
-                        )
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1786,20 +1778,44 @@ class BillPaymentView(generics.GenericAPIView):
         # Centralized payment orchestration (mirrors AirTimeTopUp logic)
         cashback_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
-        if use_cashback and user:
-            payment = CashbackService.apply_cashback_payment(user=user, amount=amount)
-            amount = int(payment["wallet_amount"])
-            cashback_used = payment["cashback_used"]
 
-        pts_amt = 0
-        if use_points:
-            _, pts_amt = Pay.with_pts(user=user, amount=int(amount))
-        if use_points and pts_amt >= int(amount):
-            wallet_debit_amount = 0
-        elif use_points and pts_amt < int(amount):
-            wallet_debit_amount = int(amount) - pts_amt
-        else:
-            wallet_debit_amount = int(amount)
+        if (use_cashback or use_points) and payment_option == "WALLET" and user:
+            avail_cashback = Decimal("0")
+            if use_cashback:
+                try:
+                    w = WalletModel.objects.get(user=user)
+                    avail_cashback = w.cashback_balance
+                except WalletModel.DoesNotExist:
+                    pass
+            avail_pts = Decimal("0")
+            if use_points:
+                try:
+                    from gamification.models import Points as PointsModel
+
+                    pts_obj = PointsModel.objects.get(user=user)
+                    avail_pts = pts_obj.naira_value
+                except Exception:
+                    pass
+            if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Insufficient points/cashback balance to complete this purchase.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if use_cashback:
+                payment = CashbackService.apply_cashback_payment(
+                    user=user, amount=purchase_amount
+                )
+                cashback_used = payment["cashback_used"]
+                remaining = int(payment["wallet_amount"])
+            else:
+                remaining = purchase_amount
+            if use_points and remaining > 0:
+                Pay.with_pts(user=user, amount=remaining)
 
         match payment_option:
             case "WALLET":
@@ -1885,30 +1901,7 @@ class BillPaymentView(generics.GenericAPIView):
                             vas_response=vas_response,
                             reason="Bill payment failed.",
                         )
-                # Hybrid: points/cashback/bonus + wallet, collect wallet portion to central, call VAS with central
-                # Only perform local debit in hybrid cases
-                if (
-                    use_points or use_cashback or use_bonus
-                ) and wallet_debit_amount > 0:
-                    debit_response = Wallet.Debit(
-                        debitAccount=account_number,
-                        amount=wallet_debit_amount,
-                        reason="Debit for bill payment (to central collection)",
-                        merchantFeeAmount="",
-                    )
-                    if (
-                        debit_response is None
-                        or str(debit_response.status_code) != "200"
-                    ):
-                        if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
-                        return self._handle_failure(
-                            user=user,
-                            guest_id=guest_id,
-                            phone_number=phone_number,
-                            amount=purchase_amount,
-                            reason="Wallet service unavailable or debit failed.",
-                        )
+                # Hybrid: cashback/points cover full purchase — call VAS from central account
                 vas_debit_account = settings.CENTRAL_OPERATIONAL_ACCOUNT
                 vas_response = VAS.bill_payment(
                     bearer_token=vas_token,
@@ -1923,17 +1916,10 @@ class BillPaymentView(generics.GenericAPIView):
                     transactionReference=tx_reference,
                 )
                 if vas_response is None:
-                    # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (
-                        use_points or use_cashback or use_bonus
-                    ):
-                        Wallet.Credit(
-                            acct_no=account_number,
-                            amount=wallet_debit_amount,
-                            reason="Refund after failed VAS bill payment",
-                        )
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
@@ -1943,8 +1929,12 @@ class BillPaymentView(generics.GenericAPIView):
                     )
                 bill_success = False
                 try:
-                    bill_json = vas_response.json() if hasattr(vas_response, "json") else {}
-                    bill_data = bill_json.get("data", {}) if isinstance(bill_json, dict) else {}
+                    bill_json = (
+                        vas_response.json() if hasattr(vas_response, "json") else {}
+                    )
+                    bill_data = (
+                        bill_json.get("data", {}) if isinstance(bill_json, dict) else {}
+                    )
                     if (
                         bill_data.get("status") == "success"
                         or bill_json.get("status") == "success"
@@ -1968,17 +1958,10 @@ class BillPaymentView(generics.GenericAPIView):
                         account_number=account_number,
                     )
                 else:
-                    # Refund only if hybrid (points/cashback/bonus + wallet)
-                    if wallet_debit_amount > 0 and (
-                        use_points or use_cashback or use_bonus
-                    ):
-                        Wallet.Credit(
-                            acct_no=account_number,
-                            amount=wallet_debit_amount,
-                            reason="Refund after failed VAS bill payment",
-                        )
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,

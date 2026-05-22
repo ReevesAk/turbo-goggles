@@ -239,9 +239,6 @@ class Pay:
             pts.save(update_fields=["balance", "naira_value"])
             return "Enough", amount
         else:
-            pts.balance = max(0, pts.balance - 400)
-            pts.naira_value = Decimal("0.00")
-            pts.save(update_fields=["balance", "naira_value"])
             return "Not Enough", naira_available
 
 

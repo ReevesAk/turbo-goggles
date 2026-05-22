@@ -350,11 +350,16 @@ class ProfileImage(generics.UpdateAPIView):
             "User %s is attempting to upload a profile image.", request.user.email
         )
 
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
         # Get the user instance
         user = request.user
 
         # Use the serializer with the instance
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=payload)
 
         if serializer.is_valid():
             # Update the user's profile image.
