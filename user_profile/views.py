@@ -337,8 +337,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
 
 class ProfileImage(generics.UpdateAPIView):
     """
-    Upload profile image. This endpoint only
-    accepts multipart/form-data data format.
+    Upload profile image.
     """
 
     serializer_class = ProfileImageSerializer
@@ -363,7 +362,7 @@ class ProfileImage(generics.UpdateAPIView):
 
         if serializer.is_valid():
             # Update the user's profile image.
-            user.profile_img_url = request.data.get("profile_img_url")
+            user.profile_img_url = payload.get("profile_img_url")
             user.save()
 
             UserNotification.objects.create(
@@ -372,29 +371,10 @@ class ProfileImage(generics.UpdateAPIView):
                 message="You have successfully updated your profile image.",
             )
 
-            # Check if user is an admin and adjust the description
-            if user.active_role in {
-                "SuperAdmin",
-                "TaskAdmin",
-                "AdAdmin",
-                "MembersAdmin",
-                "User Admin",
-                "PartnersAdmin",
-                "ContentAdmin",
-                "IntegrationAdmin",
-                "WalletAdmin",
-                "FmcgAdmin",
-            }:
-                description = f"Admin with email: {user.email} and role: {user.active_role} updated their profile image."
-            else:
-                description = (
-                    f"{user.first_name} {user.last_name} updated their profile image."
-                )
-
             ActivityModel.objects.create(
                 user=user,
                 title="Profile Image.",
-                description=description,
+                description=f"{user.first_name} {user.last_name} updated their profile image.",
             )
 
             response = {
