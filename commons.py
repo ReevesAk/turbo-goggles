@@ -241,6 +241,16 @@ class Pay:
         else:
             return "Not Enough", naira_available
 
+    @staticmethod
+    def refund_pts(user, naira_amount):
+        try:
+            pts = Points.objects.get(user=user)
+            pts.balance += 400
+            pts.naira_value += Decimal(str(naira_amount))
+            pts.save(update_fields=["balance", "naira_value"])
+        except Points.DoesNotExist:
+            pass
+
 
 # class CamelCaseJSONRenderer(JSONRenderer):
 #     def render(self, data, accepted_media_type=None, renderer_context=None):

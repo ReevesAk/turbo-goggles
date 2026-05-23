@@ -407,19 +407,41 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
 
-            if (
-                wallet
-                and user
-                and getattr(user, "alert_type_choice", None) in ("SMS", "Both")
-            ):
-                sms_msg = f"Dear {user.first_name}, your account with number {account_number} has been upgraded. Your new tier level is {self.extract_tier(message)}. Enjoy enhanced features and benefits with your upgraded account."
-                logger.info(
-                    f"Sending SMS to {user.phone_number} with message: {sms_msg}"
-                )
-                Messaging.send_sms(
-                    phone_number=user.phone_number[1:],
-                    msg=sms_msg,
-                )
+            if wallet and user:
+                tier = self.extract_tier(message)
+                alert_type = getattr(user, "alert_type_choice", None)
+
+                if alert_type in ("SMS", "Both"):
+                    sms_msg = f"Dear {user.first_name}, your account with number {account_number} has been upgraded. Your new tier level is {tier}. Enjoy enhanced features and benefits with your upgraded account."
+                    logger.info(
+                        f"Sending SMS to {user.phone_number} with message: {sms_msg}"
+                    )
+                    Messaging.send_sms(
+                        phone_number=user.phone_number[1:],
+                        msg=sms_msg,
+                    )
+
+                if alert_type in ("Email", "Both"):
+                    try:
+                        email_body = f"Dear {user.full_name},<br><br>Your account with number <strong>{account_number}</strong> has been successfully upgraded to <strong>{tier}</strong>.<br><br>You can now enjoy enhanced features and benefits with your upgraded account."
+                        text_content = render_to_string(
+                            template_name="empty_email.html",
+                            context={
+                                "custom_text": email_body,
+                                "support_email": "support@picadailys.com",
+                                "picadailys_phone": "02012271894  02012271895",
+                            },
+                        )
+                        Messaging.send_email(
+                            email=user.email,
+                            html_content=text_content,
+                            subject="Your Picadailys Account Has Been Upgraded",
+                            sender_email="notifications@picadailys.com",
+                            body=f"Dear {user.full_name}, your account {account_number} has been upgraded to {tier}.",
+                        )
+                        logger.info(f"Account upgrade email sent to {user.email}")
+                    except Exception as e:
+                        logger.error(f"Failed to send account upgrade email to {user.email}: {e}")
 
             if wallet:
                 # Record notification
