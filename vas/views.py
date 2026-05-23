@@ -33,12 +33,14 @@ from banking.tasks import post_vas_update
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
 from banking.cashback_service import CashbackService
+from gamification.models import Points as PointsModel
 from .utility import (
     create_activity,
     create_notification,
     # send_token,
     # send_token_to_guest_users,
 )
+
 from .helpers import VAS
 from .models import ValueAddedServices
 from commons import Pay, Biometrics
@@ -280,6 +282,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         user_wallet = None
         account_number = ""
         cashback_used = Decimal("0")
+        pts_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
 
         try:
@@ -298,8 +301,6 @@ class AirTimeTopUp(generics.GenericAPIView):
                     avail_pts = Decimal("0")
                     if use_points:
                         try:
-                            from gamification.models import Points as PointsModel
-
                             pts_obj = PointsModel.objects.get(user=user)
                             avail_pts = pts_obj.naira_value
                         except Exception:
@@ -316,6 +317,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         remaining = purchase_amount
                     if use_points and remaining > 0:
                         Pay.with_pts(user=user, amount=remaining)
+                        pts_used = avail_pts
 
                 account_number = user_wallet.account_number if user_wallet else ""
         except WalletModel.DoesNotExist:
@@ -434,9 +436,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                     )
                     if airtime_response is None:
                         if cashback_used:
-                            CashbackService.refund_cashback(
-                                user=user, cashback_amount=cashback_used
-                            )
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        if pts_used:
+                            Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
@@ -474,9 +476,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                     else:
                         if cashback_used:
-                            CashbackService.refund_cashback(
-                                user=user, cashback_amount=cashback_used
-                            )
+                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        if pts_used:
+                            Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
@@ -854,6 +856,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         use_cashback = user_data.get("use_cashback")
 
         cashback_used = Decimal("0")
+        pts_used = Decimal("0")
 
         if user:
             try:
@@ -1030,6 +1033,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 remaining = purchase_amount
             if use_points and remaining > 0:
                 Pay.with_pts(user=user, amount=remaining)
+                pts_used = avail_pts
 
         match payment_option:
             case "WALLET":
@@ -1129,9 +1133,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
                 if data_response is None:
                     if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1165,9 +1169,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 else:
                     if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1777,6 +1781,7 @@ class BillPaymentView(generics.GenericAPIView):
 
         # Centralized payment orchestration (mirrors AirTimeTopUp logic)
         cashback_used = Decimal("0")
+        pts_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
 
         if (use_cashback or use_points) and payment_option == "WALLET" and user:
@@ -1816,6 +1821,7 @@ class BillPaymentView(generics.GenericAPIView):
                 remaining = purchase_amount
             if use_points and remaining > 0:
                 Pay.with_pts(user=user, amount=remaining)
+                pts_used = avail_pts
 
         match payment_option:
             case "WALLET":
@@ -1917,9 +1923,9 @@ class BillPaymentView(generics.GenericAPIView):
                 )
                 if vas_response is None:
                     if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
@@ -1959,9 +1965,9 @@ class BillPaymentView(generics.GenericAPIView):
                     )
                 else:
                     if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
+                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
