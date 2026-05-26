@@ -94,13 +94,24 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             enquiry = Wallet.getWalletDetails(account.account_number)
                             if enquiry and hasattr(enquiry, "json"):
                                 enquiry_data = enquiry.json()
-                                live_balance = Decimal(str(enquiry_data.get("data", {}).get("availableBalance", 0)))
+                                live_balance = Decimal(
+                                    str(
+                                        enquiry_data.get("data", {}).get(
+                                            "availableBalance", 0
+                                        )
+                                    )
+                                )
                             else:
                                 live_balance = account.balance
 
                             if live_balance < wallet_debit_amount:
                                 return Response(
-                                    data=encrypt({"status": "fail", "message": "Insufficient balance."}),
+                                    data=encrypt(
+                                        {
+                                            "status": "fail",
+                                            "message": "Insufficient balance.",
+                                        }
+                                    ),
                                     status=status.HTTP_400_BAD_REQUEST,
                                 )
 
@@ -111,7 +122,10 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 merchantFeeAmount="0.00",
                             )
 
-                            if debit_response is not None and debit_response.status_code == 200:
+                            if (
+                                debit_response is not None
+                                and debit_response.status_code == 200
+                            ):
                                 create_ad = serializer.save()
 
                                 TxModel.objects.create(
@@ -141,15 +155,22 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 )
 
                                 return Response(
-                                    data=encrypt({
-                                        "status": "Success!",
-                                        "message": "Brand advert promoted successfully.",
-                                    }),
+                                    data=encrypt(
+                                        {
+                                            "status": "Success!",
+                                            "message": "Brand advert promoted successfully.",
+                                        }
+                                    ),
                                     status=status.HTTP_200_OK,
                                 )
                             else:
                                 return Response(
-                                    data=encrypt({"status": "fail", "message": "Debit failed. Please try again."}),
+                                    data=encrypt(
+                                        {
+                                            "status": "fail",
+                                            "message": "Debit failed. Please try again.",
+                                        }
+                                    ),
                                     status=status.HTTP_400_BAD_REQUEST,
                                 )
                     except Exception as e:
@@ -188,10 +209,12 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         user.email,
                     )
                     return Response(
-                        data=encrypt({
-                            "status": "Success!",
-                            "message": "Brand advert promoted successfully.",
-                        }),
+                        data=encrypt(
+                            {
+                                "status": "Success!",
+                                "message": "Brand advert promoted successfully.",
+                            }
+                        ),
                         status=status.HTTP_200_OK,
                     )
 

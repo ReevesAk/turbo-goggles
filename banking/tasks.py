@@ -319,6 +319,37 @@ def resolve_pending_transfer(
         elif tx_status in ("FAILED", "REVERSED", "REJECTED"):
             tx.status = "FAILED"
             tx.save(update_fields=["status"])
+            amount = Decimal(amount_str)
+            recipient = beneficiary_name or beneficiary_account_number
+            sms_msg = (
+                f"Your transfer of NGN{amount:,.0f} to {recipient} could not be completed. "
+                f"If your account was debited, the amount will be reversed. Ref: {idempotency_key}."
+            )
+            email_body = (
+                f"Dear customer,<br><br>"
+                f"Your transfer of <strong>NGN{amount:,.0f}</strong> to {recipient} could not be completed.<br>"
+                f"Reference: {idempotency_key}.<br><br>"
+                f"If your account was debited, the amount will be reversed automatically. "
+                f"Please contact support if it is not resolved within 24 hours."
+            )
+            email_html = render_to_string(
+                "empty_email.html",
+                {
+                    "custom_text": email_body,
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894  02012271895",
+                },
+            )
+            send_transfer_notifications.delay(
+                user_id,
+                phone_number[1:] if phone_number else None,
+                email,
+                alert_type,
+                sms_msg,
+                "Transfer Failed — Picadailys",
+                email_body,
+                email_html,
+            )
         else:
             raise Exception(f"Transfer still pending ({tx_status}), will retry.")
 
@@ -327,6 +358,46 @@ def resolve_pending_transfer(
     except Exception as e:
         logging.warning(f"resolve_pending_transfer: {e}")
         raise
+
+
+@shared_task
+def reconcile_pending_transfers():
+    from accounts.models import TxModel
+    from banking.models import WalletModel
+
+    cutoff = timezone.now() - timedelta(minutes=15)
+    stuck = TxModel.objects.filter(
+        status="PENDING",
+        tx_type__in=["Intra-Bank Transfer", "Inter-Bank Transfer"],
+        date__lt=cutoff,
+    ).select_related("user")
+
+    count = 0
+    for tx in stuck:
+        try:
+            user = tx.user
+            wallet = WalletModel.objects.filter(user=user).first()
+            resolve_pending_transfer.delay(
+                tx_id=tx.id,
+                user_id=user.id,
+                account_number=wallet.account_number if wallet else "",
+                external_tx_reference=tx.external_tx_reference or "",
+                beneficiary_account_number="",
+                sender_full_name=wallet.acct_name if wallet else "",
+                amount_str=str(tx.amount),
+                narration=tx.description or "",
+                idempotency_key=tx.tx_reference or "",
+                alert_type=getattr(user, "alert_type_choice", "Both"),
+                phone_number=getattr(user, "phone_number", None),
+                email=getattr(user, "email", None),
+            )
+            count += 1
+        except Exception as e:
+            logging.error(f"reconcile_pending_transfers: error for tx {tx.id}: {e}")
+
+    logging.info(
+        f"Reconciliation sweep: queued {count} stuck transfers for resolution."
+    )
 
 
 # def charge_cards_every_30_days():

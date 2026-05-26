@@ -4,7 +4,8 @@ from .views import (
     JoinCampaignView,
     AddStepsView,
     CampaignStatusView,
-    GetMemberPointsSummary
+    GetMemberPointsSummary,
+    SubmitActivityImageView,
 )
 from roles.tasks import (
     GetAllStepCampaigns,
@@ -34,4 +35,5 @@ urlpatterns = [
     path('campaigns/<uuid:campaign_id>/add-steps/', AddStepsView.as_view(), name='add-steps'),
     path('campaigns/<uuid:campaign_id>/status/', CampaignStatusView.as_view(), name='campaign-status'),
     path("get-member-points-summary", GetMemberPointsSummary.as_view(), name="get_member_points_summary"),
+    path("submit-activity-image", SubmitActivityImageView.as_view(), name="submit_activity_image"),
 ]
