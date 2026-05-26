@@ -1,5 +1,7 @@
 import logging
+import json
 from decouple import config as conf
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from django.utils import timezone
 from django.db import transaction
@@ -14,7 +16,8 @@ from rest_framework.response import Response
 
 from .serializers import (
     SSOLoginSerializer,
-    StepCountSessionSerializer
+    StepCountSessionSerializer,
+    SocialEngagementSerializer
 )
 from .models import StepCampaignModel, StepSessionModel
 
@@ -25,6 +28,13 @@ from permissions import IsMember
 
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
+
+SOCIAL_ACTIVITY_IDS = {
+    "facebook": "48624",
+    "instagram": "48626",
+    "twitter": "48623",
+    "tiktok": "48625",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -384,6 +394,74 @@ class CampaignStatusView(generics.RetrieveAPIView):
         return Response(
             encrypt({"status": "success", "message": message, "data": data}),
             status=status.HTTP_200_OK
+        )
+
+
+@extend_schema(
+    summary="Submit social media activity image",
+    description="Log a social media post activity for points. Upload the image to Cloudinary first, then send the URL here.",
+    request=SocialEngagementSerializer,
+    examples=[
+        OpenApiExample(
+            "Facebook post",
+            value={"platform": "facebook", "image_url": "https://res.cloudinary.com/example/image/upload/post.jpg"},
+        ),
+        OpenApiExample(
+            "Instagram post",
+            value={"platform": "instagram", "image_url": "https://res.cloudinary.com/example/image/upload/post.jpg"},
+        ),
+        OpenApiExample(
+            "Twitter post",
+            value={"platform": "twitter", "image_url": "https://res.cloudinary.com/example/image/upload/post.jpg"},
+        ),
+        OpenApiExample(
+            "TikTok post",
+            value={"platform": "tiktok", "image_url": "https://res.cloudinary.com/example/image/upload/post.jpg"},
+        ),
+    ],
+)
+class SubmitActivityImageView(generics.GenericAPIView):
+    serializer_class = SocialEngagementSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsMember)
+
+    def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
+        user = request.user
+
+        image_url = decrypted_payload.get("image_url")
+        platform = decrypted_payload.get("platform", "").lower()
+
+        if not image_url:
+            return Response(
+                data=encrypt({"status": "fail", "message": "image_url is required."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        activity_id = SOCIAL_ACTIVITY_IDS.get(platform)
+        if not activity_id:
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "message": f"Invalid platform. Choose from: {', '.join(SOCIAL_ACTIVITY_IDS.keys())}.",
+                }),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        activity_details = json.dumps({"imageUrl": image_url})
+
+        points = Points.determine(activity_type="social_engagement", level=user.level)
+        NextBee.member_activity(
+            member_email=user.email,
+            activityId=activity_id,
+            numericValue=str(points),
+            activityDetailsJsonString=activity_details,
+        )
+        Points.refresh_user_points(user)
+
+        return Response(
+            data=encrypt({"status": "success", "message": "Activity submitted successfully."}),
+            status=status.HTTP_200_OK,
         )
 
 

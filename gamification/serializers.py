@@ -16,6 +16,17 @@ class SSOLoginSerializer(serializers.Serializer):
         ]
 
 
+class SocialEngagementSerializer(serializers.Serializer):
+    platform = serializers.ChoiceField(
+        choices=["facebook", "instagram", "twitter", "tiktok"],
+        required=True,
+        help_text="Social platform to log activity for.",
+    )
+    image_url = serializers.URLField(
+        required=True,
+        help_text="Cloudinary URL of the uploaded post image.",
+    )
+
 class StepCampaignSerializer(serializers.ModelSerializer):
     total_steps = serializers.IntegerField(read_only=True)
     is_campaign_active = serializers.BooleanField(read_only=True)

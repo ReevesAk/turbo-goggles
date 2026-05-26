@@ -436,7 +436,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                     )
                     if airtime_response is None:
                         if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                            CashbackService.refund_cashback(
+                                user=user, cashback_amount=cashback_used
+                            )
                         if pts_used:
                             Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
@@ -476,7 +478,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                     else:
                         if cashback_used:
-                            CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                            CashbackService.refund_cashback(
+                                user=user, cashback_amount=cashback_used
+                            )
                         if pts_used:
                             Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
@@ -1133,7 +1137,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
                 if data_response is None:
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
@@ -1169,7 +1175,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 else:
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
@@ -1923,7 +1931,9 @@ class BillPaymentView(generics.GenericAPIView):
                 )
                 if vas_response is None:
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
@@ -1965,7 +1975,9 @@ class BillPaymentView(generics.GenericAPIView):
                     )
                 else:
                     if cashback_used:
-                        CashbackService.refund_cashback(user=user, cashback_amount=cashback_used)
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(

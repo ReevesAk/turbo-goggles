@@ -133,10 +133,41 @@ class NextBee:
             )
 
     @staticmethod
+    def brand_registration(name: str, account_type: str, return_url: str) -> str:
+        """
+        Register a brand on NextBee.
+        """
+        token = NextBee.generate_jwt_token(nextbee_advertiser_id, admin_email)
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Bearer {token}"
+        }
+
+        url = f"{nextbee_base_url}/api/social-auth-account/configuration"
+        payload = {
+            "name": name,
+            "accountType": account_type,
+            "returnUrl": return_url,
+        }
+        try:
+            response = requests.post(
+                url=url,
+                data=payload,
+                headers=headers
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Brand registration API request error: {str(e)}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @staticmethod
     def member_activity(
         member_email,
         activityId,
-        numericValue
+        numericValue,
+        activityDetailsJsonString=None,
     ) -> str:
         """
         Register member activity on NextBee.
@@ -153,6 +184,8 @@ class NextBee:
             "activityId": activityId,
             "numericValue": numericValue,
         }
+        if activityDetailsJsonString is not None:
+            payload["activityDetailsJsonString"] = activityDetailsJsonString
         try:
             response = requests.post(
                 url=url,

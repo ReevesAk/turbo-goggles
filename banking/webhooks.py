@@ -441,7 +441,9 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                         )
                         logger.info(f"Account upgrade email sent to {user.email}")
                     except Exception as e:
-                        logger.error(f"Failed to send account upgrade email to {user.email}: {e}")
+                        logger.error(
+                            f"Failed to send account upgrade email to {user.email}: {e}"
+                        )
 
             if wallet:
                 # Record notification
