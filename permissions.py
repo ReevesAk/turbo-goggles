@@ -163,11 +163,7 @@ class IsBrandAd(permissions.BasePermission):
         required_user_types = ["BrandAd"]
 
         if request.user.is_authenticated:
-            # Check if the user_type matches the required user_type
-            if request.user.active_role in required_user_types:
-                return True
-            else:
-                raise ValidationError(encrypt("Only BrandAd can perform this action."))
+            return request.user.active_role in required_user_types
 
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
@@ -178,11 +174,7 @@ class IsBrandAdAdmin(permissions.BasePermission):
         required_user_types = ["BrandAdAdmin", "SuperAdmin"]
 
         if request.user.is_authenticated:
-            # Check if the user_type matches the required user_type
-            if request.user.active_role in required_user_types:
-                return True
-            else:
-                raise ValidationError(encrypt("Only BrandAdAdmin can perform this action."))
+            return request.user.active_role in required_user_types
 
         raise ValidationError(encrypt("Authentication is required to access this resource."))
 
