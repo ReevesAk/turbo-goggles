@@ -19,6 +19,7 @@ class WaitlistModel(models.Model):
     points = models.IntegerField(default=0)
     is_student = models.BooleanField(default=False, null=True)
     institution = models.CharField(max_length=150, null=True, blank=True)
+    is_verified = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     @classmethod
@@ -52,9 +53,3 @@ class Referral(models.Model):
         return (
             f"{self.referrer.email} referred {self.referred.email} at {self.created_at}"
         )
-
-
-class WaitlistDeviceId(models.Model):
-    user = models.ForeignKey(to=WaitlistModel, on_delete=models.CASCADE)
-    device_id = models.CharField(max_length=250, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)

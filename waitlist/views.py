@@ -18,10 +18,13 @@ from drf_spectacular.utils import extend_schema
 # In project imports.
 from .serializers import (
     WaitlistSerialiser,
+    VerifyWaitlistOTPSerializer,
 )
-from .models import WaitlistModel, Referral, WaitlistDeviceId
+from .models import WaitlistModel, Referral
 from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt
+from accounts.otp import otp_manager
+from commons import Messaging
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -66,23 +69,12 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
         data = request.data.copy()
         is_student = data.get("is_student")
         institution = data.get("institution")
-        device_id = data.get("device_id", "").strip()
-
         # Only students can select institution
         if not is_student and institution:
             return Response(
                 {
                     "status": "fail",
                     "message": "Only students are allowed to select the institution option.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if device_id and WaitlistDeviceId.objects.filter(device_id=device_id).exists():
-            return Response(
-                {
-                    "status": "fail",
-                    "message": "This device has already been used to join the waitlist.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -94,8 +86,13 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
             )
         waitlist_user = serializer.save()
 
-        if device_id:
-            WaitlistDeviceId.objects.create(user=waitlist_user, device_id=device_id)
+        if waitlist_user.phone:
+            otp = otp_manager.create_otp(user_id=str(waitlist_user.id))
+            phone = waitlist_user.phone.lstrip("0")
+            Messaging.send_sms(
+                phone_number=phone,
+                msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
+            )
 
         # Award 10 points for joining the waitlist
         waitlist_user.points = 10
@@ -161,7 +158,6 @@ class WaitlistDashboardView(APIView):
 
     def get(self, request, *args, **kwargs):
         email = request.query_params.get("email")
-        device_id = request.query_params.get("device_id", "").strip()
 
         if not email:
             return Response(
@@ -177,16 +173,21 @@ class WaitlistDashboardView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        existing_device = WaitlistDeviceId.objects.filter(user=user).first()
-
-        if device_id and not existing_device:
-            taken = (
-                WaitlistDeviceId.objects.filter(device_id=device_id)
-                .exclude(user=user)
-                .exists()
+        if not user.is_verified:
+            if user.phone:
+                otp = otp_manager.create_otp(user_id=str(user.id))
+                phone = user.phone.lstrip("0")
+                Messaging.send_sms(
+                    phone_number=phone,
+                    msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
+                )
+            return Response(
+                {
+                    "status": "unverified",
+                    "message": "Your account is not verified. An OTP has been sent to your phone.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
-            if not taken:
-                WaitlistDeviceId.objects.create(user=user, device_id=device_id)
 
         total_users = WaitlistModel.objects.count()
         remaining_slots = max(0, WAITLIST_TARGET - total_users)
@@ -209,6 +210,56 @@ class WaitlistDashboardView(APIView):
                     "remaining_slots": remaining_slots,
                 },
             },
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Verify waitlist OTP",
+    description="Submit the OTP sent to the user's phone after joining the waitlist. On success, the account is marked as verified.",
+    request=VerifyWaitlistOTPSerializer,
+)
+class VerifyWaitlistOTP(APIView):
+    """Verifies OTP sent to a waitlist user's phone and marks them as verified."""
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("email", "").strip()
+        otp = request.data.get("otp", "").strip()
+
+        if not email or not otp:
+            return Response(
+                {"status": "fail", "message": "Email and OTP are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = WaitlistModel.objects.get(email=email)
+        except WaitlistModel.DoesNotExist:
+            return Response(
+                {"status": "fail", "message": "User not found on the waitlist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user.is_verified:
+            return Response(
+                {"status": "success", "message": "Account already verified."},
+                status=status.HTTP_200_OK,
+            )
+
+        user_id = otp_manager.validate_user_otp(otp)
+        if not user_id or int(user_id) != user.id:
+            return Response(
+                {"status": "fail", "message": "Invalid or expired OTP."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_verified = True
+        user.save(update_fields=["is_verified"])
+
+        return Response(
+            {"status": "success", "message": "Phone number verified successfully."},
             status=status.HTTP_200_OK,
         )
 

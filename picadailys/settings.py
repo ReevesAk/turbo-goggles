@@ -413,6 +413,7 @@ if TESTING:
 CRONJOBS = [
     ("*/5 * * * *", "gamification.jobs.refresh_all_users_points"),
     ("*/30 * * * *", "banking.tasks.reconcile_pending_transfers"),
+    ("0 0 * * *", "waitlist.jobs.remove_unverified_waitlist_users"),
 ]
 
 if conf("ENVIRONMENT") == "production":

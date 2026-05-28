@@ -6,6 +6,13 @@ from rest_framework import serializers
 from .models import WaitlistModel
 
 
+class VerifyWaitlistOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(help_text="Email address used to join the waitlist.")
+    otp = serializers.CharField(
+        max_length=6, help_text="6-digit OTP sent to your phone number."
+    )
+
+
 class WaitlistSerialiser(serializers.ModelSerializer):
 
     def validate(self, data):

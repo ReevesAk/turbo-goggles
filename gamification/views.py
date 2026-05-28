@@ -32,7 +32,7 @@ GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
 SOCIAL_ACTIVITY_IDS = {
     "facebook": "48624",
     "instagram": "48626",
-    "twitter": "48623",
+    "X": "48623",
     "tiktok": "48625",
 }
 
