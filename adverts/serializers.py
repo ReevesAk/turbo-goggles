@@ -50,6 +50,11 @@ class CreateAdSerializers(serializers.ModelSerializer):
         required=False,  # Optional field
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    brand_socials = serializers.ListField(
+        child=serializers.URLField(max_length=300),
+        required=False,
+        max_length=4,
+    )
 
     pin = serializers.CharField(max_length=6, write_only=True, required=False)
     payment_option = serializers.CharField(
@@ -74,6 +79,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "engagement_type",
             "daily_allocation",
             "website",
+            "brand_socials",
             "campaign_duration",
             "amount",
             "state",
@@ -146,6 +152,7 @@ class AdSerializers(serializers.ModelSerializer):
             "remaining_time",
             "amount",
             "brand_location",
+            "brand_socials",
             "ad_media",
             "is_active",
             "created_at",

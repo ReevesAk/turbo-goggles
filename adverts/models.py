@@ -69,6 +69,7 @@ class CreateAd(models.Model):
     daily_allocation = models.CharField(max_length=150, blank=True, null=True)
 
     website = models.CharField(max_length=150, blank=True, null=True)
+    brand_socials = models.JSONField(default=list, blank=True)
     type_of_brand = models.CharField(max_length=100, null=True, blank=True)
     campaign_duration = models.CharField(max_length=155, null=True, blank=True)
     amount = models.CharField(max_length=155, null=True, blank=True)
