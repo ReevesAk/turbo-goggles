@@ -336,7 +336,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
 
     def retrieve(self, request, *args, **kwargs):
-        email = request.query_params.get("email")
+        email = kwargs.get("email") or request.query_params.get("email")
 
         if not email:
             return Response(

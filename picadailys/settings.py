@@ -440,6 +440,7 @@ if conf("ENVIRONMENT") == "production":
                 "CONNECTION_POOL_KWARGS": {"max_connections": 200, "retry_on_timeout": True},
                 # SSL only if your Redis URL is rediss://
                 "SSL": REDIS_LOCATION.startswith("rediss://"),
+                "IGNORE_EXCEPTIONS": True,
             },
             "TIMEOUT": 300,
         }
