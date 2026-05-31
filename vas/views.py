@@ -42,7 +42,7 @@ from .utility import (
 
 from .controllers import VTPass
 from .models import ValueAddedServices
-from commons import Pay, Biometrics
+from commons import Pay, Biometrics, Messaging
 from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
@@ -890,15 +890,6 @@ class DataSubscriptionView(generics.GenericAPIView):
         cashback_used = Decimal("0")
         pts_used = Decimal("0")
 
-        if user:
-            try:
-                with transaction.atomic():
-                    user_wallet = WalletModel.objects.select_for_update().get(user=user)
-            except WalletModel.DoesNotExist:
-                user_wallet = None
-        else:
-            user_wallet = None
-
         tx_reference = (
             idempotency_key if idempotency_key else VTPass.generate_request_id("PICA")
         )
@@ -1662,6 +1653,43 @@ class BillPaymentView(generics.GenericAPIView):
                 phone_number=getattr(user, "phone_number", None),
                 email=getattr(user, "email", None),
             )
+
+        if user and is_electricity and token:
+            alert_type = getattr(user, "alert_type_choice", "Both")
+            units = vas_data.get("units", "") if isinstance(vas_data, dict) else ""
+            sms_msg = f"Your electricity token is: {token}"
+            if units:
+                sms_msg += f" | Units: {units}"
+            sms_msg += f" | Ref: {tx_reference}"
+
+            if alert_type in ("SMS", "Both") and getattr(user, "phone_number", None):
+                Messaging.send_sms(phone_number=user.phone_number[1:], msg=sms_msg)
+
+            if alert_type in ("Email", "Both") and getattr(user, "email", None):
+                from django.template.loader import render_to_string
+
+                email_body = render_to_string(
+                    "picadailys_email.html",
+                    {
+                        "title": "Electricity Token",
+                        "rows": [
+                            {"label": "Token", "value": token},
+                            {"label": "Units", "value": units or "N/A"},
+                            {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
+                            {"label": "Meter Number", "value": customerId or ""},
+                            {"label": "Reference", "value": tx_reference},
+                        ],
+                        "support_email": "notifications@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
+                Messaging.send_email(
+                    email=user.email,
+                    subject="Your Electricity Token",
+                    html_content=email_body,
+                    sender_email="notifications@picadailys.com",
+                    body=sms_msg,
+                )
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 

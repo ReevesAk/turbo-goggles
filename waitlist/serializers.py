@@ -19,7 +19,7 @@ class WaitlistSerialiser(serializers.ModelSerializer):
         import re
 
         f = (data.get("f_name") or "").strip().lower()
-        l = (data.get("l_name") or "").strip().lower()
+        ln = (data.get("l_name") or "").strip().lower()
         email = (data.get("email") or "").strip().lower()
         phone = (data.get("phone") or "").strip().lower()
 
@@ -36,8 +36,8 @@ class WaitlistSerialiser(serializers.ModelSerializer):
 
         # 2. Block exact or swapped name duplicates
         exists = (
-            WaitlistModel.objects.filter(f_name__iexact=f, l_name__iexact=l).exists()
-            or WaitlistModel.objects.filter(f_name__iexact=l, l_name__iexact=f).exists()
+            WaitlistModel.objects.filter(f_name__iexact=f, l_name__iexact=ln).exists()
+            or WaitlistModel.objects.filter(f_name__iexact=ln, l_name__iexact=f).exists()
         )
         if exists:
             raise serializers.ValidationError(
@@ -49,8 +49,8 @@ class WaitlistSerialiser(serializers.ModelSerializer):
             uf = (user.f_name or "").strip().lower()
             ul = (user.l_name or "").strip().lower()
             # Check both orders
-            score1 = fuzz.ratio(f"{f} {l}", f"{uf} {ul}")
-            score2 = fuzz.ratio(f"{f} {l}", f"{ul} {uf}")
+            score1 = fuzz.ratio(f"{f} {ln}", f"{uf} {ul}")
+            score2 = fuzz.ratio(f"{f} {ln}", f"{ul} {uf}")
             if max(score1, score2) > 90:
                 raise serializers.ValidationError(
                     "A similar user already exists (fuzzy match)."

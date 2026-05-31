@@ -17,7 +17,7 @@ from permissions import (
     IsBrandAd,
     IsAuthenticatedOrGuestWithValidId,
 )
-from commons import generate_txId, Messaging, Biometrics
+from commons import generate_txId, Biometrics
 
 # Third party imports.
 from rest_framework import generics
@@ -39,9 +39,6 @@ from banking.tasks import (
     send_transfer_notifications,
     resolve_pending_transfer,
 )
-from commons import Messaging
-from decimal import Decimal
-from django.db import transaction
 from accounts.models import (
     User,
     WelcomeBonusAward,

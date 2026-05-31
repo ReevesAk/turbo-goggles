@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import TxModel
-from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding
+from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding, TreasuryBeneficiary
 
 
 class TreasuryStatusSerializer(serializers.Serializer):
@@ -40,6 +40,27 @@ class TreasuryAccountDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = TreasuryAccount
         fields = ["acct_name", "account_number", "bank_name", "balance", "tier"]
+
+
+class UpgradeTier2Serializer(serializers.Serializer):
+    bvn = serializers.CharField(min_length=11, max_length=11)
+    date_of_birth = serializers.DateField()
+    gender = serializers.ChoiceField(choices=["Male", "Female"])
+
+    def validate_bvn(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("BVN must be 11 digits.")
+        return value
+
+
+class UpgradeTier3Serializer(serializers.Serializer):
+    id_type = serializers.ChoiceField(choices=["NIN", "Passport", "DriversLicense", "VotersCard"])
+    id_number = serializers.CharField(max_length=30)
+
+    def validate_id_number(self, value):
+        if not value.isalnum():
+            raise serializers.ValidationError("ID number must be alphanumeric.")
+        return value
 
 
 class TreasuryTransferSerializer(serializers.Serializer):
@@ -101,6 +122,7 @@ class ListTreasuryAccountsSerializer(serializers.ModelSerializer):
             "cashback_balance",
             "tier_level",
             "tier2_upgrade_status",
+            "tier3_upgrade_status",
             "status",
             "created_at",
             "userTypes",
@@ -108,6 +130,12 @@ class ListTreasuryAccountsSerializer(serializers.ModelSerializer):
 
     def get_userTypes(self, obj):
         return list(obj.user.account_types.values_list("user_type", flat=True))
+
+
+class TreasuryBeneficiarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TreasuryBeneficiary
+        fields = ["id", "account_number", "account_name", "bank_code", "bank_name", "created_at"]
 
 
 class ChangeTreasuryAccountStatusSerializer(serializers.ModelSerializer):

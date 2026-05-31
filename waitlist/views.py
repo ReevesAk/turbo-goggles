@@ -1,15 +1,14 @@
 import logging
+from datetime import timedelta
+
+from django.db.models import Count
+from django.utils import timezone
 
 # Third party imports.
-from rest_framework import generics
-from rest_framework.decorators import (
-    api_view,
-    permission_classes,
-    authentication_classes,
-)
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -25,12 +24,6 @@ from permissions import IsTaskAdminOrSuperAdmin
 from security import encrypt
 from accounts.otp import otp_manager
 from commons import Messaging
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.pagination import PageNumberPagination
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from datetime import timedelta
-from django.utils import timezone
-from django.db.models import Count
 
 logger = logging.getLogger("accounts")
 
@@ -370,8 +363,8 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
         name_map = defaultdict(list)
         for user in WaitlistModel.objects.all():
             f = (user.f_name or "").strip().lower()
-            l = (user.l_name or "").strip().lower()
-            key = tuple(sorted([f, l]))
+            ln = (user.l_name or "").strip().lower()
+            key = tuple(sorted([f, ln]))
             name_map[key].append(user.id)
         duplicate_ids = [
             uid for ids in name_map.values() if len(ids) > 1 for uid in ids

@@ -24,7 +24,7 @@ from .serializers import (
     TreasuryTransferSerializer,
     CardFundingSerializer,
 )
-from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding
+from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding, TreasuryBeneficiary
 from .controllers import Anchor
 from .helpers import Pin
 from .tasks import post_transfer_update, post_beneficiary_credit, send_transfer_notifications
@@ -425,26 +425,48 @@ class ExternalTransfer(generics.CreateAPIView):
                     status="PENDING",
                 )
 
-            # NIP transfers require a counterparty to be registered first
-            cp_resp = Anchor.create_counterparty(
-                account_name=payload.get("beneficiary_name") or "",
-                account_number=payload.get("beneficiary_account_number"),
-                bank_code=payload.get("beneficiary_bank_code"),
-            )
-            if not cp_resp or not Anchor.is_success(cp_resp):
-                tx.status = "FAILED"
-                tx.save(update_fields=["status"])
-                err = {}
-                if cp_resp:
-                    try:
-                        err = cp_resp.json()
-                    except Exception:
-                        err = {"detail": getattr(cp_resp, "text", "")}
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Failed to register beneficiary.", "data": err}),
-                    status=getattr(cp_resp, "status_code", status.HTTP_400_BAD_REQUEST),
+            # Resolve counterparty — reuse cached ID or create and save a new one
+            beneficiary_acct = payload.get("beneficiary_account_number")
+            beneficiary_bank = payload.get("beneficiary_bank_code")
+            beneficiary_name = payload.get("beneficiary_name") or ""
+
+            saved = TreasuryBeneficiary.objects.filter(
+                user=user,
+                account_number=beneficiary_acct,
+                bank_code=beneficiary_bank,
+            ).first()
+
+            if saved and saved.anchor_counterparty_id:
+                counterparty_id = saved.anchor_counterparty_id
+            else:
+                cp_resp = Anchor.create_counterparty(
+                    account_name=beneficiary_name,
+                    account_number=beneficiary_acct,
+                    bank_code=beneficiary_bank,
                 )
-            counterparty_id = cp_resp.json().get("data", {}).get("id")
+                if not cp_resp or not Anchor.is_success(cp_resp):
+                    tx.status = "FAILED"
+                    tx.save(update_fields=["status"])
+                    err = {}
+                    if cp_resp:
+                        try:
+                            err = cp_resp.json()
+                        except Exception:
+                            err = {"detail": getattr(cp_resp, "text", "")}
+                    return Response(
+                        data=encrypt({"status": "fail", "error": "Failed to register beneficiary.", "data": err}),
+                        status=getattr(cp_resp, "status_code", status.HTTP_400_BAD_REQUEST),
+                    )
+                counterparty_id = cp_resp.json().get("data", {}).get("id")
+                TreasuryBeneficiary.objects.update_or_create(
+                    user=user,
+                    account_number=beneficiary_acct,
+                    bank_code=beneficiary_bank,
+                    defaults={
+                        "account_name": beneficiary_name,
+                        "anchor_counterparty_id": counterparty_id,
+                    },
+                )
 
             transfer_resp = Anchor.nip_transfer(
                 source_account_id=account.anchor_account_id,
@@ -463,7 +485,7 @@ class ExternalTransfer(generics.CreateAPIView):
                     tx_id=tx.id,
                     anchor_account_id=account.anchor_account_id,
                     account_number=account.account_number,
-                    beneficiary_account_number=payload.get("beneficiary_account_number"),
+                    beneficiary_account_number=beneficiary_acct,
                     sender_full_name=account.acct_name,
                     amount_str=charge["principal"],
                     narration=payload.get("narration"),
@@ -471,7 +493,7 @@ class ExternalTransfer(generics.CreateAPIView):
                     alert_type=getattr(user, "alert_type_choice", "Both"),
                     phone_number=getattr(user, "phone_number", None),
                     email=getattr(user, "email", None),
-                    beneficiary_name=payload.get("beneficiary_name"),
+                    beneficiary_name=beneficiary_name,
                     transfer_type="EXTERNAL",
                 )
 
@@ -480,7 +502,7 @@ class ExternalTransfer(generics.CreateAPIView):
                         "status": "success",
                         "message": "Transfer successful.",
                         "data": {
-                            "credit_account": payload.get("beneficiary_account_number"),
+                            "credit_account": beneficiary_acct,
                             "debit_account": account.account_number,
                             "amount": charge["principal"],
                             "vat": charge["vat"],

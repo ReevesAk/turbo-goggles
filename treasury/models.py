@@ -30,6 +30,7 @@ TRANSACTION_TYPE = (
 UPGRADE_STATUS = (
     ("PENDING", "Pending"),
     ("APPROVED", "Approved"),
+    ("REJECTED", "Rejected"),
 )
 
 
@@ -62,6 +63,9 @@ class TreasuryAccount(models.Model):
     # KYC / tier
     tier_level = models.IntegerField(default=1)
     tier2_upgrade_status = models.CharField(
+        max_length=10, choices=UPGRADE_STATUS, null=True, blank=True
+    )
+    tier3_upgrade_status = models.CharField(
         max_length=10, choices=UPGRADE_STATUS, null=True, blank=True
     )
 
@@ -139,6 +143,27 @@ class TreasuryNotification(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type} {self.amount} on {self.account_number}"
+
+
+class TreasuryBeneficiary(models.Model):
+    """
+    Saved external beneficiary for a user.
+    Caches the Anchor counterparty ID so it doesn't need to be re-created on every transfer.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="treasury_beneficiaries")
+    account_number = models.CharField(max_length=20, db_index=True)
+    account_name = models.CharField(max_length=150)
+    bank_code = models.CharField(max_length=20)
+    bank_name = models.CharField(max_length=100, blank=True)
+    anchor_counterparty_id = models.CharField(max_length=100, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("user", "account_number", "bank_code")]
+
+    def __str__(self):
+        return f"{self.account_name} — {self.account_number}"
 
 
 class TreasuryCardFunding(BaseModel):

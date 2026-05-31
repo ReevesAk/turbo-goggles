@@ -1511,11 +1511,9 @@ class GenerateAccountStatement(generics.GenericAPIView):
             case "CSV":
                 file_content = ExportStatement.to_csv(transactions)
                 suffix = ".csv"
-                mime_type = "text/csv"
             case "PDF":
                 file_content = ExportStatement.to_pdf(transactions)
                 suffix = ".pdf"
-                mime_type = "application/pdf"
             case _:
                 return Response(
                     {"error": "Invalid format requested"},

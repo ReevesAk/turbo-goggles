@@ -293,6 +293,72 @@ class Anchor:
             return None
 
     # ------------------------------------------------------------------ #
+    # KYC / Tier Upgrades
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def upgrade_tier2(customer_id, bvn, date_of_birth, gender):
+        """
+        Submit BVN for Tier 2 upgrade (Anchor's automatic Tier 1 validation).
+        POST /api/v1/customers/{id}/verification/individual
+        date_of_birth: "YYYY-MM-DD"
+        gender: "Male" | "Female"
+        Result arrives via customer.identification.approved/rejected webhook.
+        """
+        url = f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        payload = {
+            "data": {
+                "type": "Verification",
+                "attributes": {
+                    "level": "TIER_2",
+                    "level2": {
+                        "bvn": bvn,
+                        "dateOfBirth": date_of_birth,
+                        "gender": gender,
+                    },
+                },
+            }
+        }
+        _log_request("upgrade_tier2", url, payload)
+        try:
+            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            _log_response("upgrade_tier2", resp)
+            return resp
+        except requests.RequestException as e:
+            logger.warning("Anchor upgrade_tier2 ERROR: %s", e)
+            return None
+
+    @staticmethod
+    def upgrade_tier3(customer_id, id_type, id_number):
+        """
+        Submit government ID for Tier 3 upgrade (Anchor's manual Tier 2 review).
+        POST /api/v1/customers/{id}/verification/individual
+        id_type: "NIN" | "Passport" | "DriversLicense" | "VotersCard"
+        Result arrives via customer.identification.approved/rejected webhook.
+        """
+        url = f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        payload = {
+            "data": {
+                "type": "Verification",
+                "attributes": {
+                    "level": "TIER_3",
+                    "level3": {
+                        "idType": id_type,
+                        "idNumber": id_number,
+                    },
+                },
+            }
+        }
+        _log_request("upgrade_tier3", url, payload)
+        try:
+            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            _log_response("upgrade_tier3", resp)
+            return resp
+        except requests.RequestException as e:
+            logger.warning("Anchor upgrade_tier3 ERROR: %s", e)
+            return None
+
+    # ------------------------------------------------------------------ #
     # Transactions
     # ------------------------------------------------------------------ #
 

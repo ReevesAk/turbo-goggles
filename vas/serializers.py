@@ -35,8 +35,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
 
-        user = self.context["request"].user  # get logged in user
-
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
         validated_data.pop("use_cashback", None)
