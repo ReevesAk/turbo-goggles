@@ -3,7 +3,6 @@ from .views import (
     AirTimeTopUp,
     DataSubscriptionView,
     GetDataPlans,
-    GetPaymentCategoriesView,
     BillPaymentCategoriesView,
     BillersCategoriesView,
     VerifyBillerAccountView,
@@ -20,7 +19,7 @@ urlpatterns = [
         name="airtime_topup",
     ),
     path(
-        "get-productIds/<str:phone_number>/",
+        "get-productIds/<str:network>/",
         GetDataPlans.as_view(),
         name="variation_codes",
     ),

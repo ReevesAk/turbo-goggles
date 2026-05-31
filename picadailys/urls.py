@@ -59,6 +59,8 @@ urlpatterns = [
     path("v1/self_service/", include("self_service.urls")),
     # Providus banking endpoints.
     path("v1/banking/", include("banking.urls")),
+    # Treasury (Anchor) endpoints.
+    path("v1/treasury/", include("treasury.urls")),
     # Support endpoints.
     path("v1/support/", include("support.urls")),
     # Waitlist endpoints.

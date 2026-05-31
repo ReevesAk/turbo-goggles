@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.core.cache import cache
 from gamification.models import StepCampaignModel
 from banking.models import WalletModel
+from treasury.models import TreasuryAccount
 
 
 @receiver(post_save, sender=StepCampaignModel)
@@ -24,4 +25,15 @@ def clear_wallet_list_cache(sender, **kwargs):
     whenever a new entry is created, updated, or deleted.
     """
     cache_key = "wallet_users_list"
+    cache.delete(cache_key)
+
+
+@receiver(post_save, sender=TreasuryAccount)
+@receiver(post_delete, sender=TreasuryAccount)
+def clear_treasury_account_list_cache(sender, **kwargs):
+    """
+    Automatically clears the cached list of treasury accounts
+    whenever a new entry is created, updated, or deleted.
+    """
+    cache_key = "treasury_accounts_list"
     cache.delete(cache_key)
