@@ -52,6 +52,11 @@ from .wallets import (
     UserKYCListView,
     UpgradeToTier3Wallet,
 )
+from .treasury import (
+    GetAllTreasuryAccounts,
+    TreasuryAccountSearch,
+    ChangeTreasuryAccountStatusView,
+)
 
 from .partners import (
     GetAllPartnersUsers,
@@ -244,6 +249,22 @@ urlpatterns = [
         "admin-dashboard-data",
         AdminDashboardDataView.as_view(),
         name="admin_dashboard_data",
+    ),
+    # Treasury account admin endpoints.
+    path(
+        "treasury/get-all-accounts",
+        GetAllTreasuryAccounts.as_view(),
+        name="get_all_treasury_accounts",
+    ),
+    path(
+        "treasury/change-account-status",
+        ChangeTreasuryAccountStatusView.as_view(),
+        name="change_treasury_account_status",
+    ),
+    path(
+        "treasury/<str:search_term>/",
+        TreasuryAccountSearch.as_view(),
+        name="treasury_account_search",
     ),
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
