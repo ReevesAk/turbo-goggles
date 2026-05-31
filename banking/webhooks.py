@@ -25,7 +25,7 @@ from .serializers import (
 )
 from accounts.models import UserNotification, User, TxModel
 from roles.models import ActivityModel
-from security import encrypt, decrypt
+from security import encrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 from decimal import Decimal
 from django.db import transaction

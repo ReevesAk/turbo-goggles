@@ -126,7 +126,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 debit_response is not None
                                 and debit_response.status_code == 200
                             ):
-                                create_ad = serializer.save()
+                                serializer.save()
 
                                 TxModel.objects.create(
                                     user=user,
@@ -185,7 +185,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         )
 
                 case "CARD":
-                    create_ad = serializer.save()
+                    serializer.save()
                     TxModel.objects.create(
                         user=user,
                         tx_reference=tx_reference,

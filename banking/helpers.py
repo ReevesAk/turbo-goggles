@@ -2,7 +2,6 @@ import requests
 import csv
 from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -192,7 +191,6 @@ class ExportStatement:
 
         styles = getSampleStyleSheet()
         brand_green = colors.HexColor("#2E7D32")
-        light_green = colors.HexColor("#E8F5E9")
         mid_grey = colors.HexColor("#757575")
         light_grey = colors.HexColor("#F5F5F5")
 

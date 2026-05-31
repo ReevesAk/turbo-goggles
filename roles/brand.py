@@ -8,7 +8,6 @@ from django.db.models import Count, Q
 from .serializers import (
     RestrictBrandAdSerializers,
     ListBrandAdSerializer,
-    ApproveAdSerializers,
 )
 from .models import RestrictBrandAdAccount, ActivityModel
 from adverts.models import CreateAd

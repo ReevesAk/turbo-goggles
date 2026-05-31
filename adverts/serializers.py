@@ -6,7 +6,6 @@ from django.utils import timezone
 from rest_framework import serializers
 
 # In projects imports.
-from accounts.models import User
 from .models import CreateAd, AdLocation, AdMedia
 
 logger = logging.getLogger(__name__)

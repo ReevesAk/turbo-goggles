@@ -62,6 +62,12 @@ class AnchorWebhookView(generics.GenericAPIView):
             return self._handle_credit(data, attributes)
         elif event_type in ("deposit_account.debit", "transaction.debit"):
             return self._handle_debit(data, attributes)
+        elif event_type == "customer.identification.approved":
+            return self._handle_kyc_approved(payload)
+        elif event_type == "customer.identification.rejected":
+            return self._handle_kyc_rejected(payload)
+        elif event_type == "customer.identification.error":
+            return self._handle_kyc_error(payload)
         else:
             logger.info("Unhandled Anchor webhook event: %s", event_type)
             return Response({"status": "ignored"}, status=status.HTTP_200_OK)
@@ -163,6 +169,122 @@ class AnchorWebhookView(generics.GenericAPIView):
             )
 
         logger.info("Anchor credit: acct=%s amount=₦%s", account.account_number, amount)
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+    def _get_kyc_customer_id(self, payload):
+        """Extract customer ID from Anchor's top-level KYC webhook payload."""
+        return (
+            payload.get("relationships", {})
+                   .get("customer", {})
+                   .get("data", {})
+                   .get("id")
+        )
+
+    def _handle_kyc_approved(self, payload):
+        customer_id = self._get_kyc_customer_id(payload)
+
+        account = TreasuryAccount.objects.filter(anchor_customer_id=customer_id).first()
+        if not account:
+            logger.warning("KYC approved webhook: no account for customer_id=%s", customer_id)
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+        user = account.user
+
+        # Determine which tier was pending — process the lowest pending tier first
+        if account.tier2_upgrade_status == "PENDING":
+            account.tier_level = 2
+            account.tier2_upgrade_status = "APPROVED"
+            account.save(update_fields=["tier_level", "tier2_upgrade_status"])
+            tier_label = "Tier 2"
+        elif account.tier3_upgrade_status == "PENDING":
+            account.tier_level = 3
+            account.tier3_upgrade_status = "APPROVED"
+            account.save(update_fields=["tier_level", "tier3_upgrade_status"])
+            tier_label = "Tier 3"
+        else:
+            logger.info("KYC approved webhook: no pending tier for customer=%s", customer_id)
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+        UserNotification.objects.create(
+            user=user,
+            title="KYC Approved",
+            message=f"Your account has been successfully upgraded to {tier_label}.",
+        )
+        ActivityModel.objects.create(
+            user=user,
+            title=f"KYC {tier_label} Approved",
+            description=f"{getattr(user, 'full_name', str(user))} KYC approved for {tier_label}.",
+        )
+
+        alert_type = getattr(user, "alert_type_choice", None)
+        if alert_type in ("SMS", "Both") and user.phone_number:
+            Messaging.send_sms(
+                phone_number=user.phone_number[1:],
+                msg=f"Your Picadailys account has been upgraded to {tier_label}. Enjoy higher limits!",
+            )
+        if alert_type in ("Email", "Both") and user.email:
+            html = render_to_string(
+                "empty_email.html",
+                {
+                    "custom_text": (
+                        f"Dear {user.first_name},<br><br>"
+                        f"Your KYC verification was successful and your account has been upgraded to <b>{tier_label}</b>."
+                    ),
+                    "support_email": "notifications@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+            Messaging.send_email(
+                email=user.email,
+                subject=f"Account Upgraded to {tier_label}",
+                html_content=html,
+                sender_email="notifications@picadailys.com",
+                body=f"Your account has been upgraded to {tier_label}.",
+            )
+
+        logger.info("KYC approved: customer=%s tier=%s", customer_id, tier_label)
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+    def _handle_kyc_rejected(self, payload):
+        customer_id = self._get_kyc_customer_id(payload)
+        reason = payload.get("attributes", {}).get("reason") or "Verification failed."
+
+        account = TreasuryAccount.objects.filter(anchor_customer_id=customer_id).first()
+        if not account:
+            logger.warning("KYC rejected webhook: no account for customer_id=%s", customer_id)
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+        user = account.user
+
+        if account.tier2_upgrade_status == "PENDING":
+            account.tier2_upgrade_status = "REJECTED"
+            account.save(update_fields=["tier2_upgrade_status"])
+            tier_label = "Tier 2"
+        elif account.tier3_upgrade_status == "PENDING":
+            account.tier3_upgrade_status = "REJECTED"
+            account.save(update_fields=["tier3_upgrade_status"])
+            tier_label = "Tier 3"
+        else:
+            logger.info("KYC rejected webhook: no pending tier for customer=%s", customer_id)
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+        UserNotification.objects.create(
+            user=user,
+            title="KYC Rejected",
+            message=f"Your {tier_label} KYC verification was rejected. {reason}",
+        )
+        ActivityModel.objects.create(
+            user=user,
+            title=f"KYC {tier_label} Rejected",
+            description=f"{getattr(user, 'full_name', str(user))} KYC rejected for {tier_label}: {reason}",
+        )
+
+        logger.warning("KYC rejected: customer=%s tier=%s reason=%s", customer_id, tier_label, reason)
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+    def _handle_kyc_error(self, payload):
+        customer_id = self._get_kyc_customer_id(payload)
+        logger.error("KYC error webhook: customer=%s payload=%s", customer_id, payload)
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
     def _handle_debit(self, data, attributes):

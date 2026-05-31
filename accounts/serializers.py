@@ -169,7 +169,6 @@ class ForgotPasswordSerializer(serializers.ModelSerializer):
         fields = ["phone_number"]
 
     def validate(self, attrs):
-        phone_number = attrs.get("phone_number")
         return attrs
 
 
@@ -183,7 +182,6 @@ class PasswordResendOTPSerializer(serializers.Serializer):
         fields = ["id", "phone_number"]
 
     def validate(self, attrs):
-        phone_number = attrs.get("phone_number")
         return attrs
 
 
@@ -197,8 +195,6 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         fields = ("user_id", "password", "password2")
 
     def validate(self, attrs):
-        user_id = attrs.get("user_id")
-        user = User.objects.get(id=user_id)
         return attrs
 
 

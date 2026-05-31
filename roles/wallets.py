@@ -31,7 +31,7 @@ from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
 
-from drf_spectacular.utils import extend_schema, OpenApiExample
+from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
 

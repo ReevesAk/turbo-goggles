@@ -1,11 +1,9 @@
 # Standard library imports
 import logging
-import time
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 # Third-party imports
-import schedule
 from celery import shared_task
 from django.template.loader import render_to_string
 from django.utils import timezone

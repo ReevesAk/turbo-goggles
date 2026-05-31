@@ -9,6 +9,10 @@ from .views import (
     PinVerifyOTP,
     ResetAccountPin,
     GetTreasuryCashbackBalance,
+    UpgradeTierTwoView,
+    UpgradeTierThreeView,
+    ListBeneficiariesView,
+    DeleteBeneficiaryView,
 )
 from .transfers import (
     ValidateTreasuryAccount,
@@ -32,6 +36,14 @@ urlpatterns = [
     path("create-account", CreateTreasuryAccount.as_view(), name="create_account"),
     path("account-details", GetTreasuryAccountDetails.as_view(), name="account_details"),
     path("get-cashback-balance", GetTreasuryCashbackBalance.as_view(), name="cashback_balance"),
+
+    # KYC tier upgrades
+    path("upgrade-tier2", UpgradeTierTwoView.as_view(), name="upgrade_tier2"),
+    path("upgrade-tier3", UpgradeTierThreeView.as_view(), name="upgrade_tier3"),
+
+    # Beneficiaries
+    path("beneficiaries", ListBeneficiariesView.as_view(), name="list_beneficiaries"),
+    path("beneficiaries/<int:pk>", DeleteBeneficiaryView.as_view(), name="delete_beneficiary"),
 
     # PIN management
     path("set-pin", SetAccountPin.as_view(), name="set_pin"),

@@ -19,8 +19,11 @@ from .serializers import (
     VerifyPinOTPSerializer,
     ResetAccountPinSerializer,
     TreasuryAccountDetailsSerializer,
+    UpgradeTier2Serializer,
+    UpgradeTier3Serializer,
+    TreasuryBeneficiarySerializer,
 )
-from .models import TreasuryAccount
+from .models import TreasuryAccount, TreasuryBeneficiary
 from .controllers import Anchor
 from .tasks import create_notification, create_activity
 from .helpers import Pin
@@ -212,9 +215,17 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
             resp_data["is_live_balance"] = False
             resp_data["live_enquiry_failed"] = True
 
-        resp_data["upgrade_status"] = account.tier2_upgrade_status
+        resp_data["tier2_upgrade_status"] = account.tier2_upgrade_status
+        resp_data["tier3_upgrade_status"] = account.tier3_upgrade_status
         resp_data["transfer_fee"] = "15.00"
         resp_data["vat"] = "1.13"
+
+        tier_limits = {
+            1: {"max_balance": 300000, "daily_deposit": 50000, "daily_transfer": 20000},
+            2: {"max_balance": 3000000, "daily_deposit": 500000, "daily_transfer": 100000},
+            3: {"max_balance": None, "daily_deposit": None, "daily_transfer": None},
+        }
+        resp_data["tier_limits"] = tier_limits.get(account.tier_level, tier_limits[1])
 
         return Response(
             data=encrypt({"status": "success", "message": "Account details retrieved.", "data": resp_data}),
@@ -485,6 +496,204 @@ class ResetAccountPin(generics.CreateAPIView):
 
         return Response(
             data=encrypt({"status": "success", "message": "PIN reset successfully."}),
+            status=status.HTTP_200_OK,
+        )
+
+
+class UpgradeTierTwoView(generics.GenericAPIView):
+    """
+    Submit BVN for Tier 2 KYC upgrade.
+    Tier 2 unlocks higher daily transaction limits per CBN guidelines.
+    """
+
+    serializer_class = UpgradeTier2Serializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        decrypted_payload = decrypt(request.data)
+        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+
+        try:
+            account = TreasuryAccount.objects.get(user=user)
+        except TreasuryAccount.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Treasury account not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if account.tier_level >= 2:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Account is already Tier 2 or above."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=payload)
+        if not serializer.is_valid():
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+        bvn = serializer.validated_data["bvn"]
+        date_of_birth = str(serializer.validated_data["date_of_birth"])  # "YYYY-MM-DD"
+        gender = serializer.validated_data["gender"]
+
+        if not account.anchor_customer_id:
+            return Response(
+                data=encrypt({"status": "fail", "message": "No Anchor customer linked to this account."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resp = Anchor.upgrade_tier2(account.anchor_customer_id, bvn, date_of_birth, gender)
+        if not resp or not Anchor.is_success(resp):
+            error_detail = ""
+            if resp:
+                try:
+                    error_detail = resp.json().get("errors", [{}])[0].get("detail", "")
+                except Exception:
+                    pass
+            logger.error("Anchor upgrade_tier2 failed for user %s: %s", user.id, getattr(resp, "text", "no response"))
+            return Response(
+                data=encrypt({"status": "fail", "message": error_detail or "BVN verification failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Anchor verifies asynchronously — status becomes PENDING until webhook confirms
+        account.tier2_upgrade_status = "PENDING"
+        account.save(update_fields=["tier2_upgrade_status"])
+
+        UserNotification.objects.create(
+            user=user,
+            title="KYC Verification",
+            message="Your BVN verification is being processed. You will be notified once approved.",
+        )
+        ActivityModel.objects.create(
+            user=user,
+            title="KYC Tier 2 Submitted",
+            description=f"{user.first_name} {user.last_name} submitted BVN for Tier 2 verification.",
+        )
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "message": "BVN verification submitted. Your account will be upgraded to Tier 2 once verified.",
+            }),
+            status=status.HTTP_200_OK,
+        )
+
+
+class UpgradeTierThreeView(generics.GenericAPIView):
+    """
+    Submit a government-issued ID for Tier 3 KYC upgrade (Anchor manual review).
+    Requires the account to already be at Tier 2.
+    Tier 3 unlocks full/unrestricted transaction limits.
+    """
+
+    serializer_class = UpgradeTier3Serializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        decrypted_payload = decrypt(request.data)
+        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+
+        try:
+            account = TreasuryAccount.objects.get(user=user)
+        except TreasuryAccount.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Treasury account not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if account.tier_level < 2:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Account must be Tier 2 before upgrading to Tier 3."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if account.tier_level >= 3:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Account is already Tier 3."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=payload)
+        if not serializer.is_valid():
+            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+        id_type = serializer.validated_data["id_type"]
+        id_number = serializer.validated_data["id_number"]
+
+        if not account.anchor_customer_id:
+            return Response(
+                data=encrypt({"status": "fail", "message": "No Anchor customer linked to this account."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resp = Anchor.upgrade_tier3(account.anchor_customer_id, id_type, id_number)
+        if not resp or not Anchor.is_success(resp):
+            error_detail = ""
+            if resp:
+                try:
+                    error_detail = resp.json().get("errors", [{}])[0].get("detail", "")
+                except Exception:
+                    pass
+            logger.error("Anchor upgrade_tier3 failed for user %s: %s", user.id, getattr(resp, "text", "no response"))
+            return Response(
+                data=encrypt({"status": "fail", "message": error_detail or "ID verification failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Anchor manually reviews Tier 3 — stays PENDING until webhook confirms
+        account.tier3_upgrade_status = "PENDING"
+        account.save(update_fields=["tier3_upgrade_status"])
+
+        UserNotification.objects.create(
+            user=user,
+            title="KYC Verification",
+            message="Your ID verification is under review. You will be notified once approved.",
+        )
+        ActivityModel.objects.create(
+            user=user,
+            title="KYC Tier 3 Submitted",
+            description=f"{user.first_name} {user.last_name} submitted {id_type} for Tier 3 verification.",
+        )
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "message": "ID verification submitted. Your account will be upgraded to Tier 3 once reviewed.",
+            }),
+            status=status.HTTP_200_OK,
+        )
+
+
+class ListBeneficiariesView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        beneficiaries = TreasuryBeneficiary.objects.filter(user=request.user).order_by("-created_at")
+        data = TreasuryBeneficiarySerializer(beneficiaries, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+class DeleteBeneficiaryView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        deleted, _ = TreasuryBeneficiary.objects.filter(user=request.user, pk=pk).delete()
+        if not deleted:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Beneficiary not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            data=encrypt({"status": "success", "message": "Beneficiary removed."}),
             status=status.HTTP_200_OK,
         )
 
