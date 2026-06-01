@@ -159,6 +159,17 @@ class InternalTransfer(generics.CreateAPIView):
         if not serializer.is_valid():
             return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
+        # Guard: beneficiary must be a Picadailys treasury account
+        beneficiary_acct_no = payload.get("beneficiary_account_number")
+        if not TreasuryAccount.objects.filter(account_number=beneficiary_acct_no).exists():
+            return Response(
+                data=encrypt({
+                    "status": "fail",
+                    "error": "Beneficiary account not found on Picadailys. Use external transfer for other banks.",
+                }),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         # Idempotency: return same result for duplicate requests
         existing_tx = TxModel.objects.filter(user=user, tx_reference=idempotency_key).first()
         if existing_tx:
