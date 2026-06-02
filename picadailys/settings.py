@@ -57,7 +57,6 @@ INSTALLED_APPS = [
     # Third party External Packages.
     "rest_framework",
     "drf_spectacular",
-    "drf_spectacular_sidecar",
     "rest_framework_simplejwt",
     "rest_framework.authtoken",
     "rest_framework_simplejwt.token_blacklist",
@@ -348,9 +347,6 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
-    "SWAGGER_UI_DIST": "SIDECAR",
-    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
-    "REDOC_DIST": "SIDECAR",
     'TITLE': 'Picadailys API Documentation',
     'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
     "online intermediary services with Value Added Services (VAS) and Self-Service options.",
