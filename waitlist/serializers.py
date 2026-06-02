@@ -37,7 +37,9 @@ class WaitlistSerialiser(serializers.ModelSerializer):
         # 2. Block exact or swapped name duplicates
         exists = (
             WaitlistModel.objects.filter(f_name__iexact=f, l_name__iexact=ln).exists()
-            or WaitlistModel.objects.filter(f_name__iexact=ln, l_name__iexact=f).exists()
+            or WaitlistModel.objects.filter(
+                f_name__iexact=ln, l_name__iexact=f
+            ).exists()
         )
         if exists:
             raise serializers.ValidationError(

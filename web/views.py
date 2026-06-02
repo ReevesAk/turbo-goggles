@@ -51,6 +51,7 @@ class CustomPageNumberPagination(PageNumberPagination):
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="Create a job posting", tags=["Web"])
 class CreateJob(generics.CreateAPIView):
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -108,6 +109,7 @@ class CreateJob(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="List all active job postings", tags=["Web"])
 class JobList(generics.ListAPIView):
     """
     List all active and non-expired job postings.
@@ -133,6 +135,7 @@ class JobList(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="Get job posting details", tags=["Web"])
 class JobDetail(generics.RetrieveAPIView):
     serializer_class = JobSerializer
     queryset = JobModel.objects.all()
@@ -149,6 +152,7 @@ class JobDetail(generics.RetrieveAPIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Update a job posting", tags=["Web"])
 class UpdateJob(generics.UpdateAPIView):
     serializer_class = JobSerializer
     queryset = JobModel.objects.all()
@@ -184,6 +188,7 @@ class UpdateJob(generics.UpdateAPIView):
         return Response(encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Delete a job posting", tags=["Web"])
 class DeleteJob(generics.DestroyAPIView):
     queryset = JobModel.objects.all()
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -210,6 +215,7 @@ class DeleteJob(generics.DestroyAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Submit a job application", tags=["Web"])
 class SubmitJobApplication(generics.CreateAPIView):
     """
     SubmitJobApplication handles the POST request of job applications to Picadailys.
@@ -334,6 +340,7 @@ class SubmitJobApplication(generics.CreateAPIView):
         self.uploaded_doc_url = doc_image["url"]
 
 
+@extend_schema(summary="List all applications for a specific job (admin)", tags=["Web"])
 class SingleJobApplicationsList(generics.ListAPIView):
     """
     List all applications for a specific job (Admin only).
@@ -402,6 +409,7 @@ class SingleJobApplicationsList(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="Delete a job application by ID", tags=["Web"])
 class DeleteJobApplication(generics.DestroyAPIView):
     """
     Deletes a single job application entry by ID.
@@ -451,6 +459,7 @@ class DeleteJobApplication(generics.DestroyAPIView):
             )
 
 
+@extend_schema(summary="Get all job applications by email", tags=["Web"])
 class JobApplicationDetail(generics.ListAPIView):
     serializer_class = ApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -483,6 +492,7 @@ class JobApplicationDetail(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="List all job applications", tags=["Web"])
 class JobApplicationList(generics.ListAPIView):
     """
     List all job applications.
@@ -503,6 +513,7 @@ class JobApplicationList(generics.ListAPIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+@extend_schema(summary="Subscribe to the newsletter", tags=["Web"])
 class NewsletterSubscriptionView(generics.CreateAPIView):
     """
     NewsletterSubscriptionView handles the POST request to subscribe to the newsletter.
@@ -540,6 +551,7 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="Unsubscribe from the newsletter via token", tags=["Web"])
 class NewsletterUnsubscribeView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UnsubscribeNewsletterSerializer
@@ -575,6 +587,7 @@ class NewsletterUnsubscribeView(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="List all newsletter subscribers (admin)", tags=["Web"])
 class ListNewsletterSubscribersView(generics.ListAPIView):
     """
     List all newsletter subscribers.
@@ -602,6 +615,8 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
 
 
 @extend_schema(
+    summary="Submit a Contact Us enquiry",
+    tags=["Web"],
     request=ContactUsSerializer,
     examples=[
         OpenApiExample(
@@ -792,6 +807,9 @@ class ContactUsView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="List all Contact Us requests grouped by type (admin)", tags=["Web"]
+)
 class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
     """
     Lists all Contact-Us requests grouped by contact type.
@@ -826,6 +844,7 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
         return Response(encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Join the job application waitlist", tags=["Web"])
 class JoinApplicationWaitlist(generics.CreateAPIView):
     """
     JoinApplicationWaitlist handles the POST request of applications waitlist to Picadailys.
@@ -882,6 +901,9 @@ class JoinApplicationWaitlist(generics.CreateAPIView):
         self.uploaded_doc_url = doc_image["url"]
 
 
+@extend_schema(
+    summary="List all job application waitlist entries (admin)", tags=["Web"]
+)
 class WaitlistApplicationList(generics.ListAPIView):
     """
     List all Waitlist applications.

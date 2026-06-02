@@ -60,6 +60,7 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="Get all supported banks and their codes", tags=["Banking"])
 class GetAllBanks(APIView):
     """
     GetAllBanks handles the GET request of retrieving all available financial
@@ -108,6 +109,7 @@ class GetAllBanks(APIView):
             )
 
 
+@extend_schema(summary="Validate a 9PSB wallet account number", tags=["Banking"])
 class Get9PSBWallet(generics.GenericAPIView):
     """
     Get9PSBWallet handles the GET request of validating supplied account number
@@ -177,6 +179,7 @@ class Get9PSBWallet(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Validate an account at another bank", tags=["Banking"])
 class ValidateAccountOfOtherBank(generics.GenericAPIView):
     """
     ValidateAccountOfOtherBank handles the GET request of validating supplied account number
@@ -237,6 +240,9 @@ class ValidateAccountOfOtherBank(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Transfer funds to another Picadailys user (intra-bank)", tags=["Banking"]
+)
 class IntraBankTransfer(generics.CreateAPIView):
     """
     IntraBankTransfer handles the POST request of transferring funds to other
@@ -530,6 +536,9 @@ class IntraBankTransfer(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="Get remaining free intra-bank transfer count for today", tags=["Banking"]
+)
 class IntraBankFreeTransferCount(APIView):
     """
     Returns how many free intra-bank transfers remain today for a given beneficiary.
@@ -577,6 +586,9 @@ class IntraBankFreeTransferCount(APIView):
         )
 
 
+@extend_schema(
+    summary="Transfer funds to another bank (inter-bank NIP)", tags=["Banking"]
+)
 class InterBankTransfer(generics.CreateAPIView):
     """
     InterBankTransfer handles the POST request of transferring funds to other
@@ -862,6 +874,7 @@ class InterBankTransfer(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Get inter-bank transfer status by reference", tags=["Banking"])
 class TransactionStatus(generics.GenericAPIView):
     """
     TransactionStatus handles the GET request of validating the supplied single
@@ -935,6 +948,9 @@ class TransactionStatus(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Generate Paystack checkout URL to fund with card", tags=["Banking"]
+)
 class PayWithCard(generics.CreateAPIView):
     """
     PayWithCard handles the POST request of funding your activities on Picadailys with Card.
@@ -1068,6 +1084,9 @@ class PayWithCard(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="Credit wallet after confirmed Paystack card payment", tags=["Banking"]
+)
 class FundWallet(generics.GenericAPIView):
     """
     FundWallet handles the POST request of funding your Picadailys wallet with Card.
@@ -1075,7 +1094,6 @@ class FundWallet(generics.GenericAPIView):
 
     serializer_class = FundWalletSerializers
 
-    @extend_schema(exclude=True)
     def post(self, request):
         user_data = decrypt(request.data)
         logger.info("FundWallet request initiated with data: %s", user_data)

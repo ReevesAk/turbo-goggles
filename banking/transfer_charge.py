@@ -28,9 +28,6 @@ class TransferCharge:
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
 
-        merchant_fee_total = (MERCHANT_FEE + vat_on_merchant).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
         combined_fee = TRANSFER_FEE + MERCHANT_FEE
         combined_vat = vat_on_transfer + vat_on_merchant
         total_charges = combined_fee + combined_vat
@@ -44,5 +41,4 @@ class TransferCharge:
             "vat": str(combined_vat.quantize(Decimal("0.01"))),
             "total_charges": str(total_charges.quantize(Decimal("0.01"))),
             "total": str(total),
-            "merchant_fee_total": str(merchant_fee_total),
         }

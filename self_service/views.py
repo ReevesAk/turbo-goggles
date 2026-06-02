@@ -8,6 +8,8 @@ from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 
 from .serializers import (
     RestaurantBookingSerializers,
@@ -54,6 +56,7 @@ class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 
+@extend_schema(summary="Book a restaurant table", tags=["Self Service"])
 class TableBooking(generics.CreateAPIView):
     serializer_class = RestaurantBookingSerializers
     authentication_classes = [JWTAuthentication]
@@ -260,6 +263,9 @@ class TableBooking(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="List all restaurant bookings for the user", tags=["Self Service"]
+)
 class TableBookingList(generics.ListAPIView):
     """TableBookingList lists all restaurant bookings."""
 
@@ -297,6 +303,9 @@ class TableBookingList(generics.ListAPIView):
         return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Get details of a specific restaurant booking", tags=["Self Service"]
+)
 class TableBookingDetail(generics.RetrieveAPIView):
     """
     TableBookingDetail retrieves a specific restaurant table booking for the authenticated user.
@@ -327,6 +336,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Book a gym subscription", tags=["Self Service"])
 class GymBooking(generics.CreateAPIView):
     serializer_class = GymSubcriptionSerializers
     authentication_classes = [JWTAuthentication]
@@ -528,6 +538,7 @@ class GymBooking(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="List all gym bookings for the user", tags=["Self Service"])
 class GymBookingList(generics.ListAPIView):
     """GymBookingList lists all gym bookings."""
 
@@ -565,6 +576,7 @@ class GymBookingList(generics.ListAPIView):
         return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Get details of a specific gym booking", tags=["Self Service"])
 class GymBookingDetail(generics.RetrieveAPIView):
     """
     GymBookingDetail retrieves a specific cinema booking for the authenticated user.
@@ -595,6 +607,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Book cinema seats", tags=["Self Service"])
 class CinemaBookingView(generics.CreateAPIView):
     serializer_class = CinemaBookingSerializers
     authentication_classes = [JWTAuthentication]
@@ -794,6 +807,7 @@ class CinemaBookingView(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="List all cinema bookings for the user", tags=["Self Service"])
 class CinemaBookingList(generics.ListAPIView):
     """CinemaBookingList lists all cinema bookings."""
 
@@ -831,6 +845,9 @@ class CinemaBookingList(generics.ListAPIView):
         return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Get details of a specific cinema booking", tags=["Self Service"]
+)
 class CinemaBookingDetail(generics.RetrieveAPIView):
     """
     CinemaBookingDetail retrieves a specific cinema booking for the authenticated user.
@@ -861,6 +878,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Book a courier service", tags=["Self Service"])
 class BookCourierSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
@@ -1063,6 +1081,7 @@ class BookCourierSercvice(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="List all courier bookings for the user", tags=["Self Service"])
 class CourierBookingList(generics.ListAPIView):
     """CourierBookingList lists all courier bookings."""
 
@@ -1098,6 +1117,9 @@ class CourierBookingList(generics.ListAPIView):
         return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Get details of a specific courier booking", tags=["Self Service"]
+)
 class CourierBookingDetail(generics.RetrieveAPIView):
     """
     CourierBookingDetail retrieves a specific courier booking for
@@ -1129,6 +1151,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Book a consumable service", tags=["Self Service"])
 class BookConsumableSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
     authentication_classes = [JWTAuthentication]
@@ -1284,6 +1307,9 @@ class BookConsumableSercvice(generics.CreateAPIView):
                 return Response(data=response_data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="List all consumable bookings for the user", tags=["Self Service"]
+)
 class ConsumableBookingList(generics.ListAPIView):
     """ConsumableBookingList lists all consumable bookings."""
 
@@ -1309,6 +1335,9 @@ class ConsumableBookingList(generics.ListAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Get details of a specific consumable booking", tags=["Self Service"]
+)
 class ConsumableBookingDetail(generics.RetrieveAPIView):
     """
     ConsumableBookingDetail retrieves a specific consumable booking for
@@ -1340,6 +1369,9 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
         return Response(serializer.data)
 
 
+@extend_schema(
+    summary="Book a land travel trip (one-way or round trip)", tags=["Self Service"]
+)
 class BookLandTrip(generics.GenericAPIView):
     """
     BookLandTrip is a POST request route for booking a land trip, one way or round trip.
@@ -1486,6 +1518,9 @@ class BookLandTrip(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    summary="Get details of a specific land trip booking", tags=["Self Service"]
+)
 class LandTripBookingDetail(generics.RetrieveAPIView):
     """
     LandTripBookingDetail retrieves a specific land trip booking for
@@ -1517,6 +1552,9 @@ class LandTripBookingDetail(generics.RetrieveAPIView):
         return Response(serializer.data)
 
 
+@extend_schema(
+    summary="List all land trip bookings for the user", tags=["Self Service"]
+)
 class LandTripBookingList(generics.ListAPIView):
     """LandTripBookingList lists all land travel bookings."""
 
@@ -1554,6 +1592,7 @@ class LandTripBookingList(generics.ListAPIView):
         return Response(data=encrypted, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Book a hotel room", tags=["Self Service"])
 class BookHotel(generics.GenericAPIView):
     """
     BookHotel is a POST request route for booking a hotel.
@@ -1727,6 +1766,7 @@ class BookHotel(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(summary="Rate a self-service booking", tags=["Self Service"])
 class ServiceRating(generics.GenericAPIView):
     """
     ServiceRating is the POST request that allows a customer to rate a
@@ -1816,6 +1856,9 @@ class ServiceRating(generics.GenericAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    summary="Get a self-service transaction by product tag", tags=["Self Service"]
+)
 class GetTransaction(generics.RetrieveAPIView):
     """
     GetTransaction is the GET request route used

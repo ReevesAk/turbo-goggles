@@ -12,6 +12,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 from .serializers import (
     TreasuryStatusSerializer,
     CreateTreasuryAccountSerializer,
@@ -34,6 +36,7 @@ from roles.models import ActivityModel
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="Create treasury account (Anchor)", tags=["Treasury"])
 class CreateTreasuryAccount(generics.GenericAPIView):
     """
     Create an Anchor customer + deposit account for the authenticated user.
@@ -171,6 +174,7 @@ class CreateTreasuryAccount(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Get treasury account details and live balance", tags=["Treasury"])
 class GetTreasuryAccountDetails(generics.GenericAPIView):
     """
     Return account details with live balance from Anchor.
@@ -233,6 +237,7 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Set treasury account PIN", tags=["Treasury"])
 class SetAccountPin(generics.CreateAPIView):
     """
     Set a PIN for the treasury account (first time).
@@ -309,6 +314,7 @@ class SetAccountPin(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="Send OTP to reset forgotten treasury account PIN", tags=["Treasury"])
 class ForgotAccountPin(generics.GenericAPIView):
     """
     Send an OTP to initiate PIN reset.
@@ -360,6 +366,7 @@ class ForgotAccountPin(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Resend OTP for treasury PIN reset", tags=["Treasury"])
 class PinResendOTP(generics.GenericAPIView):
     """
     Resend OTP for PIN reset.
@@ -404,6 +411,7 @@ class PinResendOTP(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Verify OTP for treasury PIN reset", tags=["Treasury"])
 class PinVerifyOTP(generics.GenericAPIView):
     """
     Verify OTP submitted during PIN reset.
@@ -441,6 +449,7 @@ class PinVerifyOTP(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Reset treasury account PIN", tags=["Treasury"])
 class ResetAccountPin(generics.CreateAPIView):
     """
     Reset account PIN after OTP verification.
@@ -500,6 +509,7 @@ class ResetAccountPin(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="Submit BVN for treasury Tier 2 KYC upgrade", tags=["Treasury"])
 class UpgradeTierTwoView(generics.GenericAPIView):
     """
     Submit BVN for Tier 2 KYC upgrade.
@@ -581,6 +591,7 @@ class UpgradeTierTwoView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Submit ID for treasury Tier 3 KYC upgrade", tags=["Treasury"])
 class UpgradeTierThreeView(generics.GenericAPIView):
     """
     Submit a government-issued ID for Tier 3 KYC upgrade (Anchor manual review).
@@ -668,6 +679,7 @@ class UpgradeTierThreeView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="List saved treasury beneficiaries", tags=["Treasury"])
 class ListBeneficiariesView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -681,6 +693,7 @@ class ListBeneficiariesView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Delete a saved treasury beneficiary", tags=["Treasury"])
 class DeleteBeneficiaryView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -698,6 +711,7 @@ class DeleteBeneficiaryView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Get treasury account cashback balance", tags=["Treasury"])
 class GetTreasuryCashbackBalance(generics.GenericAPIView):
     """
     Return the cached cashback balance on the treasury account.

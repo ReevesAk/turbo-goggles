@@ -56,6 +56,8 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from drf_spectacular.utils import extend_schema
+
 from .models import ADMIN_TYPES
 
 from cloudinary import uploader as cloud
@@ -87,6 +89,7 @@ class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 
+@extend_schema(summary="Register the super admin account", tags=["Roles"])
 class RegisterSuperAdmin(generics.GenericAPIView):
     """
     RegisterSuperAdmin handles the POST request of registering a superuser,
@@ -184,6 +187,7 @@ class RegisterSuperAdmin(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Admin login", tags=["Roles"])
 class LoginAdmin(APIView):
     """LoginAPIView handles the POST request of logging in
     a verified user with valid login credentials.
@@ -347,6 +351,7 @@ class LoginAdmin(APIView):
             )
 
 
+@extend_schema(summary="Add an FMCG product", tags=["Roles"])
 class AddProduct(generics.GenericAPIView):
     """
     AddProduct is the POST request that handles the creation
@@ -456,6 +461,7 @@ class AddProduct(generics.GenericAPIView):
         self.uploaded_doc_url = document["url"]
 
 
+@extend_schema(summary="Add an FMCG pickup address", tags=["Roles"])
 class AddAddress(generics.GenericAPIView):
     """
     AddAddress is the POST request that handles the updating of
@@ -528,6 +534,7 @@ class AddAddress(generics.GenericAPIView):
             return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(summary="Create a new admin user", tags=["Roles"])
 class AddAdmin(generics.CreateAPIView):
     """
     Create a new admin.
@@ -645,6 +652,7 @@ class AddAdmin(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Complete admin account signup", tags=["Roles"])
 class AdAdminContd(generics.UpdateAPIView):
     """
     AdAdminContd is a POST request that handles the admin signup completion.
@@ -761,6 +769,7 @@ class AdAdminContd(generics.UpdateAPIView):
             )
 
 
+@extend_schema(summary="Set admin PIN", tags=["Roles"])
 class SetAdminPin(generics.CreateAPIView):
     """
     SetWalletPin handles the POST request of creating a pin for a
@@ -837,6 +846,7 @@ class SetAdminPin(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Send OTP for staff forgotten password", tags=["Roles"])
 class StaffForgotPassword(generics.GenericAPIView):
 
     serializer_class = StaffForgotPasswordSerializer
@@ -924,6 +934,7 @@ class StaffForgotPassword(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(summary="Resend OTP for staff password reset", tags=["Roles"])
 class StaffPasswordResendOTP(generics.GenericAPIView):
     """
     StaffPasswordResendOTP handles the POST request of resending an
@@ -998,6 +1009,7 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Verify OTP for staff password reset", tags=["Roles"])
 class StaffEmailVerifyOTP(generics.GenericAPIView):
     """
     StaffEmailVerifyOTP handles the POST request of verifying a
@@ -1094,6 +1106,7 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Reset staff account password", tags=["Roles"])
 class StaffResetPassword(generics.CreateAPIView):
     serializer_class = StaffResetPasswordSerializer
 
@@ -1156,6 +1169,7 @@ class StaffResetPassword(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Send OTP for admin forgotten PIN", tags=["Roles"])
 class AdminForgotPin(generics.GenericAPIView):
     """
     AdminForgotPin handles the POST request of sending a
@@ -1229,6 +1243,7 @@ class AdminForgotPin(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(summary="Verify OTP for admin PIN reset", tags=["Roles"])
 class PinVerifyOTP(generics.GenericAPIView):
     """
     PinVerifyOTP handles the POST request of verifying an admin
@@ -1327,6 +1342,7 @@ class PinVerifyOTP(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Reset admin PIN", tags=["Roles"])
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
 
@@ -1390,6 +1406,7 @@ class ResetPin(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Add a role to an admin user", tags=["Roles"])
 class AddRoleToAdmin(generics.GenericAPIView):
     serializer_class = AddRoleToAdminSerializer
     authentication_classes = [JWTAuthentication]
@@ -1519,6 +1536,7 @@ class AddRoleToAdmin(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Remove a role from an admin user", tags=["Roles"])
 class RemoveAdminRole(generics.GenericAPIView):
     serializer_class = RemoveRoleFromAdminSerializer
     authentication_classes = [JWTAuthentication]
@@ -1650,6 +1668,7 @@ class RemoveAdminRole(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Disable an admin user account", tags=["Roles"])
 class DisableAdminrole(generics.RetrieveUpdateAPIView):
     """
     DisableAdminrole handles the POST request of disabling
@@ -1774,6 +1793,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
             )
 
 
+@extend_schema(summary="Re-enable a disabled admin user account", tags=["Roles"])
 class EnableAdminrole(generics.RetrieveUpdateAPIView):
     """
     EnableAdminrole handles the POST request of re-enabling
@@ -1900,6 +1920,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
             )
 
 
+@extend_schema(summary="Delete an admin user", tags=["Roles"])
 class DeleteAdmin(generics.GenericAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
@@ -2039,6 +2060,7 @@ class DeleteAdmin(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="List all verified users", tags=["Roles"])
 class VerifiedUsersCount(generics.ListAPIView):
     """
     VerifiedUsersCount is the GET request to retrieve the count
@@ -2072,6 +2094,7 @@ class VerifiedUsersCount(generics.ListAPIView):
             )
 
 
+@extend_schema(summary="List all verified partner users", tags=["Roles"])
 class VerifiedPartnersCount(generics.ListAPIView):
     """
     VerifiedPartnersCount is the GET request to retrieve the count
@@ -2105,6 +2128,7 @@ class VerifiedPartnersCount(generics.ListAPIView):
             )
 
 
+@extend_schema(summary="List all promoted brand ad users", tags=["Roles"])
 class VerifiedBrandAdsCount(generics.ListAPIView):
     """
     VerifiedBrandAdsCount is the GET request to retrieve the count
@@ -2156,6 +2180,7 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
             )
 
 
+@extend_schema(summary="List all admin users", tags=["Roles"])
 class GetAllAdminUsers(generics.ListAPIView):
     """
     GetAllAdminUsers is the GET request to retrieve the count
@@ -2230,6 +2255,7 @@ class GetAllAdminUsers(generics.ListAPIView):
             )
 
 
+@extend_schema(summary="List admin users grouped by role type", tags=["Roles"])
 class GetAllAdminUsersTypes(generics.ListAPIView):
     """
     GetAllAdminUsersTypes is the GET request to retrieve the count
@@ -2285,6 +2311,7 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="List all wallet statuses", tags=["Roles"])
 class GetAllWalletStatus(generics.ListAPIView):
     """
     GetAllWalletStatus is the GET request to retrieve the status
@@ -2311,6 +2338,7 @@ class GetAllWalletStatus(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="List all wallet admin users", tags=["Roles"])
 class GetAllWalletAdminUsers(generics.ListAPIView):
     """
     GetAllWalletAdminUsers is the GET request to retrieve the count
@@ -2357,6 +2385,7 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
             return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Switch active admin role", tags=["Roles"])
 class SwitchRoles(generics.RetrieveAPIView):
     """
     SwitchRoles is the PUT request method for updating and switching
@@ -2468,6 +2497,7 @@ class SwitchRoles(generics.RetrieveAPIView):
             )
 
 
+@extend_schema(summary="Get admin profile image", tags=["Roles"])
 class GetProfileImage(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -2496,6 +2526,7 @@ class GetProfileImage(generics.RetrieveAPIView):
             )
 
 
+@extend_schema(summary="List all app (non-admin) activity logs", tags=["Roles"])
 class GetAllAppActivites(generics.ListAPIView):
     """
     GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
@@ -2585,6 +2616,7 @@ class GetAllAppActivites(generics.ListAPIView):
         return Response(data=response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="List all admin activity logs", tags=["Roles"])
 class GetAllAdminActivites(generics.ListAPIView):
     """
     GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
@@ -2671,6 +2703,7 @@ class GetAllAdminActivites(generics.ListAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Get a single activity log by ID", tags=["Roles"])
 class GetSingleAdminActivity(generics.RetrieveAPIView):
     """
     GetSingleAdminActivity is the GET request handler that allows a SuperAdmin to
@@ -2773,6 +2806,9 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
             )
 
 
+@extend_schema(
+    summary="List all activity logs for a specific admin user", tags=["Roles"]
+)
 class GetAllSingleAdminUserActivity(generics.ListAPIView):
     """
     GetAllSingleAdminUserActivity is the GET request handler that allows a SuperAdmin to
@@ -2876,6 +2912,7 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="List available admin role types", tags=["Roles"])
 class AdminTypesListView(APIView):
     """
     AdminTypesListView is the GET request handler that returns a list of admin types.
@@ -2900,6 +2937,7 @@ class AdminTypesListView(APIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="List all unique activity log titles", tags=["Roles"])
 class ActivityTitleListView(APIView):
     """
     Retrieve all unique activity titles.
@@ -2972,6 +3010,7 @@ class ActivityTitleListView(APIView):
             )
 
 
+@extend_schema(summary="Get admin dashboard summary data", tags=["Roles"])
 class AdminDashboardDataView(APIView):
     serializer_class = AdminDdashboardDataSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]

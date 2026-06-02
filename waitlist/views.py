@@ -31,6 +31,7 @@ WAITLIST_TARGET = 1000
 WAITLIST_REWARD = 500
 
 
+@extend_schema(summary="Join or check beta waitlist", tags=["Waitlist"])
 class JoinBetaUserWaitList(generics.GenericAPIView):
     """
     JoinBetaUserWaitList handles the POST request method of
@@ -145,6 +146,7 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Get waitlist user dashboard by email", tags=["Waitlist"])
 class WaitlistDashboardView(APIView):
     """Returns a waitlist user's details by email."""
 
@@ -263,6 +265,9 @@ class WaitlistPagination(PageNumberPagination):
     page_size = 20
 
 
+@extend_schema(
+    summary="List public waitlist users (limited details)", tags=["Waitlist"]
+)
 class PublicWaitlistListView(generics.ListAPIView):
     """Public list of waitlist users with limited details."""
 
@@ -301,6 +306,9 @@ class PublicWaitlistListView(generics.ListAPIView):
         )
 
 
+@extend_schema(
+    summary="List all waitlist users with full details (admin)", tags=["Waitlist"]
+)
 class AdminWaitlistListView(generics.ListAPIView):
     """Admin list of all waitlist users with full details. TaskAdmin & SuperAdmin only."""
 
@@ -348,6 +356,7 @@ class AdminWaitlistListView(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="Delete duplicate waitlist entries (admin)", tags=["Waitlist"])
 class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
     """
     Admin endpoint to delete all duplicate waitlist users (including swapped names).
@@ -377,6 +386,7 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Get top 5 referrers for the current week", tags=["Waitlist"])
 class WeeklyTopReferrersView(APIView):
     """
     WeeklyTopReferrersView is the GET request method that returns
@@ -429,6 +439,9 @@ class WeeklyTopReferrersView(APIView):
         )
 
 
+@extend_schema(
+    summary="Bulk delete waitlist users by email list (admin)", tags=["Waitlist"]
+)
 class BulkDeleteWaitlistUsers(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]

@@ -15,9 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-
-# from . import static
+from django.urls import path, include, reverse_lazy
+from django.views.generic import TemplateView
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -28,17 +27,21 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # Swagger UI endpoints documentations.
+    # OpenAPI schema
     path("v1/schema/", SpectacularAPIView.as_view(), name="schema"),
+    # Scalar — primary docs
     path(
-        "v1/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui",
+        "v1/scalar/",
+        TemplateView.as_view(
+            template_name="scalar.html",
+            extra_context={"schema_url": reverse_lazy("schema")},
+        ),
+        name="scalar-ui",
     ),
-    # Redoc UI endpoints documentations.
-    path(
-        "v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
-    ),
+    # Swagger UI (served locally via sidecar)
+    path("v1/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    # ReDoc fallback
+    path("v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # Account creation endpoint.
     path("v1/accounts/", include("accounts.urls")),
     # Partners endpoints.

@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     # Third party External Packages.
     "rest_framework",
     "drf_spectacular",
+    "drf_spectacular_sidecar",
     "rest_framework_simplejwt",
     "rest_framework.authtoken",
     "rest_framework_simplejwt.token_blacklist",
@@ -251,6 +252,7 @@ CONTENT_SECURITY_POLICY = {
     "EXCLUDE_URL_PREFIXES": [
         "/v1/docs/",
         "/v1/redoc/",
+        "/v1/scalar/",
     ],
     "DIRECTIVES": {
         "default-src": ["'self'"],
@@ -346,6 +348,9 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
     'TITLE': 'Picadailys API Documentation',
     'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
     "online intermediary services with Value Added Services (VAS) and Self-Service options.",
@@ -353,6 +358,14 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'ENABLE_DELETE_REQUEST_BODY': True,
+    'SCHEMA_PATH_PREFIX': r'/v1/',
+    'SORT_OPERATIONS': False,
+    'ENUM_GENERATE_CHOICE_DESCRIPTION': False,
+    'CAMELIZE_NAMES': False,
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'picadailys.schema_hooks.normalize_tags',
+    ],
     'TAGS': [
         {'name': 'KYC', 'description': 'Know Your Customer verification endpoints'},
         {'name': 'Wallet', 'description': 'Wallet management and operations'},

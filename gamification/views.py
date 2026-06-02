@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 # Create your views here.
+@extend_schema(summary="SSO login for NextBee gamification portal", tags=["Gamification"])
 class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
     """NextBeeGamificationLSSOLogin is the POST request handler for
     NextBee Gamification SSO login.
@@ -102,6 +103,7 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Join a step campaign", tags=["Gamification"])
 class JoinCampaignView(generics.CreateAPIView):
     """
     Allows a user to join a step campaign.
@@ -179,6 +181,7 @@ class JoinCampaignView(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="Add steps to an active campaign session", tags=["Gamification"])
 class AddStepsView(generics.UpdateAPIView):
     """
     Allows a user to add steps to their current campaign session.
@@ -336,6 +339,7 @@ class AddStepsView(generics.UpdateAPIView):
         )
 
 
+@extend_schema(summary="Get current status of a campaign session", tags=["Gamification"])
 class CampaignStatusView(generics.RetrieveAPIView):
     """
     Retrieves the current status of a user's campaign session.
@@ -465,6 +469,7 @@ class SubmitActivityImageView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Get member points summary from NextBee", tags=["Gamification"])
 class GetMemberPointsSummary(generics.GenericAPIView):
     """
     GetMemberPointsSummary is the GET request handler that allows a user to

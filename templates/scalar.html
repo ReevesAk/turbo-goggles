@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Picadailys API Docs</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script id="api-reference" data-url="{{ schema_url }}"></script>
+    <script>
+      document.getElementById('api-reference').dataset.configuration = JSON.stringify({
+        theme: 'purple',
+        layout: 'modern',
+        hideModels: true,
+        defaultHttpClient: { targetKey: 'python', clientKey: 'requests' }
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.72"></script>
+  </body>
+</html>

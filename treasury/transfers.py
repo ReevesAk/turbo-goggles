@@ -14,6 +14,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 from permissions import IsPartnerUserOrMember, IsBrandAd
 from commons import generate_txId, Messaging, Biometrics
 from security import encrypt, decrypt
@@ -41,6 +43,7 @@ def _generate_tx_id(prefix="TRX"):
     return f"{prefix}{timestamp}{rand}"
 
 
+@extend_schema(summary="Validate a Picadailys treasury account number", tags=["Treasury"])
 class ValidateTreasuryAccount(generics.GenericAPIView):
     """
     Look up another user's treasury account by account number.
@@ -82,6 +85,7 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="Validate an external bank account via Anchor NIP enquiry", tags=["Treasury"])
 class ValidateExternalAccount(generics.GenericAPIView):
     """
     NIP name enquiry for any Nigerian bank account via Anchor.
@@ -132,6 +136,7 @@ class ValidateExternalAccount(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Transfer between two treasury accounts (internal)", tags=["Treasury"])
 class InternalTransfer(generics.CreateAPIView):
     """
     Transfer between two treasury (Anchor sub-) accounts.
@@ -343,6 +348,7 @@ class InternalTransfer(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Send NIP transfer to any Nigerian bank via Anchor", tags=["Treasury"])
 class ExternalTransfer(generics.CreateAPIView):
     """
     NIP transfer to any Nigerian bank via Anchor payouts.
@@ -430,7 +436,6 @@ class ExternalTransfer(generics.CreateAPIView):
                     tx_reference=idempotency_key,
                     tx_type="External Transfer",
                     amount=charge["total"],
-                    vat=charge["vat"],
                     transfer_fee=charge["transfer_fee"],
                     description=payload.get("narration") or f"Transfer to {payload.get('beneficiary_account_number')}",
                     status="PENDING",
@@ -516,7 +521,7 @@ class ExternalTransfer(generics.CreateAPIView):
                             "credit_account": beneficiary_acct,
                             "debit_account": account.account_number,
                             "amount": charge["principal"],
-                            "vat": charge["vat"],
+                            "transfer_fee": charge["transfer_fee"],
                             "total": charge["total"],
                             "narration": payload.get("narration"),
                             "transactionReference": idempotency_key,
@@ -551,6 +556,7 @@ class ExternalTransfer(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Get remaining free internal transfer count for today", tags=["Treasury"])
 class InternalTransferFreeCount(APIView):
     """
     How many free internal transfers the user has made today.
@@ -583,6 +589,7 @@ class InternalTransferFreeCount(APIView):
         )
 
 
+@extend_schema(summary="Generate Paystack checkout URL for treasury card funding", tags=["Treasury"])
 class PayWithCard(generics.CreateAPIView):
     """
     Generate a Paystack checkout URL to fund the treasury account with a card.
@@ -635,6 +642,7 @@ class PayWithCard(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Credit treasury account after confirmed card payment", tags=["Treasury"])
 class FundTreasuryAccount(generics.GenericAPIView):
     """
     Credit the user's treasury account after a confirmed Paystack card payment.

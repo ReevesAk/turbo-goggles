@@ -61,6 +61,7 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="Switch active role to Member", tags=["User Profile"])
 class SwitchToMember(generics.RetrieveAPIView):
     """
     SwitchToMember is the PUT request method for updating and switching
@@ -71,10 +72,6 @@ class SwitchToMember(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        description="Switch to Member.",
-        responses={200: {"description": "Switch an account type to Member."}},
-    )
     def get_object(self):
         return self.request.user
 
@@ -151,6 +148,7 @@ class SwitchToMember(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Switch active role to Partner", tags=["User Profile"])
 class SwitchToPartner(generics.RetrieveAPIView):
     """
     SwitchToPartner is the PUT request method for updating and switching
@@ -161,10 +159,6 @@ class SwitchToPartner(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        description="Switch to Partner.",
-        responses={200: {"description": "Switch an account type to Partner."}},
-    )
     def get_object(self):
         return self.request.user
 
@@ -243,6 +237,7 @@ class SwitchToPartner(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Switch active role to BrandAd", tags=["User Profile"])
 class SwitchToBrandAd(generics.RetrieveAPIView):
     """
     SwitchToBrandAd is the PUT request method for updating and switching
@@ -253,10 +248,6 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        description="Switch to BrandAd.",
-        responses={200: {"description": "Switch an account type to BrandAd."}},
-    )
     def get_object(self):
         return self.request.user
 
@@ -335,6 +326,7 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Upload or update profile image", tags=["User Profile"])
 class ProfileImage(generics.UpdateAPIView):
     """
     Upload profile image.
@@ -392,6 +384,9 @@ class ProfileImage(generics.UpdateAPIView):
         )
 
 
+@extend_schema(
+    summary="Set preferred alert type (SMS, Email, or Both)", tags=["User Profile"]
+)
 class ChooseAlertTypeView(generics.GenericAPIView):
     """ChooseAlertTypeView is the POST request method that allows
     users to choose their preferred alert type.
@@ -431,6 +426,7 @@ class ChooseAlertTypeView(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Get authenticated user profile details", tags=["User Profile"])
 class GetUserDetails(generics.RetrieveAPIView):
     """User Detials"""
 
@@ -444,6 +440,7 @@ class GetUserDetails(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Update user profile", tags=["User Profile"])
 class UpdateUserProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
@@ -544,6 +541,7 @@ class UpdateUserProfile(generics.UpdateAPIView):
             )
 
 
+@extend_schema(summary="Change account password", tags=["User Profile"])
 class ChangePassword(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
     authentication_classes = [JWTAuthentication]
@@ -754,6 +752,7 @@ class ChangePassword(generics.UpdateAPIView):
 #             )
 
 
+@extend_schema(summary="Submit member onboarding survey", tags=["User Profile"])
 class PostMemberSurvey(generics.CreateAPIView):
     """
     PostMemberSurvey handles POST request of conducting member survey.
@@ -801,6 +800,9 @@ class PostMemberSurvey(generics.CreateAPIView):
         )
 
 
+@extend_schema(
+    summary="Delete a user account (super admin only)", tags=["User Profile"]
+)
 class DeleteUser(generics.DestroyAPIView):
     serializer_class = DeleteUserSerializer
     authentication_classes = [JWTAuthentication]
@@ -905,6 +907,7 @@ class DeleteUser(generics.DestroyAPIView):
             )
 
 
+@extend_schema(summary="Open the mystery reward box", tags=["Gamification"])
 class OpenRewardBox(generics.GenericAPIView):
     """
     OpenRewardBox is the GET request handler for opening the reward box.
@@ -914,10 +917,6 @@ class OpenRewardBox(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
-    @extend_schema(
-        description="Open Reward view",
-        responses={200: {"description": "Open reward box view"}},
-    )
     def get(self, request):
         user = request.user
         logger.info(
@@ -995,6 +994,9 @@ class OpenRewardBox(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Claim mystery box reward (airtime or data)", tags=["Gamification"]
+)
 class ClaimMysteryBoxGift(generics.GenericAPIView):
     """
     ClaimMysteryBoxGift is the GET request handler for allowing a
@@ -1134,6 +1136,7 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Add a product or service to favourites", tags=["User Profile"])
 class AddToFavourite(generics.CreateAPIView):
     """
     AddToFavourite is the POST request handler for allowing a
@@ -1249,6 +1252,9 @@ class AddToFavourite(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="List all favourites for the authenticated user", tags=["User Profile"]
+)
 class ListFavourites(generics.ListAPIView):
     """
     List all favourites for the authenticated user.
@@ -1271,6 +1277,7 @@ class ListFavourites(generics.ListAPIView):
         return queryset
 
 
+@extend_schema(summary="Retrieve a specific favourite by ID", tags=["User Profile"])
 class RetrieveFavourite(generics.RetrieveAPIView):
     """
     Retrieve a specific favourite by its ID.
@@ -1296,6 +1303,7 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     lookup_field = "id"
 
 
+@extend_schema(summary="Create a customer support ticket", tags=["User Profile"])
 class CustomerTicketCreation(generics.GenericAPIView):
     """
     CustomerTicketCreation is the POST request handler for allowing a
@@ -1369,6 +1377,9 @@ class CustomerTicketCreation(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="Rate a support agent after ticket resolution", tags=["User Profile"]
+)
 class RateAgentViewByCustomer(generics.GenericAPIView):
     serializer_class = AgentRatingSerializers
     authentication_classes = [JWTAuthentication]

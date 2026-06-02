@@ -43,6 +43,7 @@ from security import encrypt, decrypt
 logger = logging.getLogger("accounts")
 
 
+@extend_schema(summary="Register a new user", tags=["Accounts"])
 class Register(generics.GenericAPIView):
     """
     Register handles the POST request of registering a user,
@@ -197,6 +198,7 @@ class Register(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Verify OTP for new device", tags=["Accounts"])
 class DeviceVerificationOTP(generics.GenericAPIView):
     """
     DeviceVerificationOTP handles the POST request of verifying a
@@ -314,6 +316,7 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Verify phone OTP after registration", tags=["Accounts"])
 class PhoneVerifyOTP(generics.GenericAPIView):
     """
     PhoneVerifyOTP handles the POST request of verifying a
@@ -412,6 +415,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Verify OTP for password reset", tags=["Accounts"])
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
     """
     PasswordPhoneVerifyOTP handles the POST request of verifying a
@@ -510,6 +514,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Resend OTP to user", tags=["Accounts"])
 class ResendOTP(generics.GenericAPIView):
     """
     ResendOTP handles the POST request of resending an
@@ -567,6 +572,7 @@ class ResendOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Resend OTP for password reset", tags=["Accounts"])
 class PasswordResendOTP(generics.GenericAPIView):
     """
     PasswordResendOTP handles the POST request of resending an
@@ -649,6 +655,7 @@ class PasswordResendOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Login with password or biometrics", tags=["Accounts"])
 class Login(APIView):
     """
     LoginAPIView handles the POST request for logging in
@@ -874,6 +881,7 @@ class Login(APIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Send OTP for forgotten password", tags=["Accounts"])
 class ForgotPassword(generics.GenericAPIView):
     """
     ForgotPassword handles the POST request of sending a
@@ -957,6 +965,7 @@ class ForgotPassword(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(summary="Reset account password", tags=["Accounts"])
 class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
 
@@ -1080,15 +1089,12 @@ class ResetPassword(generics.CreateAPIView):
 #         return Response(data=encrypt_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Logout and blacklist refresh token", tags=["Accounts"])
 class Logout(APIView):
     serializer_class = LogoutSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(
-        description="Logout view",
-        responses={200: {"description": "Logout message"}},
-    )
     def post(self, request):
         decrypted_payload = decrypt(request.data)
         payload = {

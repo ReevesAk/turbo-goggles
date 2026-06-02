@@ -411,6 +411,7 @@ class VerifYNIN(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Create 9PSB wallet for user", tags=["Banking"])
 class CreateUserWallet(generics.GenericAPIView):
     """
     CreateUserWallet handles the POST request of creating a
@@ -606,6 +607,7 @@ class CreateUserWallet(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Upgrade wallet to Tier 2", tags=["Banking"])
 class UpgradeToTier2Wallet(generics.GenericAPIView):
     """UpgradeToTier2Wallet Handles the POST request upgrade of a wallet to Tier 2."""
 
@@ -753,6 +755,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Request wallet upgrade to Tier 3", tags=["Banking"])
 class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
     """RequestToUpgradeToTier3Wallet Handles the POST request to request upgrade of a wallet to Tier 3."""
 
@@ -852,6 +855,7 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Receive 9PSB transaction notification", tags=["Banking"])
 class NotificationView(generics.CreateAPIView):
     """
     NotificationView handles the POST request of receiving a
@@ -991,6 +995,7 @@ class NotificationView(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(summary="Get wallet account details and live balance", tags=["Banking"])
 class GetAccountDetails(generics.GenericAPIView):
     """
     GetAccountDetails handles the GET request of retrieving a
@@ -1053,6 +1058,7 @@ class GetAccountDetails(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Set wallet PIN", tags=["Banking"])
 class SetWalletPin(generics.CreateAPIView):
     """
     SetWalletPin handles the POST request of creating a pin for a
@@ -1140,6 +1146,7 @@ class SetWalletPin(generics.CreateAPIView):
             return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
 
+@extend_schema(summary="Send OTP to reset forgotten wallet PIN", tags=["Banking"])
 class ForgotWalletPin(generics.GenericAPIView):
     """
     ForgotWalletPin handles the POST request of sending a requeest to
@@ -1150,10 +1157,6 @@ class ForgotWalletPin(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
-    @extend_schema(
-        description="Forgot pin view",
-        responses={200: {"description": "Forgot wallet pin"}},
-    )
     def post(self, request):
         user = request.user
         phone_no = user.phone_number[1:]
@@ -1203,6 +1206,7 @@ class ForgotWalletPin(generics.GenericAPIView):
             return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
 
 
+@extend_schema(summary="Resend OTP for wallet PIN reset", tags=["Banking"])
 class PinResendOTP(generics.GenericAPIView):
     """
     PinResendOTP handles the POST request of resending an
@@ -1213,10 +1217,6 @@ class PinResendOTP(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
-    @extend_schema(
-        description="Resend Otp",
-        responses={200: {"description": "Resend otp"}},
-    )
     def post(self, request):
         user = request.user
         phone_number = user.phone_number[1:]
@@ -1261,6 +1261,7 @@ class PinResendOTP(generics.GenericAPIView):
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Verify OTP for wallet PIN reset", tags=["Banking"])
 class PinVerifyOTP(generics.GenericAPIView):
     """
     PinVerifyOTP handles the POST request of verifying an
@@ -1305,6 +1306,7 @@ class PinVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Reset wallet PIN", tags=["Banking"])
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
     authentication_classes = [JWTAuthentication]
@@ -1370,6 +1372,7 @@ class ResetPin(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="Refund a failed card transaction", tags=["Banking"])
 class RefundFailedCardTransaction(generics.GenericAPIView):
     """
     RefundFailedCardTransaction is the POST request handler that
@@ -1436,6 +1439,7 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Get cashback balance", tags=["Banking"])
 class GetCashbackBalance(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
@@ -1454,6 +1458,9 @@ class GetCashbackBalance(APIView):
         return Response(data=encrypt(response), status=200)
 
 
+@extend_schema(
+    summary="Generate and email account statement (CSV or PDF)", tags=["Banking"]
+)
 class GenerateAccountStatement(generics.GenericAPIView):
     """
     GenerateAccountStatement handles the GET request method for

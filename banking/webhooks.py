@@ -16,6 +16,8 @@ from rest_framework import generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
+from drf_spectacular.utils import extend_schema
+
 from .models import FundWithCard, WalletModel, AddressVerificationModel
 from .controllers import Transfers
 from .serializers import (
@@ -38,6 +40,7 @@ logger = logging.getLogger(__name__)
 secret_key = config("PAYSTACK_SECRET_KEY")
 
 
+@extend_schema(summary="9PSB webhook dispatcher", tags=["Webhooks"])
 class WebhookDispatcherView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         logger.info("Receiving a webhook from 9PSB.....")
@@ -61,6 +64,7 @@ class WebhookDispatcherView(generics.GenericAPIView):
         )
 
 
+@extend_schema(summary="9PSB inflow (credit) webhook", tags=["Webhooks"])
 class InflowsWebhookNotificationView(generics.CreateAPIView):
     serializer_class = TransferNotificationWebhookSerializer
 
@@ -335,6 +339,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="9PSB account upgrade webhook", tags=["Webhooks"])
 class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
     serializer_class = UpgradeNotificationWebhookSerializer
 
@@ -480,6 +485,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         return match.group(1) if match else None
 
 
+@extend_schema(summary="Paystack card deposit webhook", tags=["Webhooks"])
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         paystack_signature = request.headers.get("x-paystack-signature")
@@ -546,6 +552,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         )
 
 
+@extend_schema(summary="Verify card payment transaction status", tags=["Banking"])
 class VerifyCardPaymentTransaction(generics.GenericAPIView):
     """
     VerifyCardPaymentTransaction is the GET request handler that validates
@@ -645,6 +652,7 @@ class DojahRedirectingPageView(View):
         return HttpResponse("Address verification done, redirecting page...")
 
 
+@extend_schema(summary="Dojah address verification webhook", tags=["Webhooks"])
 class AddressVerificationWebhookView(generics.GenericAPIView):
     """
     AddressVerificationWebhookView handles POST webhooks from the address verification service.

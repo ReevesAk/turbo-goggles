@@ -11,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 # In project imports.
 from .serializers import (
     BrandAdProfileSerializers,
@@ -36,6 +38,9 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
+@extend_schema(
+    summary="Create brand ad and onboard as BrandAd user", tags=["Brand Ads"]
+)
 class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     serializer_class = CreateAdSerializers
     authentication_classes = [JWTAuthentication]
@@ -236,6 +241,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="List all BrandAd users", tags=["Brand Ads"])
 class ListAllBrandAdsUsers(generics.ListAPIView):
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
@@ -278,6 +284,9 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="List all ads created by the current BrandAd user", tags=["Brand Ads"]
+)
 class ListAllBrandAds(generics.ListAPIView):
     serializer_class = AdSerializers
     authentication_classes = [JWTAuthentication]
@@ -328,6 +337,7 @@ class ListAllBrandAds(generics.ListAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Get BrandAd profile details by email", tags=["Brand Ads"])
 class GetBrandAdDetails(generics.RetrieveAPIView):
     """Returns the profile details of a BrandAd user."""
 
@@ -387,6 +397,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         return Response(encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Update BrandAd profile", tags=["Brand Ads"])
 class UpdateBrandAdProfile(generics.UpdateAPIView):
     """Update brand_Ad Profile"""
 
@@ -434,6 +445,7 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
             )
 
 
+@extend_schema(summary="Get details of a single brand ad", tags=["Brand Ads"])
 class SingleAdDetailView(generics.RetrieveAPIView):
     """SingleAdDetailView is the GET request handler to get the details of a single
     brandAd of any authenticated Brand advertiser.
