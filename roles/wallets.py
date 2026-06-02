@@ -36,6 +36,9 @@ from drf_spectacular.utils import extend_schema
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    summary="List all wallet users with recent transactions", tags=["Banking"]
+)
 class GetallWalletUsers(generics.ListAPIView):
     """
     Retrieves all wallet users with their last 5 transactions.
@@ -101,6 +104,7 @@ class GetallWalletUsers(generics.ListAPIView):
         return Response(encrypt(data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Search wallets by account number or name", tags=["Banking"])
 class WalletSearch(generics.ListAPIView):
     """
     WalletSearch handles the GET request of searching
@@ -141,6 +145,7 @@ class WalletSearch(generics.ListAPIView):
         )
 
 
+@extend_schema(summary="Change the status of a wallet (admin)", tags=["Banking"])
 class ChangeWalletStatusView(generics.RetrieveAPIView):
     """
     ChangeWalletStatusView handles the POST request to change the status of a wallet.
@@ -230,6 +235,9 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
         )
 
 
+@extend_schema(
+    summary="List users with KYC and address verification records", tags=["KYC"]
+)
 class UserKYCListView(generics.ListAPIView):
     serializer_class = WalletKYCSerializer
     authentication_classes = [JWTAuthentication]
@@ -271,6 +279,8 @@ class UserKYCListView(generics.ListAPIView):
 
 
 @extend_schema(
+    summary="Upgrade wallet to Tier 3 (admin-initiated)",
+    tags=["Banking"],
     request={
         "multipart/form-data": {
             "type": "object",
@@ -281,7 +291,7 @@ class UserKYCListView(generics.ListAPIView):
                 "proofOfAddressVerification": {"type": "string", "format": "binary"},
             },
         }
-    }
+    },
 )
 class UpgradeToTier3Wallet(generics.GenericAPIView):
     """UpgradeToTier3Wallet Handles the POST request of sending a Tier 3 wallet upgrade."""

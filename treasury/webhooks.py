@@ -11,6 +11,8 @@ from django.template.loader import render_to_string
 from rest_framework import generics, status
 from rest_framework.response import Response
 
+from drf_spectacular.utils import extend_schema
+
 from .models import TreasuryAccount, TreasuryNotification, TreasuryCardFunding
 from .controllers import Anchor
 from .serializers import CardFundingSerializer
@@ -25,6 +27,7 @@ anchor_api_key = config("ANCHOR_API_KEY", default="")
 paystack_secret_key = config("PAYSTACK_SECRET_KEY", default="")
 
 
+@extend_schema(summary="Anchor webhook receiver (credit/debit/KYC events)", tags=["Webhooks"])
 class AnchorWebhookView(generics.GenericAPIView):
     """
     Handles Anchor webhook events for credit/debit on user sub-accounts.
@@ -318,6 +321,7 @@ class AnchorWebhookView(generics.GenericAPIView):
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Paystack webhook for treasury card deposits", tags=["Webhooks"])
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     """
     Handles Paystack webhook events for card deposits into treasury account.
@@ -364,6 +368,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         return Response({"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(summary="Verify treasury card payment transaction status", tags=["Treasury"])
 class VerifyCardPaymentTransaction(generics.GenericAPIView):
     """
     Verify the status of a Paystack card deposit by reference.

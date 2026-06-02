@@ -293,6 +293,43 @@ class Anchor:
             return None
 
     # ------------------------------------------------------------------ #
+    # Fees
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def charge_custom_fee(account_id, amount_naira, description="Platform fee"):
+        """
+        Charge a fee to a user's deposit account.
+        Amount settles into the organisation's Anchor revenue account.
+        POST /api/v1/fee/custom-fee
+        amount_naira is in naira — converted to kobo internally.
+        """
+        url = f"{anchor_base_url}/api/v1/fee/custom-fee"
+        payload = {
+            "data": {
+                "type": "CustomerFee",
+                "attributes": {
+                    "currency": "NGN",
+                    "amount": int(amount_naira * 100),  # kobo
+                    "description": description,
+                },
+                "relationships": {
+                    "account": {
+                        "data": {"type": "DepositAccount", "id": account_id}
+                    }
+                },
+            }
+        }
+        _log_request("charge_custom_fee", url, payload)
+        try:
+            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            _log_response("charge_custom_fee", resp)
+            return resp
+        except requests.RequestException as e:
+            logger.warning("Anchor charge_custom_fee ERROR: %s", e)
+            return None
+
+    # ------------------------------------------------------------------ #
     # KYC / Tier Upgrades
     # ------------------------------------------------------------------ #
 

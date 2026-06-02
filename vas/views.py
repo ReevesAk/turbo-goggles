@@ -48,6 +48,7 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="Purchase airtime for any Nigerian network", tags=["VAS"])
 class AirTimeTopUp(generics.GenericAPIView):
     """
     Handles POST requests for airtime purchase for service providers in Nigeria.
@@ -475,160 +476,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         reason="Airtime top-up failed.",
                     )
 
-                case "TREASURY":
-                    try:
-                        treasury_acct = TreasuryAccount.objects.get(user=user)
-                    except TreasuryAccount.DoesNotExist:
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "error": "Treasury account not found",
-                                }
-                            ),
-                            status=status.HTTP_404_NOT_FOUND,
-                        )
-
-                    if biometrics:
-                        if not Biometrics.authenticate(user.phone_number):
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "fail",
-                                        "error": "Biometric authentication failed",
-                                    }
-                                ),
-                                status=status.HTTP_401_UNAUTHORIZED,
-                            )
-                    elif treasury_acct.pin:
-                        pin_result = TreasuryPin.verify(
-                            user=user, pin=pin, hashed_pin=treasury_acct.pin
-                        )
-                        if isinstance(pin_result, Response):
-                            return pin_result
-                        if not pin_result:
-                            return Response(
-                                data=encrypt(
-                                    {"status": "fail", "error": "Invalid PIN"}
-                                ),
-                                status=status.HTTP_401_UNAUTHORIZED,
-                            )
-                    else:
-                        return Response(
-                            data=encrypt(
-                                {"status": "fail", "error": "Treasury PIN not set"}
-                            ),
-                            status=status.HTTP_404_NOT_FOUND,
-                        )
-
-                    purchase_amt = Decimal(str(amount))
-                    if treasury_acct.balance < purchase_amt:
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "error": "Insufficient treasury balance",
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    debit_resp = Anchor.internal_transfer(
-                        source_account_id=treasury_acct.anchor_account_id,
-                        destination_account_id=anchor_ops_account_id,
-                        amount_naira=float(purchase_amt),
-                        narration=f"Airtime purchase - {phone}",
-                        reference=Anchor.generate_reference("VAS"),
-                    )
-                    if not debit_resp or not Anchor.is_success(debit_resp):
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "error": "Failed to debit treasury account",
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    airtime_response = VTPass.airtime(
-                        serviceID=network,
-                        amount=amount,
-                        phone=phone,
-                        request_id=tx_reference,
-                    )
-                    vtpass_ok = airtime_response and VTPass.is_success(airtime_response)
-                    if not vtpass_ok and airtime_response:
-                        requery_resp = VTPass.requery(tx_reference)
-                        vtpass_ok = requery_resp and VTPass.is_success(requery_resp)
-
-                    if vtpass_ok:
-                        create_notification(
-                            user=user,
-                            title="Airtime purchase",
-                            message=f"Airtime purchase of {amount} naira on {phone} was successful.",
-                        )
-                        create_activity(
-                            user=user,
-                            title="Airtime purchase",
-                            description=f"{user.first_name} {user.last_name} purchased {amount} naira airtime on {phone}.",
-                        )
-                        try:
-                            with transaction.atomic():
-                                TxModel.objects.create(
-                                    user=user,
-                                    tx_reference=tx_reference,
-                                    tx_type="Airtime",
-                                    amount=amount,
-                                    description="Airtime purchase",
-                                )
-                                CashbackService.reward_cashback(
-                                    user=user,
-                                    amount=amount,
-                                    service="airtime",
-                                    tx_ref=tx_reference,
-                                )
-                        except Exception as e:
-                            logger.error(f"DB error on treasury airtime success: {e}")
-                        post_treasury_vas_update.delay(
-                            user_id=user.id,
-                            anchor_account_id=treasury_acct.anchor_account_id,
-                            amount_str=str(amount),
-                            tx_reference=tx_reference,
-                            service_type="AIRTIME",
-                            phone=phone,
-                            network=network,
-                            alert_type=getattr(user, "alert_type_choice", "Both"),
-                            phone_number=getattr(user, "phone_number", None),
-                            email=getattr(user, "email", None),
-                        )
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "success",
-                                    "message": f"Airtime purchase of {amount} was successful.",
-                                    "bonus balance": getattr(user, "welcome_bonus", 0),
-                                }
-                            ),
-                            status=status.HTTP_200_OK,
-                        )
-
-                    # VTPass failed — refund
-                    Anchor.internal_transfer(
-                        source_account_id=anchor_ops_account_id,
-                        destination_account_id=treasury_acct.anchor_account_id,
-                        amount_naira=float(purchase_amt),
-                        narration="Airtime refund - purchase failed",
-                        reference=Anchor.generate_reference("REFUND"),
-                    )
-                    return self._handle_airtime_failure(
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        airtime_response=airtime_response,
-                        reason="Airtime top-up failed.",
-                    )
-
+                # case "TREASURY": disabled — treasury VAS payments on hold
                 case _:
                     return Response(
                         data=encrypt(
@@ -644,6 +492,11 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Get data plans for a network provider",
+    description="Retrieve variation codes for a network provider. Pass the network name (e.g. mtn, glo, airtel, etisalat).",
+    tags=["VAS"],
+)
 class GetDataPlans(generics.RetrieveAPIView):
     serializer_class = VasStatusSerializer
 
@@ -721,6 +574,7 @@ class GetDataPlans(generics.RetrieveAPIView):
         )
 
 
+@extend_schema(summary="Subscribe to a mobile data bundle", tags=["VAS"])
 class DataSubscriptionView(generics.GenericAPIView):
     """
     DataSubscriptionView is a POST request handler for data
@@ -917,7 +771,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
-        if payment_option == "WALLET":
+        if payment_option != "CARD":
             try:
                 account = WalletModel.objects.get(user=user)
             except WalletModel.DoesNotExist:
@@ -1135,153 +989,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         reason="Data subscription failed.",
                     )
 
-            case "TREASURY":
-                try:
-                    treasury_acct = TreasuryAccount.objects.get(user=user)
-                except TreasuryAccount.DoesNotExist:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Treasury account not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                if biometrics:
-                    if not Biometrics.authenticate(user.phone_number):
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "error": "Biometric authentication failed",
-                                }
-                            ),
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                elif treasury_acct.pin:
-                    pin_result = TreasuryPin.verify(
-                        user=user, pin=pin, hashed_pin=treasury_acct.pin
-                    )
-                    if isinstance(pin_result, Response):
-                        return pin_result
-                    if not pin_result:
-                        return Response(
-                            data=encrypt({"status": "fail", "error": "Invalid PIN"}),
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Treasury PIN not set"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                purchase_amt = Decimal(str(amount))
-                if treasury_acct.balance < purchase_amt:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Insufficient treasury balance"}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                debit_resp = Anchor.internal_transfer(
-                    source_account_id=treasury_acct.anchor_account_id,
-                    destination_account_id=anchor_ops_account_id,
-                    amount_naira=float(purchase_amt),
-                    narration=f"Data purchase - {phone}",
-                    reference=Anchor.generate_reference("VAS"),
-                )
-                if not debit_resp or not Anchor.is_success(debit_resp):
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "error": "Failed to debit treasury account",
-                            }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                data_response = VTPass.data(
-                    serviceID=f"{network}-data",
-                    variation_code=product_id,
-                    amount=amount,
-                    phone=phone,
-                    request_id=tx_reference,
-                )
-                vtpass_ok = data_response and VTPass.is_success(data_response)
-                if not vtpass_ok and data_response:
-                    requery_resp = VTPass.requery(tx_reference)
-                    vtpass_ok = requery_resp and VTPass.is_success(requery_resp)
-
-                if vtpass_ok:
-                    create_notification(
-                        user=user,
-                        title="Data purchase",
-                        message=f"Data purchase of {amount} naira on {phone} was successful.",
-                    )
-                    create_activity(
-                        user=user,
-                        title="Data purchase",
-                        description=f"{user.first_name} {user.last_name} purchased {amount} naira data on {phone}.",
-                    )
-                    try:
-                        with transaction.atomic():
-                            TxModel.objects.create(
-                                user=user,
-                                tx_reference=tx_reference,
-                                tx_type="Data",
-                                amount=amount,
-                                description="Data purchase",
-                            )
-                            CashbackService.reward_cashback(
-                                user=user,
-                                amount=amount,
-                                service="data",
-                                tx_ref=tx_reference,
-                            )
-                    except Exception as e:
-                        logger.error(f"DB error on treasury data success: {e}")
-                    post_treasury_vas_update.delay(
-                        user_id=user.id,
-                        anchor_account_id=treasury_acct.anchor_account_id,
-                        amount_str=str(amount),
-                        tx_reference=tx_reference,
-                        service_type="DATA",
-                        phone=phone,
-                        network=network,
-                        alert_type=getattr(user, "alert_type_choice", "Both"),
-                        phone_number=getattr(user, "phone_number", None),
-                        email=getattr(user, "email", None),
-                    )
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "success",
-                                "message": f"Data purchase of {amount} was successful.",
-                                "bonus balance": getattr(user, "welcome_bonus", 0),
-                            }
-                        ),
-                        status=status.HTTP_200_OK,
-                    )
-
-                # VTPass failed — refund
-                Anchor.internal_transfer(
-                    source_account_id=anchor_ops_account_id,
-                    destination_account_id=treasury_acct.anchor_account_id,
-                    amount_naira=float(purchase_amt),
-                    narration="Data refund - purchase failed",
-                    reference=Anchor.generate_reference("REFUND"),
-                )
-                return self._handle_data_failure(
-                    user=user,
-                    phone=phone,
-                    amount=amount,
-                    data_response=data_response,
-                    reason="Data subscription failed.",
-                )
-
+            # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
                 data_response = VTPass.data(
                     serviceID=f"{network}-data",
@@ -1338,6 +1046,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
 
 
+@extend_schema(summary="Get service variations for a given VAS serviceID", tags=["VAS"])
 class GetPaymentCategoriesView(APIView):
     """
     Returns service variations for a given serviceID.
@@ -1376,6 +1085,7 @@ class GetPaymentCategoriesView(APIView):
         )
 
 
+@extend_schema(summary="Get bill payment categories for a serviceID", tags=["VAS"])
 class BillPaymentCategoriesView(APIView):
     """
     Returns service variations for a bill payment serviceID (e.g. dstv, gotv, ikeja-electric).
@@ -1411,6 +1121,7 @@ class BillPaymentCategoriesView(APIView):
         )
 
 
+@extend_schema(summary="Get biller categories for a serviceID", tags=["VAS"])
 class BillersCategoriesView(APIView):
     """
     Returns service variations for a biller serviceID.
@@ -1446,6 +1157,9 @@ class BillersCategoriesView(APIView):
         )
 
 
+@extend_schema(
+    summary="Verify a biller account (meter number or smart card)", tags=["VAS"]
+)
 class VerifyBillerAccountView(generics.GenericAPIView):
     """
     VerifyBillerAccountView is a POST request handler for verifying
@@ -1454,10 +1168,6 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
     serializer_class = VerifyBillerSerializer
 
-    @extend_schema(
-        description="Verify a biller account (meter number or smart card)",
-        responses={200: {"description": "Verify biller account"}},
-    )
     def post(self, request):
         decrypted_payload = decrypt(request.data)
         user_data = {
@@ -1541,6 +1251,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             )
 
 
+@extend_schema(summary="Pay electricity or cable TV bill", tags=["VAS"])
 class BillPaymentView(generics.GenericAPIView):
     """
     Unified BillPaymentView for both Electricity and Cable subscriptions.
@@ -1817,7 +1528,7 @@ class BillPaymentView(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
-        if payment_option == "WALLET":
+        if payment_option != "CARD":
             try:
                 account = WalletModel.objects.get(user=user)
             except WalletModel.DoesNotExist:
@@ -2075,177 +1786,7 @@ class BillPaymentView(generics.GenericAPIView):
                         reason="Bill payment failed.",
                     )
 
-            case "TREASURY":
-                try:
-                    treasury_acct = TreasuryAccount.objects.get(user=user)
-                except TreasuryAccount.DoesNotExist:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Treasury account not found"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                if biometrics:
-                    if not Biometrics.authenticate(user.phone_number):
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "error": "Biometric authentication failed",
-                                }
-                            ),
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                elif treasury_acct.pin:
-                    pin_result = TreasuryPin.verify(
-                        user=user, pin=pin, hashed_pin=treasury_acct.pin
-                    )
-                    if isinstance(pin_result, Response):
-                        return pin_result
-                    if not pin_result:
-                        return Response(
-                            data=encrypt({"status": "fail", "error": "Invalid PIN"}),
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                else:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Treasury PIN not set"}
-                        ),
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                purchase_amt = Decimal(str(amount))
-                if treasury_acct.balance < purchase_amt:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "error": "Insufficient treasury balance"}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                debit_resp = Anchor.internal_transfer(
-                    source_account_id=treasury_acct.anchor_account_id,
-                    destination_account_id=anchor_ops_account_id,
-                    amount_naira=float(purchase_amt),
-                    narration=f"Bill payment - {billerId}",
-                    reference=Anchor.generate_reference("VAS"),
-                )
-                if not debit_resp or not Anchor.is_success(debit_resp):
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "fail",
-                                "error": "Failed to debit treasury account",
-                            }
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                vas_response = VTPass.pay(
-                    serviceID=billerId,
-                    variation_code=itemId,
-                    amount=amount,
-                    phone=phone_number,
-                    request_id=tx_reference,
-                    billersCode=customerId,
-                )
-                vtpass_ok = vas_response and VTPass.is_success(vas_response)
-                if not vtpass_ok and vas_response:
-                    requery_resp = VTPass.requery(tx_reference)
-                    vtpass_ok = requery_resp and VTPass.is_success(requery_resp)
-
-                if vtpass_ok:
-                    create_notification(
-                        user=user,
-                        title="Bill Payment",
-                        message=f"Bill payment of {amount} naira was successful.",
-                    )
-                    create_activity(
-                        user=user,
-                        title="Bill Payment",
-                        description=f"{user.first_name} {user.last_name} made a bill payment of {amount} naira for {billerId}.",
-                    )
-                    try:
-                        with transaction.atomic():
-                            TxModel.objects.create(
-                                user=user,
-                                tx_reference=tx_reference,
-                                tx_type="Bill Payment",
-                                amount=amount,
-                                description="Bill Payment",
-                            )
-                            ValueAddedServices.objects.create(
-                                user=user,
-                                customerId=customerId,
-                                billerId=billerId,
-                                itemId=itemId,
-                                amount=amount,
-                                phone_number=phone_number,
-                                customerName=customerName,
-                                otherField=otherField,
-                                tx_reference=tx_reference,
-                            )
-                    except Exception as e:
-                        logger.error(f"DB error on treasury bill payment success: {e}")
-                    post_treasury_vas_update.delay(
-                        user_id=user.id,
-                        anchor_account_id=treasury_acct.anchor_account_id,
-                        amount_str=str(amount),
-                        tx_reference=tx_reference,
-                        service_type="BILL",
-                        phone=phone_number or customerName or customerId,
-                        network=None,
-                        alert_type=getattr(user, "alert_type_choice", "Both"),
-                        phone_number=getattr(user, "phone_number", None),
-                        email=getattr(user, "email", None),
-                    )
-                    vas_json = {}
-                    try:
-                        vas_json = (
-                            vas_response.json() if hasattr(vas_response, "json") else {}
-                        )
-                    except Exception:
-                        pass
-                    vas_content = (
-                        vas_json.get("content", {})
-                        if isinstance(vas_json, dict)
-                        else {}
-                    )
-                    vas_data = vas_content.get("transactions", vas_content)
-                    token = (
-                        vas_data.get("token") if isinstance(vas_data, dict) else None
-                    )
-                    response_data = {
-                        "status": "success",
-                        "message": f"Bill payment of {amount} was successful.",
-                        "bonus balance": getattr(user, "welcome_bonus", 0),
-                        "service_response": vas_data,
-                    }
-                    if token:
-                        response_data["token_details"] = token
-                        response_data["units_bought"] = vas_data.get("units", "")
-                    return Response(
-                        data=encrypt(response_data), status=status.HTTP_200_OK
-                    )
-
-                # VTPass failed — refund
-                Anchor.internal_transfer(
-                    source_account_id=anchor_ops_account_id,
-                    destination_account_id=treasury_acct.anchor_account_id,
-                    amount_naira=float(purchase_amt),
-                    narration=f"Bill refund - {billerId} failed",
-                    reference=Anchor.generate_reference("REFUND"),
-                )
-                return self._handle_failure(
-                    user=user,
-                    phone_number=phone_number,
-                    amount=amount,
-                    vas_response=vas_response,
-                    reason="Bill payment failed.",
-                )
-
+            # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
                 vas_response = VTPass.pay(
                     serviceID=billerId,

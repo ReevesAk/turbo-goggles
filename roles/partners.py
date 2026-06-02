@@ -20,6 +20,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from drf_spectacular.utils import extend_schema
+
 from accounts.models import User, AccountType, UserNotification
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
 
@@ -28,6 +30,7 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(summary="List all partner users", tags=["Partner Services"])
 class GetAllPartnersUsers(generics.ListAPIView):
     """
     GetAllAdminUsers is the GET request to retrieve the count
@@ -76,6 +79,7 @@ class GetAllPartnersUsers(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Restrict a partner account", tags=["Partner Services"])
 class RestrictPartnerAccountView(generics.CreateAPIView):
     """
     RestrictPartnerAccount is the POST requests that handles the
@@ -231,6 +235,9 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="List all services for a partner (admin view)", tags=["Partner Services"]
+)
 class AdminViewPartnerServiceList(generics.ListAPIView):
     """AdminViewPartnerServiceList lists all the services belonging to
     Partner whose email is passed in params.
@@ -287,6 +294,10 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
         )
 
 
+@extend_schema(
+    summary="Search partners by name, category, or business name",
+    tags=["Partner Services"],
+)
 class PartnerSearch(generics.ListAPIView):
     """
     PartnerSearch handles the GET request for searching

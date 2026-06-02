@@ -19,6 +19,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 from accounts.models import User, AccountType, UserNotification
 from permissions import (
     IsNotDisabled,
@@ -33,6 +35,7 @@ class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 
+@extend_schema(summary="Restrict a BrandAd account", tags=["Brand Ads"])
 class RestrictBrandAdAccountView(generics.CreateAPIView):
     """
     RestrictBrandAdAccount is the POST requests that handles the
@@ -170,6 +173,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             )
 
 
+@extend_schema(summary="List all BrandAd users (admin view)", tags=["Brand Ads"])
 class GetAllBrandAdUsers(generics.ListAPIView):
     """
     GetAllBrandAdUsers is the GET request to retrieve the count
@@ -220,6 +224,7 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(summary="Get ad statistics for a BrandAd user", tags=["Brand Ads"])
 class AdStatsView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
