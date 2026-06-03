@@ -31,15 +31,15 @@ urlpatterns = [
     path("v1/schema/", SpectacularAPIView.as_view(), name="schema"),
     # Scalar — primary docs
     path(
-        "v1/scalar/",
+        "v1/docs/",
         TemplateView.as_view(
             template_name="scalar.html",
             extra_context={"schema_url": reverse_lazy("schema")},
         ),
         name="scalar-ui",
     ),
-    # Swagger UI (served locally via sidecar)
-    path("v1/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    # Swagger UI
+    path("v1/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     # ReDoc fallback
     path("v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # Account creation endpoint.
