@@ -40,7 +40,10 @@ from .utility import (
     # send_token_to_guest_users,
 )
 
-from .controllers import VTPass
+from decouple import config
+from .helpers import VAS
+
+operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
 from .models import ValueAddedServices
 from commons import Pay, Biometrics, Messaging
 from security import encrypt, decrypt
@@ -206,7 +209,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
         tx_reference = (
-            idempotency_key if idempotency_key else VTPass.generate_request_id("PICA")
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
 
         # Extract fields
@@ -336,15 +339,87 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
         # Lock released — VTPass call proceeds without holding the DB lock
 
+        # Use bonus flow
+        if use_bonus:
+            if user and user.welcome_bonus >= float(amount):
+                token = VAS.authenticate()
+                if not token:
+                    return self._handle_airtime_failure(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        reason="VAS authentication failed.",
+                    )
+                airtime_response = VAS.airtime_topup(
+                    network=network,
+                    bearer_token=token,
+                    amount=amount,
+                    debitAccount=operational_account,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
+                )
+                if airtime_response is None:
+                    return self._handle_airtime_failure(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        reason="VAS service unavailable.",
+                    )
+                if VAS.is_success(airtime_response):
+                    return self._handle_airtime_success(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        network=network,
+                        tx_reference=tx_reference,
+                        cashback=cashback_used,
+                        account_number=account_number,
+                    )
+                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                if status_resp and VAS.is_success(status_resp):
+                    return self._handle_airtime_success(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        network=network,
+                        tx_reference=tx_reference,
+                        cashback=cashback_used,
+                        account_number=account_number,
+                    )
+                return self._handle_airtime_failure(
+                    user=user,
+                    phone=phone,
+                    amount=amount,
+                    airtime_response=airtime_response,
+                    reason="Airtime top-up failed.",
+                )
+            else:
+                return self._handle_airtime_failure(
+                    user=user,
+                    phone=phone,
+                    amount=amount,
+                    reason="Insufficient bonus balance.",
+                )
+
         try:
             match payment_option:
                 case "WALLET":
                     if not use_points and not use_cashback and not use_bonus:
-                        airtime_response = VTPass.airtime(
-                            serviceID=network,
+                        token = VAS.authenticate()
+                        if not token:
+                            return self._handle_airtime_failure(
+                                user=user,
+                                phone=phone,
+                                amount=amount,
+                                reason="VAS authentication failed.",
+                            )
+                        airtime_response = VAS.airtime_topup(
+                            network=network,
+                            bearer_token=token,
                             amount=amount,
-                            phone=phone,
-                            request_id=tx_reference,
+                            debitAccount=account_number,
+                            phone_number=phone,
+                            tx_ref=tx_reference,
                         )
                         if airtime_response is None:
                             return self._handle_airtime_failure(
@@ -353,7 +428,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 amount=amount,
                                 reason="VAS service unavailable.",
                             )
-                        if VTPass.is_success(airtime_response):
+                        if VAS.is_success(airtime_response):
                             return self._handle_airtime_success(
                                 user=user,
                                 phone=phone,
@@ -363,9 +438,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 cashback=cashback_used,
                                 account_number=account_number,
                             )
-                        # Fallback: confirm via requery
-                        requery_resp = VTPass.requery(tx_reference)
-                        if requery_resp and VTPass.is_success(requery_resp):
+                        # Fallback: confirm via status check
+                        status_resp = VAS.status(
+                            tx_ref=tx_reference, bearer_token=token
+                        )
+                        if status_resp and VAS.is_success(status_resp):
                             return self._handle_airtime_success(
                                 user=user,
                                 phone=phone,
@@ -384,11 +461,27 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                     # Hybrid: cashback/points cover full purchase
-                    airtime_response = VTPass.airtime(
-                        serviceID=network,
+                    token = VAS.authenticate()
+                    if not token:
+                        if cashback_used:
+                            CashbackService.refund_cashback(
+                                user=user, cashback_amount=cashback_used
+                            )
+                        if pts_used:
+                            Pay.refund_pts(user=user, naira_amount=pts_used)
+                        return self._handle_airtime_failure(
+                            user=user,
+                            phone=phone,
+                            amount=purchase_amount,
+                            reason="VAS authentication failed.",
+                        )
+                    airtime_response = VAS.airtime_topup(
+                        network=network,
+                        bearer_token=token,
                         amount=purchase_amount,
-                        phone=phone,
-                        request_id=tx_reference,
+                        debitAccount=operational_account,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
                     if airtime_response is None:
                         if cashback_used:
@@ -403,7 +496,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             amount=purchase_amount,
                             reason="VAS service unavailable.",
                         )
-                    if VTPass.is_success(airtime_response):
+                    if VAS.is_success(airtime_response):
                         return self._handle_airtime_success(
                             user=user,
                             phone=phone,
@@ -429,11 +522,22 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                 case "CARD":
-                    airtime_response = VTPass.airtime(
-                        serviceID=network,
+                    token = VAS.authenticate()
+                    if not token:
+                        return self._handle_airtime_failure(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            amount=amount,
+                            reason="VAS authentication failed.",
+                        )
+                    airtime_response = VAS.airtime_topup(
+                        network=network,
+                        bearer_token=token,
                         amount=amount,
-                        phone=phone,
-                        request_id=tx_reference,
+                        debitAccount=operational_account,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
                     if airtime_response is None:
                         return self._handle_airtime_failure(
@@ -443,7 +547,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             amount=amount,
                             reason="VAS service unavailable.",
                         )
-                    if VTPass.is_success(airtime_response):
+                    if VAS.is_success(airtime_response):
                         return self._handle_airtime_success(
                             user=user,
                             guest_id=guest_id,
@@ -454,9 +558,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                             cashback=cashback_used,
                             account_number=account_number,
                         )
-                    # Fallback: confirm via requery
-                    requery_resp = VTPass.requery(tx_reference)
-                    if requery_resp and VTPass.is_success(requery_resp):
+                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                    if status_resp and VAS.is_success(status_resp):
                         return self._handle_airtime_success(
                             user=user,
                             guest_id=guest_id,
@@ -525,20 +628,16 @@ class GetDataPlans(generics.RetrieveAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        service_id = f"{network}-data"
-        vas_response = VTPass.service_variations(serviceID=service_id)
-        if not vas_response:
+        token = VAS.authenticate()
+        if not token:
             return Response(
                 data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Failed to fetch data plans from VAS provider.",
-                    }
+                    {"status": "fail", "message": "VAS authentication failed."}
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
-        if vas_response.status_code != 200 or not VTPass.is_success(vas_response):
+        vas_response = VAS.dataplans(bearer_token=token, phone_number="")
+        if not vas_response or not VAS.is_success(vas_response):
             return Response(
                 data=encrypt(
                     {
@@ -745,7 +844,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         pts_used = Decimal("0")
 
         tx_reference = (
-            idempotency_key if idempotency_key else VTPass.generate_request_id("PICA")
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
 
         purchase_amount = int(amount) if amount else 0
@@ -771,9 +870,11 @@ class DataSubscriptionView(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
+        account_number = ""
         if payment_option != "CARD":
             try:
                 account = WalletModel.objects.get(user=user)
+                account_number = account.account_number
             except WalletModel.DoesNotExist:
                 return Response(
                     data=encrypt(
@@ -806,12 +907,22 @@ class DataSubscriptionView(generics.GenericAPIView):
         # Use bonus flow
         if use_bonus:
             if user and user.welcome_bonus >= float(amount):
-                data_response = VTPass.data(
-                    serviceID=f"{network}-data",
-                    variation_code=product_id,
+                token = VAS.authenticate()
+                if not token:
+                    return self._handle_data_failure(
+                        user=user,
+                        phone=phone,
+                        amount=amount,
+                        reason="VAS authentication failed.",
+                    )
+                data_response = VAS.data(
+                    network=network,
+                    bearer_token=token,
                     amount=amount,
-                    phone=phone,
-                    request_id=tx_reference,
+                    productId=product_id,
+                    debitAccount=operational_account,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
                 )
                 if data_response is None:
                     return self._handle_data_failure(
@@ -820,7 +931,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         amount=amount,
                         reason="VAS service unavailable.",
                     )
-                if VTPass.is_success(data_response):
+                if VAS.is_success(data_response):
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -830,9 +941,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         cashback=cashback_used,
                     )
-                # Fallback requery
-                requery_resp = VTPass.requery(tx_reference)
-                if requery_resp and VTPass.is_success(requery_resp):
+                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                if status_resp and VAS.is_success(status_resp):
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -899,12 +1009,22 @@ class DataSubscriptionView(generics.GenericAPIView):
         match payment_option:
             case "WALLET":
                 if not use_points and not use_cashback and not use_bonus:
-                    data_response = VTPass.data(
-                        serviceID=f"{network}-data",
-                        variation_code=product_id,
+                    token = VAS.authenticate()
+                    if not token:
+                        return self._handle_data_failure(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            reason="VAS authentication failed.",
+                        )
+                    data_response = VAS.data(
+                        network=network,
+                        bearer_token=token,
                         amount=amount,
-                        phone=phone,
-                        request_id=tx_reference,
+                        productId=product_id,
+                        debitAccount=account_number,
+                        phone_number=phone,
+                        tx_ref=tx_reference,
                     )
                     if data_response is None:
                         return self._handle_data_failure(
@@ -913,7 +1033,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                             amount=amount,
                             reason="VAS service unavailable.",
                         )
-                    if VTPass.is_success(data_response):
+                    if VAS.is_success(data_response):
                         return self._handle_data_success(
                             user=user,
                             phone=phone,
@@ -923,9 +1043,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                             tx_reference=tx_reference,
                             cashback=cashback_used,
                         )
-                    # Fallback requery
-                    requery_resp = VTPass.requery(tx_reference)
-                    if requery_resp and VTPass.is_success(requery_resp):
+                    # Fallback: confirm via status check
+                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                    if status_resp and VAS.is_success(status_resp):
                         return self._handle_data_success(
                             user=user,
                             phone=phone,
@@ -944,12 +1064,28 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
 
                 # Hybrid: cashback/points cover full purchase
-                data_response = VTPass.data(
-                    serviceID=f"{network}-data",
-                    variation_code=product_id,
+                token = VAS.authenticate()
+                if not token:
+                    if cashback_used:
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
+                    return self._handle_data_failure(
+                        user=user,
+                        phone=phone,
+                        amount=purchase_amount,
+                        reason="VAS authentication failed.",
+                    )
+                data_response = VAS.data(
+                    network=network,
+                    bearer_token=token,
                     amount=purchase_amount,
-                    phone=phone,
-                    request_id=tx_reference,
+                    productId=product_id,
+                    debitAccount=operational_account,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
                 )
                 if data_response is None:
                     if cashback_used:
@@ -964,7 +1100,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         amount=purchase_amount,
                         reason="VAS service unavailable.",
                     )
-                if VTPass.is_success(data_response):
+                if VAS.is_success(data_response):
                     return self._handle_data_success(
                         user=user,
                         phone=phone,
@@ -991,12 +1127,22 @@ class DataSubscriptionView(generics.GenericAPIView):
 
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
-                data_response = VTPass.data(
-                    serviceID=f"{network}-data",
-                    variation_code=product_id,
+                token = VAS.authenticate()
+                if not token:
+                    return self._handle_data_failure(
+                        user=user,
+                        guest_id=guest_id,
+                        phone=phone,
+                        amount=amount,
+                        reason="VAS authentication failed.",
+                    )
+                data_response = VAS.data(
+                    network=network,
+                    bearer_token=token,
                     amount=amount,
-                    phone=phone,
-                    request_id=tx_reference,
+                    productId=product_id,
+                    phone_number=phone,
+                    tx_ref=tx_reference,
                 )
                 if data_response is None:
                     return self._handle_data_failure(
@@ -1006,7 +1152,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         amount=amount,
                         reason="VAS service unavailable.",
                     )
-                if VTPass.is_success(data_response):
+                if VAS.is_success(data_response):
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -1016,9 +1162,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         network=network,
                         tx_reference=tx_reference,
                     )
-                # Fallback requery
-                requery_resp = VTPass.requery(tx_reference)
-                if requery_resp and VTPass.is_success(requery_resp):
+                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                if status_resp and VAS.is_success(status_resp):
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -1062,8 +1207,16 @@ class GetPaymentCategoriesView(APIView):
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        variations_resp = VTPass.service_variations(serviceID=service_id)
-        if not variations_resp or not VTPass.is_success(variations_resp):
+        token = VAS.authenticate()
+        if not token:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "VAS authentication failed."}
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        variations_resp = VAS.get_categories(bearer_token=token)
+        if not variations_resp or not VAS.is_success(variations_resp):
             return Response(
                 data=encrypt(
                     {
@@ -1078,7 +1231,7 @@ class GetPaymentCategoriesView(APIView):
                 {
                     "status": "success",
                     "message": "Service variations retrieved successfully.",
-                    "data": variations_resp.json().get("content", {}),
+                    "data": variations_resp.json(),
                 }
             ),
             status=status.HTTP_200_OK,
@@ -1088,18 +1241,30 @@ class GetPaymentCategoriesView(APIView):
 @extend_schema(summary="Get bill payment categories for a serviceID", tags=["VAS"])
 class BillPaymentCategoriesView(APIView):
     """
-    Returns service variations for a bill payment serviceID (e.g. dstv, gotv, ikeja-electric).
+    Returns bill payment categories for a given category ID.
     """
 
     def get(self, request, *args, **kwargs):
-        service_id = kwargs.get("category_id") or request.query_params.get("serviceID")
-        if not service_id:
+        category_id = kwargs.get("category_id") or request.query_params.get(
+            "category_id"
+        )
+        if not category_id:
             return Response(
-                data=encrypt({"status": "fail", "message": "serviceID is required."}),
+                data=encrypt({"status": "fail", "message": "category_id is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        variations_resp = VTPass.service_variations(serviceID=service_id)
-        if not variations_resp or not VTPass.is_success(variations_resp):
+        token = VAS.authenticate()
+        if not token:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "VAS authentication failed."}
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        variations_resp = VAS.bill_payment_categories(
+            bearer_token=token, category_id=category_id
+        )
+        if not variations_resp or not VAS.is_success(variations_resp):
             return Response(
                 data=encrypt(
                     {
@@ -1114,34 +1279,41 @@ class BillPaymentCategoriesView(APIView):
                 {
                     "status": "success",
                     "message": "Bill payment categories retrieved successfully.",
-                    "data": variations_resp.json().get("content", {}),
+                    "data": variations_resp.json(),
                 }
             ),
             status=status.HTTP_200_OK,
         )
 
 
-@extend_schema(summary="Get biller categories for a serviceID", tags=["VAS"])
+@extend_schema(summary="Get biller fields for a biller ID", tags=["VAS"])
 class BillersCategoriesView(APIView):
     """
-    Returns service variations for a biller serviceID.
+    Returns fields/items for a specific biller ID.
     """
 
     def get(self, request, *args, **kwargs):
-        service_id = kwargs.get("billers_id") or request.query_params.get("serviceID")
-        if not service_id:
+        biller_id = kwargs.get("billers_id") or request.query_params.get("biller_id")
+        if not biller_id:
             return Response(
-                data=encrypt({"status": "fail", "message": "serviceID is required."}),
+                data=encrypt({"status": "fail", "message": "biller_id is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        variations_resp = VTPass.service_variations(serviceID=service_id)
-        if not variations_resp or not VTPass.is_success(variations_resp):
+        token = VAS.authenticate()
+        if not token:
             return Response(
                 data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Failed to retrieve billers categories.",
-                    }
+                    {"status": "fail", "message": "VAS authentication failed."}
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        variations_resp = VAS.billers_categories(
+            bearer_token=token, biller_id=biller_id
+        )
+        if not variations_resp or not VAS.is_success(variations_resp):
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Failed to retrieve biller fields."}
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
@@ -1149,8 +1321,8 @@ class BillersCategoriesView(APIView):
             data=encrypt(
                 {
                     "status": "success",
-                    "message": "Billers categories retrieved successfully.",
-                    "data": variations_resp.json().get("content", {}),
+                    "message": "Biller fields retrieved successfully.",
+                    "data": variations_resp.json(),
                 }
             ),
             status=status.HTTP_200_OK,
@@ -1199,10 +1371,21 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             )
 
         try:
-            verify_resp = VTPass.verify_merchant(
-                serviceID=service_id,
-                billersCode=billers_code,
-                meter_type=meter_type,
+            token = VAS.authenticate()
+            if not token:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "VAS authentication failed."}
+                    ),
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            verify_resp = VAS.verify_bill_payer(
+                bearer_token=token,
+                billerId=service_id,
+                customerId=billers_code,
+                itemId=meter_type or "",
+                amount=0,
             )
 
             if verify_resp is None:
@@ -1216,11 +1399,8 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-            if VTPass.is_success(verify_resp):
-                response_data = {
-                    "status": "success",
-                    "data": verify_resp.json().get("content", {}),
-                }
+            if VAS.is_success(verify_resp):
+                response_data = {"status": "success", "data": verify_resp.json()}
                 logger.info(
                     f"Biller verification successful for {request.user.first_name} {request.user.last_name}: {response_data}"
                 )
@@ -1492,7 +1672,7 @@ class BillPaymentView(generics.GenericAPIView):
         use_cashback = user_data.get("use_cashback")
 
         tx_reference = (
-            idempotency_key if idempotency_key else VTPass.generate_request_id("PICA")
+            idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
 
         # Acquire and immediately release wallet lock
@@ -1528,9 +1708,11 @@ class BillPaymentView(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
+        account_number = ""
         if payment_option != "CARD":
             try:
                 account = WalletModel.objects.get(user=user)
+                account_number = account.account_number
             except WalletModel.DoesNotExist:
                 return Response(
                     data=encrypt(
@@ -1564,16 +1746,22 @@ class BillPaymentView(generics.GenericAPIView):
         if use_bonus:
             if user and user.welcome_bonus >= float(amount):
                 try:
-                    vas_response = VTPass.pay(
-                        serviceID=billerId,
-                        variation_code=itemId,
+                    token = VAS.authenticate()
+                    if not token:
+                        raise ValueError("VAS authentication failed")
+                    vas_response = VAS.bill_payment(
+                        bearer_token=token,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
                         amount=amount,
-                        phone=phone_number,
-                        request_id=tx_reference,
-                        billersCode=customerId,
+                        customerPhone=phone_number,
+                        customerName=customerName,
+                        otherField=otherField,
+                        transactionReference=tx_reference,
                     )
                 except Exception as e:
-                    logger.error(f"VTPass pay error (bonus): {e}")
+                    logger.error(f"VAS pay error (bonus): {e}")
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
@@ -1583,7 +1771,7 @@ class BillPaymentView(generics.GenericAPIView):
                         reason="Provider call error",
                     )
 
-                if vas_response and VTPass.is_success(vas_response):
+                if vas_response and VAS.is_success(vas_response):
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
@@ -1598,10 +1786,9 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         account_number=account_number,
                     )
-                # Fallback requery
                 try:
-                    requery_resp = VTPass.requery(tx_reference)
-                    if requery_resp and VTPass.is_success(requery_resp):
+                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                    if status_resp and VAS.is_success(status_resp):
                         return self._handle_success(
                             user=user,
                             guest_id=guest_id,
@@ -1675,13 +1862,26 @@ class BillPaymentView(generics.GenericAPIView):
         match payment_option:
             case "WALLET":
                 if not use_points and not use_cashback and not use_bonus:
-                    vas_response = VTPass.pay(
-                        serviceID=billerId,
-                        variation_code=itemId,
+                    token = VAS.authenticate()
+                    if not token:
+                        return self._handle_failure(
+                            user=user,
+                            guest_id=guest_id,
+                            phone_number=phone_number,
+                            amount=amount,
+                            reason="VAS authentication failed.",
+                        )
+                    vas_response = VAS.bill_payment(
+                        bearer_token=token,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
                         amount=amount,
-                        phone=phone_number,
-                        request_id=tx_reference,
-                        billersCode=customerId,
+                        customerPhone=phone_number,
+                        customerName=customerName,
+                        otherField=otherField,
+                        debitAccount=account_number,
+                        transactionReference=tx_reference,
                     )
                     if vas_response is None:
                         return self._handle_failure(
@@ -1691,7 +1891,7 @@ class BillPaymentView(generics.GenericAPIView):
                             amount=amount,
                             reason="VAS service unavailable.",
                         )
-                    if VTPass.is_success(vas_response):
+                    if VAS.is_success(vas_response):
                         return self._handle_success(
                             user=user,
                             guest_id=guest_id,
@@ -1706,9 +1906,9 @@ class BillPaymentView(generics.GenericAPIView):
                             tx_reference=tx_reference,
                             account_number=account_number,
                         )
-                    # Fallback requery
-                    requery_resp = VTPass.requery(tx_reference)
-                    if requery_resp and VTPass.is_success(requery_resp):
+                    # Fallback: confirm via status check
+                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                    if status_resp and VAS.is_success(status_resp):
                         return self._handle_success(
                             user=user,
                             guest_id=guest_id,
@@ -1733,13 +1933,32 @@ class BillPaymentView(generics.GenericAPIView):
                     )
 
                 # Hybrid: cashback/points cover full purchase
-                vas_response = VTPass.pay(
-                    serviceID=billerId,
-                    variation_code=itemId,
+                token = VAS.authenticate()
+                if not token:
+                    if cashback_used:
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
+                    if pts_used:
+                        Pay.refund_pts(user=user, naira_amount=pts_used)
+                    return self._handle_failure(
+                        user=user,
+                        guest_id=guest_id,
+                        phone_number=phone_number,
+                        amount=purchase_amount,
+                        reason="VAS authentication failed.",
+                    )
+                vas_response = VAS.bill_payment(
+                    bearer_token=token,
+                    customerId=customerId,
+                    billerId=billerId,
+                    itemId=itemId,
                     amount=purchase_amount,
-                    phone=phone_number,
-                    request_id=tx_reference,
-                    billersCode=customerId,
+                    customerPhone=phone_number,
+                    customerName=customerName,
+                    otherField=otherField,
+                    transactionReference=tx_reference,
+                    debitAccount=account_number,
                 )
                 if vas_response is None:
                     if cashback_used:
@@ -1755,7 +1974,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=purchase_amount,
                         reason="VAS service unavailable.",
                     )
-                if VTPass.is_success(vas_response):
+                if VAS.is_success(vas_response):
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
@@ -1788,13 +2007,25 @@ class BillPaymentView(generics.GenericAPIView):
 
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
-                vas_response = VTPass.pay(
-                    serviceID=billerId,
-                    variation_code=itemId,
+                token = VAS.authenticate()
+                if not token:
+                    return self._handle_failure(
+                        user=user,
+                        guest_id=guest_id,
+                        phone_number=phone_number,
+                        amount=amount,
+                        reason="VAS authentication failed.",
+                    )
+                vas_response = VAS.bill_payment(
+                    bearer_token=token,
+                    customerId=customerId,
+                    billerId=billerId,
+                    itemId=itemId,
                     amount=amount,
-                    phone=phone_number,
-                    request_id=tx_reference,
-                    billersCode=customerId,
+                    customerPhone=phone_number,
+                    customerName=customerName,
+                    otherField=otherField,
+                    transactionReference=tx_reference,
                 )
                 if vas_response is None:
                     return self._handle_failure(
@@ -1804,7 +2035,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=amount,
                         reason="VAS service unavailable.",
                     )
-                if VTPass.is_success(vas_response):
+                if VAS.is_success(vas_response):
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
@@ -1819,9 +2050,8 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         account_number=account_number,
                     )
-                # Fallback requery
-                requery_resp = VTPass.requery(tx_reference)
-                if requery_resp and VTPass.is_success(requery_resp):
+                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                if status_resp and VAS.is_success(status_resp):
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,

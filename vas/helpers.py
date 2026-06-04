@@ -37,6 +37,18 @@ def _log_response(label, response):
 
 class VAS:
     @staticmethod
+    def is_success(response):
+        if not response or response.status_code != 200:
+            return False
+        try:
+            body = response.json()
+            msg = (body.get("message") or "").lower()
+            status = body.get("status") or ""
+            return "success" in msg or status in ("00", "SUCCESS", "success")
+        except Exception:
+            return False
+
+    @staticmethod
     def generate_unique_code(prefix="Pica"):
         min_length = 18
         max_length = 25
@@ -160,18 +172,25 @@ class VAS:
 
     @staticmethod
     def data(
-        network, bearer_token, amount, productId, debitAccount, phone_number, tx_ref
+        network,
+        bearer_token,
+        amount,
+        productId,
+        phone_number,
+        tx_ref,
+        debitAccount=None,
     ):
         resource = "vas/api/v1/topup/data"
         url = _build_vas_url(resource)
         payload = {
             "network": network,
-            "debitAccount": debitAccount,
             "amount": amount,
             "phoneNumber": phone_number,
             "productId": productId,
             "transactionReference": tx_ref,
         }
+        if debitAccount:
+            payload["debitAccount"] = debitAccount
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
@@ -298,8 +317,8 @@ class VAS:
         customerPhone,
         customerName,
         otherField,
-        debitAccount,
         transactionReference,
+        debitAccount=None,
     ):
         resource = "vas/api/v1/billspayment/pay"
         url = _build_vas_url(resource)
@@ -311,9 +330,10 @@ class VAS:
             "customerName": customerName,
             "otherField": otherField,
             "amount": amount,
-            "debitAccount": debitAccount,
             "transactionReference": transactionReference,
         }
+        if debitAccount:
+            payload["debitAccount"] = debitAccount
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
