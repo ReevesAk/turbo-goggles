@@ -760,59 +760,59 @@ class Login(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Normalize device ID for consistent comparison
-        device_id = str(device_id).strip().lower()
+        # # Normalize device ID for consistent comparison
+        # device_id = str(device_id).strip().lower()
 
-        # Check device limit for password login only
-        is_known_device = self.check_device_limit(
-            user, device_id, device_name, device_os
-        )
+        # # Check device limit for password login only
+        # is_known_device = self.check_device_limit(
+        #     user, device_id, device_name, device_os
+        # )
 
-        if not is_known_device:
-            logger.warning("New device detected for user: %s", login)
+        # if not is_known_device:
+        #     logger.warning("New device detected for user: %s", login)
 
-            # Create and send OTP.
-            otp = otp_manager.create_otp(user_id=str(user.id))
+        #     # Create and send OTP.
+        #     otp = otp_manager.create_otp(user_id=str(user.id))
 
-            msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
-                otp=otp
-            )
-            recipient = user.phone_number[1:]
+        #     msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+        #         otp=otp
+        #     )
+        #     recipient = user.phone_number[1:]
 
-            if user.alert_type_choice in ("SMS", "Both"):
-                Messaging.send_sms(phone_number=recipient, msg=msg)
-            if user.alert_type_choice in ("Email", "Both"):
-                # Render the template with values
-                text_content = render_to_string(
-                    template_name="empty_email.html",
-                    context={
-                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-                        "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
-                    },
-                )
+        #     if user.alert_type_choice in ("SMS", "Both"):
+        #         Messaging.send_sms(phone_number=recipient, msg=msg)
+        #     if user.alert_type_choice in ("Email", "Both"):
+        #         # Render the template with values
+        #         text_content = render_to_string(
+        #             template_name="empty_email.html",
+        #             context={
+        #                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+        #                 "support_email": "notifications@picadailys.com",
+        #                 "picadailys_phone": "02012271894 02012271895",
+        #             },
+        #         )
 
-                Messaging.send_email(
-                    email=user.email,
-                    html_content=text_content,
-                    sender_email="notifications@picadailys.com",
-                    body=msg,
-                    subject="Picadailys Registration",
-                )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "failed",
-                        "error": "New device detected. OTP sent for verification.",
-                        "device_data": {
-                            "device_id": device_id,
-                            "device_name": device_name,
-                            "device_os": device_os,
-                        },
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        #         Messaging.send_email(
+        #             email=user.email,
+        #             html_content=text_content,
+        #             sender_email="notifications@picadailys.com",
+        #             body=msg,
+        #             subject="Picadailys Registration",
+        #         )
+        #     return Response(
+        #         data=encrypt(
+        #             {
+        #                 "status": "failed",
+        #                 "error": "New device detected. OTP sent for verification.",
+        #                 "device_data": {
+        #                     "device_id": device_id,
+        #                     "device_name": device_name,
+        #                     "device_os": device_os,
+        #                 },
+        #             }
+        #         ),
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
 
         # Successful login
         return self._handle_login_success(user)
