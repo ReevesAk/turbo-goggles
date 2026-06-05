@@ -32,6 +32,7 @@ from .serializers import (
     StaffForgotPasswordSerializer,
     StaffPasswordResendOTPSerializer,
     StaffResetPasswordSerializer,
+    KnowledgeBaseSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -39,7 +40,7 @@ from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from banking.serializers import WalletStatusSerializer
 from banking.models import WalletModel
-from .models import ActivityModel
+from .models import ActivityModel, knowledgeBaseModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
@@ -3142,3 +3143,161 @@ class AdminDashboardDataView(APIView):
             "data": serializer.data,
         }
         return Response(encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(summary="Create a knowledge base entry", tags=["Knowledge Base"])
+class CreateKnowledgeBaseView(generics.GenericAPIView):
+    serializer_class = KnowledgeBaseSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, JSONParser]
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            entry = serializer.save()
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Create Knowledge Base Entry",
+                description=f"Admin {request.user.active_role} created knowledge base entry: {entry.caption}.",
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Entry created successfully.",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@extend_schema(summary="List all knowledge base entries", tags=["Knowledge Base"])
+class ListKnowledgeBaseView(generics.ListAPIView):
+    serializer_class = KnowledgeBaseSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        qs = knowledgeBaseModel.objects.all().order_by("-created_at")
+        category = self.request.query_params.get("category")
+        section = self.request.query_params.get("section")
+        content_type = self.request.query_params.get("content_type")
+        if category:
+            qs = qs.filter(category__icontains=category)
+        if section:
+            qs = qs.filter(section__icontains=section)
+        if content_type:
+            qs = qs.filter(content_type__icontains=content_type)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "count": queryset.count(),
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "count": queryset.count(),
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Retrieve, update or delete a knowledge base entry", tags=["Knowledge Base"]
+)
+class KnowledgeBaseDetailView(generics.GenericAPIView):
+    serializer_class = KnowledgeBaseSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, JSONParser]
+
+    def get_object(self, pk):
+        try:
+            return knowledgeBaseModel.objects.get(pk=pk)
+        except knowledgeBaseModel.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        entry = self.get_object(pk)
+        if not entry:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Entry not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = self.serializer_class(entry)
+        return Response(
+            data=encrypt({"status": "success", "data": serializer.data}),
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, pk):
+        entry = self.get_object(pk)
+        if not entry:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Entry not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = self.serializer_class(entry, data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Update Knowledge Base Entry",
+                description=f"Admin {request.user.active_role} updated knowledge base entry ID: {pk}.",
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Entry updated successfully.",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def delete(self, request, pk):
+        entry = self.get_object(pk)
+        if not entry:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Entry not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        caption = entry.caption
+        entry.delete()
+        ActivityModel.objects.create(
+            user=request.user,
+            title="Delete Knowledge Base Entry",
+            description=f"Admin {request.user.active_role} deleted knowledge base entry: {caption}.",
+        )
+        return Response(
+            data=encrypt(
+                {"status": "success", "message": "Entry deleted successfully."}
+            ),
+            status=status.HTTP_204_NO_CONTENT,
+        )

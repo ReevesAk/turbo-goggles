@@ -636,7 +636,7 @@ class GetDataPlans(generics.RetrieveAPIView):
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        vas_response = VAS.dataplans(bearer_token=token, phone_number="")
+        vas_response = VAS.dataplans(bearer_token=token, phone_number=network)
         if not vas_response or not VAS.is_success(vas_response):
             return Response(
                 data=encrypt(
@@ -1384,7 +1384,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                 bearer_token=token,
                 billerId=service_id,
                 customerId=billers_code,
-                itemId=meter_type or "",
+                itemId=meter_type,
                 amount=0,
             )
 

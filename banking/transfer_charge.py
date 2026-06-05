@@ -37,6 +37,7 @@ class TransferCharge:
 
         return {
             "principal": str(amount.quantize(Decimal("0.01"))),
+            "merchant_fee": str(MERCHANT_FEE),
             "transfer_fee": str(combined_fee),
             "vat": str(combined_vat.quantize(Decimal("0.01"))),
             "total_charges": str(total_charges.quantize(Decimal("0.01"))),
