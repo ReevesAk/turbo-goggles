@@ -284,9 +284,10 @@ class VAS:
         payload = {
             "billerId": billerId,
             "customerId": customerId,
-            "itemId": itemId,
             "amount": amount,
         }
+        if itemId:
+            payload["itemId"] = itemId
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",

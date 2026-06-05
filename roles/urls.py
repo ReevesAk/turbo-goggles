@@ -36,6 +36,9 @@ from .views import (
     StaffForgotPassword,
     StaffPasswordResendOTP,
     StaffResetPassword,
+    CreateKnowledgeBaseView,
+    ListKnowledgeBaseView,
+    KnowledgeBaseDetailView,
 )
 
 from .tasks import (
@@ -265,6 +268,12 @@ urlpatterns = [
         "treasury/<str:search_term>/",
         TreasuryAccountSearch.as_view(),
         name="treasury_account_search",
+    ),
+    # Knowledge base endpoints.
+    path("knowledge-base/create", CreateKnowledgeBaseView.as_view(), name="kb_create"),
+    path("knowledge-base/all", ListKnowledgeBaseView.as_view(), name="kb_list"),
+    path(
+        "knowledge-base/<int:pk>/", KnowledgeBaseDetailView.as_view(), name="kb_detail"
     ),
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
