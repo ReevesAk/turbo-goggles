@@ -757,7 +757,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 description=payload.get("description"),
                 transactionType="INTER_BANK",
                 tx_ref=external_tx_id,
-                merchant_fee=charge["merchant_fee_total"],
+                merchant_fee=charge["merchant_fee"],
             )
 
             if transfer_resp is None:
