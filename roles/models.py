@@ -57,3 +57,39 @@ class NewsletterRecipient(models.Model):
     email = models.EmailField(null=True)
     sent = models.BooleanField(default=False)
     sent_at = models.DateTimeField(null=True, blank=True)
+
+
+KNOWLEDGE_BASE_SECTIONS = (
+    ("Airtime & Data", "Airtime & Data"),
+    ("Electricity", "Electricity"),
+    ("Cable TV", "Cable TV"),
+    ("Banking", "Banking"),
+    ("Brand Ads", "Brand Ads"),
+    ("Partners", "Partners"),
+)
+
+KNOWLEDGE_BASE_CONTENT_TYPES = (
+    ("Website", "Website"),
+    ("Social Post", "Social Post"),
+    ("Email", "Email"),
+)
+
+
+class knowledgeBaseModel(models.Model):
+    category = models.CharField(max_length=255, null=True)
+    section = models.CharField(
+        max_length=255, choices=KNOWLEDGE_BASE_SECTIONS, null=True
+    )
+    content_type = models.CharField(
+        max_length=255, choices=KNOWLEDGE_BASE_CONTENT_TYPES, null=True
+    )
+    authors = models.JSONField(default=list, null=True, blank=True)
+    caption = models.CharField(max_length=255, null=True)
+    author_image_urls = models.JSONField(default=list, null=True, blank=True)
+    content = models.TextField(null=True)
+    ads_and_media_url = models.URLField(null=True)
+    ad_description = models.TextField(null=True, blank=True)
+    is_post_scheduled = models.BooleanField(default=False)
+    selected_date_time = models.DateTimeField(null=True, blank=True)
+    selected_time = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)

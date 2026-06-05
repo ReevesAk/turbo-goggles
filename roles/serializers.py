@@ -1,6 +1,7 @@
 import logging
 
 # Third party imports.
+from cloudinary import uploader as cloud
 from rest_framework import serializers
 
 # In project imports.
@@ -16,6 +17,9 @@ from .models import (
     ActivityModel,
     SendNewsletters,
     NewsletterRecipient,
+    knowledgeBaseModel,
+    KNOWLEDGE_BASE_SECTIONS,
+    KNOWLEDGE_BASE_CONTENT_TYPES,
 )
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
 from banking.models import WalletUpgrade
@@ -632,3 +636,109 @@ class MemberSerializer(serializers.ModelSerializer):
         if obj.full_name:
             return obj.full_name
         return f"{obj.first_name or ''} {obj.last_name or ''}".strip()
+
+
+class KnowledgeBaseSerializer(serializers.ModelSerializer):
+    section = serializers.ChoiceField(
+        choices=KNOWLEDGE_BASE_SECTIONS, required=False, allow_null=True
+    )
+    content_type = serializers.ChoiceField(
+        choices=KNOWLEDGE_BASE_CONTENT_TYPES, required=False, allow_null=True
+    )
+    # Write-only: accept multiple author image files
+    author_images = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+    # Write-only: accept the ads/media file
+    ads_and_media = serializers.ImageField(write_only=True, required=False)
+
+    class Meta:
+        model = knowledgeBaseModel
+        fields = [
+            "id",
+            "category",
+            "section",
+            "content_type",
+            "authors",
+            "caption",
+            "author_images",
+            "author_image_urls",
+            "content",
+            "ads_and_media",
+            "ads_and_media_url",
+            "ad_description",
+            "is_post_scheduled",
+            "selected_date_time",
+            "selected_time",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "author_image_urls",
+            "ads_and_media_url",
+            "created_at",
+        ]
+
+    def _upload(self, file):
+        result = cloud.upload(file)
+        return result["url"]
+
+    def validate(self, attrs):
+        if attrs.get("is_post_scheduled"):
+            errors = {}
+            if not attrs.get("selected_date_time"):
+                errors["selected_date_time"] = (
+                    "This field is required when scheduling a post."
+                )
+            if not attrs.get("selected_time"):
+                errors["selected_time"] = (
+                    "This field is required when scheduling a post."
+                )
+            if errors:
+                raise serializers.ValidationError(errors)
+
+        author_images = attrs.pop("author_images", None) or []
+        ads_and_media = attrs.pop("ads_and_media", None)
+
+        if author_images:
+            urls = []
+            for img in author_images:
+                try:
+                    urls.append(self._upload(img))
+                except Exception as exc:
+                    raise serializers.ValidationError(
+                        {"author_images": f"Upload failed: {exc}"}
+                    )
+            attrs["author_image_urls"] = urls
+
+        if ads_and_media:
+            try:
+                attrs["ads_and_media_url"] = self._upload(ads_and_media)
+            except Exception as exc:
+                raise serializers.ValidationError(
+                    {"ads_and_media": f"Upload failed: {exc}"}
+                )
+
+        return attrs
+
+    def to_representation(self, instance):
+        return {
+            "id": instance.id,
+            "category": {
+                "category": instance.category,
+                "section": instance.section,
+                "content_type": instance.content_type,
+            },
+            "header": {
+                "authors": instance.authors or [],
+                "caption": instance.caption,
+                "author_image_urls": instance.author_image_urls or [],
+            },
+            "content": instance.content,
+            "ads_and_media_url": instance.ads_and_media_url,
+            "ad_description": instance.ad_description,
+            "is_post_scheduled": instance.is_post_scheduled,
+            "selected_date_time": instance.selected_date_time,
+            "selected_time": instance.selected_time,
+            "created_at": instance.created_at,
+        }
