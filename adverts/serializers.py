@@ -50,7 +50,10 @@ class CreateAdSerializers(serializers.ModelSerializer):
     )
     website = serializers.CharField(max_length=200, required=False, allow_blank=True)
     brand_socials = serializers.ListField(
-        child=serializers.CharField(max_length=300),
+        child=serializers.URLField(
+            max_length=300,
+            error_messages={"invalid": "Social links must be valid URLs starting with http:// or https://"},
+        ),
         required=False,
         max_length=4,
     )
