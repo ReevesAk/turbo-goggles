@@ -1516,7 +1516,10 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=amount,
                         description=title,
                     )
-
+            except Exception as e:
+                logger.error(f"TxModel creation error: {str(e)}")
+            try:
+                with transaction.atomic():
                     ValueAddedServices.objects.create(
                         user=user if user else None,
                         guest_id=guest_id if not user else None,
@@ -1527,10 +1530,9 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
-                        tx_reference=tx_reference,
                     )
             except Exception as e:
-                logger.error(f"Database query error: {str(e)}")
+                logger.error(f"ValueAddedServices creation error: {str(e)}")
         else:
             create_activity(guest_id=guest_id, title=title, description=description)
 
