@@ -1355,9 +1355,8 @@ class VerifyBillerAccountView(generics.GenericAPIView):
         # customerId maps to VTPass billersCode (meter / IUC number)
         service_id = user_data.get("billerId")
         billers_code = user_data.get("customerId")
-        meter_type = user_data.get(
-            "meter_type"
-        )  # prepaid | postpaid (electricity only)
+        item_id = user_data.get("itemId") or user_data.get("meter_type")
+        amount = user_data.get("amount", 0)
 
         if not service_id or not billers_code:
             return Response(
@@ -1384,8 +1383,8 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                 bearer_token=token,
                 billerId=service_id,
                 customerId=billers_code,
-                itemId=meter_type,
-                amount=0,
+                itemId=item_id,
+                amount=amount,
             )
 
             if verify_resp is None:
