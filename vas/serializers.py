@@ -98,6 +98,12 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     customerId = serializers.CharField(required=True)
     billerId = serializers.CharField(required=True)
     itemId = serializers.CharField(required=True)
+    amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=True,
+        error_messages={"invalid": "Amount must be a valid number."},
+    )
 
     class Meta:
         model = ValueAddedServices
