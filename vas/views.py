@@ -1471,9 +1471,13 @@ class BillPaymentView(generics.GenericAPIView):
         except Exception:
             vas_json = vas_response or {}
 
-        # VTPass response structure: {"code": "000", "content": {"transactions": {...}}}
-        vas_content = vas_json.get("content", {}) if isinstance(vas_json, dict) else {}
-        vas_data = vas_content.get("transactions", vas_content)
+        # VTPass: {"code": "000", "content": {"transactions": {...}}}
+        # 9PSB:   {"status": "success", "data": {...}}
+        if isinstance(vas_json, dict) and "content" in vas_json:
+            vas_content = vas_json.get("content", {})
+            vas_data = vas_content.get("transactions", vas_content)
+        else:
+            vas_data = vas_json.get("data", {}) if isinstance(vas_json, dict) else {}
 
         # Determine if electricity by presence of token
         token = vas_data.get("token") if isinstance(vas_data, dict) else None
