@@ -355,7 +355,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     network=network,
                     bearer_token=token,
                     amount=amount,
-                    debitAccount=operational_account,
+                    debitAccount=collection_account,
                     phone_number=phone,
                     tx_ref=tx_reference,
                 )
@@ -536,7 +536,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         network=network,
                         bearer_token=token,
                         amount=amount,
-                        debitAccount=operational_account,
+                        debitAccount=collection_account,
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
@@ -921,7 +921,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     bearer_token=token,
                     amount=amount,
                     productId=product_id,
-                    debitAccount=operational_account,
+                    debitAccount=collection_account,
                     phone_number=phone,
                     tx_ref=tx_reference,
                 )
@@ -1084,7 +1084,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     bearer_token=token,
                     amount=purchase_amount,
                     productId=product_id,
-                    debitAccount=operational_account,
+                    debitAccount=collection_account,
                     phone_number=phone,
                     tx_ref=tx_reference,
                 )
