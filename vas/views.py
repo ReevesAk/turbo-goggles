@@ -241,6 +241,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        elif payment_option == "CARD":
+            return Response(
+                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Required field validations
         if not phone or not network:
@@ -867,6 +872,11 @@ class DataSubscriptionView(generics.GenericAPIView):
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        elif payment_option == "CARD":
+            return Response(
+                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
@@ -1709,6 +1719,11 @@ class BillPaymentView(generics.GenericAPIView):
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        elif payment_option == "CARD":
+            return Response(
+                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Validate payload with serializer
         serializer = self.serializer_class(data=user_data)
