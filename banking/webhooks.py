@@ -594,7 +594,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
             }
 
             encrypted_resp = encrypt(resp)
-            if user:
+            if user.is_authenticated:
                 UserNotification.objects.create(
                     user=user,
                     title="Card Payment",
@@ -620,7 +620,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 "message": f"Transaction is not successful. Current status: {transaction.status}.",
                 "transaction": transaction_data,
             }
-            if user:
+            if user.is_authenticated:
                 UserNotification.objects.create(
                     user=user,
                     title="Card Payment",
