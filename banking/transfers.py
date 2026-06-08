@@ -1027,10 +1027,11 @@ class PayWithCard(generics.CreateAPIView):
                             f"Checkout URL generated successfully for guest user {guest_id} with reference {url_resp['data']['reference']}"
                         )
 
-                        # # Save transaction in FundWithCard model
-                        # FundWithCard.objects.create(
-                        #     user=user, txn_reference=url_resp["data"]["reference"]
-                        # )
+                        # Save transaction in FundWithCard model
+                        FundWithCard.objects.update_or_create(
+                            txn_reference=url_resp["data"]["reference"],
+                            defaults={"email": guest_email},
+                        )
                         response = {
                             "status": "success",
                             "message": "Checkout URL generated successfully.",
