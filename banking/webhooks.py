@@ -608,7 +608,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 )
             elif guest_id:
                 ActivityModel.objects.create(
-                    user=guest_id,
+                    user=None,
                     title="Card Payment",
                     description=f"Guest user: {guest_id} has successfully paid {transaction.amount} from their card.",
                 )
@@ -634,7 +634,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 )
             elif guest_id:
                 ActivityModel.objects.create(
-                    user=guest_id,
+                    user=None,
                     title="Card Payment",
                     description=f"Card payment of {transaction.amount} by guest user: {guest_id} was unsuccessful.",
                 )
