@@ -44,6 +44,7 @@ from decouple import config
 from .helpers import VAS
 
 operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
+collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 from .models import ValueAddedServices
 from commons import Pay, Biometrics, Messaging
 from security import encrypt, decrypt
@@ -479,7 +480,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         network=network,
                         bearer_token=token,
                         amount=purchase_amount,
-                        debitAccount=operational_account,
+                        debitAccount=collection_account,
                         phone_number=phone,
                         tx_ref=tx_reference,
                     )
