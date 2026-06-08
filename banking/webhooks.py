@@ -542,7 +542,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         else:
             logger.warning(f"No FundWithCard entry found for reference: {reference}")
             return Response(
-                data={"status": "not found"}, status=status.HTTP_404_NOT_FOUND
+                data={"status": "received"}, status=status.HTTP_200_OK
             )
 
     def handle_hook_event(self, webhook_data):
