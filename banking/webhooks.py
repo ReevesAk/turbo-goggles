@@ -541,9 +541,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             return Response(data={"status": "success"}, status=status.HTTP_200_OK)
         else:
             logger.warning(f"No FundWithCard entry found for reference: {reference}")
-            return Response(
-                data={"status": "received"}, status=status.HTTP_200_OK
-            )
+            return Response(data={"status": "received"}, status=status.HTTP_200_OK)
 
     def handle_hook_event(self, webhook_data):
         logger.info("Hook event received.")

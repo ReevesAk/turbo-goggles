@@ -100,7 +100,9 @@ def post_transfer_update(
                     new_balance = Decimal(
                         str(post_data["data"].get("availableBalance", 0))
                     )
-                    WalletModel.objects.filter(user=user).update(balance=new_balance)
+                    WalletModel.objects.filter(
+                        user=user, walletType="INDIVIDUAL"
+                    ).update(balance=new_balance)
         except Exception as e:
             logging.warning(f"post_transfer_update: could not sync balance: {e}")
 
@@ -202,9 +204,9 @@ def post_vas_update(
                         bal = enquiry_data.get("data", {}).get("availableBalance")
                         if bal is not None:
                             balance = float(bal)
-                            WalletModel.objects.filter(user=user).update(
-                                balance=balance
-                            )
+                            WalletModel.objects.filter(
+                                user=user, walletType="INDIVIDUAL"
+                            ).update(balance=balance)
             except Exception as e:
                 logging.warning(f"post_vas_update: could not sync balance: {e}")
 
@@ -374,7 +376,9 @@ def reconcile_pending_transfers():
     for tx in stuck:
         try:
             user = tx.user
-            wallet = WalletModel.objects.filter(user=user).first()
+            wallet = WalletModel.objects.filter(
+                user=user, walletType="INDIVIDUAL"
+            ).first()
             resolve_pending_transfer.delay(
                 tx_id=tx.id,
                 user_id=user.id,

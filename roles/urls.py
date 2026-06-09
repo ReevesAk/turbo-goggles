@@ -54,6 +54,8 @@ from .wallets import (
     ChangeWalletStatusView,
     UserKYCListView,
     UpgradeToTier3Wallet,
+    RequestCorporateAddressVerification,
+    SubmitCorporateTo9PSB,
 )
 from .treasury import (
     GetAllTreasuryAccounts,
@@ -235,6 +237,16 @@ urlpatterns = [
         "wallets/upgrade-from-tier2-to-tier3",
         UpgradeToTier3Wallet.as_view(),
         name="upgrade_from_tier2_to_tier3",
+    ),
+    path(
+        "wallets/corporate/request-address-verification",
+        RequestCorporateAddressVerification.as_view(),
+        name="corporate_request_address_verification",
+    ),
+    path(
+        "wallets/corporate/submit-to-9psb",
+        SubmitCorporateTo9PSB.as_view(),
+        name="corporate_submit_to_9psb",
     ),
     path(
         "wallets/get-all-wallet-users",

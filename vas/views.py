@@ -243,7 +243,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                 )
         elif payment_option == "CARD":
             return Response(
-                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Card payment is not available for authenticated users.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -284,9 +289,13 @@ class AirTimeTopUp(generics.GenericAPIView):
         try:
             with transaction.atomic():
                 if user and payment_option == "WALLET":
-                    user_wallet = WalletModel.objects.select_for_update().get(user=user)
+                    user_wallet = WalletModel.objects.select_for_update().get(
+                        user=user, walletType="INDIVIDUAL"
+                    )
                 elif user:
-                    user_wallet = WalletModel.objects.filter(user=user).first()
+                    user_wallet = WalletModel.objects.filter(
+                        user=user, walletType="INDIVIDUAL"
+                    ).first()
 
                 if (use_cashback or use_points) and payment_option == "WALLET":
                     avail_cashback = (
@@ -874,7 +883,12 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
         elif payment_option == "CARD":
             return Response(
-                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Card payment is not available for authenticated users.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -884,7 +898,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         account_number = ""
         if payment_option != "CARD":
             try:
-                account = WalletModel.objects.get(user=user)
+                account = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
                 account_number = account.account_number
             except WalletModel.DoesNotExist:
                 return Response(
@@ -982,7 +996,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             avail_cashback = Decimal("0")
             if use_cashback:
                 try:
-                    w = WalletModel.objects.get(user=user)
+                    w = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
                     avail_cashback = w.cashback_balance
                 except WalletModel.DoesNotExist:
                     pass
@@ -1721,7 +1735,12 @@ class BillPaymentView(generics.GenericAPIView):
                 )
         elif payment_option == "CARD":
             return Response(
-                data=encrypt({"status": "fail", "message": "Card payment is not available for authenticated users."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Card payment is not available for authenticated users.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1732,7 +1751,7 @@ class BillPaymentView(generics.GenericAPIView):
         account_number = ""
         if payment_option != "CARD":
             try:
-                account = WalletModel.objects.get(user=user)
+                account = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
                 account_number = account.account_number
             except WalletModel.DoesNotExist:
                 return Response(
@@ -1845,7 +1864,7 @@ class BillPaymentView(generics.GenericAPIView):
             avail_cashback = Decimal("0")
             if use_cashback:
                 try:
-                    w = WalletModel.objects.get(user=user)
+                    w = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
                     avail_cashback = w.cashback_balance
                 except WalletModel.DoesNotExist:
                     pass

@@ -7,7 +7,7 @@ import requests
 from decouple import config
 from django.core.cache import cache
 
-from .helpers import cloudinary_to_base64
+from .helpers import cloudinary_to_base64, cloudinary_to_bytes
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -656,6 +656,321 @@ class Transfers:
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"Complete transfer API request error: {str(e)}")
+            return None
+
+
+_BUSINESS_TYPE_TO_DOJAH = {
+    "SOLE_PROPRIETORSHIP": "BUSINESS_NAME",
+    "LIMITED_LIABILITY_COMPANY": "COMPANY",
+    "CORPORATIONS": "COMPANY",
+    "FRANCHISE": "COMPANY",
+    "SOCIAL_ENTERPRISE": "COMPANY",
+    "COOPERATIVE": "COMPANY",
+    "OTHERS": "COMPANY",
+    "PARTNERSHIP": "LIMITED_PARTNERSHIP",
+    "NGO": "INCORPORATED_TRUSTEES",
+}
+
+_BUSINESS_SUFFIXES = [
+    " limited",
+    " ltd",
+    " plc",
+    " incorporated",
+    " inc",
+    " co.",
+    " company",
+    " enterprises",
+    " global",
+    " ng",
+]
+
+
+def _normalize_business_name(name):
+    name = (name or "").lower().strip()
+    for suffix in _BUSINESS_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)].strip()
+    return name
+
+
+def _names_match(submitted, verified):
+    s = _normalize_business_name(submitted)
+    v = _normalize_business_name(verified)
+    return s and v and (s in v or v in s)
+
+
+class CorporateKYC:
+    _headers = {
+        "AppId": app_id,
+        "Authorization": authorization,
+    }
+
+    @staticmethod
+    def verify_registration(
+        rc_number, business_type, business_name, company_reg_date=None
+    ):
+        """
+        Verifies RC number via Dojah CAC advance.
+        Cross-validates: rc_number, business_name, and optionally company_reg_date.
+        Returns (True, entity_dict) or (False, error_message).
+        """
+        company_type = _BUSINESS_TYPE_TO_DOJAH.get(business_type, "COMPANY")
+        url = f"{dojah_base_url}/api/v1/kyc/cac/advance"
+        try:
+            response = requests.get(
+                url=url,
+                params={"rc_number": rc_number, "company_type": company_type},
+                headers=CorporateKYC._headers,
+                timeout=20,
+            )
+            if response.status_code != 200:
+                logging.warning(
+                    "CAC verify non-200: %s %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+                return (
+                    False,
+                    "Registration number could not be verified. Please check the RC number and try again.",
+                )
+
+            entity = response.json().get("entity") or {}
+
+            verified_rc = (entity.get("rc_number") or "").strip().upper()
+            submitted_rc = (rc_number or "").strip().upper()
+            if not verified_rc:
+                return False, "Registration number not found in CAC records."
+            if verified_rc != submitted_rc:
+                return (
+                    False,
+                    f"Registration number mismatch: CAC records show RC '{verified_rc}'.",
+                )
+
+            verified_name = entity.get("company_name", "")
+            if not _names_match(business_name, verified_name):
+                return False, (
+                    f"Business name does not match CAC records. "
+                    f"CAC shows '{verified_name}' for RC {rc_number}."
+                )
+
+            if company_reg_date:
+                reg_date_str = (entity.get("date_of_registration") or "")[:10]
+                if reg_date_str and reg_date_str != company_reg_date:
+                    return False, (
+                        f"Registration date mismatch: CAC records show {reg_date_str}."
+                    )
+
+            return True, entity
+
+        except requests.exceptions.RequestException as e:
+            logging.error("CorporateKYC.verify_registration error: %s", e)
+            return False, "Registration verification service is currently unavailable."
+
+    @staticmethod
+    def verify_tin(tin, business_name, registration_number=None):
+        """
+        Validates TIN via Dojah FIRS.
+        Cross-validates: taxpayer_name against business_name,
+        and cac_reg_number against registration_number.
+        Returns (True, entity_dict) or (False, error_message).
+        """
+        url = f"{dojah_base_url}/api/v1/kyc/tin"
+        try:
+            response = requests.get(
+                url=url,
+                params={"tin": tin},
+                headers=CorporateKYC._headers,
+                timeout=20,
+            )
+            if response.status_code != 200:
+                logging.warning(
+                    "TIN verify non-200: %s %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+                return (
+                    False,
+                    "TIN could not be verified. Please check the TIN and try again.",
+                )
+
+            entity = response.json().get("entity") or {}
+
+            taxpayer_name = entity.get("taxpayer_name", "")
+            if not taxpayer_name:
+                return False, "TIN not found in FIRS records."
+
+            if not _names_match(business_name, taxpayer_name):
+                return False, (
+                    f"TIN is registered to '{taxpayer_name}', "
+                    f"which does not match the submitted business name '{business_name}'."
+                )
+
+            if registration_number:
+                firs_rc = (entity.get("cac_reg_number") or "").strip().upper()
+                submitted_rc = registration_number.strip().upper()
+                if firs_rc and firs_rc != submitted_rc:
+                    return False, (
+                        f"TIN is linked to RC number '{firs_rc}', "
+                        f"which does not match the provided registration number '{submitted_rc}'."
+                    )
+
+            return True, entity
+
+        except requests.exceptions.RequestException as e:
+            logging.error("CorporateKYC.verify_tin error: %s", e)
+            return False, "TIN verification service is currently unavailable."
+
+
+class Corporate:
+    @staticmethod
+    def _make_files_payload(files_dict):
+        payload = []
+        for key, file_obj in files_dict.items():
+            if file_obj:
+                content = file_obj.read()
+                payload.append((key, (file_obj.name, content, file_obj.content_type)))
+        return payload
+
+    @staticmethod
+    def submit(data, files):
+        resource = "corporates/submit"
+        bearer_token = authenticate()
+        if not bearer_token:
+            logging.error("Bearer token missing for corporate submit")
+            return None
+        headers = {"Authorization": f"Bearer {bearer_token}"}
+        files_payload = Corporate._make_files_payload(files)
+        try:
+            response = requests.post(
+                url=_build_ninepsb_url(resource),
+                data=data,
+                files=files_payload or None,
+                headers=headers,
+                timeout=120,
+            )
+            if response.status_code == 401:
+                bearer_token = authenticate(force_refresh=True)
+                if bearer_token:
+                    headers["Authorization"] = f"Bearer {bearer_token}"
+                    response = requests.post(
+                        url=_build_ninepsb_url(resource),
+                        data=data,
+                        files=files_payload or None,
+                        headers=headers,
+                        timeout=120,
+                    )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error("Corporate submit error: %s", e)
+            return None
+
+    @staticmethod
+    def submit_with_stored_docs(data, stored_docs, proof_file):
+        """Submit corporate to 9PSB using Cloudinary-stored docs + admin-provided proof_file."""
+        resource = "corporates/submit"
+        bearer_token = authenticate()
+        if not bearer_token:
+            logging.error("Bearer token missing for corporate submit")
+            return None
+        headers = {"Authorization": f"Bearer {bearer_token}"}
+
+        files_payload = []
+        for key, url in stored_docs.items():
+            try:
+                content, content_type = cloudinary_to_bytes(url)
+                filename = url.split("/")[-1]
+                files_payload.append((key, (filename, content, content_type)))
+            except Exception as e:
+                logging.error("Failed to download stored doc %s: %s", key, e)
+                return None
+
+        if proof_file:
+            content = proof_file.read()
+            files_payload.append(
+                (
+                    "proofOfAddressVerification",
+                    (proof_file.name, content, proof_file.content_type),
+                )
+            )
+
+        try:
+            response = requests.post(
+                url=_build_ninepsb_url(resource),
+                data=data,
+                files=files_payload or None,
+                headers=headers,
+                timeout=120,
+            )
+            if response.status_code == 401:
+                bearer_token = authenticate(force_refresh=True)
+                if bearer_token:
+                    headers["Authorization"] = f"Bearer {bearer_token}"
+                    response = requests.post(
+                        url=_build_ninepsb_url(resource),
+                        data=data,
+                        files=files_payload or None,
+                        headers=headers,
+                        timeout=120,
+                    )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error("Corporate submit_with_stored_docs error: %s", e)
+            return None
+
+    @staticmethod
+    def update(data, files):
+        resource = "corporates/update"
+        bearer_token = authenticate()
+        if not bearer_token:
+            logging.error("Bearer token missing for corporate update")
+            return None
+        headers = {"Authorization": f"Bearer {bearer_token}"}
+        files_payload = Corporate._make_files_payload(files)
+        try:
+            response = requests.post(
+                url=_build_ninepsb_url(resource),
+                data=data,
+                files=files_payload or None,
+                headers=headers,
+                timeout=120,
+            )
+            if response.status_code == 401:
+                bearer_token = authenticate(force_refresh=True)
+                if bearer_token:
+                    headers["Authorization"] = f"Bearer {bearer_token}"
+                    response = requests.post(
+                        url=_build_ninepsb_url(resource),
+                        data=data,
+                        files=files_payload or None,
+                        headers=headers,
+                        timeout=120,
+                    )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error("Corporate update error: %s", e)
+            return None
+
+    @staticmethod
+    def get_status(tin):
+        resource = "corporates/status"
+        bearer_token = authenticate()
+        if not bearer_token:
+            logging.error("Bearer token missing for corporate status")
+            return None
+        headers = {
+            "Authorization": f"Bearer {bearer_token}",
+            "Accept": "application/json",
+        }
+        try:
+            response = requests.get(
+                url=_build_ninepsb_url(resource),
+                params={"tin": tin},
+                headers=headers,
+                timeout=30,
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            logging.error("Corporate status error: %s", e)
             return None
 
 

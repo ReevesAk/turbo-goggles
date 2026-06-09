@@ -44,18 +44,20 @@ from .serializers import (
     WalletDetailsSerializer,
     WalletEnquirySerializer,
     AccountStatementSerializer,
+    SubmitCorporateSerializer,
 )
-from accounts.models import UserNotification, TxModel
+from accounts.models import UserNotification, TxModel, User
 from roles.models import ActivityModel
 from .tasks import create_notification, create_activity
 from .models import WalletModel, UserKYC, AddressVerificationModel
-from .controllers import KYC, Wallet, Paystack
+from .controllers import KYC, Wallet, Paystack, Corporate, CorporateKYC
 from .helpers import (
     cloudinary_to_base64,
     generate_transaction_sms,
     ExportStatement,
     get_asset_id,
 )
+from cloudinary import uploader as cloud
 from security import encrypt, decrypt
 
 verification_link = config("DIGITAL_ADDREESS_VERIFICATION_LINK")
@@ -632,7 +634,9 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
         # Check authorization
         pin = serializer.validated_data.get("pin")
         use_biometrics = serializer.validated_data.get("use_biometrics", False)
-        user_wallet = WalletModel.objects.filter(user=current_user).first()
+        user_wallet = WalletModel.objects.filter(
+            user=current_user, walletType="INDIVIDUAL"
+        ).first()
 
         if pin:
             if not user_wallet or not user_wallet.pin:
@@ -765,7 +769,9 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
     def get(self, request):
         current_user = request.user
 
-        user_wallet = WalletModel.objects.filter(user=current_user).first()
+        user_wallet = WalletModel.objects.filter(
+            user=current_user, walletType="INDIVIDUAL"
+        ).first()
         if not user_wallet:
             return Response(
                 data=encrypt(
@@ -1010,7 +1016,7 @@ class GetAccountDetails(generics.GenericAPIView):
         user = request.user
 
         try:
-            acct_details = WalletModel.objects.get(user=user)
+            acct_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
         except WalletModel.DoesNotExist:
             resp = {
                 "status": "fail",
@@ -1079,7 +1085,9 @@ class SetWalletPin(generics.CreateAPIView):
         authenticated_user = request.user
 
         try:
-            user = WalletModel.objects.get(user=authenticated_user)
+            user = WalletModel.objects.get(
+                user=authenticated_user, walletType="INDIVIDUAL"
+            )
         except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"error": "Wallet not found for the authenticated user."}),
@@ -1322,7 +1330,9 @@ class ResetPin(generics.CreateAPIView):
         serializer = self.get_serializer(data=user_data)
 
         try:
-            user = WalletModel.objects.get(user=authenticated_user)
+            user = WalletModel.objects.get(
+                user=authenticated_user, walletType="INDIVIDUAL"
+            )
         except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"error": "Wallet not found for the authenticated user."}),
@@ -1447,7 +1457,7 @@ class GetCashbackBalance(APIView):
     def get(self, request):
         user = request.user
 
-        wallet = WalletModel.objects.get(user=user)
+        wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
 
         response = {
             "status": "success",
@@ -1456,6 +1466,321 @@ class GetCashbackBalance(APIView):
         }
 
         return Response(data=encrypt(response), status=200)
+
+
+_CORPORATE_REQUIRED_FILES = [
+    "cacCertificate",
+    "scumlCertificate",
+    "utilityBill",
+    "memart",
+    "tinCertificate",
+    "cacOrStatusReport",
+    "letterOfBoardResolution",
+    "directors[0].passportPhoto",
+    "directors[0].idCardFront",
+]
+
+
+@extend_schema(summary="Submit corporate account opening", tags=["Banking"])
+class CreateCorporateWallet(generics.GenericAPIView):
+    serializer_class = SubmitCorporateSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        user = request.user
+        decrypted = decrypt(request.data.get("data"))
+        data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted.items()
+        }
+
+        serializer = self.serializer_class(data=data)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tax_id_no = data.get("taxIDNo")
+
+        if WalletModel.objects.filter(tax_id_no=tax_id_no).exists():
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "A corporate account with this TIN has already been submitted.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        business_name = data.get("businessName", "")
+        business_type = data.get("businessType", "")
+        registration_number = data.get("registrationNumber", "")
+
+        cac_ok, cac_result = CorporateKYC.verify_registration(
+            rc_number=registration_number,
+            business_type=business_type,
+            business_name=business_name,
+            company_reg_date=data.get("companyRegDate"),
+        )
+        if not cac_ok:
+            return Response(
+                data=encrypt({"status": "fail", "message": cac_result}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tin_ok, tin_result = CorporateKYC.verify_tin(
+            tin=tax_id_no,
+            business_name=business_name,
+            registration_number=registration_number,
+        )
+        if not tin_ok:
+            return Response(
+                data=encrypt({"status": "fail", "message": tin_result}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        missing = [k for k in _CORPORATE_REQUIRED_FILES if k not in request.FILES]
+        if missing:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"Missing required files: {', '.join(missing)}",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Upload each document to Cloudinary and store the URLs.
+        # The actual 9PSB submission happens later when the admin completes
+        # the Dojah address verification and triggers SubmitCorporateTo9PSB.
+        documents = {}
+        try:
+            for key in _CORPORATE_REQUIRED_FILES:
+                file_obj = request.FILES.get(key)
+                if file_obj:
+                    result = cloud.upload(file_obj, resource_type="raw")
+                    documents[key] = result["url"]
+        except Exception as e:
+            logger.error("Cloudinary upload error during corporate submission: %s", e)
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Document upload failed. Please try again.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        WalletModel.objects.create(
+            user=user,
+            walletType="CORPORATE",
+            tax_id_no=tax_id_no,
+            acct_name=data.get("businessName", ""),
+            email=data.get("email", ""),
+            phoneNo=data.get("phoneNo", ""),
+            address=data.get("address", ""),
+            registration_number=data.get("registrationNumber", ""),
+            business_type=data.get("businessType"),
+            corporate_status="PENDING",
+            documents=documents,
+            submission_data=data,
+        )
+
+        # Notify all wallet admins so they know to review and trigger address verification.
+        business_name = data.get("businessName", "")
+        notification_message = (
+            f"New corporate account application from {business_name} (TIN: {tax_id_no}). "
+            f"Review and initiate address verification."
+        )
+        wallet_admins = User.objects.filter(
+            active_role__in=["WalletAdmin", "SuperAdmin"]
+        )
+        notifications = [
+            UserNotification(
+                user=admin,
+                title="New Corporate Application",
+                message=notification_message,
+            )
+            for admin in wallet_admins
+        ]
+        if notifications:
+            UserNotification.objects.bulk_create(notifications)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Corporate account application received. An admin will complete address verification before submission.",
+                    "tax_id_no": tax_id_no,
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="Resubmit/update a corporate account application", tags=["Banking"]
+)
+class UpdateCorporateWallet(generics.GenericAPIView):
+    serializer_class = SubmitCorporateSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        user = request.user
+        decrypted = decrypt(request.data.get("data"))
+        data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted.items()
+        }
+
+        serializer = self.serializer_class(data=data)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tax_id_no = data.get("taxIDNo")
+
+        if not WalletModel.objects.filter(
+            tax_id_no=tax_id_no, user=user, walletType="CORPORATE"
+        ).exists():
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "No existing corporate submission found for this TIN.",
+                    }
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        psb_response = Corporate.update(data=data, files=request.FILES)
+        if psb_response is None:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Corporate account service unavailable.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            psb_data = psb_response.json()
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid response from banking provider.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if psb_data.get("status") == "SUCCESS":
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Corporate account update submitted successfully.",
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            data=encrypt(psb_data),
+            status=psb_response.status_code,
+        )
+
+
+@extend_schema(summary="Get corporate account application status", tags=["Banking"])
+class GetCorporateWalletStatus(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        tin = request.query_params.get("tin")
+
+        if not tin:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "TIN query parameter is required."}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        corporate = WalletModel.objects.filter(
+            tax_id_no=tin, user=user, walletType="CORPORATE"
+        ).first()
+        if not corporate:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Corporate account not found."}
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        psb_response = Corporate.get_status(tin=tin)
+        if psb_response is None:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Corporate account service unavailable.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            psb_data = psb_response.json()
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid response from banking provider.",
+                    }
+                ),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if psb_data.get("status") == "SUCCESS":
+            org = psb_data.get("data", {}).get("organization", {})
+            final_status = psb_data.get("data", {}).get("finalStatus")
+            acct_no = org.get("accountNumber")
+            acct_name = org.get("accountName")
+
+            update_fields = []
+            if acct_no and corporate.account_number != acct_no:
+                corporate.account_number = acct_no
+                update_fields.append("account_number")
+            if acct_name and corporate.acct_name != acct_name:
+                corporate.acct_name = acct_name
+                update_fields.append("acct_name")
+            if final_status and corporate.corporate_status != final_status:
+                corporate.corporate_status = final_status
+                update_fields.append("corporate_status")
+            if update_fields:
+                corporate.save(update_fields=update_fields)
+
+        return Response(
+            data=encrypt(psb_data),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
