@@ -23,7 +23,7 @@ class CashbackService:
 
         cashback = Decimal(amount) * (rule.percentage / 100)
 
-        wallet = WalletModel.objects.get(user=user)
+        wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
         wallet.cashback_balance += cashback
         wallet.save(update_fields=["cashback_balance"])
 

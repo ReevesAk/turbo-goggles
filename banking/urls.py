@@ -16,6 +16,9 @@ from .views import (
     RefundFailedCardTransaction,
     GetCashbackBalance,
     GenerateAccountStatement,
+    CreateCorporateWallet,
+    UpdateCorporateWallet,
+    GetCorporateWalletStatus,
 )
 
 from .transfers import (
@@ -143,5 +146,11 @@ urlpatterns = [
         "generate-statement",
         GenerateAccountStatement.as_view(),
         name="generate_statement",
+    ),
+    # Corporate wallet
+    path("corporate/submit", CreateCorporateWallet.as_view(), name="corporate_submit"),
+    path("corporate/update", UpdateCorporateWallet.as_view(), name="corporate_update"),
+    path(
+        "corporate/status", GetCorporateWalletStatus.as_view(), name="corporate_status"
     ),
 ]

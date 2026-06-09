@@ -52,7 +52,9 @@ class CreateAdSerializers(serializers.ModelSerializer):
     brand_socials = serializers.ListField(
         child=serializers.URLField(
             max_length=300,
-            error_messages={"invalid": "Social links must be valid URLs starting with http:// or https://"},
+            error_messages={
+                "invalid": "Social links must be valid URLs starting with http:// or https://"
+            },
         ),
         required=False,
         max_length=4,

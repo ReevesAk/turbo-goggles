@@ -391,6 +391,37 @@ class AddressVerificationSerializer(serializers.Serializer):
     localGovernment = serializers.CharField()
 
 
+_BUSINESS_TYPES = [
+    "PARTNERSHIP",
+    "NGO",
+    "COOPERATIVE",
+    "CORPORATIONS",
+    "OTHERS",
+    "SOLE_PROPRIETORSHIP",
+    "SOCIAL_ENTERPRISE",
+    "LIMITED_LIABILITY_COMPANY",
+    "FRANCHISE",
+]
+
+
+class SubmitCorporateSerializer(serializers.Serializer):
+    taxIDNo = serializers.CharField()
+    businessName = serializers.CharField()
+    email = serializers.EmailField()
+    phoneNo = serializers.CharField()
+    address = serializers.CharField()
+    industrialSector = serializers.CharField()
+    businessType = serializers.ChoiceField(choices=_BUSINESS_TYPES)
+    companyRegDate = serializers.CharField()
+    contactPersonFirstName = serializers.CharField()
+    contactPersonLastName = serializers.CharField()
+    registrationNumber = serializers.CharField()
+    webAddress = serializers.CharField(required=False, allow_blank=True)
+    dateIncorporated = serializers.CharField(required=False, allow_blank=True)
+    businessCommencementDate = serializers.CharField(required=False, allow_blank=True)
+    postalAddress = serializers.CharField(required=False, allow_blank=True)
+
+
 class AccountStatementSerializer(serializers.Serializer):
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)

@@ -30,7 +30,7 @@ class Pin:
     @staticmethod
     def verify(user, pin, hashed_pin):
         try:
-            wallet = WalletModel.objects.get(user=user)
+            wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
         except WalletModel.DoesNotExist:
             return Response(
                 data={"message": "Invalid wallet ID"},
@@ -72,6 +72,16 @@ class Pin:
                 return False
 
 
+def cloudinary_to_bytes(url):
+    """Downloads a file from Cloudinary and returns (bytes, content_type)."""
+    response = requests.get(url)
+    response.raise_for_status()
+    content_type = response.headers.get(
+        "Content-Type", "application/octet-stream"
+    ).split(";")[0]
+    return response.content, content_type
+
+
 def cloudinary_to_base64(url, quality=40, max_size=(700, 700)):
     """
     Downloads an image from Cloudinary, compresses it, and returns base64 string.
@@ -100,7 +110,7 @@ def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
     if payment_option != "WALLET":
         return True, None
 
-    account = WalletModel.objects.filter(user=user).first()
+    account = WalletModel.objects.filter(user=user, walletType="INDIVIDUAL").first()
 
     if use_biometrics:
         verified = Biometrics.authenticate(user.phone_number)

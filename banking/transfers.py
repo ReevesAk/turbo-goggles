@@ -1074,7 +1074,7 @@ class FundWallet(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        user_details = WalletModel.objects.get(user=user)
+        user_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
 
         try:
             transfer_resp = Wallet.Credit(

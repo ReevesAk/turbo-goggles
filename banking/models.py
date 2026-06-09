@@ -66,7 +66,9 @@ class Cashback(models.Model):
 
 
 class WalletModel(models.Model):
-    user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, null=True, related_name="wallets"
+    )
     transactionTrackingRef = models.CharField(max_length=50, null=True)
     account_number = models.CharField(max_length=100, null=True, db_index=True)
     otherNames = models.CharField(max_length=100, null=True)
@@ -102,6 +104,24 @@ class WalletModel(models.Model):
         null=True,
         blank=True,
     )
+
+    # Corporate wallet fields (only populated when walletType="CORPORATE")
+    tax_id_no = models.CharField(max_length=50, null=True, blank=True, unique=True)
+    registration_number = models.CharField(max_length=100, null=True, blank=True)
+    business_type = models.CharField(max_length=60, null=True, blank=True)
+    CORPORATE_STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("DECLINED", "Declined"),
+    ]
+    corporate_status = models.CharField(
+        max_length=20,
+        choices=CORPORATE_STATUS_CHOICES,
+        null=True,
+        blank=True,
+    )
+    documents = models.JSONField(null=True, blank=True)
+    submission_data = models.JSONField(null=True, blank=True)
 
 
 class WalletUpgrade(WalletModel):

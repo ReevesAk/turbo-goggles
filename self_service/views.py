@@ -77,7 +77,9 @@ class TableBooking(generics.CreateAPIView):
                 use_points = user_data.get("use_points")
 
                 try:
-                    account = WalletModel.objects.get(user=authenticated_user)
+                    account = WalletModel.objects.get(
+                        user=authenticated_user, walletType="INDIVIDUAL"
+                    )
                 except WalletModel.DoesNotExist:
                     return Response(
                         data=encrypt(
@@ -628,7 +630,9 @@ class CinemaBookingView(generics.CreateAPIView):
                 use_points = user_data.get("use_points")
 
                 try:
-                    account = WalletModel.objects.get(user=authenticated_user)
+                    account = WalletModel.objects.get(
+                        user=authenticated_user, walletType="INDIVIDUAL"
+                    )
                 except WalletModel.DoesNotExist:
                     return Response(
                         data={"status": "fail", "error": "Account not found for user"},
@@ -899,7 +903,9 @@ class BookCourierSercvice(generics.CreateAPIView):
                 use_points = user_data.get("use_points")
 
                 try:
-                    account = WalletModel.objects.get(user=authenticated_user)
+                    account = WalletModel.objects.get(
+                        user=authenticated_user, walletType="INDIVIDUAL"
+                    )
                 except WalletModel.DoesNotExist:
                     return Response(
                         data=encrypt(
