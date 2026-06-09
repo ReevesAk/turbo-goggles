@@ -122,7 +122,7 @@ def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
 
     elif account and account.pin:
         verified = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-        if not verified:
+        if verified is not True:
             return False, Response(
                 encrypt({"status": "fail", "error": "Invalid PIN"}),
                 status=status.HTTP_403_FORBIDDEN,

@@ -1705,17 +1705,6 @@ class BillPaymentView(generics.GenericAPIView):
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
         )
 
-        # Acquire and immediately release wallet lock
-        user_wallet = None
-        account_number = ""
-        if user:
-            try:
-                with transaction.atomic():
-                    user_wallet = WalletModel.objects.select_for_update().get(user=user)
-                    account_number = user_wallet.account_number
-            except WalletModel.DoesNotExist:
-                user_wallet = None
-
         # Guest validations (guests only allowed CARD)
         if not user:
             if not guest_id:
@@ -1748,8 +1737,18 @@ class BillPaymentView(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         serializer.is_valid(raise_exception=True)
 
+        # Payment Authentication
+        is_verified, error_response = verify_wallet_auth(
+            user=user,
+            payment_option=payment_option,
+            pin=pin,
+            use_biometrics=biometrics,
+        )
+        if not is_verified:
+            return error_response
+
         account_number = ""
-        if payment_option != "CARD":
+        if payment_option == "WALLET" and user:
             try:
                 account = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
                 account_number = account.account_number
@@ -1759,25 +1758,6 @@ class BillPaymentView(generics.GenericAPIView):
                         {"status": "fail", "error": "Account not found for user"}
                     ),
                     status=status.HTTP_404_NOT_FOUND,
-                )
-
-            verification = True
-            if biometrics:
-                verification = Biometrics.authenticate(user.phone_number)
-            elif account and account.pin is not None:
-                verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
-            else:
-                return Response(
-                    data=encrypt(
-                        {"status": "fail", "error": "Account or PIN not found"}
-                    ),
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            if not verification:
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Invalid credentials"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
         vas_response = None
