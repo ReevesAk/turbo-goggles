@@ -649,8 +649,10 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
     author_images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
-    # Write-only: accept the ads/media file
-    ads_and_media = serializers.ImageField(write_only=True, required=False)
+    # Write-only: accept multiple ads/media files
+    ads_and_media = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
 
     class Meta:
         model = knowledgeBaseModel
@@ -712,12 +714,15 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
             attrs["author_image_urls"] = urls
 
         if ads_and_media:
-            try:
-                attrs["ads_and_media_url"] = self._upload(ads_and_media)
-            except Exception as exc:
-                raise serializers.ValidationError(
-                    {"ads_and_media": f"Upload failed: {exc}"}
-                )
+            urls = []
+            for media in ads_and_media:
+                try:
+                    urls.append(self._upload(media))
+                except Exception as exc:
+                    raise serializers.ValidationError(
+                        {"ads_and_media": f"Upload failed: {exc}"}
+                    )
+            attrs["ads_and_media_url"] = urls
 
         return attrs
 

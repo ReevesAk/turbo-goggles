@@ -1686,7 +1686,6 @@ class BillPaymentView(generics.GenericAPIView):
         # customerId → VTPass billersCode (meter / IUC number)
         # itemId → VTPass variation_code (prepaid/postpaid or package code)
         pin = user_data.get("pin")
-        use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
         payment_option = user_data.get("payment_option")
@@ -1699,7 +1698,6 @@ class BillPaymentView(generics.GenericAPIView):
         itemId = user_data.get("itemId")
         otherField = user_data.get("otherField")
         biometrics = user_data.get("use_biometrics")
-        use_cashback = user_data.get("use_cashback")
 
         tx_reference = (
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
@@ -1760,212 +1758,46 @@ class BillPaymentView(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-        vas_response = None
-
-        # --- Use bonus flow ---
-        if use_bonus:
-            if user and user.welcome_bonus >= float(amount):
-                try:
-                    token = VAS.authenticate()
-                    if not token:
-                        raise ValueError("VAS authentication failed")
-                    vas_response = VAS.bill_payment(
-                        bearer_token=token,
-                        customerId=customerId,
-                        billerId=billerId,
-                        itemId=itemId,
-                        amount=amount,
-                        customerPhone=phone_number,
-                        customerName=customerName,
-                        otherField=otherField,
-                        transactionReference=tx_reference,
-                    )
-                except Exception as e:
-                    logger.error(f"VAS pay error (bonus): {e}")
-                    return self._handle_failure(
-                        user=user,
-                        guest_id=guest_id,
-                        phone_number=phone_number,
-                        amount=amount,
-                        vas_response=None,
-                        reason="Provider call error",
-                    )
-
-                if vas_response and VAS.is_success(vas_response):
-                    return self._handle_success(
-                        user=user,
-                        guest_id=guest_id,
-                        customerId=customerId,
-                        billerId=billerId,
-                        itemId=itemId,
-                        amount=amount,
-                        phone_number=phone_number,
-                        customerName=customerName,
-                        otherField=otherField,
-                        vas_response=vas_response,
-                        tx_reference=tx_reference,
-                        account_number=account_number,
-                    )
-                try:
-                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                    if status_resp and VAS.is_success(status_resp):
-                        return self._handle_success(
-                            user=user,
-                            guest_id=guest_id,
-                            customerId=customerId,
-                            billerId=billerId,
-                            itemId=itemId,
-                            amount=amount,
-                            phone_number=phone_number,
-                            customerName=customerName,
-                            otherField=otherField,
-                            vas_response=vas_response,
-                            tx_reference=tx_reference,
-                            account_number=account_number,
-                        )
-                except Exception:
-                    pass
-
-            return self._handle_failure(
-                user=user,
-                guest_id=guest_id,
-                phone_number=phone_number,
-                amount=amount,
-                vas_response=(vas_response.json() if vas_response else None),
-                reason="Insufficient bonus balance.",
-            )
-
-        # Centralized payment orchestration
-        cashback_used = Decimal("0")
+        # Points-only payment: lock, validate, deduct atomically, release before VAS call
         pts_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
 
-        if (use_cashback or use_points) and payment_option == "WALLET" and user:
-            avail_cashback = Decimal("0")
-            if use_cashback:
-                try:
-                    w = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
-                    avail_cashback = w.cashback_balance
-                except WalletModel.DoesNotExist:
-                    pass
-            avail_pts = Decimal("0")
-            if use_points:
-                try:
-                    from gamification.models import Points as PointsModel
-
-                    pts_obj = PointsModel.objects.get(user=user)
-                    avail_pts = pts_obj.naira_value
-                except Exception:
-                    pass
-            if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
+        if use_points and payment_option == "WALLET" and user:
+            try:
+                with transaction.atomic():
+                    pts_obj = PointsModel.objects.select_for_update().get(user=user)
+                    if pts_obj.naira_value < Decimal(str(purchase_amount)):
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Insufficient points balance to complete this purchase.",
+                                }
+                            ),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    Pay.with_pts(user=user, amount=purchase_amount)
+                    pts_used = Decimal(str(purchase_amount))
+            except PointsModel.DoesNotExist:
                 return Response(
                     data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Insufficient points/cashback balance to complete this purchase.",
-                        }
+                        {"status": "fail", "message": "No points balance found."}
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if use_cashback:
-                payment = CashbackService.apply_cashback_payment(
-                    user=user, amount=purchase_amount
-                )
-                cashback_used = payment["cashback_used"]
-                remaining = int(payment["wallet_amount"])
-            else:
-                remaining = purchase_amount
-            if use_points and remaining > 0:
-                Pay.with_pts(user=user, amount=remaining)
-                pts_used = avail_pts
+        # Lock released — VAS call proceeds without holding the DB lock
 
         match payment_option:
             case "WALLET":
-                if not use_points and not use_cashback and not use_bonus:
-                    token = VAS.authenticate()
-                    if not token:
-                        return self._handle_failure(
-                            user=user,
-                            guest_id=guest_id,
-                            phone_number=phone_number,
-                            amount=amount,
-                            reason="VAS authentication failed.",
-                        )
-                    vas_response = VAS.bill_payment(
-                        bearer_token=token,
-                        customerId=customerId,
-                        billerId=billerId,
-                        itemId=itemId,
-                        amount=amount,
-                        customerPhone=phone_number,
-                        customerName=customerName,
-                        otherField=otherField,
-                        debitAccount=account_number,
-                        transactionReference=tx_reference,
-                    )
-                    if vas_response is None:
-                        return self._handle_failure(
-                            user=user,
-                            guest_id=guest_id,
-                            phone_number=phone_number,
-                            amount=amount,
-                            reason="VAS service unavailable.",
-                        )
-                    if VAS.is_success(vas_response):
-                        return self._handle_success(
-                            user=user,
-                            guest_id=guest_id,
-                            customerId=customerId,
-                            billerId=billerId,
-                            itemId=itemId,
-                            amount=amount,
-                            phone_number=phone_number,
-                            customerName=customerName,
-                            otherField=otherField,
-                            vas_response=vas_response,
-                            tx_reference=tx_reference,
-                            account_number=account_number,
-                        )
-                    # Fallback: confirm via status check
-                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                    if status_resp and VAS.is_success(status_resp):
-                        return self._handle_success(
-                            user=user,
-                            guest_id=guest_id,
-                            customerId=customerId,
-                            billerId=billerId,
-                            itemId=itemId,
-                            amount=amount,
-                            phone_number=phone_number,
-                            customerName=customerName,
-                            otherField=otherField,
-                            vas_response=vas_response,
-                            tx_reference=tx_reference,
-                            account_number=account_number,
-                        )
-                    return self._handle_failure(
-                        user=user,
-                        guest_id=guest_id,
-                        phone_number=phone_number,
-                        amount=amount,
-                        vas_response=vas_response,
-                        reason="Bill payment failed.",
-                    )
-
-                # Hybrid: cashback/points cover full purchase
                 token = VAS.authenticate()
                 if not token:
-                    if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=purchase_amount,
+                        amount=purchase_amount if use_points else amount,
                         reason="VAS authentication failed.",
                     )
                 vas_response = VAS.bill_payment(
@@ -1973,25 +1805,21 @@ class BillPaymentView(generics.GenericAPIView):
                     customerId=customerId,
                     billerId=billerId,
                     itemId=itemId,
-                    amount=purchase_amount,
+                    amount=purchase_amount if use_points else amount,
                     customerPhone=phone_number,
                     customerName=customerName,
                     otherField=otherField,
                     transactionReference=tx_reference,
-                    debitAccount=account_number,
+                    debitAccount=collection_account if use_points else account_number,
                 )
                 if vas_response is None:
-                    if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=purchase_amount,
+                        amount=purchase_amount if use_points else amount,
                         reason="VAS service unavailable.",
                     )
                 if VAS.is_success(vas_response):
@@ -2001,7 +1829,7 @@ class BillPaymentView(generics.GenericAPIView):
                         customerId=customerId,
                         billerId=billerId,
                         itemId=itemId,
-                        amount=purchase_amount,
+                        amount=purchase_amount if use_points else amount,
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
@@ -2009,21 +1837,33 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         account_number=account_number,
                     )
-                else:
-                    if cashback_used:
-                        CashbackService.refund_cashback(
-                            user=user, cashback_amount=cashback_used
-                        )
-                    if pts_used:
-                        Pay.refund_pts(user=user, naira_amount=pts_used)
-                    return self._handle_failure(
+                # Fallback: confirm via status check
+                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
+                if status_resp and VAS.is_success(status_resp):
+                    return self._handle_success(
                         user=user,
                         guest_id=guest_id,
+                        customerId=customerId,
+                        billerId=billerId,
+                        itemId=itemId,
+                        amount=purchase_amount if use_points else amount,
                         phone_number=phone_number,
-                        amount=purchase_amount,
+                        customerName=customerName,
+                        otherField=otherField,
                         vas_response=vas_response,
-                        reason="Bill payment failed.",
+                        tx_reference=tx_reference,
+                        account_number=account_number,
                     )
+                if pts_used:
+                    Pay.refund_pts(user=user, naira_amount=pts_used)
+                return self._handle_failure(
+                    user=user,
+                    guest_id=guest_id,
+                    phone_number=phone_number,
+                    amount=purchase_amount if use_points else amount,
+                    vas_response=vas_response,
+                    reason="Bill payment failed.",
+                )
 
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
