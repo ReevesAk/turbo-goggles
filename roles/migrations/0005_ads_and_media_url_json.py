@@ -10,6 +10,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Wrap any existing plain URL strings into a JSON array before the type change.
+        migrations.RunSQL(
+            sql="""
+                UPDATE roles_knowledgebasemodel
+                SET ads_and_media_url = json_build_array(ads_and_media_url)::text
+                WHERE ads_and_media_url IS NOT NULL
+                  AND ads_and_media_url NOT LIKE '[%'
+                  AND ads_and_media_url NOT LIKE '{%';
+            """,
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AlterField(
             model_name="knowledgebasemodel",
             name="ads_and_media_url",
