@@ -653,6 +653,10 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
     ads_and_media = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
+    # Write-only: one description per media file (positionally matched)
+    ad_description = serializers.ListField(
+        child=serializers.CharField(allow_blank=True), write_only=True, required=False
+    )
 
     class Meta:
         model = knowledgeBaseModel
@@ -667,7 +671,6 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
             "author_image_urls",
             "content",
             "ads_and_media",
-            "ads_and_media_url",
             "ad_description",
             "is_post_scheduled",
             "selected_date_time",
@@ -677,7 +680,6 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "author_image_urls",
-            "ads_and_media_url",
             "created_at",
         ]
 
@@ -700,7 +702,8 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(errors)
 
         author_images = attrs.pop("author_images", None) or []
-        ads_and_media = attrs.pop("ads_and_media", None)
+        ads_and_media = attrs.pop("ads_and_media", None) or []
+        descriptions = attrs.pop("ad_description", None) or []
 
         if author_images:
             urls = []
@@ -714,15 +717,21 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
             attrs["author_image_urls"] = urls
 
         if ads_and_media:
-            urls = []
-            for media in ads_and_media:
+            combined = []
+            for i, media in enumerate(ads_and_media):
                 try:
-                    urls.append(self._upload(media))
+                    url = self._upload(media)
                 except Exception as exc:
                     raise serializers.ValidationError(
                         {"ads_and_media": f"Upload failed: {exc}"}
                     )
-            attrs["ads_and_media_url"] = urls
+                combined.append(
+                    {
+                        "url": url,
+                        "description": descriptions[i] if i < len(descriptions) else "",
+                    }
+                )
+            attrs["ads_and_media_url"] = combined
 
         return attrs
 
@@ -740,8 +749,7 @@ class KnowledgeBaseSerializer(serializers.ModelSerializer):
                 "author_image_urls": instance.author_image_urls or [],
             },
             "content": instance.content,
-            "ads_and_media_url": instance.ads_and_media_url,
-            "ad_description": instance.ad_description,
+            "ads_and_media": instance.ads_and_media_url or [],
             "is_post_scheduled": instance.is_post_scheduled,
             "selected_date_time": instance.selected_date_time,
             "selected_time": instance.selected_time,
