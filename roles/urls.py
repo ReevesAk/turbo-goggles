@@ -73,6 +73,10 @@ from .brand import (
     RestrictBrandAdAccountView,
     GetAllBrandAdUsers,
     AdStatsView,
+    ListAllCampaignsAdminView,
+    ListBrandSubmissionsAdminView,
+    PendingSubmissionsAdminView,
+    ReviewTaskSubmissionAdminView,
 )
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
@@ -229,6 +233,26 @@ urlpatterns = [
     ),
     path("ad-profile/<str:email>/", GetBrandAdDetails.as_view(), name="ad_profile"),
     path("ad-stats-view/<int:user_id>/", AdStatsView.as_view(), name="ad-stats_view"),
+    path(
+        "brands/campaigns/",
+        ListAllCampaignsAdminView.as_view(),
+        name="list_all_campaigns",
+    ),
+    path(
+        "brands/submissions/",
+        ListBrandSubmissionsAdminView.as_view(),
+        name="list_brand_submissions",
+    ),
+    path(
+        "tasks/pending/",
+        PendingSubmissionsAdminView.as_view(),
+        name="admin_pending_submissions",
+    ),
+    path(
+        "tasks/<uuid:submission_id>/review/",
+        ReviewTaskSubmissionAdminView.as_view(),
+        name="admin_review_submission",
+    ),
     # Fmcg admin endpoints
     path("fmcg/add-product", AddProduct.as_view(), name="add_product"),
     path("fmcg/add-address", AddAddress.as_view(), name="add_address"),

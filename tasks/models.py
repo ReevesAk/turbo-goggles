@@ -7,6 +7,13 @@ from accounts.models import User
 from adverts.models import CreateAd
 from basemodel import BaseModel
 
+BRAND_SUBMISSION_STATUS = (
+    ("Pending", "Pending"),
+    ("Approved", "Approved"),
+    ("Rejected", "Rejected"),
+    ("Flagged", "Flagged"),
+)
+
 
 PLATFORM_CHOICES = (
     ("X", "X (Twitter)"),
@@ -190,3 +197,28 @@ class UserTrustScore(BaseModel):
 
     def __str__(self):
         return f"{self.user} trust: {self.score}/100"
+
+
+class BrandTaskSubmission(BaseModel):
+    """Proof submitted by a user for a brand ad campaign task (all 6 task types)."""
+
+    ad = models.ForeignKey(CreateAd, on_delete=models.CASCADE, related_name="brand_submissions")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="brand_task_submissions")
+
+    screenshot_url = models.CharField(max_length=500, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    status = models.CharField(choices=BRAND_SUBMISSION_STATUS, max_length=20, default="Pending")
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_brand_submissions",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+    reward_issued = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("ad", "user")
+
+    def __str__(self):
+        return f"{self.user} → {self.ad.campaign_name} [{self.status}]"

@@ -27,6 +27,12 @@ BASE_POINTS = {
     "referral": 300,
     "special_campaign": 300,
     "streak_bonus": 200,
+    "watch_video": 50,
+    "website_visit": 30,
+    "store_visit": 150,
+    "survey_completion": 75,
+    "app_download": 100,
+    "brand_task": 50,
 }
 
 # New tier → naira-per-point mapping
