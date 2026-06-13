@@ -5,8 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import User
-from gamification.points import Points
-from .models import TaskSubmission, VerificationResult, UserTrustScore
+from gamification.points import Points, BASE_POINTS
+from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
 from .verification import verify_submission, VerificationError
 
 logger = logging.getLogger(__name__)
@@ -148,3 +148,96 @@ def manual_reject(submission_id: str, reviewer_id: str, reason: str = ""):
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_rejection()
+
+
+# ── Brand campaign task jobs ──────────────────────────────────────────────────
+
+# Maps task_type to the points source label used in the ledger
+_BRAND_TASK_SOURCE = {
+    "watch_video": "watch_video",
+    "social_engage": "social_engagement",
+    "website_visit": "website_visit",
+    "store_visit": "store_visit",
+    "survey": "survey_completion",
+    "app_download": "app_download",
+}
+
+
+@shared_task
+def approve_brand_submission(submission_id: str, reviewer_id: str = None):
+    """
+    Approve a BrandTaskSubmission and credit points to the user.
+    reviewer_id is None for auto-approvals (timer/QR/survey completions).
+    """
+    try:
+        submission = BrandTaskSubmission.objects.select_related("ad", "user").get(
+            pk=submission_id
+        )
+    except BrandTaskSubmission.DoesNotExist:
+        logger.error("approve_brand_submission: submission %s not found", submission_id)
+        return
+
+    if submission.status == "Approved":
+        logger.info("Brand submission %s already approved — skipping", submission_id)
+        return
+
+    reviewer = None
+    if reviewer_id:
+        try:
+            reviewer = User.objects.get(pk=reviewer_id)
+        except User.DoesNotExist:
+            pass
+
+    with transaction.atomic():
+        submission.status = "Approved"
+        submission.reward_issued = True
+        submission.reviewed_by = reviewer
+        submission.reviewed_at = timezone.now()
+        submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
+
+        # Increment slots_filled on the campaign
+        ad = submission.ad
+        ad.slots_filled = ad.slots_filled + 1
+        # Auto-deactivate when slot cap is reached
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            ad.is_active = False
+        ad.save(update_fields=["slots_filled", "is_active"])
+
+        # Credit points using the brand-set reward_points, falling back to BASE_POINTS
+        task_type = ad.task_type or ""
+        points_amount = ad.reward_points or BASE_POINTS.get(task_type, 0)
+        source = _BRAND_TASK_SOURCE.get(task_type, "brand_task")
+
+        if points_amount:
+            Points.award(
+                user=submission.user,
+                amount=points_amount,
+                reason=f"Completed brand task: {ad.campaign_name}",
+                source=source,
+                reference_id=str(submission.pk),
+                triggered_by=reviewer,
+            )
+
+    logger.info(
+        "Brand submission %s approved — %d pts awarded to %s",
+        submission_id, points_amount, submission.user.email,
+    )
+
+
+@shared_task
+def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = ""):
+    """Admin rejects a BrandTaskSubmission."""
+    try:
+        submission = BrandTaskSubmission.objects.select_related("user").get(pk=submission_id)
+        reviewer = User.objects.get(pk=reviewer_id)
+    except (BrandTaskSubmission.DoesNotExist, User.DoesNotExist):
+        return
+
+    with transaction.atomic():
+        submission.status = "Rejected"
+        submission.rejection_reason = reason
+        submission.reviewed_by = reviewer
+        submission.reviewed_at = timezone.now()
+        submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
+
+    logger.info("Brand submission %s rejected by %s", submission_id, reviewer.email)

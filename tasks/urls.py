@@ -1,13 +1,16 @@
 from django.urls import path
 
 from .views import (
+    # Social tasks
     MySubmissionsView,
     MyTrustScoreView,
-    PendingReviewListView,
-    ReviewSubmissionView,
     SocialProfileView,
     SocialTaskListView,
     SubmitTaskView,
+    # Brand campaign tasks
+    BrandTaskFeedView,
+    MyBrandSubmissionsView,
+    SubmitBrandTaskView,
 )
 
 urlpatterns = [
@@ -16,7 +19,8 @@ urlpatterns = [
     path("submit/", SubmitTaskView.as_view(), name="task-submit"),
     path("submissions/", MySubmissionsView.as_view(), name="my-submissions"),
     path("trust-score/", MyTrustScoreView.as_view(), name="trust-score"),
-    # Admin
-    path("admin/pending/", PendingReviewListView.as_view(), name="pending-review"),
-    path("admin/review/<uuid:submission_id>/", ReviewSubmissionView.as_view(), name="review-submission"),
+
+    path("brand/feed/", BrandTaskFeedView.as_view(), name="brand-task-feed"),
+    path("brand/submit/", SubmitBrandTaskView.as_view(), name="brand-task-submit"),
+    path("brand/my-submissions/", MyBrandSubmissionsView.as_view(), name="brand-my-submissions"),
 ]

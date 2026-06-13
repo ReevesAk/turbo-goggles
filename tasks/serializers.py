@@ -1,7 +1,17 @@
 from rest_framework import serializers
 
-from .models import SocialProfile, SocialTask, TaskSubmission, VerificationResult, UserTrustScore
+from .models import (
+    BrandTaskSubmission,
+    SocialProfile,
+    SocialTask,
+    TaskSubmission,
+    VerificationResult,
+    UserTrustScore,
+)
+from adverts.models import CreateAd
 
+
+# ── Existing social-task serializers (unchanged) ─────────────────────────────
 
 class SocialProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,8 +67,6 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
 
 
 class SubmitTaskSerializer(serializers.ModelSerializer):
-    """Used when a user submits proof for a task."""
-
     class Meta:
         model = TaskSubmission
         fields = ["task", "screenshot_url", "post_url", "notes"]
@@ -97,5 +105,123 @@ class UserTrustScoreSerializer(serializers.ModelSerializer):
 
 
 class AdminReviewSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# ── Brand campaign task serializers ──────────────────────────────────────────
+
+class BrandTaskFeedSerializer(serializers.ModelSerializer):
+    """Read-only task card shown to users on the gamification feed."""
+
+    slots_remaining = serializers.SerializerMethodField()
+    task_type_display = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CreateAd
+        fields = [
+            "id",
+            "campaign_name",
+            "business_or_brand_name",
+            "task_type",
+            "task_type_display",
+            "task_details",
+            "reward_points",
+            "slot_cap",
+            "slots_filled",
+            "slots_remaining",
+            "expiry_date",
+            "time_remaining",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+    def get_slots_remaining(self, obj):
+        if obj.slot_cap:
+            return max(0, obj.slot_cap - obj.slots_filled)
+        return None
+
+    def get_task_type_display(self, obj):
+        return obj.get_task_type_display() if obj.task_type else None
+
+    def get_time_remaining(self, obj):
+        from django.utils import timezone
+        if obj.expiry_date:
+            remaining = obj.expiry_date - timezone.now()
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                return f"{days}d {hours}h remaining"
+            return "Expired"
+        return None
+
+
+class SubmitBrandTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrandTaskSubmission
+        fields = ["ad", "screenshot_url", "notes"]
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        ad = attrs["ad"]
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is not currently active.")
+
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            raise serializers.ValidationError("This campaign has reached its completion limit.")
+
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+            raise serializers.ValidationError("You have already submitted this task.")
+
+        # Screenshot required for social_engage and app_download
+        if ad.task_type in ("social_engage", "app_download") and not attrs.get("screenshot_url"):
+            raise serializers.ValidationError(
+                "A screenshot is required as proof for this task type."
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        return BrandTaskSubmission.objects.create(user=user, **validated_data)
+
+
+class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
+    campaign_name = serializers.CharField(source="ad.campaign_name", read_only=True)
+    brand_name = serializers.CharField(source="ad.business_or_brand_name", read_only=True)
+    task_type = serializers.CharField(source="ad.task_type", read_only=True)
+    task_type_display = serializers.SerializerMethodField()
+    reward_points = serializers.IntegerField(source="ad.reward_points", read_only=True)
+
+    class Meta:
+        model = BrandTaskSubmission
+        fields = [
+            "id",
+            "ad",
+            "campaign_name",
+            "brand_name",
+            "task_type",
+            "task_type_display",
+            "reward_points",
+            "screenshot_url",
+            "notes",
+            "status",
+            "reward_issued",
+            "rejection_reason",
+            "reviewed_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id", "status", "reward_issued", "rejection_reason",
+            "reviewed_at", "created_at",
+        ]
+
+    def get_task_type_display(self, obj):
+        return obj.ad.get_task_type_display() if obj.ad.task_type else None
+
+
+class AdminBrandReviewSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["approve", "reject"])
     reason = serializers.CharField(required=False, allow_blank=True, default="")

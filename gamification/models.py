@@ -53,6 +53,13 @@ TRANSACTION_SOURCE_CHOICES = (
     ("special_campaign", "Special Campaign"),
     ("admin_adjustment", "Admin Adjustment"),
     ("penalty", "Penalty"),
+    # Brand campaign task types
+    ("watch_video", "Watch Video"),
+    ("website_visit", "Website Visit"),
+    ("store_visit", "Store Visit"),
+    ("survey_completion", "Survey Completion"),
+    ("app_download", "App Download"),
+    ("brand_task", "Brand Task"),
 )
 
 

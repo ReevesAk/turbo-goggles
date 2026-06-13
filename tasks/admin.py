@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import SocialProfile, SocialTask, TaskSubmission, UserTrustScore, VerificationResult
+from .models import (
+    BrandTaskSubmission,
+    SocialProfile,
+    SocialTask,
+    TaskSubmission,
+    UserTrustScore,
+    VerificationResult,
+)
 
 
 @admin.register(SocialTask)
@@ -34,3 +41,15 @@ class UserTrustScoreAdmin(admin.ModelAdmin):
 class SocialProfileAdmin(admin.ModelAdmin):
     list_display = ["user", "x_username", "instagram_username", "facebook_username", "tiktok_username"]
     search_fields = ["user__email", "x_username", "instagram_username"]
+
+
+@admin.register(BrandTaskSubmission)
+class BrandTaskSubmissionAdmin(admin.ModelAdmin):
+    list_display = ["user", "ad", "task_type_display", "status", "reward_issued", "created_at"]
+    list_filter = ["status", "reward_issued", "ad__task_type"]
+    search_fields = ["user__email", "ad__campaign_name", "ad__business_or_brand_name"]
+    readonly_fields = ["created_at", "updated_at", "reward_issued"]
+
+    def task_type_display(self, obj):
+        return obj.ad.get_task_type_display() if obj.ad.task_type else "-"
+    task_type_display.short_description = "Task Type"

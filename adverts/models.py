@@ -46,6 +46,15 @@ BRAND_OBJECTIVE = (
     ("Promote Awareness(Engagement)", "Promote Awareness(Engagement)"),
 )
 
+TASK_TYPE_CHOICES = (
+    ("watch_video", "Watch Video"),
+    ("social_engage", "Social Engage"),
+    ("website_visit", "Website Visit"),
+    ("store_visit", "Store Visit"),
+    ("survey", "Survey"),
+    ("app_download", "App Download"),
+)
+
 
 class CreateAd(models.Model):
     user = models.ForeignKey(
@@ -76,6 +85,15 @@ class CreateAd(models.Model):
     is_active = models.BooleanField(default=False, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Task type fields
+    task_type = models.CharField(
+        choices=TASK_TYPE_CHOICES, max_length=30, null=True, blank=True
+    )
+    task_details = models.JSONField(default=dict, blank=True)
+    reward_points = models.PositiveIntegerField(default=0, null=True, blank=True)
+    slot_cap = models.PositiveIntegerField(default=0, null=True, blank=True)
+    slots_filled = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         if self.campaign_duration and not self.expiry_date:
