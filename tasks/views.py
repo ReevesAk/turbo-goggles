@@ -118,8 +118,6 @@ class MyTrustScoreView(APIView):
         return Response(UserTrustScoreSerializer(trust).data)
 
 
-# ── Admin / Moderator views ────────────────────────────────────────────────────
-
 @extend_schema(summary="[Admin] List submissions pending review", tags=["Social Tasks Admin"])
 class PendingReviewListView(generics.ListAPIView):
     serializer_class = TaskSubmissionSerializer
