@@ -43,6 +43,45 @@ class Points(models.Model):
         return int((self.balance or 0) * rate)
 
 
+TRANSACTION_SOURCE_CHOICES = (
+    ("task_completion", "Task Completion"),
+    ("daily_login", "Daily Login"),
+    ("referral", "Referral"),
+    ("service_purchase", "Service Purchase"),
+    ("financial_task", "Financial Task"),
+    ("streak_bonus", "Streak Bonus"),
+    ("special_campaign", "Special Campaign"),
+    ("admin_adjustment", "Admin Adjustment"),
+    ("penalty", "Penalty"),
+)
+
+
+class PointTransaction(models.Model):
+    """Immutable ledger entry for every points movement."""
+
+    AWARD = "award"
+    DEDUCT = "deduct"
+    TRANSACTION_TYPES = ((AWARD, "Award"), (DEDUCT, "Deduction"))
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="point_transactions")
+    transaction_type = models.CharField(choices=TRANSACTION_TYPES, max_length=10)
+    amount = models.PositiveIntegerField()
+    reason = models.CharField(max_length=255)
+    source = models.CharField(choices=TRANSACTION_SOURCE_CHOICES, max_length=30, default="admin_adjustment")
+    reference_id = models.CharField(max_length=100, blank=True, null=True)
+    triggered_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="triggered_transactions"
+    )
+    balance_after = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_type} {self.amount}pts → {self.user} [{self.source}]"
+
+
 class StepCampaignModel(models.Model):
     campaign_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
