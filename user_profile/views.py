@@ -57,6 +57,8 @@ from self_service.models import (
 from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
+from .models import DeviceToken
+from .fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -602,6 +604,13 @@ class ChangePassword(generics.UpdateAPIView):
                 message="You have successfully changed your password.",
             )
 
+            send_push_to_user(
+                user=request.user,
+                title="Password Changed 🔒",
+                body="Your Picadailys password was just changed. If this wasn't you, contact support immediately.",
+                data={"type": "password_changed"},
+            )
+
             # Log the password change activity
             ActivityModel.objects.create(
                 user=request.user,
@@ -785,7 +794,12 @@ class PostMemberSurvey(generics.CreateAPIView):
         except ValidationError as e:
             logger.error("Member survey validation error: %s", str(e))
             return Response(
-                encrypt({"status": "fail", "message": "Survey submission is invalid. Please check your answers."}),
+                encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Survey submission is invalid. Please check your answers.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1494,3 +1508,63 @@ class TierListView(generics.RetrieveAPIView):
             },
         }
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
+
+
+logger_fcm = logging.getLogger(__name__)
+
+
+class RegisterDeviceTokenView(generics.GenericAPIView):
+    """
+    POST  /v1/user_profile/device-token/  — save or refresh an FCM push token.
+    DELETE /v1/user_profile/device-token/ — remove the token on logout.
+
+    Body: { "token": "<FCM_TOKEN>", "platform": "android" | "ios" | "web" }
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        payload = decrypt(request.data)
+        token = (payload.get("token") or "").strip()
+        platform = payload.get("platform", "android")
+
+        if not token:
+            return Response(
+                data=encrypt({"status": "error", "message": "token is required."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if platform not in ("android", "ios", "web"):
+            platform = "android"
+
+        DeviceToken.objects.update_or_create(
+            user=request.user,
+            token=token,
+            defaults={"platform": platform},
+        )
+        logger_fcm.info(
+            "FCM token registered for %s [%s]", request.user.email, platform
+        )
+
+        return Response(
+            data=encrypt({"status": "success", "message": "Device token registered."}),
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        payload = decrypt(request.data)
+        token = (payload.get("token") or "").strip()
+
+        if token:
+            deleted, _ = DeviceToken.objects.filter(
+                user=request.user, token=token
+            ).delete()
+            logger_fcm.info(
+                "FCM token removed for %s (deleted=%d)", request.user.email, deleted
+            )
+
+        return Response(
+            data=encrypt({"status": "success", "message": "Device token removed."}),
+            status=status.HTTP_200_OK,
+        )

@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from gamification.points import Points, BASE_POINTS
+from user_profile.fcm import send_push_to_user
 from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
 from .verification import verify_submission, VerificationError
 
@@ -86,6 +87,12 @@ def _approve_submission(submission, trust):
             reference_id=str(submission.pk),
         )
 
+    send_push_to_user(
+        user=submission.user,
+        title="Submission Approved! 🎉",
+        body=f"Your submission for '{task.title}' was approved. {task.reward_points} pts credited.",
+        data={"type": "task_approved", "submission_id": str(submission.pk)},
+    )
     logger.info("Auto-approved submission %s, issued %d pts", submission.pk, task.reward_points)
 
 
@@ -94,6 +101,12 @@ def _reject_submission(submission, trust, reason: str = ""):
     submission.rejection_reason = reason
     submission.save(update_fields=["status", "rejection_reason"])
     trust.record_rejection()
+    send_push_to_user(
+        user=submission.user,
+        title="Submission Not Approved",
+        body=f"Your submission for '{submission.task.title}' was not approved. {reason or 'Please review our guidelines and try again.'}",
+        data={"type": "task_rejected", "submission_id": str(submission.pk)},
+    )
     logger.info("Auto-rejected submission %s", submission.pk)
 
 
@@ -129,6 +142,13 @@ def manual_approve(submission_id: str, reviewer_id: str):
                 triggered_by=reviewer,
             )
 
+    send_push_to_user(
+        user=submission.user,
+        title="Submission Approved! 🎉",
+        body=f"Your submission for '{submission.task.title}' was approved. {submission.task.reward_points} pts credited.",
+        data={"type": "task_approved", "submission_id": str(submission.pk)},
+    )
+
 
 @shared_task
 def manual_reject(submission_id: str, reviewer_id: str, reason: str = ""):
@@ -148,6 +168,13 @@ def manual_reject(submission_id: str, reviewer_id: str, reason: str = ""):
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_rejection()
+
+    send_push_to_user(
+        user=submission.user,
+        title="Submission Not Approved",
+        body=f"Your submission for '{submission.task.title}' was not approved. {reason or 'Please review our guidelines and try again.'}",
+        data={"type": "task_rejected", "submission_id": str(submission.pk)},
+    )
 
 
 # ── Brand campaign task jobs ──────────────────────────────────────────────────
@@ -218,6 +245,12 @@ def approve_brand_submission(submission_id: str, reviewer_id: str = None):
                 triggered_by=reviewer,
             )
 
+    send_push_to_user(
+        user=submission.user,
+        title="Brand Task Complete! 🎉",
+        body=f"You completed '{ad.campaign_name}' and earned {points_amount} pts.",
+        data={"type": "brand_task_approved", "submission_id": submission_id},
+    )
     logger.info(
         "Brand submission %s approved — %d pts awarded to %s",
         submission_id, points_amount, submission.user.email,
@@ -240,4 +273,10 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
 
+    send_push_to_user(
+        user=submission.user,
+        title="Brand Task Not Approved",
+        body=f"Your brand task submission was not approved. {reason or 'Please review the requirements and try again.'}",
+        data={"type": "brand_task_rejected", "submission_id": submission_id},
+    )
     logger.info("Brand submission %s rejected by %s", submission_id, reviewer.email)

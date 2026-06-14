@@ -11,8 +11,8 @@ from .views import (
     GetMyAssignedTickets, EscalateTicketAPIView, TicketRRTrailAPIView,
     DisableAgentrole, EnableAgentrole, DeleteAgent, CompleteTicketAPIView,
     ListUserDetailsAPI, AgentForgotPin, AgentPinVerifyOTP, AgentResetPin,
-    SupportForgotPassword, SupportPasswordResendOTP,SupportEmailVerifyOTP,
-    SupportfResetPassword
+    SupportForgotPassword, SupportPasswordResendOTP, SupportEmailVerifyOTP,
+    SupportfResetPassword,
 )
 
 
@@ -51,5 +51,5 @@ urlpatterns = [
     path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
     path("complete-ticket/<str:ticket_number>/", CompleteTicketAPIView.as_view(), name="complete_ticket"),
     path("list-user-details/", ListUserDetailsAPI.as_view(), name="list_user_details"),
-    path("search-by-channel/<str:search_term>/", GetTicketByChannel.as_view(), name="serach_channel")
+    path("search-by-channel/<str:search_term>/", GetTicketByChannel.as_view(), name="serach_channel"),
 ]

@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
-from .models import StepCampaignModel, StepSessionModel
+from .models import PointConfig, StepCampaignModel, StepSessionModel, StreakChallenge, StreakHistory, UserStreak
 
 
 class SSOLoginSerializer(serializers.Serializer):
@@ -127,3 +127,103 @@ class StepCountSessionSerializer(serializers.ModelSerializer):
             "campaign_end_time", "time_limit"
         ]
         read_only_fields = ["session_id", "completed", "started_at", "last_updated"]
+
+
+class PointConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PointConfig
+        fields = ["id", "key", "label", "value", "updated_at"]
+        read_only_fields = ["id", "key", "label", "updated_at"]
+
+
+class PointConfigUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PointConfig
+        fields = ["value"]
+
+
+class StreakChallengeSerializer(serializers.ModelSerializer):
+    is_ongoing = serializers.BooleanField(read_only=True)
+    participant_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StreakChallenge
+        fields = [
+            "id", "name", "description", "streak_type", "duration_days",
+            "start_date", "end_date", "reward_points", "reminder_time",
+            "is_active", "is_paused", "is_ongoing", "participant_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_participant_count(self, obj):
+        return obj.user_streaks.count()
+
+
+class StreakChallengeCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StreakChallenge
+        fields = [
+            "name", "description", "streak_type", "duration_days",
+            "start_date", "end_date", "reward_points", "reminder_time",
+        ]
+
+    def validate(self, data):
+        if data.get("start_date") and data.get("end_date"):
+            if data["end_date"] <= data["start_date"]:
+                raise serializers.ValidationError("end_date must be after start_date.")
+            duration = (data["end_date"] - data["start_date"]).days
+            if data.get("duration_days", 0) > duration:
+                raise serializers.ValidationError(
+                    "duration_days cannot exceed the number of days between start_date and end_date."
+                )
+        return data
+
+
+class StreakChallengeUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StreakChallenge
+        fields = ["name", "description", "end_date", "reward_points", "reminder_time", "is_active", "is_paused"]
+
+
+class UserStreakSerializer(serializers.ModelSerializer):
+    challenge_name = serializers.CharField(source="challenge.name", read_only=True)
+    challenge_type = serializers.CharField(source="challenge.streak_type", read_only=True)
+    duration_days = serializers.IntegerField(source="challenge.duration_days", read_only=True)
+    reward_points = serializers.IntegerField(source="challenge.reward_points", read_only=True)
+    days_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserStreak
+        fields = [
+            "id", "challenge", "challenge_name", "challenge_type",
+            "duration_days", "reward_points",
+            "current_count", "longest_count", "last_activity_date",
+            "completed", "completed_at", "reward_issued",
+            "days_remaining", "joined_at",
+        ]
+        read_only_fields = fields
+
+    def get_days_remaining(self, obj):
+        return max(obj.challenge.duration_days - obj.current_count, 0)
+
+
+class StreakHistorySerializer(serializers.ModelSerializer):
+    challenge_name = serializers.CharField(source="challenge.name", read_only=True)
+
+    class Meta:
+        model = StreakHistory
+        fields = [
+            "id", "challenge", "challenge_name",
+            "streak_count_reached", "broken_at", "completed", "reward_issued", "recorded_at",
+        ]
+        read_only_fields = fields
+
+
+class StreakLeaderboardEntrySerializer(serializers.Serializer):
+    rank = serializers.IntegerField()
+    user_id = serializers.UUIDField()
+    full_name = serializers.CharField()
+    current_count = serializers.IntegerField()
+    longest_count = serializers.IntegerField()
+    completed = serializers.BooleanField()

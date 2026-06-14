@@ -376,6 +376,19 @@ SPECTACULAR_SETTINGS = {
 
 CELERY_BROKER_URL = "redis://localhost:6379/0"
 
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    "check-streaks-daily": {
+        "task": "gamification.tasks.check_and_update_streaks",
+        "schedule": crontab(hour=0, minute=5),  # 12:05 AM
+    },
+    "send-streak-reminders": {
+        "task": "gamification.tasks.send_streak_reminders",
+        "schedule": crontab(hour=20, minute=0),  # 8:00 PM
+    },
+}
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "staticfiles")

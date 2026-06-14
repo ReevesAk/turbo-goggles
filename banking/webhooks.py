@@ -34,6 +34,7 @@ from django.db import transaction
 from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards
 from banking.helpers import generate_transaction_sms
 from commons import Messaging
+from user_profile.fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,17 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     message=f"Your wallet has been credited with ₦{amount} from {sender_name}.",
                 )
 
+                send_push_to_user(
+                    user=wallet.user,
+                    title="Money Received 💰",
+                    body=f"₦{amount} from {sender_name} ({source_bank}) has been credited to your wallet.",
+                    data={
+                        "type": "wallet_credit",
+                        "amount": str(amount),
+                        "reference": nipsessionid,
+                    },
+                )
+
                 ActivityModel.objects.create(
                     user=wallet.user,
                     title="Wallet Credit",
@@ -313,6 +325,12 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                         user=user,
                                         title="Welcome Bonus",
                                         message="You have been credited with a ₦500 welcome bonus. Use it for purchases.",
+                                    )
+                                    send_push_to_user(
+                                        user=user,
+                                        title="Welcome Bonus! 🎁",
+                                        body="You've been credited with a ₦500 welcome bonus. Start shopping!",
+                                        data={"type": "welcome_bonus", "amount": "500"},
                                     )
                                     ActivityModel.objects.create(
                                         user=user,
@@ -457,6 +475,12 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                     title="Account Upgrade",
                     message=message,
                 )
+                send_push_to_user(
+                    user=user,
+                    title="Account Upgraded! 🚀",
+                    body=f"Your wallet has been upgraded to {self.extract_tier(message)} tier. Enjoy enhanced benefits.",
+                    data={"type": "account_upgrade", "account_number": account_number},
+                )
 
                 tier = self.extract_tier(message)
                 ActivityModel.objects.create(
@@ -534,6 +558,18 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             user_obj.email = email
             user_obj.amount = amount
             user_obj.save()
+
+            if tx_status == "success" and user_obj.user:
+                send_push_to_user(
+                    user=user_obj.user,
+                    title="Card Funding Successful 💳",
+                    body=f"Your wallet has been funded with ₦{amount} via card.",
+                    data={
+                        "type": "card_deposit",
+                        "reference": reference,
+                        "amount": str(amount),
+                    },
+                )
 
             logger.info(
                 f"Transaction {transaction_id} was successful. Updated user: {email}"

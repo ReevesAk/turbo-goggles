@@ -12,6 +12,30 @@ class ProfileImage(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
 
 
+PLATFORM_CHOICES = (
+    ("android", "Android"),
+    ("ios", "iOS"),
+    ("web", "Web"),
+)
+
+
+class DeviceToken(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="device_tokens"
+    )
+    token = models.TextField()
+    platform = models.CharField(
+        max_length=10, choices=PLATFORM_CHOICES, default="android"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "token")
+
+    def __str__(self):
+        return f"{self.user} [{self.platform}]"
+
+
 class MemberSurvey(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     age_bracket = models.CharField(max_length=150, null=True)

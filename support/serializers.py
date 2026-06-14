@@ -5,11 +5,8 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
-from .models import (
-    Ticket, AgentRating
-)
+from .models import Ticket, AgentRating, TicketAssignmentHistory
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
-from .models import TicketAssignmentHistory
 
 logger = logging.getLogger("support")
 
@@ -487,3 +484,5 @@ class SupportStaffResetPasswordSerializer(serializers.ModelSerializer):
         user = User.objects.get(id=agent_id)
         logger.info("Password reset request for email: %s", user.email)
         return attrs
+
+

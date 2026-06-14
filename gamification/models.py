@@ -89,6 +89,99 @@ class PointTransaction(models.Model):
         return f"{self.transaction_type} {self.amount}pts → {self.user} [{self.source}]"
 
 
+STREAK_TYPE_CHOICES = (
+    ("daily_login", "Daily Login"),
+    ("service_purchase", "Service Purchase"),
+    ("financial_task", "Financial Task"),
+    ("social_engagement", "Social Engagement"),
+    ("referral", "Referral"),
+    ("special_campaign", "Special Campaign"),
+    ("watch_video", "Watch Video"),
+    ("website_visit", "Website Visit"),
+    ("store_visit", "Store Visit"),
+    ("survey_completion", "Survey Completion"),
+    ("app_download", "App Download"),
+    ("brand_task", "Brand Task"),
+)
+
+
+class PointConfig(models.Model):
+    key = models.CharField(max_length=50, unique=True)
+    label = models.CharField(max_length=100)
+    value = models.PositiveIntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="point_configs_updated"
+    )
+
+    def __str__(self):
+        return f"{self.label}: {self.value} pts"
+
+
+class StreakChallenge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    streak_type = models.CharField(max_length=50, choices=STREAK_TYPE_CHOICES)
+    duration_days = models.PositiveIntegerField()
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reward_points = models.PositiveIntegerField()
+    reminder_time = models.TimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_paused = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="streak_challenges_created"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.streak_type}, {self.duration_days}d)"
+
+    @property
+    def is_ongoing(self):
+        today = timezone.now().date()
+        return self.is_active and not self.is_paused and self.start_date <= today <= self.end_date
+
+
+class UserStreak(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="streaks")
+    challenge = models.ForeignKey(StreakChallenge, on_delete=models.CASCADE, related_name="user_streaks")
+    current_count = models.PositiveIntegerField(default=0)
+    longest_count = models.PositiveIntegerField(default=0)
+    last_activity_date = models.DateField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    reward_issued = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "challenge")
+
+    def __str__(self):
+        return f"{self.user} | {self.challenge.name} | {self.current_count}/{self.challenge.duration_days}"
+
+
+class StreakHistory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="streak_histories")
+    challenge = models.ForeignKey(StreakChallenge, on_delete=models.CASCADE, related_name="streak_histories")
+    streak_count_reached = models.PositiveIntegerField()
+    broken_at = models.DateField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
+    reward_issued = models.BooleanField(default=False)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-recorded_at"]
+
+    def __str__(self):
+        status = "completed" if self.completed else f"broken at {self.broken_at}"
+        return f"{self.user} | {self.challenge.name} | {self.streak_count_reached}d ({status})"
+
+
 class StepCampaignModel(models.Model):
     campaign_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)

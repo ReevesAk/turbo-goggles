@@ -19,6 +19,7 @@ from .views import (
     TierListView,
     RateAgentViewByCustomer,
     ChooseAlertTypeView,
+    RegisterDeviceTokenView,
 )
 from .notifications import (
     GetAllNotifications,
@@ -78,5 +79,6 @@ urlpatterns = [
         preview_picadailys_email,
         name="preview_picadailys_email",
     ),
-    path("preview-email/", preview_picadailys_email, name="preview_picadailys_email"),
+    # FCM push notification device token
+    path("device-token/", RegisterDeviceTokenView.as_view(), name="device_token"),
 ]

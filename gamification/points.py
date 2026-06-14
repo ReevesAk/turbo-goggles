@@ -48,6 +48,18 @@ TIER_VALUES = {
 MIN_POINTS_REQUIRED = 400
 
 
+def get_point_value(key: str) -> int:
+    """Return the configured point value for an activity key, falling back to BASE_POINTS."""
+    try:
+        from .models import PointConfig
+        config = PointConfig.objects.filter(key=key).first()
+        if config is not None:
+            return config.value
+    except Exception:
+        pass
+    return BASE_POINTS.get(key, 0)
+
+
 class Points:
     @staticmethod
     def get_user_tier(total_points: int):
@@ -119,7 +131,7 @@ class Points:
 
     @staticmethod
     def determine(activity_type: str, level: str) -> int:
-        base = BASE_POINTS.get(activity_type, 0)
+        base = get_point_value(activity_type)
         multiplier = LEVEL_MULTIPLIERS.get(level, 1.0)
         return int(base * multiplier)
 

@@ -30,6 +30,7 @@ from .serializers import (
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
+from user_profile.fcm import send_push_to_user
 
 # Third party imports.
 from rest_framework import generics, status, serializers
@@ -856,6 +857,12 @@ class CreateTicket(generics.CreateAPIView):
             title="Create Ticket",
             message="Support ticket has been created for your issue."
         )
+        send_push_to_user(
+            user,
+            title="Support Ticket Created",
+            body=f"Your ticket {ticket.number} has been received. We'll get back to you shortly.",
+            data={"ticket_number": ticket.number or ""},
+        )
         logger.info("User notification created for user: %s", user)
 
         # Log activity
@@ -1229,6 +1236,21 @@ class UpdateTicketStatus(generics.GenericAPIView):
 
         ticket.status = new_status
         ticket.save(update_fields=["status"])
+
+        if ticket.user:
+            status_messages = {
+                "In Progress": "An agent is now working on your ticket.",
+                "Resolved": "Your support ticket has been resolved. Let us know if you need further help.",
+                "Closed": "Your support ticket has been closed.",
+                "Escalated": "Your ticket has been escalated to a senior agent.",
+            }
+            push_body = status_messages.get(new_status, f"Your ticket status has been updated to '{new_status}'.")
+            send_push_to_user(
+                user=ticket.user,
+                title=f"Support Ticket Update",
+                body=push_body,
+                data={"type": "ticket_update", "ticket_number": str(ticket_number), "status": new_status},
+            )
 
         # Activity log
         ActivityModel.objects.create(
@@ -2712,3 +2734,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         }
 
         return Response(data=response_data, status=status.HTTP_200_OK)
+
+
+# ── Ticket messaging ──────────────────────────────────────────────────────────
+

@@ -17,9 +17,13 @@ from rest_framework.response import Response
 from .serializers import (
     SSOLoginSerializer,
     StepCountSessionSerializer,
-    SocialEngagementSerializer
+    SocialEngagementSerializer,
+    StreakChallengeSerializer,
+    UserStreakSerializer,
+    StreakHistorySerializer,
+    StreakLeaderboardEntrySerializer,
 )
-from .models import StepCampaignModel, StepSessionModel
+from .models import StepCampaignModel, StepSessionModel, StreakChallenge, UserStreak, StreakHistory
 
 from gamification.utils import NextBee
 from gamification.points import Points
@@ -498,4 +502,147 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                 }
             ),
             status=status.HTTP_200_OK
+        )
+
+
+# ── Streak Challenge views (user-facing) ─────────────────────────────────────
+
+@extend_schema(summary="List active streak challenges", tags=["Streaks"])
+class ActiveStreakChallengesView(generics.ListAPIView):
+    """Returns all ongoing streak challenges. Used in the tasks/gamification feed."""
+    serializer_class = StreakChallengeSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        return StreakChallenge.objects.filter(
+            is_active=True,
+            is_paused=False,
+            start_date__lte=today,
+            end_date__gte=today,
+        ).order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        data = StreakChallengeSerializer(qs, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(summary="Join a streak challenge", tags=["Streaks"])
+class JoinStreakChallengeView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, challenge_id):
+        try:
+            challenge = StreakChallenge.objects.get(id=challenge_id)
+        except StreakChallenge.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "error", "message": "Challenge not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not challenge.is_ongoing:
+            return Response(
+                data=encrypt({"status": "error", "message": "This challenge is not currently active."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_streak, created = UserStreak.objects.get_or_create(
+            user=request.user,
+            challenge=challenge,
+        )
+
+        msg = "Joined successfully!" if created else "You have already joined this challenge."
+        return Response(
+            data=encrypt({"status": "success", "message": msg, "data": UserStreakSerializer(user_streak).data}),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+@extend_schema(summary="My streak progress across all joined challenges", tags=["Streaks"])
+class MyStreakProgressView(generics.ListAPIView):
+    serializer_class = UserStreakSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            UserStreak.objects.filter(user=self.request.user)
+            .select_related("challenge")
+            .order_by("-joined_at")
+        )
+
+    def list(self, request, *args, **kwargs):
+        data = UserStreakSerializer(self.get_queryset(), many=True).data
+        return Response(
+            data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(summary="Leaderboard for a streak challenge", tags=["Streaks"])
+class StreakLeaderboardView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, challenge_id):
+        try:
+            challenge = StreakChallenge.objects.get(id=challenge_id)
+        except StreakChallenge.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "error", "message": "Challenge not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_streaks = (
+            UserStreak.objects.filter(challenge=challenge)
+            .select_related("user")
+            .order_by("-current_count", "-longest_count")[:50]
+        )
+
+        leaderboard = [
+            {
+                "rank": idx + 1,
+                "user_id": str(us.user.id),
+                "full_name": us.user.get_full_name() if hasattr(us.user, "get_full_name") else str(us.user),
+                "current_count": us.current_count,
+                "longest_count": us.longest_count,
+                "completed": us.completed,
+            }
+            for idx, us in enumerate(user_streaks)
+        ]
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "challenge": challenge.name,
+                "leaderboard": leaderboard,
+            }),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(summary="My streak history", tags=["Streaks"])
+class MyStreakHistoryView(generics.ListAPIView):
+    serializer_class = StreakHistorySerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            StreakHistory.objects.filter(user=self.request.user)
+            .select_related("challenge")
+            .order_by("-recorded_at")
+        )
+
+    def list(self, request, *args, **kwargs):
+        data = StreakHistorySerializer(self.get_queryset(), many=True).data
+        return Response(
+            data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
         )

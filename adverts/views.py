@@ -234,7 +234,12 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
         except Exception as err:
             logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
             return Response(
-                encrypt({"status": "error", "message": "Ad creation failed. Please try again."}),
+                encrypt(
+                    {
+                        "status": "error",
+                        "message": "Ad creation failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

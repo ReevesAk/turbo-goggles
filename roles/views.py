@@ -171,7 +171,10 @@ class RegisterSuperAdmin(generics.GenericAPIView):
                 return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
             except Exception as err:
-                logger.error(f"Error occurred while creating SuperUser: {str(err)}", exc_info=True)
+                logger.error(
+                    f"Error occurred while creating SuperUser: {str(err)}",
+                    exc_info=True,
+                )
                 return Response(
                     data=encrypt(
                         {
