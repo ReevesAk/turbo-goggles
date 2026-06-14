@@ -605,7 +605,12 @@ class CreateUserWallet(generics.GenericAPIView):
         except requests.exceptions.RequestException as e:
             logging.error(f"Wallet creation API request error: {str(e)}", exc_info=True)
             return Response(
-                encrypt({"status": "error", "message": "Wallet creation failed. Please try again."}),
+                encrypt(
+                    {
+                        "status": "error",
+                        "message": "Wallet creation failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -753,9 +758,16 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
                 status=status.HTTP_200_OK,
             )
         except requests.exceptions.RequestException as e:
-            logging.error(f"Wallet upgrade to tier 2 API request error: {str(e)}", exc_info=True)
+            logging.error(
+                f"Wallet upgrade to tier 2 API request error: {str(e)}", exc_info=True
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Wallet upgrade request failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Wallet upgrade request failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -855,9 +867,16 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
 
                 return Response(data=encrypt(resp), status=status.HTTP_200_OK)
         except Exception as e:
-            logging.error(f"Wallet upgrade to tier 3 request error: {str(e)}", exc_info=True)
+            logging.error(
+                f"Wallet upgrade to tier 3 request error: {str(e)}", exc_info=True
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Wallet upgrade request failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Wallet upgrade request failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

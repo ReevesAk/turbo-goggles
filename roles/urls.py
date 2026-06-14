@@ -78,6 +78,14 @@ from .brand import (
     PendingSubmissionsAdminView,
     ReviewTaskSubmissionAdminView,
 )
+from .streaks import (
+    ListPointConfigsView,
+    UpdatePointConfigView,
+    CreateStreakChallengeView,
+    ListStreakChallengesView,
+    UpdateStreakChallengeView,
+    StreakChallengeLeaderboardAdminView,
+)
 from .members import AllMembersView
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
@@ -252,6 +260,30 @@ urlpatterns = [
         "tasks/<uuid:submission_id>/review/",
         ReviewTaskSubmissionAdminView.as_view(),
         name="admin_review_submission",
+    ),
+    # Streak challenge admin endpoints
+    path("streaks/", ListStreakChallengesView.as_view(), name="admin_streak_list"),
+    path(
+        "streaks/create/",
+        CreateStreakChallengeView.as_view(),
+        name="admin_streak_create",
+    ),
+    path(
+        "streaks/<uuid:challenge_id>/update/",
+        UpdateStreakChallengeView.as_view(),
+        name="admin_streak_update",
+    ),
+    path(
+        "streaks/<uuid:challenge_id>/leaderboard/",
+        StreakChallengeLeaderboardAdminView.as_view(),
+        name="admin_streak_leaderboard",
+    ),
+    # PointConfig admin endpoints
+    path("points/", ListPointConfigsView.as_view(), name="admin_point_configs"),
+    path(
+        "points/<str:key>/",
+        UpdatePointConfigView.as_view(),
+        name="admin_point_config_update",
     ),
     # Fmcg admin endpoints
     path("fmcg/add-product", AddProduct.as_view(), name="add_product"),

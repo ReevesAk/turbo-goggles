@@ -391,9 +391,16 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
                 status=status.HTTP_200_OK,
             )
         except requests.exceptions.RequestException as e:
-            logging.error(f"Wallet upgrade to tier 3 API request error: {str(e)}", exc_info=True)
+            logging.error(
+                f"Wallet upgrade to tier 3 API request error: {str(e)}", exc_info=True
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Wallet upgrade request failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Wallet upgrade request failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

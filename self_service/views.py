@@ -257,7 +257,12 @@ class TableBooking(generics.CreateAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
@@ -533,7 +538,12 @@ class GymBooking(generics.CreateAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
@@ -805,7 +815,12 @@ class CinemaBookingView(generics.CreateAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
@@ -1082,7 +1097,12 @@ class BookCourierSercvice(generics.CreateAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
@@ -1523,7 +1543,12 @@ class BookLandTrip(generics.GenericAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
@@ -1775,7 +1800,12 @@ class BookHotel(generics.GenericAPIView):
             except Exception as err:
                 logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Booking failed. Please try again.",
+                        }
+                    ),
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:

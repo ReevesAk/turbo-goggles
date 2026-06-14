@@ -1075,5 +1075,7 @@ class Logout(APIView):
             logger.error(f"Error during logout: {str(e)}", exc_info=True)
             return Response(
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                data=encrypt({"status": "error", "message": "Logout failed. Please try again."}),
+                data=encrypt(
+                    {"status": "error", "message": "Logout failed. Please try again."}
+                ),
             )

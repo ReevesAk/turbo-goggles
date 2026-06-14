@@ -1451,7 +1451,12 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                 exc_info=True,
             )
             return Response(
-                data=encrypt({"status": "error", "message": "Service request failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Service request failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
