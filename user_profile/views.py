@@ -783,8 +783,9 @@ class PostMemberSurvey(generics.CreateAPIView):
                 serializer=serializer,
             )
         except ValidationError as e:
+            logger.error("Member survey validation error: %s", str(e))
             return Response(
-                encrypt({"message": str(e)}),
+                encrypt({"status": "fail", "message": "Survey submission is invalid. Please check your answers."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

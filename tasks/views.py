@@ -241,7 +241,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
         except Exception as err:
             logger.error("Brand task submission failed: %s", str(err), exc_info=True)
             return Response(
-                data=encrypt({"status": "error", "message": str(err)}),
+                data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
