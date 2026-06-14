@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     "web",
     "treasury",
     "csp",
+    "tasks",
 ]
 
 MIDDLEWARE = [
@@ -387,6 +388,8 @@ cloudinary.config(
     api_key=conf("CLOUDINARY_API_KEY"),
     api_secret=conf("CLOUDINARY_API_SECRET"),
 )
+
+ANTHROPIC_API_KEY = conf("ANTHROPIC_API_KEY", default="")
 
 TESTING = (
     any(arg in ("test", "pytest", "py.test") for arg in sys.argv)

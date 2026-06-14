@@ -1447,10 +1447,11 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
         except requests.exceptions.RequestException as e:
             logger.error(
-                f"RequestException for {request.user.first_name} {request.user.last_name}: {str(e)}"
+                f"RequestException for {request.user.first_name} {request.user.last_name}: {str(e)}",
+                exc_info=True,
             )
             return Response(
-                data=encrypt({"error": str(e)}),
+                data=encrypt({"status": "error", "message": "Service request failed. Please try again."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

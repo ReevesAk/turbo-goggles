@@ -70,4 +70,6 @@ urlpatterns = [
     path("v1/waitlist/", include("waitlist.urls")),
     # Web endpoints.
     path("v1/web/", include("web.urls")),
+    # Social task verification endpoints.
+    path("v1/tasks/", include("tasks.urls")),
 ]

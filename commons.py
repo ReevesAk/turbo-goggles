@@ -9,7 +9,8 @@ from decimal import Decimal
 from decouple import config
 
 from accounts.models import User
-from gamification.models import Points
+from gamification.models import Points as PointsModel
+from gamification.points import Points as PointsEngine, MIN_POINTS_REQUIRED, TIER_VALUES
 
 yournotify_api_key = config("YOURNOTIFY_API_KEY")
 yournotify_base_url = config("YOURNOTIFY_BASE_URL")
@@ -224,32 +225,71 @@ class Allocate:
 class Pay:
     @staticmethod
     def with_pts(user, amount):
+        """
+        Pay for a purchase using points converted to naira.
+
+        Eligibility: user must hold at least MIN_POINTS_REQUIRED (400) points.
+        Deduction: proportional — only the points worth the exact naira `amount`
+        are deducted, not a flat 400.
+
+        Returns:
+          ("Enough",     amount)        — full amount covered, points deducted
+          ("Not Enough", naira_available) — balance too low, nothing deducted
+          ("Not Found",  0)             — user has no Points record
+        """
         try:
-            pts = Points.objects.get(user=user)
-        except Points.DoesNotExist:
+            pts = PointsModel.objects.get(user=user)
+        except PointsModel.DoesNotExist:
             return "Not Found", 0
 
-        naira_available = pts.naira_value
-        if naira_available <= 0:
+        # Must hold the minimum threshold to unlock point payments
+        if pts.balance < MIN_POINTS_REQUIRED:
             return "Not Enough", 0
 
-        if naira_available >= amount:
-            pts.balance = max(0, pts.balance - 400)
-            pts.naira_value = Decimal("0.00")
-            pts.save(update_fields=["balance", "naira_value"])
-            return "Enough", amount
-        else:
+        naira_available = pts.naira_value
+        if naira_available <= Decimal("0"):
+            return "Not Enough", 0
+
+        amount_dec = Decimal(str(amount))
+        if naira_available < amount_dec:
             return "Not Enough", naira_available
+
+        # Calculate proportional points to deduct
+        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0.50"))
+        points_to_deduct = math.ceil(amount_dec / tier_rate)
+
+        PointsEngine.deduct(
+            user=user,
+            amount=points_to_deduct,
+            reason=f"Purchase payment of ₦{amount}",
+            source="service_purchase",
+        )
+        return "Enough", amount
 
     @staticmethod
     def refund_pts(user, naira_amount):
+        """
+        Refund points after a failed or reversed purchase.
+        Bypasses credibility check — this is a restoration, not a reward.
+        """
         try:
-            pts = Points.objects.get(user=user)
-            pts.balance += 400
-            pts.naira_value += Decimal(str(naira_amount))
-            pts.save(update_fields=["balance", "naira_value"])
-        except Points.DoesNotExist:
-            pass
+            pts = PointsModel.objects.get(user=user)
+        except PointsModel.DoesNotExist:
+            return
+
+        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0.50"))
+        if tier_rate <= Decimal("0"):
+            return
+
+        points_to_refund = math.ceil(Decimal(str(naira_amount)) / tier_rate)
+
+        PointsEngine.award(
+            user=user,
+            amount=points_to_refund,
+            reason=f"Refund for reversed purchase of ₦{naira_amount}",
+            source="admin_adjustment",
+            bypass_credibility=True,
+        )
 
 
 # class CamelCaseJSONRenderer(JSONRenderer):
