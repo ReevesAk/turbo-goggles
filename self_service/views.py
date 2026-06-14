@@ -255,9 +255,10 @@ class TableBooking(generics.CreateAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
             except Exception as err:
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"error": str(err)}),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             return Response(
@@ -530,9 +531,10 @@ class GymBooking(generics.CreateAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
             except Exception as err:
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"error": str(err)}),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             return Response(
@@ -801,9 +803,10 @@ class CinemaBookingView(generics.CreateAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
             except Exception as err:
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"error": str(err)}),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             return Response(
@@ -1077,9 +1080,10 @@ class BookCourierSercvice(generics.CreateAPIView):
                             data=encrypt(response_data), status=status.HTTP_200_OK
                         )
             except Exception as err:
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data=encrypt({"error": str(err)}),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             return Response(
@@ -1517,8 +1521,10 @@ class BookLandTrip(generics.GenericAPIView):
                     raise NotFound(encrypt("Invalid selection"))
 
             except Exception as err:
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
                 return Response(
-                    data={"error": str(err)}, status=status.HTTP_400_BAD_REQUEST
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1767,7 +1773,11 @@ class BookHotel(generics.GenericAPIView):
 
                         return Response(data=response_data, status=status.HTTP_200_OK)
             except Exception as err:
-                return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+                logger.error("Self-service booking failed: %s", str(err), exc_info=True)
+                return Response(
+                    data=encrypt({"status": "error", "message": "Booking failed. Please try again."}),
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

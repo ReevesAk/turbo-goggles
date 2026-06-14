@@ -1900,10 +1900,9 @@ class AddAgent(generics.CreateAPIView):
             logger.warning(f"Validation error: {e}")
             raise ValidationError(message=e, code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
-            error_message = str(e)
+            logger.error(f"An unexpected error occurred: {e}", exc_info=True)
             return Response(
-                data={"status": "Error", "message": f"An unexpected erroroccurred: {error_message}"},
+                data={"status": "error", "message": "An unexpected error occurred. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1996,7 +1995,7 @@ class AgentSignUpComplete(generics.UpdateAPIView):
         except serializers.ValidationError as e:
             logger.error("Validation error for user ID %s: %s", user_id, e)
             return Response(
-                data={"status": "fail", "message": str(e)},
+                data={"status": "fail", "message": "Invalid data submitted. Please check your input."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:

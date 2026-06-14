@@ -760,59 +760,59 @@ class Login(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # # Normalize device ID for consistent comparison
-        # device_id = str(device_id).strip().lower()
+        # Normalize device ID for consistent comparison
+        device_id = str(device_id).strip().lower()
 
-        # # Check device limit for password login only
-        # is_known_device = self.check_device_limit(
-        #     user, device_id, device_name, device_os
-        # )
+        # Check device limit for password login only
+        is_known_device = self.check_device_limit(
+            user, device_id, device_name, device_os
+        )
 
-        # if not is_known_device:
-        #     logger.warning("New device detected for user: %s", login)
+        if not is_known_device:
+            logger.warning("New device detected for user: %s", login)
 
-        #     # Create and send OTP.
-        #     otp = otp_manager.create_otp(user_id=str(user.id))
+            # Create and send OTP.
+            otp = otp_manager.create_otp(user_id=str(user.id))
 
-        #     msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
-        #         otp=otp
-        #     )
-        #     recipient = user.phone_number[1:]
+            msg = "Your Picadailys verification code is {otp}. Do not share this code with anyone. Expires in 5 minutes.".format(
+                otp=otp
+            )
+            recipient = user.phone_number[1:]
 
-        #     if user.alert_type_choice in ("SMS", "Both"):
-        #         Messaging.send_sms(phone_number=recipient, msg=msg)
-        #     if user.alert_type_choice in ("Email", "Both"):
-        #         # Render the template with values
-        #         text_content = render_to_string(
-        #             template_name="empty_email.html",
-        #             context={
-        #                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
-        #                 "support_email": "notifications@picadailys.com",
-        #                 "picadailys_phone": "02012271894 02012271895",
-        #             },
-        #         )
+            if user.alert_type_choice in ("SMS", "Both"):
+                Messaging.send_sms(phone_number=recipient, msg=msg)
+            if user.alert_type_choice in ("Email", "Both"):
+                # Render the template with values
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
+                        "support_email": "notifications@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
 
-        #         Messaging.send_email(
-        #             email=user.email,
-        #             html_content=text_content,
-        #             sender_email="notifications@picadailys.com",
-        #             body=msg,
-        #             subject="Picadailys Registration",
-        #         )
-        #     return Response(
-        #         data=encrypt(
-        #             {
-        #                 "status": "failed",
-        #                 "error": "New device detected. OTP sent for verification.",
-        #                 "device_data": {
-        #                     "device_id": device_id,
-        #                     "device_name": device_name,
-        #                     "device_os": device_os,
-        #                 },
-        #             }
-        #         ),
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
+                Messaging.send_email(
+                    email=user.email,
+                    html_content=text_content,
+                    sender_email="notifications@picadailys.com",
+                    body=msg,
+                    subject="Picadailys Registration",
+                )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "failed",
+                        "error": "New device detected. OTP sent for verification.",
+                        "device_data": {
+                            "device_id": device_id,
+                            "device_name": device_name,
+                            "device_os": device_os,
+                        },
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Successful login
         return self._handle_login_success(user)
@@ -1028,67 +1028,6 @@ class ResetPassword(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-# class SubmitGamification(generics.CreateAPIView):
-#     """
-#     SubmitGamification handles the POST request that allows a User/Member
-#     to submit a gamification task result.
-#     """
-
-#     serializer_class = SubmitGamificationSerializer
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = (IsAuthenticated, IsUserOrMember)
-
-#     def post(self, request):
-#         decrypted_payload = decrypt(request.data)
-#         payload = {
-#             key: value.strip() if isinstance(value, str) else value
-#             for key, value in decrypted_payload.items()
-#         }
-
-#         current_user = request.user
-#         serializer = self.get_serializer(data=payload)
-#         if not serializer.is_valid(raise_exception=True):
-#             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#         task_id = serializer.validated_data["task_id"]
-
-#         try:
-#             task = GamificationModel.objects.get(task_id=task_id)
-#             logger.info(f"Gamification task found: {task_id}")
-#         except User.DoesNotExist:
-#             logger.error(f"Gamification task not found for ID: {task_id}")
-#             raise Customexceptions.not_found(item_not_found=task_id)
-
-#         task.url = serializer.validated_data["task_url"]
-#         task.save()
-
-#         UserNotification.objects.create(
-#             user=request.user,
-#             title="Submit Gamification.",
-#             message="You have successfully submitted your gamification task.",
-#         )
-
-#         ActivityModel.objects.create(
-#             user=current_user,
-#             title="Submit Gamification.",
-#             description=f"{current_user.first_name} {current_user.last_name} submitted a gamification task.",
-#         )
-
-#         response_data = {
-#             "status": "Success",
-#             "message": "Task submitted successfully, please wait for review.",
-#             "data": {
-#                 "task_id": task.task_id,
-#                 "title": task.title,
-#                 "description": task.description,
-#             },
-#         }
-#         encrypt_response = encrypt(response_data)
-
-#         logger.info(f"Gamification task {task_id} submission completed successfully")
-#         return Response(data=encrypt_response, status=status.HTTP_200_OK)
-
-
 @extend_schema(summary="Logout and blacklist refresh token", tags=["Accounts"])
 class Logout(APIView):
     serializer_class = LogoutSerializer
@@ -1133,7 +1072,8 @@ class Logout(APIView):
             )
 
         except Exception as e:
-            logger.error(f"Error during logout: {str(e)}")
+            logger.error(f"Error during logout: {str(e)}", exc_info=True)
             return Response(
-                status=status.HTTP_400_BAD_REQUEST, data=encrypt({"error": str(e)})
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                data=encrypt({"status": "error", "message": "Logout failed. Please try again."}),
             )

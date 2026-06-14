@@ -1,5 +1,6 @@
 import json as _json
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
@@ -635,3 +636,223 @@ class SwitchRolesEndpointTests(APITestCase):
         self.assertEqual(body["status"], "success")
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.active_role, "WalletAdmin")
+
+
+# ── Admin: Pending Submissions Queue ─────────────────────────────────────────
+
+class PendingSubmissionsAdminViewTests(APITestCase):
+    url = "/v1/roles/tasks/pending/"
+
+    def setUp(self):
+        cache.clear()
+        seed = uuid4().hex[:8]
+        self.admin = _create_user(
+            email=f"pend-admin-{seed}@example.com",
+            phone_number=f"23482{seed[:7]}",
+            active_role="AdAdmin",
+        )
+        self.member = _create_user(
+            email=f"pend-member-{seed}@example.com",
+            phone_number=f"23483{seed[:7]}",
+            active_role="Member",
+        )
+        self.brand = _create_user(
+            email=f"pend-brand-{seed}@example.com",
+            phone_number=f"23484{seed[:7]}",
+            active_role="BrandAd",
+        )
+
+    def test_requires_authentication(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_non_admin_is_denied(self):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_returns_combined_pending_social_and_brand_counts(self):
+        from adverts.models import CreateAd
+        from tasks.models import BrandTaskSubmission, SocialTask, TaskSubmission
+
+        ad = CreateAd.objects.create(
+            user=self.brand,
+            campaign_name="Brand Pending",
+            task_type="social_engage",
+            is_active=True,
+        )
+        BrandTaskSubmission.objects.create(ad=ad, user=self.member, status="Pending")
+
+        task = SocialTask.objects.create(
+            title="Follow Us",
+            platform="X",
+            task_type="Follow",
+            is_active=True,
+            created_by=self.admin,
+        )
+        TaskSubmission.objects.create(
+            task=task,
+            user=self.member,
+            screenshot_url="https://cdn.example.com/ss.png",
+            status="Pending",
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["brand"]["total"], 1)
+        self.assertEqual(body["social"]["total"], 1)
+
+    def test_approved_submissions_are_excluded_from_queue(self):
+        from adverts.models import CreateAd
+        from tasks.models import BrandTaskSubmission
+
+        ad = CreateAd.objects.create(
+            user=self.brand,
+            campaign_name="Approved Campaign",
+            task_type="watch_video",
+            is_active=True,
+        )
+        BrandTaskSubmission.objects.create(ad=ad, user=self.member, status="Approved")
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(self.url)
+
+        body = decrypt(response.data)
+        self.assertEqual(body["brand"]["total"], 0)
+
+
+# ── Admin: Unified Submission Review ─────────────────────────────────────────
+
+class ReviewTaskSubmissionAdminViewTests(APITestCase):
+    def _url(self, submission_id):
+        return f"/v1/roles/tasks/{submission_id}/review/"
+
+    def setUp(self):
+        cache.clear()
+        seed = uuid4().hex[:8]
+        self.admin = _create_user(
+            email=f"rev-admin-{seed}@example.com",
+            phone_number=f"23485{seed[:7]}",
+            active_role="AdAdmin",
+            full_name="Review Admin",
+        )
+        self.member = _create_user(
+            email=f"rev-member-{seed}@example.com",
+            phone_number=f"23486{seed[:7]}",
+            active_role="Member",
+        )
+        self.brand = _create_user(
+            email=f"rev-brand-{seed}@example.com",
+            phone_number=f"23487{seed[:7]}",
+            active_role="BrandAd",
+        )
+
+    def test_unknown_uuid_returns_404(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            self._url(uuid4()),
+            data=_make_payload(action="approve"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "fail")
+
+    @patch("tasks.jobs.approve_brand_submission.delay")
+    def test_approve_brand_submission_queues_celery_task(self, mock_delay):
+        from adverts.models import CreateAd
+        from tasks.models import BrandTaskSubmission
+
+        ad = CreateAd.objects.create(
+            user=self.brand,
+            campaign_name="Approve Me",
+            task_type="social_engage",
+            is_active=True,
+        )
+        submission = BrandTaskSubmission.objects.create(
+            ad=ad,
+            user=self.member,
+            screenshot_url="https://cdn.example.com/proof.png",
+            status="Pending",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            self._url(submission.pk),
+            data=_make_payload(action="approve"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        mock_delay.assert_called_once_with(str(submission.pk), str(self.admin.pk))
+
+    @patch("tasks.jobs.reject_brand_submission.delay")
+    def test_reject_brand_submission_passes_reason_to_job(self, mock_delay):
+        from adverts.models import CreateAd
+        from tasks.models import BrandTaskSubmission
+
+        ad = CreateAd.objects.create(
+            user=self.brand,
+            campaign_name="Reject Me",
+            task_type="app_download",
+            is_active=True,
+        )
+        submission = BrandTaskSubmission.objects.create(
+            ad=ad,
+            user=self.member,
+            screenshot_url="https://cdn.example.com/proof2.png",
+            status="Pending",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            self._url(submission.pk),
+            data=_make_payload(action="reject", reason="Screenshot unclear"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_delay.assert_called_once_with(
+            str(submission.pk), str(self.admin.pk), "Screenshot unclear"
+        )
+
+    @patch("tasks.jobs.manual_approve.delay")
+    def test_approve_social_submission_routes_to_manual_approve_job(self, mock_delay):
+        from tasks.models import SocialTask, TaskSubmission
+
+        task = SocialTask.objects.create(
+            title="Like Our Post",
+            platform="Instagram",
+            task_type="Like",
+            is_active=True,
+            created_by=self.admin,
+        )
+        submission = TaskSubmission.objects.create(
+            task=task,
+            user=self.member,
+            screenshot_url="https://cdn.example.com/ig.png",
+            status="Pending",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            self._url(submission.pk),
+            data=_make_payload(action="approve"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        mock_delay.assert_called_once_with(str(submission.pk), str(self.admin.pk))
