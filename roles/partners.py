@@ -230,7 +230,7 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )
             return Response(
-                data=encrypt({"status": "error", "message": str(e)}),
+                data=encrypt({"status": "error", "message": "An unexpected error occurred. Please try again."}),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
