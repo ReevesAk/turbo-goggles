@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from gamification.points import Points, BASE_POINTS
-from user_profile.fcm import send_push_to_user
+from user_profile.fcm import send_push_to_user, send_push_to_admins
 from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
 from .verification import verify_submission, VerificationError
 
@@ -65,6 +65,11 @@ def run_verification(self, submission_id: str):
             submission.status = "Pending"
             submission.save(update_fields=["status"])
             logger.info("Submission %s queued for manual review (verdict=%s)", submission_id, verdict)
+            send_push_to_admins(
+                title="Submission Needs Review",
+                body=f"{submission.user.full_name or submission.user.email} submitted proof for '{submission.task.title}' — requires manual review.",
+                data={"type": "manual_review", "submission_id": submission_id},
+            )
 
 
 def _approve_submission(submission, trust):

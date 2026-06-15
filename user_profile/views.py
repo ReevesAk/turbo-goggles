@@ -28,7 +28,8 @@ from .serializers import (
     DeleteUserSerializer,
     OpenRewardBoxSerializers,
     ClaimRewardSerializers,
-    MemberSurverySerializers,
+    MemberSurveySerializers,
+    HandleChangeRequestSerializer,
     SwitchToMemberSerializer,
     SwitchToPartnersSerializer,
     SwitchToBrandAdSerializer,
@@ -57,7 +58,7 @@ from self_service.models import (
 from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
-from .models import DeviceToken
+from .models import DeviceToken, MemberSurvey, HandleChangeRequest
 from .fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
@@ -767,7 +768,7 @@ class PostMemberSurvey(generics.CreateAPIView):
     PostMemberSurvey handles POST request of conducting member survey.
     """
 
-    serializer_class = MemberSurverySerializers
+    serializer_class = MemberSurveySerializers
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
@@ -811,6 +812,109 @@ class PostMemberSurvey(generics.CreateAPIView):
 
         return Response(
             encrypt(response),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+HANDLE_FIELDS = {
+    "facebook_handle",
+    "twitter_handle",
+    "instagram_handle",
+    "tiktok_handle",
+    "youtube_handle",
+    "linkedin_handle",
+}
+
+
+@extend_schema(summary="Get or update social profile handles", tags=["User Profile"])
+class SocialProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = MemberSurveySerializers
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        profile, _ = MemberSurvey.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def _check_handle_change_allowed(self, data):
+        if any(f in data for f in HANDLE_FIELDS):
+            profile, _ = MemberSurvey.objects.get_or_create(user=self.request.user)
+            if not profile.allow_handle_change:
+                return False
+        return True
+
+    def patch(self, request, *args, **kwargs):
+        if not self._check_handle_change_allowed(request.data):
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Handle changes require admin approval. Please submit a handle change request.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        response = super().partial_update(request, *args, **kwargs)
+        # Reset flag after successful handle update
+        if response.status_code == 200:
+            MemberSurvey.objects.filter(user=request.user).update(
+                allow_handle_change=False
+            )
+        return response
+
+    def put(self, request, *args, **kwargs):
+        if not self._check_handle_change_allowed(request.data):
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "Handle changes require admin approval. Please submit a handle change request.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == 200:
+            MemberSurvey.objects.filter(user=request.user).update(
+                allow_handle_change=False
+            )
+        return response
+
+
+@extend_schema(summary="Request a social handle change", tags=["User Profile"])
+class RequestHandleChangeView(generics.CreateAPIView):
+    serializer_class = HandleChangeRequestSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pending_exists = HandleChangeRequest.objects.filter(
+            user=request.user,
+            platform=serializer.validated_data["platform"],
+            status="pending",
+        ).exists()
+        if pending_exists:
+            return Response(
+                {
+                    "status": "fail",
+                    "message": "You already have a pending request for this platform.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        req = serializer.save(user=request.user)
+
+        send_push_to_admins(
+            title="Handle Change Request",
+            body=f"{request.user.full_name or request.user.email} wants to change their {req.get_platform_display()} handle to '{req.new_handle}'.",
+            data={"type": "handle_change_request", "request_id": str(req.id)},
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Request submitted. You'll be notified once an admin reviews it.",
+                "data": serializer.data,
+            },
             status=status.HTTP_201_CREATED,
         )
 

@@ -41,9 +41,15 @@ INDUSTRY_CHOICES = (
 
 BRAND_OBJECTIVE = (
     ("Brand Awareness", "Brand Awareness"),
-    ("Generation Lead", "Generation Lead"),
+    ("Generate Leads", "Generate Leads"),
     ("Drive Sales", "Drive Sales"),
     ("Promote Awareness(Engagement)", "Promote Awareness(Engagement)"),
+)
+
+LOCATION_TYPE_CHOICES = (
+    ("nationwide", "Nationwide"),
+    ("states", "States"),
+    ("cities", "Cities"),
 )
 
 TASK_TYPE_CHOICES = (
@@ -90,10 +96,19 @@ class CreateAd(models.Model):
     task_type = models.CharField(
         choices=TASK_TYPE_CHOICES, max_length=30, null=True, blank=True
     )
+    task_name = models.CharField(max_length=255, null=True, blank=True)
+    task_description = models.TextField(null=True, blank=True)
     task_details = models.JSONField(default=dict, blank=True)
     reward_points = models.PositiveIntegerField(default=0, null=True, blank=True)
-    slot_cap = models.PositiveIntegerField(default=0, null=True, blank=True)
+    slot_cap = models.PositiveIntegerField(null=True, blank=True)
     slots_filled = models.PositiveIntegerField(default=0)
+
+    # Targeting
+    location_type = models.CharField(
+        choices=LOCATION_TYPE_CHOICES, max_length=20, null=True, blank=True
+    )
+    countries = models.JSONField(default=list, blank=True)
+    auto_boost = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.campaign_duration and not self.expiry_date:

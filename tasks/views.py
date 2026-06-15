@@ -13,11 +13,12 @@ from rest_framework.pagination import PageNumberPagination
 from adverts.models import CreateAd
 from security import encrypt, decrypt
 from .jobs import run_verification, approve_brand_submission
-from .models import BrandTaskSubmission, SocialProfile, SocialTask, TaskSubmission, UserTrustScore
+from user_profile.fcm import send_push_to_admins
+from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
 from .serializers import (
     BrandTaskFeedSerializer,
     BrandTaskSubmissionSerializer,
-    SocialProfileSerializer,
+
     SocialTaskSerializer,
     SubmitBrandTaskSerializer,
     SubmitTaskSerializer,
@@ -31,29 +32,6 @@ logger = logging.getLogger(__name__)
 class PaginationStyle(PageNumberPagination):
     page_size = 20
 
-
-# ── Existing social-task views (unchanged) ────────────────────────────────────
-
-class SocialProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = SocialProfileSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        profile, _ = SocialProfile.objects.get_or_create(user=self.request.user)
-        return profile
-
-    @extend_schema(summary="Get social profile", tags=["Social Tasks"])
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @extend_schema(summary="Update social profile", tags=["Social Tasks"])
-    def patch(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-
-    @extend_schema(summary="Update social profile", tags=["Social Tasks"])
-    def put(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
 
 
 @extend_schema(summary="List available social tasks", tags=["Social Tasks"])
@@ -213,6 +191,11 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                 logger.info(
                     "Brand task submission %s queued for review (type: %s)",
                     submission.pk, task_type,
+                )
+                send_push_to_admins(
+                    title="Brand Task Needs Review",
+                    body=f"{request.user.full_name or request.user.email} submitted proof for '{submission.ad.campaign_name}' — requires review.",
+                    data={"type": "brand_review", "submission_id": str(submission.pk)},
                 )
                 return Response(
                     data=encrypt({

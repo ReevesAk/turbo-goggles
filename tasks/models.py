@@ -43,27 +43,6 @@ VERDICT_CHOICES = (
 )
 
 
-class SocialProfile(BaseModel):
-    """Stores a user's registered social media usernames."""
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="social_profile")
-    x_username = models.CharField(max_length=100, blank=True, null=True)
-    instagram_username = models.CharField(max_length=100, blank=True, null=True)
-    facebook_username = models.CharField(max_length=150, blank=True, null=True)
-    tiktok_username = models.CharField(max_length=100, blank=True, null=True)
-
-    def get_username_for_platform(self, platform: str) -> str | None:
-        mapping = {
-            "X": self.x_username,
-            "Instagram": self.instagram_username,
-            "Facebook": self.facebook_username,
-            "TikTok": self.tiktok_username,
-        }
-        return mapping.get(platform)
-
-    def __str__(self):
-        return f"{self.user} social profile"
-
 
 class SocialTask(BaseModel):
     """A task created by a brand admin that users can complete for rewards."""
