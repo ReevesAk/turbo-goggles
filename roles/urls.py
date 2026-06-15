@@ -243,8 +243,8 @@ urlpatterns = [
         GetAllBrandAdUsers.as_view(),
         name="get_all_brandAds",
     ),
-    path("ad-profile/<str:email>/", GetBrandAdDetails.as_view(), name="ad_profile"),
-    path("ad-stats-view/<int:user_id>/", AdStatsView.as_view(), name="ad-stats_view"),
+    path("brand/ad-profile/<str:email>/", GetBrandAdDetails.as_view(), name="ad_profile"),
+    path("brand/ad-stats-view/<int:user_id>/", AdStatsView.as_view(), name="ad-stats_view"),
     path(
         "brands/campaigns/",
         ListAllCampaignsAdminView.as_view(),

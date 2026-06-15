@@ -37,6 +37,7 @@ from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
 from gamification.utils import NextBee
 from gamification.points import Points
+from gamification.models import StreakChallenge
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
 
@@ -850,18 +851,17 @@ class Login(APIView):
             description=f"{user.first_name} {user.last_name} successfully logged into their account.",
         )
         if user.has_done_survey:
-            # Calculate points for daily login activity
-            logger.info(
-                "Calculating points for user %s daily login activity.",
-                user.phone_number,
-            )
-            points = Points.determine(activity_type="daily_login", level=user.level)
-            NextBee.member_activity(
-                member_email=user.email, activityId="8474", numericValue=str(points)
-            )
-            Points.refresh_user_points(user)
-        else:
-            pass
+            today = timezone.now().date()
+            active_campaign = StreakChallenge.objects.filter(
+                streak_type="daily_login",
+                is_active=True,
+                is_paused=False,
+                start_date__lte=today,
+                end_date__gte=today,
+            ).first()
+            if active_campaign:
+                points = Points.determine(activity_type="daily_login", level=user.level)
+                Points.award(user, amount=points, reason="Daily login", source="daily_login")
 
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
