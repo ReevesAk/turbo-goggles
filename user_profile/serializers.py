@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User, UserNotification
-from .models import MemberSurvey
+from .models import MemberSurvey, HandleChangeRequest
 from fmcg.models import Favourite
 from support.models import Ticket
 
@@ -93,8 +93,8 @@ class SetAlertTypeSerializer(serializers.ModelSerializer):
         fields = ["alert_type_choice"]
 
 
-class MemberSurverySerializers(serializers.ModelSerializer):
-    """Serailizers for  conducting member survery."""
+class MemberSurveySerializers(serializers.ModelSerializer):
+    """Serializer for member survey and social profile."""
 
     class Meta:
         model = MemberSurvey
@@ -105,16 +105,12 @@ class MemberSurverySerializers(serializers.ModelSerializer):
             "religion",
             "wheredoyoulive",
             "state",
-            "facebook_followers",
             "facebook_handle",
-            "twitter_followers",
             "twitter_handle",
-            "thread_followers",
-            "thread_handle",
-            "instagram_followers",
             "instagram_handle",
-            "telegram_followers",
-            "telegram_handle",
+            "tiktok_handle",
+            "youtube_handle",
+            "linkedin_handle",
             "leisure_activities",
             "phone_activities",
             "music_genre",
@@ -216,3 +212,46 @@ class TierListResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     message = serializers.CharField()
     data = TierDataSerializer()
+
+
+class HandleChangeRequestSerializer(serializers.ModelSerializer):
+    """User submits a handle change request."""
+
+    class Meta:
+        model = HandleChangeRequest
+        fields = ["id", "platform", "new_handle", "proof_url", "status", "created_at"]
+        read_only_fields = ["id", "status", "created_at"]
+
+
+class HandleChangeRequestDetailSerializer(serializers.ModelSerializer):
+    """Full detail for admin review."""
+
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    reviewed_by_email = serializers.CharField(
+        source="reviewed_by.email", read_only=True, default=None
+    )
+
+    class Meta:
+        model = HandleChangeRequest
+        fields = [
+            "id",
+            "user_email",
+            "user_name",
+            "platform",
+            "new_handle",
+            "proof_url",
+            "status",
+            "admin_note",
+            "reviewed_by_email",
+            "created_at",
+            "reviewed_at",
+        ]
+        read_only_fields = fields
+
+
+class ReviewHandleChangeSerializer(serializers.Serializer):
+    """Admin approves or rejects a handle change request."""
+
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    admin_note = serializers.CharField(required=False, allow_blank=True)

@@ -2,21 +2,12 @@ from rest_framework import serializers
 
 from .models import (
     BrandTaskSubmission,
-    SocialProfile,
     SocialTask,
     TaskSubmission,
     VerificationResult,
     UserTrustScore,
 )
 from adverts.models import CreateAd
-
-
-# ── Existing social-task serializers (unchanged) ─────────────────────────────
-
-class SocialProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SocialProfile
-        fields = ["x_username", "instagram_username", "facebook_username", "tiktok_username"]
 
 
 class SocialTaskSerializer(serializers.ModelSerializer):

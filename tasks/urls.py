@@ -4,7 +4,6 @@ from .views import (
     # Social tasks
     MySubmissionsView,
     MyTrustScoreView,
-    SocialProfileView,
     SocialTaskListView,
     SubmitTaskView,
     # Brand campaign tasks
@@ -14,7 +13,6 @@ from .views import (
 )
 
 urlpatterns = [
-    path("profile/", SocialProfileView.as_view(), name="social-profile"),
     path("", SocialTaskListView.as_view(), name="task-list"),
     path("submit/", SubmitTaskView.as_view(), name="task-submit"),
     path("submissions/", MySubmissionsView.as_view(), name="my-submissions"),

@@ -86,7 +86,11 @@ from .streaks import (
     UpdateStreakChallengeView,
     StreakChallengeLeaderboardAdminView,
 )
-from .members import AllMembersView
+from .members import (
+    AllMembersView,
+    ListHandleChangeRequestsView,
+    ReviewHandleChangeRequestView,
+)
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
 from waitlist.views import (
@@ -345,6 +349,17 @@ urlpatterns = [
     ),
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
+    # Handle change request admin endpoints.
+    path(
+        "members/handle-change-requests/",
+        ListHandleChangeRequestsView.as_view(),
+        name="handle_change_requests",
+    ),
+    path(
+        "members/handle-change-requests/<int:pk>/review/",
+        ReviewHandleChangeRequestView.as_view(),
+        name="review_handle_change",
+    ),
     # Waitlist endpoints.
     path(
         "waitlist/all-users",

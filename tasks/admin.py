@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import (
     BrandTaskSubmission,
-    SocialProfile,
     SocialTask,
     TaskSubmission,
     UserTrustScore,
@@ -36,11 +35,6 @@ class UserTrustScoreAdmin(admin.ModelAdmin):
     list_display = ["user", "score", "total_submissions", "approved_submissions", "rejected_submissions"]
     search_fields = ["user__email"]
 
-
-@admin.register(SocialProfile)
-class SocialProfileAdmin(admin.ModelAdmin):
-    list_display = ["user", "x_username", "instagram_username", "facebook_username", "tiktok_username"]
-    search_fields = ["user__email", "x_username", "instagram_username"]
 
 
 @admin.register(BrandTaskSubmission)

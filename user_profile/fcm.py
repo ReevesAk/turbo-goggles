@@ -72,3 +72,17 @@ def send_push_to_user(user, title: str, body: str, data: dict = None) -> int:
         return 0
 
     return sum(1 for t in tokens if send_push(t, title, body, data))
+
+
+def send_push_to_admins(title: str, body: str, data: dict = None) -> int:
+    """
+    Send a push notification to all AdAdmin and SuperAdmin users.
+    Returns the total number of successful sends.
+    """
+    from accounts.models import User
+
+    admin_users = User.objects.filter(active_role__in=("AdAdmin", "SuperAdmin"))
+    total = 0
+    for admin in admin_users:
+        total += send_push_to_user(admin, title, body, data)
+    return total

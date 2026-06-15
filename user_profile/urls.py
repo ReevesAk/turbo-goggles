@@ -20,6 +20,8 @@ from .views import (
     RateAgentViewByCustomer,
     ChooseAlertTypeView,
     RegisterDeviceTokenView,
+    SocialProfileView,
+    RequestHandleChangeView,
 )
 from .notifications import (
     GetAllNotifications,
@@ -81,4 +83,12 @@ urlpatterns = [
     ),
     # FCM push notification device token
     path("device-token/", RegisterDeviceTokenView.as_view(), name="device_token"),
+    # Social profile (merged from tasks.SocialProfile)
+    path("social-profile/", SocialProfileView.as_view(), name="social_profile"),
+    # Handle change requests
+    path(
+        "social-profile/request-change/",
+        RequestHandleChangeView.as_view(),
+        name="request_handle_change",
+    ),
 ]

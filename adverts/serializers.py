@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 WATCH_VIDEO_PLATFORMS = ("YouTube", "TikTok", "Instagram", "Twitter")
 WATCH_VIDEO_DURATIONS = ("15s", "30s", "60s", "full")
 
-SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "Twitter", "TikTok", "Instagram", "YouTube")
+SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "X(Twitter)", "TikTok", "Instagram", "YouTube")
 SOCIAL_ENGAGE_ACTIONS = ("like", "comment", "share", "follow")
 
 WEBSITE_VISIT_MIN_TIMES = (30, 60, 120, 180)
@@ -33,6 +33,9 @@ def _validate_watch_video(details: dict):
             f"min_watch_duration must be one of: {', '.join(WATCH_VIDEO_DURATIONS)}."
         )
     return errors
+
+
+SOCIAL_ENGAGE_TIMINGS = ("15s", "30s", "60s")
 
 
 def _validate_social_engage(details: dict):
@@ -54,6 +57,9 @@ def _validate_social_engage(details: dict):
             errors["required_actions"] = (
                 f"Invalid action(s): {invalid}. Must be from: {list(SOCIAL_ENGAGE_ACTIONS)}."
             )
+    timing = details.get("timing")
+    if timing and timing not in SOCIAL_ENGAGE_TIMINGS:
+        errors["timing"] = f"timing must be one of: {', '.join(SOCIAL_ENGAGE_TIMINGS)}."
     return errors
 
 
@@ -161,6 +167,11 @@ class CreateAdSerializers(serializers.ModelSerializer):
         required=False,
         default=dict,
     )
+    countries = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+    )
 
     pin = serializers.CharField(max_length=6, write_only=True, required=False)
     payment_option = serializers.CharField(
@@ -195,9 +206,14 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "type_of_brand",
             # Task type fields
             "task_type",
+            "task_name",
+            "task_description",
             "task_details",
-            "reward_points",
             "slot_cap",
+            # Targeting
+            "location_type",
+            "countries",
+            "auto_boost",
         ]
 
     def validate(self, attrs):
@@ -290,11 +306,17 @@ class AdSerializers(serializers.ModelSerializer):
             # Task type fields
             "task_type",
             "task_type_display",
+            "task_name",
+            "task_description",
             "task_details",
             "reward_points",
             "slot_cap",
             "slots_filled",
             "slots_remaining",
+            # Targeting
+            "location_type",
+            "countries",
+            "auto_boost",
         ]
 
     def get_remaining_time(self, obj):
