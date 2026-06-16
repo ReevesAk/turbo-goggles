@@ -20,6 +20,7 @@ PLATFORM_CHOICES = (
     ("Instagram", "Instagram"),
     ("Facebook", "Facebook"),
     ("TikTok", "TikTok"),
+    ("YouTube", "YouTube"),
 )
 
 TASK_TYPE_CHOICES = (
@@ -55,6 +56,13 @@ class SocialTask(BaseModel):
 
     target_url = models.URLField(blank=True, null=True)
     target_account = models.CharField(max_length=150, blank=True, null=True)
+    target_content_hint = models.CharField(
+        max_length=300, blank=True, null=True,
+        help_text=(
+            "Short description of the target post/video so the AI can visually identify it. "
+            "E.g. 'Video titled PicaDaily App Launch' or 'Post captioned Summer Sale is here'."
+        ),
+    )
     required_hashtag = models.CharField(max_length=100, blank=True, null=True)
     required_mention = models.CharField(max_length=100, blank=True, null=True)
     required_keywords = models.JSONField(default=list, blank=True)
@@ -93,6 +101,7 @@ class TaskSubmission(BaseModel):
     screenshot_url = models.CharField(max_length=500, blank=True, null=True)
     post_url = models.URLField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    verification_code = models.CharField(max_length=15, blank=True, null=True)
 
     status = models.CharField(choices=SUBMISSION_STATUS, max_length=20, default="Pending")
     reviewed_by = models.ForeignKey(
@@ -124,6 +133,8 @@ class VerificationResult(BaseModel):
     hashtag_found = models.BooleanField(default=False)
     mention_found = models.BooleanField(default=False)
     action_confirmed = models.BooleanField(default=False)
+    verification_code_found = models.BooleanField(default=True)
+    target_matched = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.verdict} ({self.confidence_score}%) — {self.submission}"

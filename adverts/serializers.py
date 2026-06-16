@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 # ── Per-type required fields in task_details ─────────────────────────────────
 
-WATCH_VIDEO_PLATFORMS = ("YouTube", "TikTok", "Instagram", "Twitter")
+WATCH_VIDEO_PLATFORMS = ("YouTube", "TikTok", "Instagram", "X")
 WATCH_VIDEO_DURATIONS = ("15s", "30s", "60s", "full")
 
-SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "X(Twitter)", "TikTok", "Instagram", "YouTube")
+SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "X", "TikTok", "Instagram", "YouTube")
 SOCIAL_ENGAGE_ACTIONS = ("like", "comment", "share", "follow")
 
 WEBSITE_VISIT_MIN_TIMES = (30, 60, 120, 180)
@@ -52,11 +52,14 @@ def _validate_social_engage(details: dict):
     if not isinstance(actions, list) or len(actions) == 0:
         errors["required_actions"] = "At least one required action must be specified."
     else:
-        invalid = [a for a in actions if a not in SOCIAL_ENGAGE_ACTIONS]
+        normalized = [a.lower() for a in actions if isinstance(a, str)]
+        invalid = [a for a in normalized if a not in SOCIAL_ENGAGE_ACTIONS]
         if invalid:
             errors["required_actions"] = (
                 f"Invalid action(s): {invalid}. Must be from: {list(SOCIAL_ENGAGE_ACTIONS)}."
             )
+        else:
+            details["required_actions"] = normalized
     timing = details.get("timing")
     if timing and timing not in SOCIAL_ENGAGE_TIMINGS:
         errors["timing"] = f"timing must be one of: {', '.join(SOCIAL_ENGAGE_TIMINGS)}."
@@ -209,7 +212,6 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "task_name",
             "task_description",
             "task_details",
-            "slot_cap",
             # Targeting
             "location_type",
             "countries",
@@ -263,17 +265,11 @@ class AdSerializers(serializers.ModelSerializer):
     brand_location = AdLocationSerializer(many=True, read_only=True)
     remaining_time = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
-    slots_remaining = serializers.SerializerMethodField()
     task_type_display = serializers.SerializerMethodField()
 
     def get_ad_media(self, obj):
         media = obj.ad_media.all()
         return [{"images": m.images, "videos": m.videos} for m in media]
-
-    def get_slots_remaining(self, obj):
-        if obj.slot_cap:
-            return max(0, obj.slot_cap - obj.slots_filled)
-        return None
 
     def get_task_type_display(self, obj):
         return obj.get_task_type_display() if obj.task_type else None
@@ -310,9 +306,6 @@ class AdSerializers(serializers.ModelSerializer):
             "task_description",
             "task_details",
             "reward_points",
-            "slot_cap",
-            "slots_filled",
-            "slots_remaining",
             # Targeting
             "location_type",
             "countries",

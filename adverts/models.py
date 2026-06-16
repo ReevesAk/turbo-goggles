@@ -100,8 +100,6 @@ class CreateAd(models.Model):
     task_description = models.TextField(null=True, blank=True)
     task_details = models.JSONField(default=dict, blank=True)
     reward_points = models.PositiveIntegerField(default=0, null=True, blank=True)
-    slot_cap = models.PositiveIntegerField(null=True, blank=True)
-    slots_filled = models.PositiveIntegerField(default=0)
 
     # Targeting
     location_type = models.CharField(

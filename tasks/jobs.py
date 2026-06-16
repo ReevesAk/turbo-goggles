@@ -47,9 +47,11 @@ def run_verification(self, submission_id: str):
                 "ai_reasoning": result["reasoning"],
                 "flags": result["flags"],
                 "username_matched": result["username_matched"],
+                "target_matched": result["target_matched"],
                 "hashtag_found": result["hashtag_found"],
                 "mention_found": result["mention_found"],
                 "action_confirmed": result["action_confirmed"],
+                "verification_code_found": result["verification_code_found"],
             },
         )
 
@@ -227,13 +229,7 @@ def approve_brand_submission(submission_id: str, reviewer_id: str = None):
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
 
-        # Increment slots_filled on the campaign
         ad = submission.ad
-        ad.slots_filled = ad.slots_filled + 1
-        # Auto-deactivate when slot cap is reached
-        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
-            ad.is_active = False
-        ad.save(update_fields=["slots_filled", "is_active"])
 
         # Credit points using the brand-set reward_points, falling back to BASE_POINTS
         task_type = ad.task_type or ""

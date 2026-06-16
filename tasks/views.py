@@ -69,10 +69,18 @@ class SubmitTaskView(generics.CreateAPIView):
 
         run_verification.delay(str(submission.pk))
 
-        return Response(
-            {"detail": "Submission received. Verification in progress.", "id": str(submission.pk)},
-            status=status.HTTP_201_CREATED,
-        )
+        response_data = {
+            "detail": "Submission received. Verification in progress.",
+            "id": str(submission.pk),
+        }
+        if submission.verification_code:
+            response_data["verification_code"] = submission.verification_code
+            response_data["verification_note"] = (
+                f"Include this code verbatim in your {submission.task.task_type.lower()}: "
+                f"{submission.verification_code}"
+            )
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(summary="List my task submissions", tags=["Social Tasks"])
@@ -141,14 +149,12 @@ class BrandTaskFeedView(generics.ListAPIView):
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
 
         qs = self.get_queryset()
-        # Exclude slot-capped campaigns
-        available = [ad for ad in qs if not (ad.slot_cap and ad.slots_filled >= ad.slot_cap)]
 
-        page = self.paginate_queryset(available)
+        page = self.paginate_queryset(qs)
         serializer = (
             self.get_serializer(page, many=True)
             if page is not None
-            else self.get_serializer(available, many=True)
+            else self.get_serializer(qs, many=True)
         )
 
         response_data = {

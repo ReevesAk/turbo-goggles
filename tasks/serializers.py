@@ -1,3 +1,6 @@
+import secrets
+import string
+
 from rest_framework import serializers
 
 from .models import (
@@ -18,8 +21,8 @@ class SocialTaskSerializer(serializers.ModelSerializer):
         model = SocialTask
         fields = [
             "id", "title", "description", "platform", "task_type",
-            "target_url", "target_account", "required_hashtag",
-            "required_mention", "required_keywords",
+            "target_url", "target_account", "target_content_hint",
+            "required_hashtag", "required_mention", "required_keywords",
             "reward_points", "reward_naira",
             "max_submissions", "total_submissions",
             "is_active", "expires_at", "is_expired", "is_available",
@@ -32,7 +35,9 @@ class VerificationResultSerializer(serializers.ModelSerializer):
         model = VerificationResult
         fields = [
             "verdict", "confidence_score", "ai_reasoning", "flags",
-            "username_matched", "hashtag_found", "mention_found", "action_confirmed",
+            "username_matched", "target_matched",
+            "hashtag_found", "mention_found",
+            "action_confirmed", "verification_code_found",
         ]
 
 
@@ -49,11 +54,12 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
             "screenshot_url", "post_url", "notes",
             "status", "reward_issued",
             "rejection_reason", "reviewed_at",
+            "verification_code",
             "verification",
         ]
         read_only_fields = [
             "id", "status", "reward_issued", "rejection_reason",
-            "reviewed_at", "verification",
+            "reviewed_at", "verification_code", "verification",
         ]
 
 
@@ -79,7 +85,15 @@ class SubmitTaskSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
-        return TaskSubmission.objects.create(user=user, **validated_data)
+        task = validated_data["task"]
+        verification_code = None
+        if task.task_type in ("Comment", "Post"):
+            alphabet = string.ascii_uppercase + string.digits
+            code = "".join(secrets.choice(alphabet) for _ in range(8))
+            verification_code = f"PD-{code}"
+        return TaskSubmission.objects.create(
+            user=user, verification_code=verification_code, **validated_data
+        )
 
 
 class UserTrustScoreSerializer(serializers.ModelSerializer):
@@ -105,7 +119,6 @@ class AdminReviewSerializer(serializers.Serializer):
 class BrandTaskFeedSerializer(serializers.ModelSerializer):
     """Read-only task card shown to users on the gamification feed."""
 
-    slots_remaining = serializers.SerializerMethodField()
     task_type_display = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
 
@@ -119,19 +132,11 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "task_type_display",
             "task_details",
             "reward_points",
-            "slot_cap",
-            "slots_filled",
-            "slots_remaining",
             "expiry_date",
             "time_remaining",
             "is_active",
         ]
         read_only_fields = fields
-
-    def get_slots_remaining(self, obj):
-        if obj.slot_cap:
-            return max(0, obj.slot_cap - obj.slots_filled)
-        return None
 
     def get_task_type_display(self, obj):
         return obj.get_task_type_display() if obj.task_type else None
@@ -159,9 +164,6 @@ class SubmitBrandTaskSerializer(serializers.ModelSerializer):
 
         if not ad.is_active:
             raise serializers.ValidationError("This campaign is not currently active.")
-
-        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
-            raise serializers.ValidationError("This campaign has reached its completion limit.")
 
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
             raise serializers.ValidationError("You have already submitted this task.")

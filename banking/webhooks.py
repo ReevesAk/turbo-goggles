@@ -251,7 +251,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 
                 send_push_to_user(
                     user=wallet.user,
-                    title="Money Received 💰",
+                    title="INCOMING TRANSFER 💰",
                     body=f"₦{amount} from {sender_name} ({source_bank}) has been credited to your wallet.",
                     data={
                         "type": "wallet_credit",
