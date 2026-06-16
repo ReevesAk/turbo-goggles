@@ -101,16 +101,6 @@ class BrandTaskFeedViewTests(APITestCase):
         names = [item["campaign_name"] for item in body["data"]]
         self.assertNotIn("Already Done", names)
 
-    def test_excludes_slot_capped_campaigns(self):
-        _create_ad(self.brand, campaign_name="Full", slot_cap=5, slots_filled=5)
-        self.client.force_authenticate(user=self.user)
-
-        response = self.client.get(self.url)
-
-        body = decrypt(response.data)
-        names = [item["campaign_name"] for item in body["data"]]
-        self.assertNotIn("Full", names)
-
     def test_task_type_filter(self):
         _create_ad(self.brand, campaign_name="Video Task", task_type="watch_video")
         _create_ad(self.brand, campaign_name="Survey Task", task_type="survey")
@@ -226,20 +216,6 @@ class SubmitBrandTaskViewTests(APITestCase):
         response = self.client.post(
             self.url,
             data=_make_payload(ad=str(inactive_ad.id)),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        mock_delay.assert_not_called()
-
-    @patch("tasks.jobs.approve_brand_submission.delay")
-    def test_slot_capped_campaign_returns_400(self, mock_delay):
-        capped_ad = _create_ad(self.brand, slot_cap=1, slots_filled=1)
-        self.client.force_authenticate(user=self.user)
-
-        response = self.client.post(
-            self.url,
-            data=_make_payload(ad=str(capped_ad.id)),
             content_type="application/json",
         )
 

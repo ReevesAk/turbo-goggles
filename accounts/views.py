@@ -861,7 +861,9 @@ class Login(APIView):
             ).first()
             if active_campaign:
                 points = Points.determine(activity_type="daily_login", level=user.level)
-                Points.award(user, amount=points, reason="Daily login", source="daily_login")
+                Points.award(
+                    user, amount=points, reason="Daily login", source="daily_login"
+                )
 
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
