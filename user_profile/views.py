@@ -5,6 +5,7 @@ from commons import Messaging
 from permissions import IsSuperAdmin, IsMember
 
 from django.contrib.auth.hashers import check_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.template.loader import render_to_string
 from django.db.models import Q
@@ -792,15 +793,15 @@ class PostMemberSurvey(generics.CreateAPIView):
                 user=user,
                 serializer=serializer,
             )
-        except ValidationError as e:
-            logger.error("Member survey validation error: %s", str(e))
+        except (ValidationError, DjangoValidationError) as e:
+            message = (
+                e.messages[0]
+                if hasattr(e, "messages")
+                else (e.detail[0] if hasattr(e, "detail") else str(e))
+            )
+            logger.error("Member survey validation error: %s", message)
             return Response(
-                encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Survey submission is invalid. Please check your answers.",
-                    }
-                ),
+                encrypt({"status": "fail", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
