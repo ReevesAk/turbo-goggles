@@ -1,6 +1,6 @@
 # Ignore Django collected static files
 picadailys/staticfiles/
-picadailys/cred.py
+picadailys/cred.json
 # Created by https://www.toptal.com/developers/gitignore/api/python,django
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,django
 

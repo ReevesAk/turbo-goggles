@@ -1,3 +1,4 @@
+import json
 import logging
 
 import firebase_admin
@@ -17,15 +18,21 @@ def _get_app():
     if _firebase_app is not None:
         return _firebase_app
 
-    cred_path = conf("FIREBASE_CREDENTIALS_PATH", default=None)
-    if not cred_path:
-        logger.warning(
-            "FIREBASE_CREDENTIALS_PATH not set — push notifications are disabled"
-        )
-        return None
-
     try:
-        cred = credentials.Certificate(cred_path)
+        cred_json = conf("FIREBASE_CREDENTIALS_JSON", default=None)
+        cred_path = conf("FIREBASE_CREDENTIALS_PATH", default=None)
+
+        if cred_json:
+            cred = credentials.Certificate(json.loads(cred_json))
+        elif cred_path:
+            cred = credentials.Certificate(cred_path)
+        else:
+            logger.warning(
+                "Neither FIREBASE_CREDENTIALS_JSON nor FIREBASE_CREDENTIALS_PATH is set "
+                "— push notifications are disabled"
+            )
+            return None
+
         _firebase_app = firebase_admin.initialize_app(cred)
     except Exception:
         logger.exception("Failed to initialise Firebase Admin SDK")
