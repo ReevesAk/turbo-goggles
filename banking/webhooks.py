@@ -165,6 +165,17 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
             logger.info(
                 f"Received 9PSB inflow webhook for user: {user.first_name} {user.last_name}"
             )
+
+            # Idempotency guard — if we already processed this session ID, ack and stop
+            if wallet and TxModel.objects.filter(tx_reference=nipsessionid).exists():
+                logger.info(
+                    f"Duplicate webhook for nipsessionid={nipsessionid}, skipping."
+                )
+                return Response(
+                    {"success": True, "message": "Already processed."},
+                    status=status.HTTP_200_OK,
+                )
+
             # Send SMS and Email notification for wallet credit
             if (
                 wallet
@@ -232,15 +243,13 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     )
 
             if wallet:
-                TxModel.objects.get_or_create(
+                TxModel.objects.create(
                     tx_reference=nipsessionid,
-                    defaults={
-                        "user": wallet.user,
-                        "tx_type": "Wallet Credit",
-                        "amount": amount,
-                        "description": f"Credit from {sender_name} ({source_bank}): {description}",
-                        "status": "SUCCESS",
-                    },
+                    user=wallet.user,
+                    tx_type="Wallet Credit",
+                    amount=amount,
+                    description=f"Credit from {sender_name} ({source_bank}): {description}",
+                    status="SUCCESS",
                 )
 
                 UserNotification.objects.create(
