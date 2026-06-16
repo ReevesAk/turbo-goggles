@@ -64,10 +64,6 @@ class MemberSurvey(models.Model):
     linkedin_handle = models.CharField(max_length=255, null=True, blank=True)
     telegram_followers = models.CharField(choices=FOLLOWERS, max_length=255, null=True)
     telegram_handle = models.CharField(max_length=255, null=True)
-    leisure_activities = models.CharField(max_length=255, null=True)
-    phone_activities = models.CharField(max_length=255, null=True)
-    music_genre = models.CharField(max_length=255, null=True)
-    social_event = models.CharField(max_length=255, null=True)
     allow_handle_change = models.BooleanField(default=False)
 
     def get_username_for_platform(self, platform: str) -> str | None:
