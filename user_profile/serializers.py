@@ -111,10 +111,6 @@ class MemberSurveySerializers(serializers.ModelSerializer):
             "tiktok_handle",
             "youtube_handle",
             "linkedin_handle",
-            "leisure_activities",
-            "phone_activities",
-            "music_genre",
-            "social_event",
         ]
 
 
