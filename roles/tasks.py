@@ -24,10 +24,13 @@ from gamification.serializers import (
     StepCampaignListSerializer,
     StepCampaignDetailSerializer,
     CampaignWithParticipantsSerializer,
+    InAppTaskCreateSerializer,
+    InAppTaskSerializer,
+    InAppTaskUpdateSerializer,
 )
 from accounts.models import User, UserNotification
-from gamification.models import StepCampaignModel, StepSessionModel
-from permissions import IsTaskAdminOrSuperAdmin
+from gamification.models import StepCampaignModel, StepSessionModel, StreakChallenge
+from permissions import IsTaskAdminOrSuperAdmin, IsAdAdminOrSuperAdmin
 from security import encrypt, decrypt
 from commons import Messaging
 
@@ -256,3 +259,138 @@ class SendNewsLetter(generics.GenericAPIView):
         )
 
         return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
+
+
+class CreateInAppTaskView(generics.GenericAPIView):
+    """POST /v1/roles/tasks/in-app/create/ — create a new in-app task."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def post(self, request):
+        payload = decrypt(request.data)
+        serializer = InAppTaskCreateSerializer(data=payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "error", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task = serializer.save(created_by=request.user)
+        logger.info("In-app task '%s' created by %s", task.name, request.user.email)
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "message": "Task created successfully.",
+                "data": InAppTaskSerializer(task).data,
+            }),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ListInAppTasksView(generics.GenericAPIView):
+    """
+    GET /v1/roles/tasks/in-app/?status=active|scheduled|expired|cancelled
+    Returns all in-app tasks, optionally filtered by status.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request):
+        status_filter = request.query_params.get("status")
+        today = timezone.now().date()
+
+        qs = StreakChallenge.objects.all().order_by("-created_at")
+
+        if status_filter == "active":
+            qs = qs.filter(
+                is_cancelled=False,
+                is_active=True,
+                is_paused=False,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+        elif status_filter == "scheduled":
+            qs = qs.filter(is_cancelled=False, start_date__gt=today)
+        elif status_filter == "expired":
+            qs = qs.filter(is_cancelled=False, end_date__lt=today)
+        elif status_filter == "cancelled":
+            qs = qs.filter(is_cancelled=True)
+
+        data = InAppTaskSerializer(qs, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "total": qs.count(), "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+class InAppTaskDetailView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/in-app/<task_id>/ — retrieve a single in-app task with stats."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request, task_id):
+        from gamification.models import UserStreak
+
+        try:
+            task = StreakChallenge.objects.get(id=task_id)
+        except StreakChallenge.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "error", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        completed_count = UserStreak.objects.filter(challenge=task, reward_issued=True).count()
+        total_rewards_distributed = completed_count * task.reward_points
+        participants = UserStreak.objects.filter(challenge=task).count()
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "stats": {
+                    "total_rewards_distributed": total_rewards_distributed,
+                    "participants": participants,
+                },
+                "data": InAppTaskSerializer(task).data,
+            }),
+            status=status.HTTP_200_OK,
+        )
+
+
+class UpdateInAppTaskView(generics.GenericAPIView):
+    """PATCH /v1/roles/tasks/in-app/<task_id>/update/ — edit, pause, or cancel a task."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def patch(self, request, task_id):
+        try:
+            task = StreakChallenge.objects.get(id=task_id)
+        except StreakChallenge.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "error", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = InAppTaskUpdateSerializer(task, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "error", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.save()
+        logger.info("In-app task '%s' updated by %s", task.name, request.user.email)
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "message": "Task updated successfully.",
+                "data": InAppTaskSerializer(task).data,
+            }),
+            status=status.HTTP_200_OK,
+        )

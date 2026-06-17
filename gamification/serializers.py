@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User
-from .models import PointConfig, StepCampaignModel, StepSessionModel, StreakChallenge, StreakHistory, UserStreak
+from .models import PointConfig, StepCampaignModel, StepSessionModel, StreakChallenge, StreakHistory, UserStreak, SCHEDULE_TYPE_CHOICES
 
 
 class SSOLoginSerializer(serializers.Serializer):
@@ -227,3 +227,103 @@ class StreakLeaderboardEntrySerializer(serializers.Serializer):
     current_count = serializers.IntegerField()
     longest_count = serializers.IntegerField()
     completed = serializers.BooleanField()
+
+
+class InAppTaskCreateSerializer(serializers.ModelSerializer):
+    """Used by admin to create an in-app task (backed by StreakChallenge)."""
+
+    schedule_type = serializers.ChoiceField(
+        choices=SCHEDULE_TYPE_CHOICES, required=False, allow_null=True
+    )
+
+    class Meta:
+        model = StreakChallenge
+        fields = [
+            "name",
+            "description",
+            "streak_type",
+            "duration_days",
+            "start_date",
+            "end_date",
+            "reward_points",
+            "reminder_time",
+            "participant_cap",
+            "schedule_type",
+            "scheduled_start_time",
+        ]
+
+    def validate(self, data):
+        start = data.get("start_date")
+        end = data.get("end_date")
+        if start and end:
+            if end <= start:
+                raise serializers.ValidationError("end_date must be after start_date.")
+            if data.get("duration_days", 0) > (end - start).days:
+                raise serializers.ValidationError(
+                    "duration_days cannot exceed the number of days between start_date and end_date."
+                )
+        if data.get("schedule_type") and not data.get("scheduled_start_time"):
+            raise serializers.ValidationError(
+                "scheduled_start_time is required when schedule_type is set."
+            )
+        return data
+
+
+class InAppTaskSerializer(serializers.ModelSerializer):
+    """Full read serializer for an in-app task — maps fields for the frontend."""
+
+    task_status = serializers.CharField(read_only=True)
+    participant_count = serializers.SerializerMethodField()
+    days_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StreakChallenge
+        fields = [
+            "id",
+            "name",
+            "description",
+            "streak_type",
+            "duration_days",
+            "start_date",
+            "end_date",
+            "reward_points",
+            "reminder_time",
+            "participant_cap",
+            "participant_count",
+            "days_remaining",
+            "schedule_type",
+            "scheduled_start_time",
+            "is_active",
+            "is_paused",
+            "is_cancelled",
+            "task_status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "task_status", "participant_count", "days_remaining", "created_at", "updated_at"]
+
+    def get_participant_count(self, obj):
+        return obj.user_streaks.count()
+
+    def get_days_remaining(self, obj):
+        from django.utils import timezone
+        today = timezone.now().date()
+        return max(0, (obj.end_date - today).days)
+
+
+class InAppTaskUpdateSerializer(serializers.ModelSerializer):
+    """Admin PATCH — allows editing, pausing, or cancelling a task."""
+
+    class Meta:
+        model = StreakChallenge
+        fields = [
+            "name",
+            "description",
+            "end_date",
+            "reward_points",
+            "reminder_time",
+            "participant_cap",
+            "is_active",
+            "is_paused",
+            "is_cancelled",
+        ]

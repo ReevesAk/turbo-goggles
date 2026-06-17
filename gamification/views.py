@@ -23,7 +23,7 @@ from .serializers import (
     StreakHistorySerializer,
     StreakLeaderboardEntrySerializer,
 )
-from .models import StepCampaignModel, StepSessionModel, StreakChallenge, UserStreak, StreakHistory
+from .models import StepCampaignModel, StepSessionModel, StreakChallenge, UserStreak, StreakHistory, Points as PointsModel, TIER_TO_RATE
 
 from gamification.utils import NextBee
 from gamification.points import Points
@@ -473,35 +473,35 @@ class SubmitActivityImageView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Get member points summary from NextBee", tags=["Gamification"])
+@extend_schema(summary="Get member points summary", tags=["Gamification"])
 class GetMemberPointsSummary(generics.GenericAPIView):
-    """
-    GetMemberPointsSummary is the GET request handler that allows a user to
-    retrieve their points summary from NextBee.
-    """
+    """Returns the authenticated user's points balance, tier, and tier rate."""
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request, *args, **kwargs):
-        member_email = request.user.email
-        response = NextBee.points_summary(member_email)
-
         user = request.user
-        user.total_points = response.json().get("points").get("available", 0) if isinstance(response, Response) else 0
-        user.update_level()
-        user.save()
+        points_obj, _ = PointsModel.objects.get_or_create(user=user)
+        tier = points_obj.tier
+        rate = TIER_TO_RATE.get(tier)
+        streaks_joined = UserStreak.objects.filter(user=user).count()
 
-        if isinstance(response, Response):
-            return response
         return Response(
             data=encrypt(
                 {
                     "status": "success",
                     "message": "Points summary retrieved successfully.",
-                    "data": response.json() if response.status_code == 200 else response.text
+                    "data": {
+                        "points_balance": points_obj.balance,
+                        "tier": tier,
+                        "tier_rate": str(rate) if rate is not None else None,
+                        "naira_value": str(points_obj.naira_value),
+                        "lifetime_points": user.total_points or 0,
+                        "streaks_joined": streaks_joined,
+                    },
                 }
             ),
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
