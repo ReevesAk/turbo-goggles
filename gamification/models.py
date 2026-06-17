@@ -104,6 +104,15 @@ STREAK_TYPE_CHOICES = (
     ("brand_task", "Brand Task"),
 )
 
+SCHEDULE_TYPE_CHOICES = (
+    ("once", "Once"),
+    ("weekly", "Weekly"),
+    ("monthly", "Monthly"),
+    ("every_three_months", "Every Three Months"),
+    ("every_six_months", "Every Six Months"),
+    ("yearly", "Yearly"),
+)
+
 
 class PointConfig(models.Model):
     key = models.CharField(max_length=50, unique=True)
@@ -130,6 +139,14 @@ class StreakChallenge(models.Model):
     reminder_time = models.TimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_paused = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
+    # Scheduling
+    schedule_type = models.CharField(
+        max_length=20, choices=SCHEDULE_TYPE_CHOICES, null=True, blank=True
+    )
+    scheduled_start_time = models.TimeField(null=True, blank=True)
+    # Participant cap (e.g. "600k participant" shown on task cards)
+    participant_cap = models.PositiveIntegerField(null=True, blank=True)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="streak_challenges_created"
     )
@@ -143,6 +160,19 @@ class StreakChallenge(models.Model):
     def is_ongoing(self):
         today = timezone.now().date()
         return self.is_active and not self.is_paused and self.start_date <= today <= self.end_date
+
+    @property
+    def task_status(self):
+        if self.is_cancelled:
+            return "cancelled"
+        today = timezone.now().date()
+        if self.start_date > today:
+            return "scheduled"
+        if today > self.end_date:
+            return "expired"
+        if self.is_active and not self.is_paused:
+            return "active"
+        return "paused"
 
 
 class UserStreak(models.Model):

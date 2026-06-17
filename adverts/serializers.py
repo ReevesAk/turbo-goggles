@@ -212,6 +212,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "task_name",
             "task_description",
             "task_details",
+            "slot_cap",
             # Targeting
             "location_type",
             "countries",
@@ -241,6 +242,25 @@ class CreateAdSerializers(serializers.ModelSerializer):
         images = validated_data.pop("images", [])
         videos = validated_data.pop("videos", [])
 
+        # Resolve reward_points from PointConfig — brand cannot set this
+        task_type = validated_data.get("task_type")
+        if task_type:
+            from gamification.models import PointConfig
+            TASK_TYPE_TO_KEY = {
+                "watch_video": "watch_video",
+                "social_engage": "social_engagement",
+                "website_visit": "website_visit",
+                "store_visit": "store_visit",
+                "survey": "survey_completion",
+                "app_download": "app_download",
+                "brand_task": "brand_task",
+            }
+            key = TASK_TYPE_TO_KEY.get(task_type)
+            if key:
+                config = PointConfig.objects.filter(key=key).first()
+                if config:
+                    validated_data["reward_points"] = config.value
+
         request = self.context.get("request")
         user = request.user
 
@@ -265,11 +285,17 @@ class AdSerializers(serializers.ModelSerializer):
     brand_location = AdLocationSerializer(many=True, read_only=True)
     remaining_time = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
+    slots_remaining = serializers.SerializerMethodField()
     task_type_display = serializers.SerializerMethodField()
 
     def get_ad_media(self, obj):
         media = obj.ad_media.all()
         return [{"images": m.images, "videos": m.videos} for m in media]
+
+    def get_slots_remaining(self, obj):
+        if obj.slot_cap:
+            return max(0, obj.slot_cap - obj.slots_filled)
+        return None
 
     def get_task_type_display(self, obj):
         return obj.get_task_type_display() if obj.task_type else None
@@ -306,6 +332,11 @@ class AdSerializers(serializers.ModelSerializer):
             "task_description",
             "task_details",
             "reward_points",
+            "slot_cap",
+            "slots_filled",
+            "slots_remaining",
+            "ads_credit",
+            "auto_boost_points",
             # Targeting
             "location_type",
             "countries",

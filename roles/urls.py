@@ -47,6 +47,10 @@ from .tasks import (
     GetSingleStepCampaign,
     SendNewsLetter,
     CampaignParticipantListView,
+    CreateInAppTaskView,
+    ListInAppTasksView,
+    InAppTaskDetailView,
+    UpdateInAppTaskView,
 )
 from .wallets import (
     GetallWalletUsers,
@@ -77,6 +81,9 @@ from .brand import (
     ListBrandSubmissionsAdminView,
     PendingSubmissionsAdminView,
     ReviewTaskSubmissionAdminView,
+    BrandTaskListAdminView,
+    BrandTaskDetailAdminView,
+    BoostTaskPointsView,
 )
 from .streaks import (
     ListPointConfigsView,
@@ -214,6 +221,11 @@ urlpatterns = [
         SendNewsLetter.as_view(),
         name="send_newsletter",
     ),
+    # In-app task admin endpoints
+    path("tasks/in-app/", ListInAppTasksView.as_view(), name="in_app_task_list"),
+    path("tasks/in-app/create/", CreateInAppTaskView.as_view(), name="in_app_task_create"),
+    path("tasks/in-app/<uuid:task_id>/", InAppTaskDetailView.as_view(), name="in_app_task_detail"),
+    path("tasks/in-app/<uuid:task_id>/update/", UpdateInAppTaskView.as_view(), name="in_app_task_update"),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
     path(
@@ -271,6 +283,10 @@ urlpatterns = [
         ReviewTaskSubmissionAdminView.as_view(),
         name="admin_review_submission",
     ),
+    # Brand task admin endpoints
+    path("brands/tasks/", BrandTaskListAdminView.as_view(), name="brand_task_list"),
+    path("brands/tasks/<int:ad_id>/", BrandTaskDetailAdminView.as_view(), name="brand_task_detail"),
+    path("brands/tasks/<int:ad_id>/boost-points/", BoostTaskPointsView.as_view(), name="brand_task_boost_points"),
     # Streak challenge admin endpoints
     path("streaks/", ListStreakChallengesView.as_view(), name="admin_streak_list"),
     path(
