@@ -155,10 +155,6 @@ class ClaimRewardSerializers(serializers.Serializer):
     phone_number = serializers.CharField(max_length=68, min_length=6, write_only=True)
     form_of_gift = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
-    class Meta:
-        model = None
-        fields = ["service_id", "phone_number", "form_of_gift"]
-
 
 class SwitchToMemberSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
