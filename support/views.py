@@ -41,6 +41,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, JSONParser
 
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+
 from accounts.models import User, UserNotification, AccountType, DeviceId
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.otp import otp_manager
@@ -59,6 +63,17 @@ class CustomPageNumberPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(
+    summary="Register a support manager account",
+    tags=["Support"],
+    description="One-time registration for the platform's Support Agent Manager. Sends an OTP to the registered phone and email for verification.",
+    request=RegisterAgentManagerSerializer,
+    responses={
+        201: inline_serializer("RegisterManagerResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("RegisterManagerError", fields={"status": s.CharField(), "message": s.CharField()}),
+        403: inline_serializer("RegisterManagerForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RegisterManager(generics.GenericAPIView):
     """
     RegisterManager handles the POST request of registering an admin Manager,
@@ -169,6 +184,16 @@ class RegisterManager(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="Request a forgot-pin OTP for a support agent",
+    tags=["Support"],
+    description="Sends a PIN reset OTP to the support agent's registered email address.",
+    request=ForgotPinSerializer,
+    responses={
+        201: inline_serializer("AgentForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("AgentForgotPinNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AgentForgotPin(generics.GenericAPIView):
     """
     AgentForgotPin handles the POST request of sending a
@@ -243,6 +268,16 @@ class AgentForgotPin(generics.GenericAPIView):
         return Response(data=response, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="Verify PIN reset OTP for a support agent",
+    tags=["Support"],
+    description="Validates the OTP sent to the support agent's email before allowing a PIN reset.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: inline_serializer("AgentPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
+        400: inline_serializer("AgentPinVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AgentPinVerifyOTP(generics.GenericAPIView):
     """
     AgentPinVerifyOTP handles the POST request of verifying an agent
@@ -338,6 +373,16 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
         return Response(data=verified_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Reset the PIN for a support agent",
+    tags=["Support"],
+    description="Sets a new PIN for a support agent after successful OTP verification.",
+    request=ResetPinSerializer,
+    responses={
+        200: inline_serializer("AgentResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("AgentResetPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AgentResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
     throttle_classes = []
@@ -399,6 +444,16 @@ class AgentResetPin(generics.CreateAPIView):
         return Response(data=response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Request a password reset OTP for a support staff member",
+    tags=["Support"],
+    description="Sends a password reset OTP to the support staff member's registered email address.",
+    request=SupportStaffForgotPasswordSerializer,
+    responses={
+        201: inline_serializer("SupportForgotPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("SupportForgotPasswordNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SupportForgotPassword(generics.GenericAPIView):
 
     serializer_class = SupportStaffForgotPasswordSerializer
@@ -471,6 +526,16 @@ class SupportForgotPassword(generics.GenericAPIView):
         return Response(data=response, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="Resend password reset OTP for a support staff member",
+    tags=["Support"],
+    description="Resends the password reset OTP to a support staff member's registered email address.",
+    request=SupportStaffPasswordResendOTPSerializer,
+    responses={
+        201: inline_serializer("SupportPasswordResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SupportPasswordResendOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SupportPasswordResendOTP(generics.GenericAPIView):
     """
     StaffPasswordResendOTP handles the POST request of resending an
@@ -543,6 +608,16 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
                 data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
+@extend_schema(
+    summary="Verify password reset OTP for a support staff member",
+    tags=["Support"],
+    description="Validates the password reset OTP sent to the support staff member's email before allowing a password change.",
+    request=SupportVerifyOTPSerializer,
+    responses={
+        200: inline_serializer("SupportEmailVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SupportEmailVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SupportEmailVerifyOTP(generics.GenericAPIView):
     """
     SupportEmailVerifyOTP handles the POST request of verifying a
@@ -636,6 +711,16 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Reset password for a support staff member",
+    tags=["Support"],
+    description="Sets a new password for a support staff member after successful OTP verification.",
+    request=SupportStaffResetPasswordSerializer,
+    responses={
+        200: inline_serializer("SupportfResetPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SupportfResetPasswordError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SupportfResetPassword(generics.CreateAPIView):
     serializer_class = SupportStaffResetPasswordSerializer
 
@@ -697,6 +782,14 @@ class SupportfResetPassword(generics.CreateAPIView):
 
 
 
+@extend_schema(
+    summary="[Support] List all agents and moderators",
+    tags=["Support"],
+    description="Returns a list of all support agent and moderator user profiles. Accessible to managers, moderators, and super admins.",
+    responses={
+        200: inline_serializer("ListUserDetailsAPIResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+    },
+)
 class ListUserDetailsAPI(generics.ListAPIView):
     """
     ListUserDetailsAPI handles the GET request to list all agents and moderators.
@@ -730,6 +823,16 @@ class ListUserDetailsAPI(generics.ListAPIView):
         return Response(data=serializer.data, status=status.HTTP_200_OK)
     
 
+@extend_schema(
+    summary="[Support] Create a support ticket for a user",
+    tags=["Support"],
+    description="Logs a support issue on behalf of a customer and generates a ticket with a unique ticket number. Supports optional image upload.",
+    request=CreateTicketSerializers,
+    responses={
+        201: inline_serializer("CreateTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("CreateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CreateTicket(generics.CreateAPIView):
     """
     CreateTicket handles the POST request of logging an issue for
@@ -892,6 +995,17 @@ class CreateTicket(generics.CreateAPIView):
         self.uploaded_doc_url = doc_image["url"]
 
 
+@extend_schema(
+    summary="[Support] First-time assign a ticket to an agent",
+    tags=["Support"],
+    description="Assigns an unassigned support ticket to a specific agent for the first time. Notifies both the agent and the customer.",
+    request=AssignTicketSerializers,
+    responses={
+        201: inline_serializer("AssignTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("AssignTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("AssignTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AssignTicket(generics.GenericAPIView):
     """
     AssignTicket handles Handles FIRST-TIME assignment of a support ticket to an agent
@@ -1032,6 +1146,17 @@ class AssignTicket(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Support] Reassign an existing ticket to another agent",
+    tags=["Support"],
+    description="Transfers an already-assigned ticket to a different agent. Records the reassignment in the ticket assignment history.",
+    request=AssignTicketSerializers,
+    responses={
+        200: inline_serializer("ReassignTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("ReassignTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("ReassignTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ReassignTicket(generics.GenericAPIView):
     """
     ReassignTicket handles reassignment of a support ticket to a new agent.
@@ -1182,6 +1307,16 @@ class ReassignTicket(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Support] Update the status of a ticket",
+    tags=["Support"],
+    description="Allows an assigned agent to update only the status field of a support ticket (e.g., open, in-progress, resolved).",
+    request=UpdateTicketStatusSerializer,
+    responses={
+        200: inline_serializer("UpdateTicketStatusResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        404: inline_serializer("UpdateTicketStatusNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class UpdateTicketStatus(generics.GenericAPIView):
     """
     Handles updating ONLY the status of a support ticket.
@@ -1284,6 +1419,17 @@ class UpdateTicketStatus(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Support] Escalate a support ticket",
+    tags=["Support"],
+    description="Marks a support ticket as escalated and notifies the assigned manager. Requires the ticket to be currently open.",
+    request=TicketEscalateSerializer,
+    responses={
+        200: inline_serializer("EscalateTicketResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("EscalateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("EscalateTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
     authentication_classes = [JWTAuthentication]
@@ -1350,6 +1496,15 @@ class EscalateTicketAPIView(APIView):
         )
 
 
+@extend_schema(
+    summary="[Support] Get the round-robin assignment trail for a ticket",
+    tags=["Support"],
+    description="Returns the full round-robin assignment history trail for a specific support ticket, identified by ticket number or UUID.",
+    responses={
+        200: inline_serializer("TicketRRTrailResponse", fields={"status": s.CharField(), "data": s.ListField()}),
+        404: inline_serializer("TicketRRTrailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class TicketRRTrailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
@@ -1410,6 +1565,14 @@ class TicketRRTrailAPIView(APIView):
             )
 
 
+@extend_schema(
+    summary="[Support] List all support tickets",
+    tags=["Support"],
+    description="Returns a paginated list of all support tickets on the platform. Accessible to managers, moderators, and super admins.",
+    responses={
+        200: inline_serializer("GetAllSupportTicketsResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+    },
+)
 class GetAllSupportTickets(generics.ListAPIView):
     """
     GetAllSupportTickets is the GET request handler that allows the SuperAdmin to
@@ -1470,6 +1633,14 @@ class GetAllSupportTickets(generics.ListAPIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="[Support] List tickets assigned to the current agent",
+    tags=["Support"],
+    description="Returns a paginated list of all support tickets currently assigned to the authenticated support agent.",
+    responses={
+        200: inline_serializer("GetMyAssignedTicketsResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+    },
+)
 class GetMyAssignedTickets(generics.ListAPIView):
     """
     Allows an admin to retrieve tickets assigned to them.
@@ -1528,6 +1699,15 @@ class GetMyAssignedTickets(generics.ListAPIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="[Support] Get a single support ticket by ID",
+    tags=["Support"],
+    description="Retrieves full detail for a specific support ticket, including assignment history and status trail.",
+    responses={
+        200: CreateTicketSerializers,
+        404: inline_serializer("GetSingleTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class GetSingleTicket(generics.RetrieveAPIView):
     """
     GetSingleTicket is the GET request handler that allows a SuperAdmin to
@@ -1609,6 +1789,15 @@ class GetSingleTicket(generics.RetrieveAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] List tickets filtered by channel",
+    tags=["Support"],
+    description="Returns all support tickets matching the specified channel (e.g., WhatsApp, email, in-app).",
+    responses={
+        200: inline_serializer("GetTicketByChannelResponse", fields={"status": s.CharField(), "data": s.ListField()}),
+        404: inline_serializer("GetTicketByChannelNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class GetTicketByChannel(generics.ListAPIView):
     """
     GetTicketByChannel handles the GET request for searching
@@ -1662,6 +1851,15 @@ class GetTicketByChannel(generics.ListAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] Delete a support ticket",
+    tags=["Support"],
+    description="Permanently deletes a support ticket by its ticket number. Restricted to managers and super admins.",
+    responses={
+        204: inline_serializer("DeleteTicketResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("DeleteTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DeleteTicket(generics.DestroyAPIView):
     """
     DeleteTicket is the DELETE request handler that allows a SuperAdmin to
@@ -1703,6 +1901,17 @@ class DeleteTicket(generics.DestroyAPIView):
             )
 
 
+@extend_schema(
+    summary="Rate a support agent after ticket resolution",
+    tags=["Support"],
+    description="Allows any authenticated user to submit a star rating and review for the support agent who handled their ticket.",
+    request=AgentRatingSerializers,
+    responses={
+        201: inline_serializer("RateSupportAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("RateSupportAgentError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("RateSupportAgentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RateSupportAgent(generics.GenericAPIView):
     """
     RateSupportAgent is the POST request handler that allows a user to rate a support agent.
@@ -1787,6 +1996,14 @@ class RateSupportAgent(generics.GenericAPIView):
         return Response(data=resp, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="[Support] List all users who have submitted tickets",
+    tags=["Support"],
+    description="Returns a list of all platform users that have at least one support ticket on record.",
+    responses={
+        200: inline_serializer("UsersWithTicketsResponse", fields={"status": s.CharField(), "data": s.ListField()}),
+    },
+)
 class UsersWithTickets(generics.ListAPIView):
     """
     UsersWithTickets is the GET request handler that returns a list of
@@ -1811,6 +2028,17 @@ class UsersWithTickets(generics.ListAPIView):
         )
 
 
+@extend_schema(
+    summary="[Support] Add a new support agent or moderator",
+    tags=["Support"],
+    description="Creates a new support agent or moderator account. Only support managers can perform this action. Sends an OTP to the new agent's phone for sign-up completion.",
+    request=AddAgentSerializer,
+    responses={
+        201: inline_serializer("AddAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("AddAgentError", fields={"status": s.CharField(), "message": s.CharField()}),
+        403: inline_serializer("AddAgentForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AddAgent(generics.CreateAPIView):
     """
     Add a new support agent(Agent or Moderator).
@@ -1929,6 +2157,16 @@ class AddAgent(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="Complete support agent sign-up (verify OTP and set profile)",
+    tags=["Support"],
+    description="Completes a support agent's registration by verifying their OTP and finalising account details such as full name and password.",
+    request=AddAgentContdSerializer,
+    responses={
+        200: inline_serializer("AgentSignUpCompleteResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("AgentSignUpCompleteError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AgentSignUpComplete(generics.UpdateAPIView):
     """
     AgentSignUpComplete is a POST request that handles the support agent signup completion.
@@ -2028,6 +2266,16 @@ class AgentSignUpComplete(generics.UpdateAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] Disable a support agent account",
+    tags=["Support"],
+    description="Deactivates a support agent account so they can no longer log in or receive ticket assignments. Requires Manager or Super Admin permission.",
+    request=DisableAgentSerializer,
+    responses={
+        200: inline_serializer("DisableAgentRoleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("DisableAgentRoleNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DisableAgentrole(generics.RetrieveUpdateAPIView):
     """
     DisableAgentrole handles the POST request of disabling
@@ -2102,6 +2350,16 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] Re-enable a disabled support agent account",
+    tags=["Support"],
+    description="Reactivates a previously disabled support agent account so they can log in and receive ticket assignments again. Requires Manager or Super Admin permission.",
+    request=EnableAgentSerializer,
+    responses={
+        200: inline_serializer("EnableAgentRoleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("EnableAgentRoleNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class EnableAgentrole(generics.RetrieveUpdateAPIView):
     """
     EnableAgentrole handles the POST request of re-enabling
@@ -2179,6 +2437,17 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] Permanently delete a support agent account",
+    tags=["Support"],
+    description="Permanently removes a support agent account from the platform. Requires Manager or Super Admin permission and PIN verification.",
+    request=AgentDeletionSerializer,
+    responses={
+        200: inline_serializer("DeleteAgentResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("DeleteAgentError", fields={"status": s.CharField(), "error": s.DictField()}),
+        404: inline_serializer("DeleteAgentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DeleteAgent(generics.GenericAPIView):
     serializer_class = AgentDeletionSerializer
     authentication_classes = [JWTAuthentication]
@@ -2260,6 +2529,16 @@ class DeleteAgent(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Verify phone OTP for a support manager",
+    tags=["Support"],
+    description="Validates the phone OTP sent during manager registration to activate the manager account.",
+    request=SupportVerifyOTPSerializer,
+    responses={
+        200: inline_serializer("SupportPhoneVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SupportPhoneVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SupportPhoneVerifyOTP(generics.GenericAPIView):
     """
     SupportPhoneVerifyOTP handles the POST request of verifying a
@@ -2351,6 +2630,16 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             )
 
 
+@extend_schema(
+    summary="Login for support agents, moderators, and managers",
+    tags=["Support"],
+    description="Authenticates a support staff member with email and password. Returns JWT access and refresh tokens on success.",
+    request=SupportAgentLoginSerializers,
+    responses={
+        200: inline_serializer("LoginAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "tokens": s.DictField()}),
+        401: inline_serializer("LoginAgentUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class LoginAgent(APIView):
     """LoginAPIView handles the POST request of logging in
     a verified user with valid login credentials.
@@ -2506,6 +2795,16 @@ class LoginAgent(APIView):
             )
 
 
+@extend_schema(
+    summary="Set a PIN for a support agent",
+    tags=["Support"],
+    description="Creates a security PIN for the authenticated support agent. Required before the agent can perform sensitive actions.",
+    request=CreateAgentPinSerializer,
+    responses={
+        201: inline_serializer("SetAgentPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SetAgentPinError", fields={"status": s.CharField(), "message": s.DictField()}),
+    },
+)
 class SetAgentPin(generics.CreateAPIView):
     """
     SetAgentPin handles the POST request of creating a pin for a support agent.
@@ -2578,6 +2877,14 @@ class SetAgentPin(generics.CreateAPIView):
             )
 
 
+@extend_schema(
+    summary="[Support] List all agents, moderators, and managers",
+    tags=["Support"],
+    description="Returns a count and list of all users with support roles: Agent, Moderator, and Manager. Includes performance metrics per agent.",
+    responses={
+        200: inline_serializer("GetAllAgentModeratorAndSupportManagerResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+    },
+)
 class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     """
     GetAllAgentModeratorAndSupportManager is the GET request to retrieve the
@@ -2674,6 +2981,16 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="[Support] Mark a support ticket as completed",
+    tags=["Support"],
+    description="Marks an assigned support ticket as fully resolved. Records the resolving agent, resolution timestamp, and optional attachment.",
+    request=CompleteTicketSerializer,
+    responses={
+        200: inline_serializer("CompleteTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        404: inline_serializer("CompleteTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
     """
     CompleteTicketAPIView is the POST request to mark a ticket as completed.

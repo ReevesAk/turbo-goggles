@@ -57,7 +57,9 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 from .models import ADMIN_TYPES
 
@@ -90,7 +92,16 @@ class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 
-@extend_schema(summary="Register the super admin account", tags=["Roles"])
+@extend_schema(
+    summary="Register the super admin account",
+    tags=["Admin"],
+    description="One-time registration endpoint for the platform's SuperAdmin. Sends an OTP to the registered phone number for verification.",
+    request=RegisterSuperAdminSerializer,
+    responses={
+        201: inline_serializer("RegisterSuperAdminResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        403: inline_serializer("RegisterSuperAdminForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RegisterSuperAdmin(generics.GenericAPIView):
     """
     RegisterSuperAdmin handles the POST request of registering a superuser,
@@ -191,7 +202,16 @@ class RegisterSuperAdmin(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Admin login", tags=["Roles"])
+@extend_schema(
+    summary="Admin login",
+    tags=["Admin"],
+    description="Authenticates an admin user by email and password, returning JWT tokens and user details on success.",
+    request=AdminLoginSerializers,
+    responses={
+        200: inline_serializer("AdminLoginResponse", fields={"status": s.CharField(), "message": s.CharField(), "tokens": s.DictField(), "user_data": s.DictField()}),
+        401: inline_serializer("AdminLoginUnauthorized", fields={"error": s.CharField()}),
+    },
+)
 class LoginAdmin(APIView):
     """LoginAPIView handles the POST request of logging in
     a verified user with valid login credentials.
@@ -355,7 +375,16 @@ class LoginAdmin(APIView):
             )
 
 
-@extend_schema(summary="Add an FMCG product", tags=["Roles"])
+@extend_schema(
+    summary="Add an FMCG product",
+    tags=["Admin"],
+    description="Allows an FMCG admin or SuperAdmin to upload a new FMCG product, including its images, nutritional data, and storage details.",
+    request=ProductSerializers,
+    responses={
+        201: inline_serializer("AddProductResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("AddProductError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AddProduct(generics.GenericAPIView):
     """
     AddProduct is the POST request that handles the creation
@@ -465,7 +494,16 @@ class AddProduct(generics.GenericAPIView):
         self.uploaded_doc_url = document["url"]
 
 
-@extend_schema(summary="Add an FMCG pickup address", tags=["Roles"])
+@extend_schema(
+    summary="Add an FMCG pickup address",
+    tags=["Admin"],
+    description="Adds a new pickup address (name and state) for the FMCG store. Requires FMCG admin or SuperAdmin privileges.",
+    request=AddFmcgPickupAddressSerializers,
+    responses={
+        201: inline_serializer("AddAddressResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("AddAddressError", fields={"status": s.CharField()}),
+    },
+)
 class AddAddress(generics.GenericAPIView):
     """
     AddAddress is the POST request that handles the updating of
@@ -538,7 +576,16 @@ class AddAddress(generics.GenericAPIView):
             return Response(data=error_resp, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(summary="Create a new admin user", tags=["Roles"])
+@extend_schema(
+    summary="Create a new admin user",
+    tags=["Admin"],
+    description="Creates a new admin user and sends a signup link to their email. Only the SuperAdmin can invoke this endpoint.",
+    request=AddAdminSerializer,
+    responses={
+        201: inline_serializer("AddAdminResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
+        400: inline_serializer("AddAdminError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AddAdmin(generics.CreateAPIView):
     """
     Create a new admin.
@@ -656,7 +703,16 @@ class AddAdmin(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Complete admin account signup", tags=["Roles"])
+@extend_schema(
+    summary="Complete admin account signup",
+    tags=["Admin"],
+    description="Completes admin registration by setting a phone number and password for a user who received an invite link.",
+    request=AddAdminContdSerializer,
+    responses={
+        200: inline_serializer("AdAdminContdResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("AdAdminContdNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AdAdminContd(generics.UpdateAPIView):
     """
     AdAdminContd is a POST request that handles the admin signup completion.
@@ -773,7 +829,16 @@ class AdAdminContd(generics.UpdateAPIView):
             )
 
 
-@extend_schema(summary="Set admin PIN", tags=["Roles"])
+@extend_schema(
+    summary="Set admin PIN",
+    tags=["Admin"],
+    description="Creates a 5-digit transaction PIN for the currently authenticated admin user.",
+    request=CreateAdminPinSerializer,
+    responses={
+        201: inline_serializer("SetAdminPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SetAdminPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SetAdminPin(generics.CreateAPIView):
     """
     SetWalletPin handles the POST request of creating a pin for a
@@ -850,7 +915,16 @@ class SetAdminPin(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Send OTP for staff forgotten password", tags=["Roles"])
+@extend_schema(
+    summary="Send OTP for staff forgotten password",
+    tags=["Admin"],
+    description="Sends a password-reset OTP to a staff member's registered email address. Restricted to recognised staff roles.",
+    request=StaffForgotPasswordSerializer,
+    responses={
+        201: inline_serializer("StaffForgotPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        403: inline_serializer("StaffForgotPasswordForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class StaffForgotPassword(generics.GenericAPIView):
 
     serializer_class = StaffForgotPasswordSerializer
@@ -938,7 +1012,16 @@ class StaffForgotPassword(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="Resend OTP for staff password reset", tags=["Roles"])
+@extend_schema(
+    summary="Resend OTP for staff password reset",
+    tags=["Admin"],
+    description="Resends the password-reset OTP email to the provided staff email address.",
+    request=StaffPasswordResendOTPSerializer,
+    responses={
+        200: inline_serializer("StaffPasswordResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("StaffPasswordResendOTPNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class StaffPasswordResendOTP(generics.GenericAPIView):
     """
     StaffPasswordResendOTP handles the POST request of resending an
@@ -1013,7 +1096,16 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Verify OTP for staff password reset", tags=["Roles"])
+@extend_schema(
+    summary="Verify OTP for staff password reset",
+    tags=["Admin"],
+    description="Validates the OTP received by a staff member and unlocks the password-reset flow, returning the user ID on success.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: inline_serializer("StaffEmailVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
+        400: inline_serializer("StaffEmailVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class StaffEmailVerifyOTP(generics.GenericAPIView):
     """
     StaffEmailVerifyOTP handles the POST request of verifying a
@@ -1110,7 +1202,16 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Reset staff account password", tags=["Roles"])
+@extend_schema(
+    summary="Reset staff account password",
+    tags=["Admin"],
+    description="Resets the password for a staff member identified by admin_id after OTP verification. Optionally invalidates the refresh token.",
+    request=StaffResetPasswordSerializer,
+    responses={
+        200: inline_serializer("StaffResetPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("StaffResetPasswordError", fields={"error": s.CharField()}),
+    },
+)
 class StaffResetPassword(generics.CreateAPIView):
     serializer_class = StaffResetPasswordSerializer
 
@@ -1173,7 +1274,16 @@ class StaffResetPassword(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Send OTP for admin forgotten PIN", tags=["Roles"])
+@extend_schema(
+    summary="Send OTP for admin forgotten PIN",
+    tags=["Admin"],
+    description="Sends a PIN-reset OTP to the admin's registered email address.",
+    request=ForgotPinSerializer,
+    responses={
+        201: inline_serializer("AdminForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("AdminForgotPinNotFound", fields={"status": s.CharField(), "detail": s.CharField()}),
+    },
+)
 class AdminForgotPin(generics.GenericAPIView):
     """
     AdminForgotPin handles the POST request of sending a
@@ -1247,7 +1357,16 @@ class AdminForgotPin(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="Verify OTP for admin PIN reset", tags=["Roles"])
+@extend_schema(
+    summary="Verify OTP for admin PIN reset",
+    tags=["Admin"],
+    description="Validates the OTP submitted for admin PIN reset and returns the user ID to proceed with the new PIN.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: inline_serializer("PinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
+        400: inline_serializer("PinVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class PinVerifyOTP(generics.GenericAPIView):
     """
     PinVerifyOTP handles the POST request of verifying an admin
@@ -1346,7 +1465,16 @@ class PinVerifyOTP(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Reset admin PIN", tags=["Roles"])
+@extend_schema(
+    summary="Reset admin PIN",
+    tags=["Admin"],
+    description="Sets a new PIN for the admin identified by admin_id. Both pin and pin2 must match.",
+    request=ResetPinSerializer,
+    responses={
+        200: inline_serializer("ResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("ResetPinError", fields={"error": s.CharField()}),
+    },
+)
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
 
@@ -1410,7 +1538,16 @@ class ResetPin(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Add a role to an admin user", tags=["Roles"])
+@extend_schema(
+    summary="Add a role to an admin user",
+    tags=["Admin"],
+    description="Assigns an additional role to an existing admin user. Requires the SuperAdmin's PIN for confirmation.",
+    request=AddRoleToAdminSerializer,
+    responses={
+        200: inline_serializer("AddRoleToAdminResponse", fields={"status": s.CharField(), "message": s.CharField(), "new_role": s.CharField()}),
+        401: inline_serializer("AddRoleToAdminUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AddRoleToAdmin(generics.GenericAPIView):
     serializer_class = AddRoleToAdminSerializer
     authentication_classes = [JWTAuthentication]
@@ -1540,7 +1677,16 @@ class AddRoleToAdmin(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Remove a role from an admin user", tags=["Roles"])
+@extend_schema(
+    summary="Remove a role from an admin user",
+    tags=["Admin"],
+    description="Removes a specified role from an admin user. Requires the SuperAdmin's PIN for confirmation.",
+    request=RemoveRoleFromAdminSerializer,
+    responses={
+        200: inline_serializer("RemoveAdminRoleResponse", fields={"status": s.CharField(), "message": s.CharField(), "removed_role": s.CharField()}),
+        401: inline_serializer("RemoveAdminRoleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class RemoveAdminRole(generics.GenericAPIView):
     serializer_class = RemoveRoleFromAdminSerializer
     authentication_classes = [JWTAuthentication]
@@ -1672,7 +1818,16 @@ class RemoveAdminRole(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Disable an admin user account", tags=["Roles"])
+@extend_schema(
+    summary="Disable an admin user account",
+    tags=["Admin"],
+    description="Disables an admin account by email, preventing login. Requires the SuperAdmin's PIN for confirmation.",
+    request=DisableAdminSerializer,
+    responses={
+        200: inline_serializer("DisableAdminroleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("DisableAdminroleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class DisableAdminrole(generics.RetrieveUpdateAPIView):
     """
     DisableAdminrole handles the POST request of disabling
@@ -1797,7 +1952,16 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
             )
 
 
-@extend_schema(summary="Re-enable a disabled admin user account", tags=["Roles"])
+@extend_schema(
+    summary="Re-enable a disabled admin user account",
+    tags=["Admin"],
+    description="Re-enables a previously disabled admin account. Requires the SuperAdmin's PIN for confirmation.",
+    request=EnableAdminSerializer,
+    responses={
+        200: inline_serializer("EnableAdminroleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("EnableAdminroleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class EnableAdminrole(generics.RetrieveUpdateAPIView):
     """
     EnableAdminrole handles the POST request of re-enabling
@@ -1924,7 +2088,16 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
             )
 
 
-@extend_schema(summary="Delete an admin user", tags=["Roles"])
+@extend_schema(
+    summary="Delete an admin user",
+    tags=["Admin"],
+    description="Permanently deletes an admin user account by email or ID. Requires the SuperAdmin's PIN and sends a deletion notification.",
+    request=AdminDeletionSerializer,
+    responses={
+        204: inline_serializer("DeleteAdminResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("DeleteAdminUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class DeleteAdmin(generics.GenericAPIView):
     serializer_class = AdminDeletionSerializer
     authentication_classes = [JWTAuthentication]
@@ -2064,7 +2237,12 @@ class DeleteAdmin(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="List all verified users", tags=["Roles"])
+@extend_schema(
+    summary="List all verified users",
+    tags=["Admin"],
+    description="Returns a paginated list of all platform users that have completed phone/email verification.",
+    responses={200: GetUserSerializer(many=True)},
+)
 class VerifiedUsersCount(generics.ListAPIView):
     """
     VerifiedUsersCount is the GET request to retrieve the count
@@ -2098,7 +2276,12 @@ class VerifiedUsersCount(generics.ListAPIView):
             )
 
 
-@extend_schema(summary="List all verified partner users", tags=["Roles"])
+@extend_schema(
+    summary="List all verified partner users",
+    tags=["Admin"],
+    description="Returns a paginated list of users whose business has been verified on the platform.",
+    responses={200: PartnerProfileSerializer(many=True)},
+)
 class VerifiedPartnersCount(generics.ListAPIView):
     """
     VerifiedPartnersCount is the GET request to retrieve the count
@@ -2132,7 +2315,12 @@ class VerifiedPartnersCount(generics.ListAPIView):
             )
 
 
-@extend_schema(summary="List all promoted brand ad users", tags=["Roles"])
+@extend_schema(
+    summary="List all promoted brand ad users",
+    tags=["Admin"],
+    description="Returns a paginated list of users that have run at least one promoted brand ad campaign.",
+    responses={200: BrandAdProfileSerializers(many=True)},
+)
 class VerifiedBrandAdsCount(generics.ListAPIView):
     """
     VerifiedBrandAdsCount is the GET request to retrieve the count
@@ -2184,7 +2372,12 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
             )
 
 
-@extend_schema(summary="List all admin users", tags=["Roles"])
+@extend_schema(
+    summary="List all admin users",
+    tags=["Admin"],
+    description="Returns a paginated list of all admin users with counts for active and disabled accounts.",
+    responses={200: ListAdminSerializer(many=True)},
+)
 class GetAllAdminUsers(generics.ListAPIView):
     """
     GetAllAdminUsers is the GET request to retrieve the count
@@ -2259,7 +2452,12 @@ class GetAllAdminUsers(generics.ListAPIView):
             )
 
 
-@extend_schema(summary="List admin users grouped by role type", tags=["Roles"])
+@extend_schema(
+    summary="List admin users grouped by role type",
+    tags=["Admin"],
+    description="Returns a count of admin users broken down by each admin role type.",
+    responses={200: inline_serializer("AdminUserTypesResponse", fields={"status": s.CharField(), "admin_role_counts": s.DictField()})},
+)
 class GetAllAdminUsersTypes(generics.ListAPIView):
     """
     GetAllAdminUsersTypes is the GET request to retrieve the count
@@ -2315,7 +2513,12 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="List all wallet statuses", tags=["Roles"])
+@extend_schema(
+    summary="List all wallet statuses",
+    tags=["Admin"],
+    description="Returns the status and balance of every wallet on the platform for wallet admins.",
+    responses={200: WalletStatusSerializer(many=True)},
+)
 class GetAllWalletStatus(generics.ListAPIView):
     """
     GetAllWalletStatus is the GET request to retrieve the status
@@ -2342,7 +2545,12 @@ class GetAllWalletStatus(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="List all wallet admin users", tags=["Roles"])
+@extend_schema(
+    summary="List all wallet admin users",
+    tags=["Admin"],
+    description="Returns a paginated list of users with the WalletAdmin role.",
+    responses={200: ListAdminSerializer(many=True)},
+)
 class GetAllWalletAdminUsers(generics.ListAPIView):
     """
     GetAllWalletAdminUsers is the GET request to retrieve the count
@@ -2389,7 +2597,16 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
             return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Switch active admin role", tags=["Roles"])
+@extend_schema(
+    summary="Switch active admin role",
+    tags=["Admin"],
+    description="Allows an admin with multiple roles to switch their active role to another one they have been assigned.",
+    request=SwitchRolesSerializers,
+    responses={
+        200: inline_serializer("SwitchRolesResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.CharField()}),
+        400: inline_serializer("SwitchRolesError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SwitchRoles(generics.RetrieveAPIView):
     """
     SwitchRoles is the PUT request method for updating and switching
@@ -2501,7 +2718,12 @@ class SwitchRoles(generics.RetrieveAPIView):
             )
 
 
-@extend_schema(summary="Get admin profile image", tags=["Roles"])
+@extend_schema(
+    summary="Get admin profile image",
+    tags=["Admin"],
+    description="Returns the URL of the currently authenticated admin's profile picture.",
+    responses={200: inline_serializer("GetProfileImageResponse", fields={"status": s.CharField(), "message": s.CharField(), "image": s.CharField()})},
+)
 class GetProfileImage(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -2530,7 +2752,12 @@ class GetProfileImage(generics.RetrieveAPIView):
             )
 
 
-@extend_schema(summary="List all app (non-admin) activity logs", tags=["Roles"])
+@extend_schema(
+    summary="List all app (non-admin) activity logs",
+    tags=["Admin"],
+    description="Returns paginated activity logs generated by regular app users (Members, Partners, BrandAds).",
+    responses={200: GetAllActivityLogsSerializer(many=True)},
+)
 class GetAllAppActivites(generics.ListAPIView):
     """
     GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
@@ -2620,7 +2847,12 @@ class GetAllAppActivites(generics.ListAPIView):
         return Response(data=response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="List all admin activity logs", tags=["Roles"])
+@extend_schema(
+    summary="List all admin activity logs",
+    tags=["Admin"],
+    description="Returns paginated activity logs for all admin-role actions, including the name of the admin who performed each action.",
+    responses={200: GetAllActivityLogsSerializer(many=True)},
+)
 class GetAllAdminActivites(generics.ListAPIView):
     """
     GetAllAdminActivities is the GET request handler that allows the SuperAdmin to
@@ -2707,7 +2939,15 @@ class GetAllAdminActivites(generics.ListAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Get a single activity log by ID", tags=["Roles"])
+@extend_schema(
+    summary="Get a single activity log by ID",
+    tags=["Admin"],
+    description="Retrieves the details of a specific activity log entry identified by its UUID.",
+    responses={
+        200: inline_serializer("GetSingleAdminActivityResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        404: inline_serializer("GetSingleAdminActivityNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class GetSingleAdminActivity(generics.RetrieveAPIView):
     """
     GetSingleAdminActivity is the GET request handler that allows a SuperAdmin to
@@ -2811,7 +3051,13 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
 
 
 @extend_schema(
-    summary="List all activity logs for a specific admin user", tags=["Roles"]
+    summary="List all activity logs for a specific admin user",
+    tags=["Admin"],
+    description="Returns all activity log entries for the admin user identified by email address.",
+    responses={
+        200: inline_serializer("GetAllSingleAdminUserActivityResponse", fields={"status": s.CharField(), "data": s.ListField()}),
+        404: inline_serializer("GetAllSingleAdminUserActivityNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class GetAllSingleAdminUserActivity(generics.ListAPIView):
     """
@@ -2916,7 +3162,12 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="List available admin role types", tags=["Roles"])
+@extend_schema(
+    summary="List available admin role types",
+    tags=["Admin"],
+    description="Returns the full list of available admin role types defined in the system.",
+    responses={200: inline_serializer("AdminTypesListResponse", fields={"status": s.CharField(), "categories": s.ListField(child=s.CharField())})},
+)
 class AdminTypesListView(APIView):
     """
     AdminTypesListView is the GET request handler that returns a list of admin types.
@@ -2941,7 +3192,12 @@ class AdminTypesListView(APIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="List all unique activity log titles", tags=["Roles"])
+@extend_schema(
+    summary="List all unique activity log titles",
+    tags=["Admin"],
+    description="Returns distinct admin and non-admin activity log titles, useful for filtering the activity feed.",
+    responses={200: inline_serializer("ActivityTitleListResponse", fields={"status": s.CharField(), "admin_titles": s.ListField(), "non_admin_titles": s.ListField()})},
+)
 class ActivityTitleListView(APIView):
     """
     Retrieve all unique activity titles.
@@ -3014,7 +3270,12 @@ class ActivityTitleListView(APIView):
             )
 
 
-@extend_schema(summary="Get admin dashboard summary data", tags=["Roles"])
+@extend_schema(
+    summary="Get admin dashboard summary data",
+    tags=["Admin"],
+    description="Returns aggregated platform statistics for the admin dashboard, including user counts, ticket counts, and cashflow breakdown.",
+    responses={200: AdminDdashboardDataSerializer},
+)
 class AdminDashboardDataView(APIView):
     serializer_class = AdminDdashboardDataSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
@@ -3148,7 +3409,16 @@ class AdminDashboardDataView(APIView):
         return Response(encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Create a knowledge base entry", tags=["Knowledge Base"])
+@extend_schema(
+    summary="Create a knowledge base entry",
+    tags=["Admin"],
+    description="Creates a new knowledge base article with optional media uploads. Supports scheduled publishing.",
+    request=KnowledgeBaseSerializer,
+    responses={
+        201: inline_serializer("CreateKnowledgeBaseResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("CreateKnowledgeBaseError", fields={"status": s.CharField()}),
+    },
+)
 class CreateKnowledgeBaseView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer
     authentication_classes = [JWTAuthentication]
@@ -3179,7 +3449,12 @@ class CreateKnowledgeBaseView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="List all knowledge base entries", tags=["Knowledge Base"])
+@extend_schema(
+    summary="List all knowledge base entries",
+    tags=["Admin"],
+    description="Returns a paginated list of knowledge base articles, filterable by category, section, and content type.",
+    responses={200: KnowledgeBaseSerializer(many=True)},
+)
 class ListKnowledgeBaseView(generics.ListAPIView):
     serializer_class = KnowledgeBaseSerializer
     authentication_classes = [JWTAuthentication]
@@ -3228,7 +3503,13 @@ class ListKnowledgeBaseView(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="Retrieve, update or delete a knowledge base entry", tags=["Knowledge Base"]
+    summary="Retrieve, update or delete a knowledge base entry",
+    tags=["Admin"],
+    description="GET retrieves, PATCH partially updates, and DELETE removes a specific knowledge base entry by primary key.",
+    responses={
+        200: KnowledgeBaseSerializer,
+        404: inline_serializer("KnowledgeBaseDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class KnowledgeBaseDetailView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer

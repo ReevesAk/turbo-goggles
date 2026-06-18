@@ -1,9 +1,11 @@
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.db import models
 from django.utils import timezone
 
 from accounts.models import User
+from .pricing import TARGETING_TYPE_CHOICES, compute_cost_per_engagement
 
 DEMOGRAPHY = (
     ("18 - 25", "18 - 25"),
@@ -61,7 +63,6 @@ TASK_TYPE_CHOICES = (
     ("app_download", "App Download"),
 )
 
-
 class CreateAd(models.Model):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="create_ad"
@@ -104,10 +105,32 @@ class CreateAd(models.Model):
     slots_filled = models.PositiveIntegerField(default=0)
     ads_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     auto_boost_points = models.PositiveIntegerField(default=0)
+    credit_settled = models.BooleanField(default=False)
+
+    @property
+    def cost_per_engagement(self) -> Decimal:
+        try:
+            duration = int(self.campaign_duration or 0)
+        except (TypeError, ValueError):
+            duration = 0
+        if self.task_type and duration:
+            return compute_cost_per_engagement(
+                self.task_type, duration, self.targeting_type or "broad"
+            )
+        return Decimal("0")
+
+    @property
+    def unused_credit(self) -> Decimal:
+        unused = max(0, (self.slot_cap or 0) - (self.slots_filled or 0))
+        return Decimal(str(unused)) * self.cost_per_engagement
 
     # Targeting
     location_type = models.CharField(
         choices=LOCATION_TYPE_CHOICES, max_length=20, null=True, blank=True
+    )
+    targeting_type = models.CharField(
+        choices=TARGETING_TYPE_CHOICES, max_length=15, default="broad",
+        help_text="Determines the pricing multiplier: broad/city/niche/influencer"
     )
     countries = models.JSONField(default=list, blank=True)
     auto_boost = models.BooleanField(default=False)
@@ -118,6 +141,39 @@ class CreateAd(models.Model):
                 days=int(self.campaign_duration)
             )
         super().save(*args, **kwargs)
+
+
+class BrandAdCreditWallet(models.Model):
+    """Running credit balance for a brand — sourced from unfilled ad slots."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="ad_credit_wallet")
+    balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user} — ₦{self.balance} credit"
+
+
+class BrandAdCreditLedger(models.Model):
+    """Immutable log of every credit (unused slot refund) and debit (applied to new ad)."""
+    CREDIT = "credit"
+    DEBIT = "debit"
+    TYPES = ((CREDIT, "Credit"), (DEBIT, "Debit"))
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ad_credit_ledger")
+    transaction_type = models.CharField(choices=TYPES, max_length=10)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=14, decimal_places=2)
+    source_ad = models.ForeignKey(
+        CreateAd, on_delete=models.SET_NULL, null=True, blank=True, related_name="credit_entries"
+    )
+    reason = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_type} ₦{self.amount} → {self.user} [{self.created_at:%Y-%m-%d}]"
 
 
 class AdMedia(models.Model):

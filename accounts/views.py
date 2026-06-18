@@ -17,7 +17,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 # In project imports.
 from .serializers import (
@@ -44,7 +46,26 @@ from security import encrypt, decrypt
 logger = logging.getLogger("accounts")
 
 
-@extend_schema(summary="Register a new user", tags=["Accounts"])
+@extend_schema(
+    summary="Register a new user",
+    tags=["Auth"],
+    description="Create a new member account. On success an OTP is sent to the supplied phone number via WhatsApp/SMS for verification.",
+    request=RegisterSerializer,
+    responses={
+        201: inline_serializer(
+            name="RegisterResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "image": s.CharField(allow_null=True),
+            },
+        ),
+        400: inline_serializer(
+            name="RegisterErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class Register(generics.GenericAPIView):
     """
     Register handles the POST request of registering a user,
@@ -199,7 +220,29 @@ class Register(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Verify OTP for new device", tags=["Accounts"])
+@extend_schema(
+    summary="Verify OTP for new device",
+    tags=["Auth"],
+    description="Confirm a new device by submitting the OTP sent during login. On success the device is registered and JWT tokens are returned.",
+    request=NewDeviceOTPVerifyOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="DeviceVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "tokens": inline_serializer(
+                    name="DeviceVerifyTokens",
+                    fields={"access": s.CharField(), "refresh": s.CharField()},
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="DeviceVerifyOTPErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class DeviceVerificationOTP(generics.GenericAPIView):
     """
     DeviceVerificationOTP handles the POST request of verifying a
@@ -317,7 +360,29 @@ class DeviceVerificationOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Verify phone OTP after registration", tags=["Accounts"])
+@extend_schema(
+    summary="Verify phone OTP after registration",
+    tags=["Auth"],
+    description="Validate the OTP sent to the user's phone after registration to activate the account and receive JWT tokens.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="PhoneVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "tokens": inline_serializer(
+                    name="PhoneVerifyTokens",
+                    fields={"access": s.CharField(), "refresh": s.CharField()},
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="PhoneVerifyOTPErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class PhoneVerifyOTP(generics.GenericAPIView):
     """
     PhoneVerifyOTP handles the POST request of verifying a
@@ -416,7 +481,26 @@ class PhoneVerifyOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Verify OTP for password reset", tags=["Accounts"])
+@extend_schema(
+    summary="Verify OTP for password reset",
+    tags=["Auth"],
+    description="Validate the OTP sent to the user's phone as part of the forgot-password flow. Returns the user_id needed to call the reset-password endpoint.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="PasswordPhoneVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "user_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="PasswordPhoneVerifyOTPErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class PasswordPhoneVerifyOTP(generics.GenericAPIView):
     """
     PasswordPhoneVerifyOTP handles the POST request of verifying a
@@ -515,7 +599,22 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Resend OTP to user", tags=["Accounts"])
+@extend_schema(
+    summary="Resend OTP to user",
+    tags=["Auth"],
+    description="Resend the verification OTP to the user's registered phone number during the registration flow.",
+    request=ResendOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="ResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="ResendOTPErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class ResendOTP(generics.GenericAPIView):
     """
     ResendOTP handles the POST request of resending an
@@ -573,7 +672,22 @@ class ResendOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Resend OTP for password reset", tags=["Accounts"])
+@extend_schema(
+    summary="Resend OTP for password reset",
+    tags=["Auth"],
+    description="Resend a password-reset OTP to the phone number associated with the account.",
+    request=PasswordResendOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="PasswordResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="PasswordResendOTPNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class PasswordResendOTP(generics.GenericAPIView):
     """
     PasswordResendOTP handles the POST request of resending an
@@ -656,7 +770,40 @@ class PasswordResendOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Login with password or biometrics", tags=["Accounts"])
+@extend_schema(
+    summary="Login with password or biometrics",
+    tags=["Auth"],
+    description="Authenticate a verified user using phone number + password or biometrics. Returns JWT access and refresh tokens on success; triggers an OTP challenge if a new device is detected.",
+    request=LoginSerializers,
+    responses={
+        200: inline_serializer(
+            name="LoginResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "active_role": s.CharField(),
+                "user_id": s.CharField(),
+                "is_verified": s.BooleanField(),
+                "tokens": inline_serializer(
+                    name="LoginTokens",
+                    fields={"access": s.CharField(), "refresh": s.CharField()},
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="LoginNewDeviceResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="LoginUnauthorizedResponse",
+            fields={"error": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="LoginLockedResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class Login(APIView):
     """
     LoginAPIView handles the POST request for logging in
@@ -883,7 +1030,22 @@ class Login(APIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Send OTP for forgotten password", tags=["Accounts"])
+@extend_schema(
+    summary="Send OTP for forgotten password",
+    tags=["Auth"],
+    description="Initiate a password reset by sending a one-time code to the phone number associated with the account.",
+    request=ForgotPasswordSerializer,
+    responses={
+        201: inline_serializer(
+            name="ForgotPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="ForgotPasswordNotFoundResponse",
+            fields={"status": s.CharField(), "detail": s.CharField()},
+        ),
+    },
+)
 class ForgotPassword(generics.GenericAPIView):
     """
     ForgotPassword handles the POST request of sending a
@@ -967,7 +1129,26 @@ class ForgotPassword(generics.GenericAPIView):
         return Response(data=encrypted_response, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="Reset account password", tags=["Accounts"])
+@extend_schema(
+    summary="Reset account password",
+    tags=["Auth"],
+    description="Set a new password using the user_id returned from the OTP verification step. The current refresh token is blacklisted on success.",
+    request=ResetPasswordSerializer,
+    responses={
+        200: inline_serializer(
+            name="ResetPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="ResetPasswordErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="ResetPasswordNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class ResetPassword(generics.CreateAPIView):
     serializer_class = ResetPasswordSerializer
 
@@ -1030,7 +1211,22 @@ class ResetPassword(generics.CreateAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Logout and blacklist refresh token", tags=["Accounts"])
+@extend_schema(
+    summary="Logout and blacklist refresh token",
+    tags=["Auth"],
+    description="Invalidate the user's refresh token, ending the session. Requires a valid JWT access token in the Authorization header.",
+    request=LogoutSerializer,
+    responses={
+        205: inline_serializer(
+            name="LogoutResponse",
+            fields={"status": s.CharField(), "logout": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="LogoutErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class Logout(APIView):
     serializer_class = LogoutSerializer
     authentication_classes = [JWTAuthentication]

@@ -14,7 +14,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
 from commons import generate_txId, Messaging, Biometrics
@@ -43,7 +44,24 @@ def _generate_tx_id(prefix="TRX"):
     return f"{prefix}{timestamp}{rand}"
 
 
-@extend_schema(summary="Validate a Picadailys treasury account number", tags=["Treasury"])
+@extend_schema(
+    summary="Validate a Picadailys treasury account number",
+    tags=["Treasury"],
+    description="Look up another user's treasury account by account number to confirm it exists before initiating an internal transfer.",
+    request=ValidateTreasuryAccountSerializer,
+    responses={
+        200: inline_serializer(name="ValidateTreasuryAccountResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="ValidateTreasuryAccountData", fields={
+                "account_number": s.CharField(),
+                "acct_name": s.CharField(),
+                "bank_name": s.CharField(),
+            }),
+        }),
+        404: inline_serializer(name="ValidateTreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ValidateTreasuryAccount(generics.GenericAPIView):
     """
     Look up another user's treasury account by account number.
@@ -85,7 +103,20 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Validate an external bank account via Anchor NIP enquiry", tags=["Treasury"])
+@extend_schema(
+    summary="Validate an external bank account via Anchor NIP enquiry",
+    tags=["Treasury"],
+    description="Performs a NIP name enquiry for any Nigerian bank account via Anchor to confirm the account name before an external transfer.",
+    request=ValidateExternalAccountSerializer,
+    responses={
+        200: inline_serializer(name="ValidateExternalAccountResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="ValidateExternalAccountData", fields={"account_name": s.CharField()}),
+        }),
+        400: inline_serializer(name="ValidateExternalAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ValidateExternalAccount(generics.GenericAPIView):
     """
     NIP name enquiry for any Nigerian bank account via Anchor.
@@ -136,7 +167,28 @@ class ValidateExternalAccount(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Transfer between two treasury accounts (internal)", tags=["Treasury"])
+@extend_schema(
+    summary="Transfer between two treasury accounts (internal)",
+    tags=["Treasury"],
+    description="Transfer funds between two Picadailys treasury accounts. Requires an Idempotency-Key header. The first 5 daily internal transfers are free; a ₦10 fee applies thereafter.",
+    request=TreasuryTransferSerializer,
+    responses={
+        200: inline_serializer(name="InternalTransferResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="InternalTransferData", fields={
+                "credit_account": s.CharField(),
+                "debit_account": s.CharField(),
+                "amount": s.CharField(),
+                "narration": s.CharField(),
+                "transactionReference": s.CharField(),
+                "total_debited": s.CharField(),
+            }),
+        }),
+        400: inline_serializer(name="InternalTransferError", fields={"status": s.CharField(), "error": s.CharField()}),
+        401: inline_serializer(name="InternalTransferUnauth", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class InternalTransfer(generics.CreateAPIView):
     """
     Transfer between two treasury (Anchor sub-) accounts.
@@ -348,7 +400,29 @@ class InternalTransfer(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Send NIP transfer to any Nigerian bank via Anchor", tags=["Treasury"])
+@extend_schema(
+    summary="Send NIP transfer to any Nigerian bank via Anchor",
+    tags=["Treasury"],
+    description="Send an NIP (interbank) transfer to any Nigerian bank via Anchor payouts. Requires an Idempotency-Key header. Transfer fees are calculated automatically based on the transfer amount.",
+    request=TreasuryTransferSerializer,
+    responses={
+        200: inline_serializer(name="ExternalTransferResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="ExternalTransferData", fields={
+                "credit_account": s.CharField(),
+                "debit_account": s.CharField(),
+                "amount": s.CharField(),
+                "transfer_fee": s.CharField(),
+                "total": s.CharField(),
+                "narration": s.CharField(),
+                "transactionReference": s.CharField(),
+            }),
+        }),
+        400: inline_serializer(name="ExternalTransferError", fields={"status": s.CharField(), "error": s.CharField()}),
+        401: inline_serializer(name="ExternalTransferUnauth", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class ExternalTransfer(generics.CreateAPIView):
     """
     NIP transfer to any Nigerian bank via Anchor payouts.
@@ -556,7 +630,20 @@ class ExternalTransfer(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Get remaining free internal transfer count for today", tags=["Treasury"])
+@extend_schema(
+    summary="Get remaining free internal transfer count for today",
+    tags=["Treasury"],
+    description="Returns how many free internal transfers the user has used and has remaining for the current calendar day. A ₦10 fee applies after the free limit is exhausted.",
+    responses={
+        200: inline_serializer(name="InternalTransferFreeCountResponse", fields={
+            "status": s.CharField(),
+            "free_transfers_used": s.IntegerField(),
+            "free_transfers_remaining": s.IntegerField(),
+            "free_limit": s.IntegerField(),
+            "fee_after_limit": s.CharField(),
+        }),
+    },
+)
 class InternalTransferFreeCount(APIView):
     """
     How many free internal transfers the user has made today.
@@ -589,7 +676,22 @@ class InternalTransferFreeCount(APIView):
         )
 
 
-@extend_schema(summary="Generate Paystack checkout URL for treasury card funding", tags=["Treasury"])
+@extend_schema(
+    summary="Generate Paystack checkout URL for treasury card funding",
+    tags=["Treasury"],
+    description="Generates a Paystack checkout URL to fund the user's treasury account using a debit or credit card. Returns the authorization URL, access code, and payment reference.",
+    request=CardFundingSerializer,
+    responses={
+        200: inline_serializer(name="PayWithCardResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "checkout_url": s.URLField(),
+            "access_code": s.CharField(),
+            "reference": s.CharField(),
+        }),
+        502: inline_serializer(name="PayWithCardError", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class PayWithCard(generics.CreateAPIView):
     """
     Generate a Paystack checkout URL to fund the treasury account with a card.
@@ -642,7 +744,17 @@ class PayWithCard(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Credit treasury account after confirmed card payment", tags=["Treasury"])
+@extend_schema(
+    summary="Credit treasury account after confirmed card payment",
+    tags=["Treasury"],
+    description="Records and marks a Paystack card deposit as processed, crediting the user's treasury account. Requires the transaction reference returned from the checkout flow.",
+    request=inline_serializer(name="FundTreasuryAccountRequest", fields={"txn_reference": s.CharField()}),
+    responses={
+        200: inline_serializer(name="FundTreasuryAccountResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="FundTreasuryAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(name="FundTreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class FundTreasuryAccount(generics.GenericAPIView):
     """
     Credit the user's treasury account after a confirmed Paystack card payment.

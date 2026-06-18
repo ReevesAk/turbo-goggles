@@ -16,6 +16,10 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+
 from .models import PRODUCT_CATEGORY, COMPANY, Product, Cart, CartItem, FmcgRating, FmcgOrder, PickupAdress
 from .serializers import (
     ProductSerializers,
@@ -46,6 +50,21 @@ def generate_tracking_id(length):
     return result
 
 
+@extend_schema(
+    summary="List product categories",
+    tags=["FMCG"],
+    description="Returns the full list of available FMCG product categories.",
+    responses={
+        200: inline_serializer(
+            name="CategoryListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "categories": s.ListField(child=s.CharField()),
+            },
+        ),
+    },
+)
 class CategoryListView(APIView):
     """
     CategoryListView is the GET request handler that returns a list of product categories.
@@ -78,6 +97,21 @@ class CategoryListView(APIView):
             )
 
 
+@extend_schema(
+    summary="List FMCG companies",
+    tags=["FMCG"],
+    description="Returns the full list of FMCG companies available on the platform.",
+    responses={
+        200: inline_serializer(
+            name="CompanyListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "companies": s.ListField(child=s.CharField()),
+            },
+        ),
+    },
+)
 class CompanyListView(APIView):
     """
     CompanyListView is the GET request handler that returns a list of fmcg companies.
@@ -110,6 +144,28 @@ class CompanyListView(APIView):
             )
 
 
+@extend_schema(
+    summary="List all FMCG products",
+    tags=["FMCG"],
+    description="Returns a paginated list of all FMCG products. Optionally filter by category using the query parameter.",
+    parameters=[
+        OpenApiParameter(
+            name="category",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Filter products by category name (case-insensitive).",
+        ),
+        OpenApiParameter(
+            name="page",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Page number for pagination.",
+        ),
+    ],
+    responses={200: ProductSerializers(many=True)},
+)
 class ListAllProducts(generics.ListAPIView):
 
     """
@@ -187,6 +243,18 @@ class ListAllProducts(generics.ListAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Retrieve a single product",
+    tags=["FMCG"],
+    description="Fetches the full details of a specific FMCG product by its UUID.",
+    responses={
+        200: ProductSerializers,
+        404: inline_serializer(
+            name="ProductNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class ProductDetails(generics.RetrieveAPIView):
     """
     ProductDetails is the GET request that handles the retrieval
@@ -248,6 +316,36 @@ class ProductDetails(generics.RetrieveAPIView):
             )
 
 
+@extend_schema(
+    summary="Add product to cart",
+    tags=["FMCG"],
+    description="Adds a product to the authenticated user's or guest's cart. If the product is already in the cart, its quantity is incremented.",
+    request=AddToCartSerializers,
+    responses={
+        200: inline_serializer(
+            name="AddToCartResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "guest_id": s.CharField(allow_null=True),
+                "cart_item": inline_serializer(
+                    name="CartItemDetail",
+                    fields={
+                        "cart_id": s.CharField(),
+                        "product": s.CharField(),
+                        "quantity": s.IntegerField(),
+                        "price": s.CharField(),
+                        "total_price": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="AddToCartErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class AddToCart(generics.CreateAPIView):
     """
     AddToCart is the POST request handler of adding a product to cart.
@@ -378,6 +476,33 @@ class AddToCart(generics.CreateAPIView):
             return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    summary="Retrieve cart items",
+    tags=["FMCG"],
+    description="Returns all items currently in the authenticated user's or guest's cart.",
+    responses={
+        200: inline_serializer(
+            name="RetrieveCartResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "cart_items": s.ListField(
+                    child=inline_serializer(
+                        name="CartItemEntry",
+                        fields={
+                            "product_id": s.CharField(),
+                            "product": s.CharField(),
+                            "quantity": s.IntegerField(),
+                            "price_per_unit": s.FloatField(),
+                            "image": s.CharField(),
+                            "total_price": s.FloatField(),
+                        },
+                    )
+                ),
+            },
+        ),
+    },
+)
 class RetrieveCartProducts(generics.RetrieveAPIView):
     """
     RetrieveCartProducts is the GET request handler for retrieving all
@@ -469,6 +594,21 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
         return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Remove product from cart",
+    tags=["FMCG"],
+    description="Deletes a specific product from the authenticated user's or guest's cart.",
+    responses={
+        204: inline_serializer(
+            name="RemoveFromCartResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="RemoveFromCartNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class RemoveFromCart(generics.DestroyAPIView):
     """
     RemoveFromCart handles deleting a product from the cart for a user or guest.
@@ -536,6 +676,34 @@ class RemoveFromCart(generics.DestroyAPIView):
         )
 
 
+@extend_schema(
+    summary="Checkout FMCG order",
+    tags=["FMCG"],
+    description="Places an FMCG order for the authenticated user, processing payment via wallet or card and allocating rewards points on success.",
+    request=FmcgOrderSerializer,
+    responses={
+        200: inline_serializer(
+            name="FmcgCheckoutSuccessResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "order": FmcgOrderSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="FmcgCheckoutErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="FmcgCheckoutUnauthorizedResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="FmcgCheckoutNotFoundResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class FmcgCheckout(generics.CreateAPIView):
     serializer_class = FmcgOrderSerializer
     authentication_classes = [JWTAuthentication]
@@ -713,6 +881,30 @@ class FmcgCheckout(generics.CreateAPIView):
                 )
 
 
+@extend_schema(
+    summary="Rate an FMCG product",
+    tags=["FMCG"],
+    description="Allows a user to submit a star rating and review for an FMCG product they have purchased. Each user may only rate a given product once.",
+    request=FmcgRatingSerializer,
+    responses={
+        201: inline_serializer(
+            name="FmcgRatingSuccessResponse",
+            fields={"success": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="FmcgRatingErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="FmcgRatingForbiddenResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="FmcgRatingNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class FmcgRatingView(generics.GenericAPIView):
     """
     FmcgRatingView is the POST request that allows a customer to rate a
@@ -793,6 +985,12 @@ class FmcgRatingView(generics.GenericAPIView):
             return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    summary="List reviews for a product",
+    tags=["FMCG"],
+    description="Returns a paginated list of all user ratings and reviews for the specified product.",
+    responses={200: FmcgRatingListSerializer(many=True)},
+)
 class GetFmcgReview(generics.ListAPIView):
     """
     GetFmcgReview is the GET request handler that retrieves all the reviews on a product.
@@ -820,6 +1018,12 @@ class GetFmcgReview(generics.ListAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="List pick-up addresses",
+    tags=["FMCG"],
+    description="Returns all available store pick-up addresses that customers can choose during FMCG checkout.",
+    responses={200: PickupAddressSerializer(many=True)},
+)
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
     authentication_classes = [JWTAuthentication]

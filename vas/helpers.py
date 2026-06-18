@@ -62,7 +62,7 @@ class VAS:
     def _fetch_fresh_token():
         payload = {"username": vas_username, "password": vas_password}
         headers = {"Content-Type": "application/json"}
-        url = vas_base_url + "/identity/api/v1/authenticate"
+        url = _build_vas_url("identity/api/v1/authenticate")
         _log_request(
             "authenticate",
             url,

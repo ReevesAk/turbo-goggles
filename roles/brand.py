@@ -34,7 +34,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 from accounts.models import User, AccountType, UserNotification
 from permissions import (
@@ -50,7 +52,16 @@ class PaginationStyle(PageNumberPagination):
     page_size = 10
 
 
-@extend_schema(summary="Restrict a BrandAd account", tags=["Brand Ads"])
+@extend_schema(
+    summary="Restrict a BrandAd account",
+    tags=["Brand Ads"],
+    description="Places spending and posting restrictions on a BrandAd account. Requires the admin's PIN for confirmation.",
+    request=RestrictBrandAdSerializers,
+    responses={
+        200: inline_serializer("RestrictBrandAdResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("RestrictBrandAdUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+)
 class RestrictBrandAdAccountView(generics.CreateAPIView):
     """
     RestrictBrandAdAccount is the POST requests that handles the
@@ -188,7 +199,12 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="List all BrandAd users (admin view)", tags=["Brand Ads"])
+@extend_schema(
+    summary="List all BrandAd users (admin view)",
+    tags=["Brand Ads"],
+    description="Returns a paginated list of all registered BrandAd users with their ad and social profile details.",
+    responses={200: ListBrandAdSerializer(many=True)},
+)
 class GetAllBrandAdUsers(generics.ListAPIView):
     """
     GetAllBrandAdUsers is the GET request to retrieve the count
@@ -239,7 +255,14 @@ class GetAllBrandAdUsers(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Get ad statistics for a BrandAd user", tags=["Brand Ads"])
+@extend_schema(
+    summary="Get ad statistics for a BrandAd user",
+    tags=["Brand Ads"],
+    description="Returns aggregated ad statistics (total, active, completed) and graph data for a specific BrandAd user.",
+    responses={
+        200: inline_serializer("AdStatsResponse", fields={"status": s.CharField(), "data": s.DictField(), "graph": s.DictField()}),
+    },
+)
 class AdStatsView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -300,6 +323,8 @@ class AdStatsView(generics.RetrieveAPIView):
 @extend_schema(
     summary="[Admin] List all brand campaigns, optionally filtered by task type",
     tags=["Brand Ads"],
+    description="Admin view returning all ad campaigns across all brands with optional filtering by task_type and is_active query params.",
+    responses={200: AdSerializers(many=True)},
 )
 class ListAllCampaignsAdminView(generics.ListAPIView):
     """
@@ -354,6 +379,8 @@ class ListAllCampaignsAdminView(generics.ListAPIView):
 @extend_schema(
     summary="[Admin] List all brand task submissions with optional status filter",
     tags=["Brand Ads"],
+    description="Admin view returning all BrandTaskSubmissions across all campaigns. Supports ?status= (Pending/Approved/Rejected) and ?task_type= filters.",
+    responses={200: BrandTaskSubmissionSerializer(many=True)},
 )
 class ListBrandSubmissionsAdminView(generics.ListAPIView):
     """
@@ -405,7 +432,11 @@ class ListBrandSubmissionsAdminView(generics.ListAPIView):
 
 @extend_schema(
     summary="[Admin] Combined pending queue — social and brand task submissions",
-    tags=["Task Review"],
+    tags=["Brand Ads"],
+    description="Returns all pending social task submissions and brand task submissions in a single response for the admin review queue.",
+    responses={
+        200: inline_serializer("PendingSubmissionsResponse", fields={"status": s.CharField(), "social": s.DictField(), "brand": s.DictField()}),
+    },
 )
 class PendingSubmissionsAdminView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
@@ -445,7 +476,13 @@ class PendingSubmissionsAdminView(generics.GenericAPIView):
 
 @extend_schema(
     summary="[Admin] Approve or reject a task submission (social or brand)",
-    tags=["Task Review"],
+    tags=["Brand Ads"],
+    description="Approve or reject a social or brand task submission by ID. The action is dispatched asynchronously via Celery.",
+    request=AdminReviewSerializer,
+    responses={
+        200: inline_serializer("ReviewTaskSubmissionResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("ReviewTaskSubmissionNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class ReviewTaskSubmissionAdminView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
@@ -530,6 +567,14 @@ class ReviewTaskSubmissionAdminView(generics.GenericAPIView):
 
 # ── Brand Task admin views ────────────────────────────────────────────────────
 
+@extend_schema(
+    summary="[Admin] List all brand ad tasks with summary stats",
+    tags=["Brand Ads"],
+    description="Returns active/expired task counts, pending verification requests, and a paginated task card list. Supports ?status= and ?task_type= filters.",
+    responses={
+        200: inline_serializer("BrandTaskListResponse", fields={"status": s.CharField(), "stats": s.DictField(), "total": s.IntegerField(), "data": s.ListField()}),
+    },
+)
 class BrandTaskListAdminView(generics.GenericAPIView):
     """
     GET /v1/roles/brands/tasks/
@@ -600,6 +645,15 @@ class BrandTaskListAdminView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] Get full detail for a brand ad task",
+    tags=["Brand Ads"],
+    description="Returns complete task info, performance breakdown, demographic split, and pending verification requests for a single brand ad task.",
+    responses={
+        200: inline_serializer("BrandTaskDetailResponse", fields={"status": s.CharField(), "data": s.DictField(), "performance_breakdown": s.DictField(), "verification_requests": s.DictField()}),
+        404: inline_serializer("BrandTaskDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class BrandTaskDetailAdminView(generics.GenericAPIView):
     """
     GET /v1/roles/brands/tasks/<ad_id>/
@@ -726,6 +780,16 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] Boost reward points for a brand ad task",
+    tags=["Brand Ads"],
+    description="Increases the reward_points for a brand ad task by a specified amount and records the boost in auto_boost_points.",
+    request=inline_serializer("BoostTaskPointsRequest", fields={"amount": s.IntegerField()}),
+    responses={
+        200: inline_serializer("BoostTaskPointsResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("BoostTaskPointsError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class BoostTaskPointsView(generics.GenericAPIView):
     """
     POST /v1/roles/brands/tasks/<ad_id>/boost-points/

@@ -26,8 +26,9 @@ from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+import rest_framework.serializers as s
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
 
 # In-projects imports.
 from .serializers import (
@@ -72,21 +73,36 @@ class PaginationStyle(PageNumberPagination):
 
 @extend_schema(
     summary="Verify BVN",
-    description="Verify a user's Bank Verification Number (BVN)",
     tags=["KYC"],
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "bvn": {"type": "string", "description": "Bank Verification Number"},
-            },
-            "required": ["bvn"],
-        }
-    },
+    description="Submit the user's BVN for verification via Dojah. The BVN photo is matched against the user's profile selfie; both must agree before the KYC record is updated.",
+    request=BVNSerializer,
     responses={
-        200: OpenApiTypes.OBJECT,
-        400: OpenApiTypes.OBJECT,
-        401: OpenApiTypes.OBJECT,
+        200: inline_serializer(
+            name="BVNVerifyResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "bvn_data": inline_serializer(
+                    name="BVNData",
+                    fields={
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "date_of_birth": s.CharField(),
+                        "gender": s.CharField(),
+                        "phone_number": s.CharField(),
+                        "bvn": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="BVNVerifyErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="BVNVerifyServiceError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class VerifYBVN(generics.GenericAPIView):
@@ -241,24 +257,35 @@ class VerifYBVN(generics.GenericAPIView):
 
 @extend_schema(
     summary="Verify NIN",
-    description="Verify a user's National Identification Number (NIN)",
     tags=["KYC"],
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "nin": {
-                    "type": "string",
-                    "description": "National Identification Number",
-                },
-            },
-            "required": ["nin"],
-        }
-    },
+    description="Submit the user's NIN and date of birth for verification via Dojah. The NIN photo is matched against the profile selfie before the KYC record is updated.",
+    request=NINSerializer,
     responses={
-        200: OpenApiTypes.OBJECT,
-        400: OpenApiTypes.OBJECT,
-        401: OpenApiTypes.OBJECT,
+        200: inline_serializer(
+            name="NINVerifyResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "nin_data": inline_serializer(
+                    name="NINData",
+                    fields={
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "date_of_birth": s.CharField(),
+                        "gender": s.CharField(),
+                        "nin": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="NINVerifyErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="NINVerifyServiceError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class VerifYNIN(generics.GenericAPIView):
@@ -413,7 +440,32 @@ class VerifYNIN(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Create 9PSB wallet for user", tags=["Banking"])
+@extend_schema(
+    summary="Create 9PSB wallet for user",
+    tags=["Wallet"],
+    description="Open a Tier-1 individual wallet via 9PSB for the authenticated user. BVN and date of birth are required for identity matching.",
+    request=WalletCreationSerializers,
+    responses={
+        201: inline_serializer(
+            name="CreateWalletResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "account_number": s.CharField(),
+                "customer_number": s.CharField(),
+                "acct_name": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="CreateWalletErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="CreateWalletServiceError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class CreateUserWallet(generics.GenericAPIView):
     """
     CreateUserWallet handles the POST request of creating a
@@ -615,7 +667,26 @@ class CreateUserWallet(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Upgrade wallet to Tier 2", tags=["Banking"])
+@extend_schema(
+    summary="Upgrade wallet to Tier 2",
+    tags=["Wallet"],
+    description="Submit ID documents and a selfie to upgrade an individual wallet from Tier 1 to Tier 2. NIN verification must be completed first. Authorization via PIN or biometrics is required.",
+    request=Tier2WalletUpgradeSerializer,
+    responses={
+        200: inline_serializer(
+            name="Tier2UpgradeResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="Tier2UpgradeErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="Tier2UpgradeUnauthorizedResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class UpgradeToTier2Wallet(generics.GenericAPIView):
     """UpgradeToTier2Wallet Handles the POST request upgrade of a wallet to Tier 2."""
 
@@ -772,7 +843,26 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Request wallet upgrade to Tier 3", tags=["Banking"])
+@extend_schema(
+    summary="Request wallet upgrade to Tier 3",
+    tags=["Wallet"],
+    description="Retrieve a Dojah address-verification link to initiate a Tier 3 wallet upgrade. A webhook will be fired by Dojah when address verification completes.",
+    responses={
+        200: inline_serializer(
+            name="Tier3UpgradeResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "verification_link": s.CharField(required=False),
+                "reference_id": s.CharField(required=False),
+            },
+        ),
+        404: inline_serializer(
+            name="Tier3UpgradeNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
     """RequestToUpgradeToTier3Wallet Handles the POST request to request upgrade of a wallet to Tier 3."""
 
@@ -881,7 +971,22 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Receive 9PSB transaction notification", tags=["Banking"])
+@extend_schema(
+    summary="Receive 9PSB transaction notification",
+    tags=["Wallet"],
+    description="Internal endpoint called by 9PSB to push credit and debit transaction notifications. Updates wallet balance and sends SMS/email alerts to the account holder.",
+    request=BankNtfnSerializer,
+    responses={
+        201: inline_serializer(
+            name="NotificationSuccessResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="NotificationNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class NotificationView(generics.CreateAPIView):
     """
     NotificationView handles the POST request of receiving a
@@ -1021,7 +1126,38 @@ class NotificationView(generics.CreateAPIView):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(summary="Get wallet account details and live balance", tags=["Banking"])
+@extend_schema(
+    summary="Get wallet account details and live balance",
+    tags=["Wallet"],
+    description="Fetch the authenticated user's individual wallet details including a live balance from 9PSB. Falls back to the last known DB balance if the live enquiry fails.",
+    responses={
+        200: inline_serializer(
+            name="AccountDetailsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="AccountDetailsData",
+                    fields={
+                        "account_number": s.CharField(),
+                        "acct_name": s.CharField(),
+                        "balance": s.DecimalField(max_digits=20, decimal_places=2),
+                        "tier_level": s.IntegerField(),
+                        "upgrade_status": s.CharField(),
+                        "transfer_fee": s.CharField(),
+                        "vat": s.CharField(),
+                        "stamp_duty": s.CharField(),
+                        "stamp_duty_threshold": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        404: inline_serializer(
+            name="AccountDetailsNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class GetAccountDetails(generics.GenericAPIView):
     """
     GetAccountDetails handles the GET request of retrieving a
@@ -1084,7 +1220,26 @@ class GetAccountDetails(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Set wallet PIN", tags=["Banking"])
+@extend_schema(
+    summary="Set wallet PIN",
+    tags=["Wallet"],
+    description="Create a 4-digit PIN for the authenticated user's wallet. The PIN is stored hashed and is required to authorise future transfers.",
+    request=CreateWalletPinSerializer,
+    responses={
+        201: inline_serializer(
+            name="SetWalletPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="SetWalletPinErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="SetWalletPinNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class SetWalletPin(generics.CreateAPIView):
     """
     SetWalletPin handles the POST request of creating a pin for a
@@ -1174,7 +1329,17 @@ class SetWalletPin(generics.CreateAPIView):
             return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="Send OTP to reset forgotten wallet PIN", tags=["Banking"])
+@extend_schema(
+    summary="Send OTP to reset forgotten wallet PIN",
+    tags=["Wallet"],
+    description="Trigger an OTP to be sent to the authenticated user's phone or email as the first step of the wallet-PIN reset flow.",
+    responses={
+        201: inline_serializer(
+            name="ForgotWalletPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class ForgotWalletPin(generics.GenericAPIView):
     """
     ForgotWalletPin handles the POST request of sending a requeest to
@@ -1234,7 +1399,17 @@ class ForgotWalletPin(generics.GenericAPIView):
             return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="Resend OTP for wallet PIN reset", tags=["Banking"])
+@extend_schema(
+    summary="Resend OTP for wallet PIN reset",
+    tags=["Wallet"],
+    description="Resend the wallet-PIN reset OTP to the authenticated user via their preferred notification channel (SMS or email).",
+    responses={
+        200: inline_serializer(
+            name="PinResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class PinResendOTP(generics.GenericAPIView):
     """
     PinResendOTP handles the POST request of resending an
@@ -1289,7 +1464,22 @@ class PinResendOTP(generics.GenericAPIView):
             return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Verify OTP for wallet PIN reset", tags=["Banking"])
+@extend_schema(
+    summary="Verify OTP for wallet PIN reset",
+    tags=["Wallet"],
+    description="Validate the OTP sent during the forgot-wallet-PIN flow to confirm the user's identity before allowing a PIN change.",
+    request=VerifyPinOTPSerializer,
+    responses={
+        200: inline_serializer(
+            name="PinVerifyOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="PinVerifyOTPErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class PinVerifyOTP(generics.GenericAPIView):
     """
     PinVerifyOTP handles the POST request of verifying an
@@ -1334,7 +1524,26 @@ class PinVerifyOTP(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Reset wallet PIN", tags=["Banking"])
+@extend_schema(
+    summary="Reset wallet PIN",
+    tags=["Wallet"],
+    description="Set a new wallet PIN after the OTP verification step. Both the new PIN and its confirmation are required and must match.",
+    request=ResetPinSerializer,
+    responses={
+        200: inline_serializer(
+            name="ResetPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="ResetPinErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="ResetPinNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
     authentication_classes = [JWTAuthentication]
@@ -1402,7 +1611,26 @@ class ResetPin(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Refund a failed card transaction", tags=["Banking"])
+@extend_schema(
+    summary="Refund a failed card transaction",
+    tags=["Wallet"],
+    description="Initiate a Paystack refund for a failed card payment on behalf of a guest user identified by X-Guest-ID.",
+    request=RefundSerializers,
+    responses={
+        200: inline_serializer(
+            name="RefundResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "reference": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="RefundErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class RefundFailedCardTransaction(generics.GenericAPIView):
     """
     RefundFailedCardTransaction is the POST request handler that
@@ -1469,7 +1697,21 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Get cashback balance", tags=["Banking"])
+@extend_schema(
+    summary="Get cashback balance",
+    tags=["Wallet"],
+    description="Retrieve the cashback balance stored in the authenticated user's individual wallet.",
+    responses={
+        200: inline_serializer(
+            name="CashbackBalanceResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "cashback_balance": s.CharField(),
+            },
+        ),
+    },
+)
 class GetCashbackBalance(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
@@ -1501,7 +1743,26 @@ _CORPORATE_REQUIRED_FILES = [
 ]
 
 
-@extend_schema(summary="Submit corporate account opening", tags=["Banking"])
+@extend_schema(
+    summary="Submit corporate account opening",
+    tags=["Wallet"],
+    description="Upload CAC, SCUML, TIN, and director documents to open a corporate wallet. An admin must complete Dojah address verification before the account is submitted to 9PSB.",
+    request=SubmitCorporateSerializer,
+    responses={
+        201: inline_serializer(
+            name="CreateCorporateWalletResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "tax_id_no": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="CreateCorporateWalletErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class CreateCorporateWallet(generics.GenericAPIView):
     serializer_class = SubmitCorporateSerializer
     authentication_classes = [JWTAuthentication]
@@ -1645,7 +1906,24 @@ class CreateCorporateWallet(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Resubmit/update a corporate account application", tags=["Banking"]
+    summary="Resubmit/update a corporate account application",
+    tags=["Wallet"],
+    description="Update an existing corporate wallet application identified by TIN. Forwards the revised data directly to 9PSB.",
+    request=SubmitCorporateSerializer,
+    responses={
+        200: inline_serializer(
+            name="UpdateCorporateWalletResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="UpdateCorporateWalletNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="UpdateCorporateWalletServiceError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
 )
 class UpdateCorporateWallet(generics.GenericAPIView):
     serializer_class = SubmitCorporateSerializer
@@ -1725,7 +2003,31 @@ class UpdateCorporateWallet(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Get corporate account application status", tags=["Banking"])
+@extend_schema(
+    summary="Get corporate account application status",
+    tags=["Wallet"],
+    description="Poll 9PSB for the current status of a corporate wallet application using the company TIN. Updates the local record if an account number or final status is returned.",
+    parameters=[
+        OpenApiParameter(
+            name="tin",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description="Company Tax Identification Number used to look up the application.",
+        )
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: inline_serializer(
+            name="GetCorporateStatusErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="GetCorporateStatusNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class GetCorporateWalletStatus(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -1804,7 +2106,28 @@ class GetCorporateWalletStatus(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Generate and email account statement (CSV or PDF)", tags=["Banking"]
+    summary="Generate and email account statement (CSV or PDF)",
+    tags=["Wallet"],
+    description="Generate an account statement for a date range and deliver it as a CSV or PDF attachment to the user's email address.",
+    request=AccountStatementSerializer,
+    responses={
+        200: inline_serializer(
+            name="GenerateStatementResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "transactions": s.ListField(child=s.DictField()),
+            },
+        ),
+        400: inline_serializer(
+            name="GenerateStatementErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="GenerateStatementNotFoundResponse",
+            fields={"message": s.CharField()},
+        ),
+    },
 )
 class GenerateAccountStatement(generics.GenericAPIView):
     """

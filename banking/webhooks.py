@@ -16,7 +16,9 @@ from rest_framework import generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+import rest_framework.serializers as s
 
 from .models import FundWithCard, WalletModel, AddressVerificationModel
 from .controllers import Transfers
@@ -41,7 +43,12 @@ logger = logging.getLogger(__name__)
 secret_key = config("PAYSTACK_SECRET_KEY")
 
 
-@extend_schema(summary="9PSB webhook dispatcher", tags=["Webhooks"])
+@extend_schema(
+    summary="9PSB webhook dispatcher",
+    tags=["Webhooks"],
+    description="Entry-point webhook called by 9PSB. Dispatches to the appropriate handler based on the `event` query parameter (transfer or account_upgrade).",
+    exclude=True,
+)
 class WebhookDispatcherView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         logger.info("Receiving a webhook from 9PSB.....")
@@ -65,7 +72,12 @@ class WebhookDispatcherView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="9PSB inflow (credit) webhook", tags=["Webhooks"])
+@extend_schema(
+    summary="9PSB inflow (credit) webhook",
+    tags=["Webhooks"],
+    description="Called by 9PSB when a credit arrives on a Picadailys wallet. Verifies Basic Auth, re-queries the transaction via NIP session ID, updates the wallet balance, and notifies the user.",
+    exclude=True,
+)
 class InflowsWebhookNotificationView(generics.CreateAPIView):
     serializer_class = TransferNotificationWebhookSerializer
 
@@ -366,7 +378,12 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="9PSB account upgrade webhook", tags=["Webhooks"])
+@extend_schema(
+    summary="9PSB account upgrade webhook",
+    tags=["Webhooks"],
+    description="Called by 9PSB when a Tier 2 upgrade request is approved or rejected. Verifies Basic Auth, updates the wallet tier level, and sends an SMS/email alert to the account holder.",
+    exclude=True,
+)
 class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
     serializer_class = UpgradeNotificationWebhookSerializer
 
@@ -518,7 +535,12 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         return match.group(1) if match else None
 
 
-@extend_schema(summary="Paystack card deposit webhook", tags=["Webhooks"])
+@extend_schema(
+    summary="Paystack card deposit webhook",
+    tags=["Webhooks"],
+    description="Called by Paystack when a card charge event fires. Validates the HMAC-SHA512 signature, handles charge.success events, and updates the FundWithCard record accordingly.",
+    exclude=True,
+)
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         paystack_signature = request.headers.get("x-paystack-signature")
@@ -595,7 +617,53 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="Verify card payment transaction status", tags=["Banking"])
+@extend_schema(
+    summary="Verify card payment transaction status",
+    tags=["Banking"],
+    description="Look up the status of a Paystack card payment by transaction reference. Accessible by both authenticated users and guest users (via X-Guest-ID header).",
+    parameters=[
+        OpenApiParameter(
+            name="txn_reference",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.PATH,
+            required=True,
+            description="The Paystack transaction reference to check.",
+        ),
+        OpenApiParameter(
+            name="X-Guest-ID",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            required=False,
+            description="Guest identifier; required when the caller is not an authenticated user.",
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            name="VerifyCardPaymentResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "transaction": inline_serializer(
+                    name="CardPaymentTransactionData",
+                    fields={
+                        "txn_reference": s.CharField(),
+                        "amount": s.CharField(),
+                        "email": s.EmailField(),
+                        "status": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        404: inline_serializer(
+            name="VerifyCardPaymentNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="VerifyCardPaymentFailedResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class VerifyCardPaymentTransaction(generics.GenericAPIView):
     """
     VerifyCardPaymentTransaction is the GET request handler that validates
@@ -695,7 +763,12 @@ class DojahRedirectingPageView(View):
         return HttpResponse("Address verification done, redirecting page...")
 
 
-@extend_schema(summary="Dojah address verification webhook", tags=["Webhooks"])
+@extend_schema(
+    summary="Dojah address verification webhook",
+    tags=["Webhooks"],
+    description="Called by Dojah when an address verification widget session completes. Updates the AddressVerificationModel status and triggers the Tier 3 wallet upgrade pipeline.",
+    exclude=True,
+)
 class AddressVerificationWebhookView(generics.GenericAPIView):
     """
     AddressVerificationWebhookView handles POST webhooks from the address verification service.

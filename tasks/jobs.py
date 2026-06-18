@@ -197,8 +197,7 @@ _BRAND_TASK_SOURCE = {
 }
 
 
-@shared_task
-def approve_brand_submission(submission_id: str, reviewer_id: str = None):
+def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
     """
     Approve a BrandTaskSubmission and credit points to the user.
     reviewer_id is None for auto-approvals (timer/QR/survey completions).
@@ -256,6 +255,12 @@ def approve_brand_submission(submission_id: str, reviewer_id: str = None):
         "Brand submission %s approved — %d pts awarded to %s",
         submission_id, points_amount, submission.user.email,
     )
+    return points_amount
+
+
+@shared_task
+def approve_brand_submission(submission_id: str, reviewer_id: str = None):
+    approve_brand_submission_now(submission_id, reviewer_id)
 
 
 @shared_task

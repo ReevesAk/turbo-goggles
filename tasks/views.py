@@ -2,7 +2,9 @@ import logging
 
 from django.core.cache import cache
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,12 +14,17 @@ from rest_framework.pagination import PageNumberPagination
 
 from adverts.models import CreateAd
 from security import encrypt, decrypt
-from .jobs import run_verification, approve_brand_submission
+from .jobs import (
+    approve_brand_submission,
+    approve_brand_submission_now,
+    run_verification,
+)
 from user_profile.fcm import send_push_to_admins
 from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
 from .serializers import (
     BrandTaskFeedSerializer,
     BrandTaskSubmissionSerializer,
+    CompleteWebviewTaskSerializer,
 
     SocialTaskSerializer,
     SubmitBrandTaskSerializer,
@@ -34,7 +41,16 @@ class PaginationStyle(PageNumberPagination):
 
 
 
-@extend_schema(summary="List available social tasks", tags=["Social Tasks"])
+@extend_schema(
+    summary="List available social tasks",
+    tags=["Tasks"],
+    description="Returns all active social tasks that are currently available for the authenticated user to complete. Supports optional filtering by platform and task type.",
+    parameters=[
+        OpenApiParameter(name="platform", type=OpenApiTypes.STR, description="Filter by social platform (e.g. twitter, instagram)"),
+        OpenApiParameter(name="task_type", type=OpenApiTypes.STR, description="Filter by task type (e.g. Follow, Comment, Post)"),
+    ],
+    responses={200: SocialTaskSerializer(many=True)},
+)
 class SocialTaskListView(generics.ListAPIView):
     serializer_class = SocialTaskSerializer
     authentication_classes = [JWTAuthentication]
@@ -56,7 +72,21 @@ class SocialTaskListView(generics.ListAPIView):
         return Response(serializer.data)
 
 
-@extend_schema(summary="Submit proof for a social task", tags=["Social Tasks"])
+@extend_schema(
+    summary="Submit proof for a social task",
+    tags=["Tasks"],
+    description="Submit a screenshot URL or post URL as proof of completing a social task. A verification code is returned for Comment and Post task types.",
+    request=SubmitTaskSerializer,
+    responses={
+        201: inline_serializer(name="SubmitTaskResponse", fields={
+            "detail": s.CharField(),
+            "id": s.UUIDField(),
+            "verification_code": s.CharField(required=False),
+            "verification_note": s.CharField(required=False),
+        }),
+        400: inline_serializer(name="SubmitTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SubmitTaskView(generics.CreateAPIView):
     serializer_class = SubmitTaskSerializer
     authentication_classes = [JWTAuthentication]
@@ -83,7 +113,12 @@ class SubmitTaskView(generics.CreateAPIView):
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(summary="List my task submissions", tags=["Social Tasks"])
+@extend_schema(
+    summary="List my task submissions",
+    tags=["Tasks"],
+    description="Returns all social task submissions made by the authenticated user, including verification status and AI review results.",
+    responses={200: TaskSubmissionSerializer(many=True)},
+)
 class MySubmissionsView(generics.ListAPIView):
     serializer_class = TaskSubmissionSerializer
     authentication_classes = [JWTAuthentication]
@@ -97,7 +132,12 @@ class MySubmissionsView(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Get my trust score", tags=["Social Tasks"])
+@extend_schema(
+    summary="Get my trust score",
+    tags=["Tasks"],
+    description="Returns the authenticated user's trust score, submission history, and auto-approval eligibility based on past task performance.",
+    responses={200: UserTrustScoreSerializer},
+)
 class MyTrustScoreView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -109,7 +149,21 @@ class MyTrustScoreView(APIView):
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
 
-@extend_schema(summary="List active brand campaign tasks (gamification feed)", tags=["Brand Tasks"])
+@extend_schema(
+    summary="List active brand campaign tasks (gamification feed)",
+    tags=["Tasks"],
+    description="Returns paginated brand ad campaigns as task cards for the gamification feed. Excludes campaigns the user has already submitted and those that have hit their slot cap.",
+    parameters=[
+        OpenApiParameter(name="task_type", type=OpenApiTypes.STR, description="Filter by task type (e.g. watch_video, social_engage, app_download)"),
+    ],
+    responses={
+        200: inline_serializer(name="BrandTaskFeedResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": BrandTaskFeedSerializer(many=True),
+        }),
+    },
+)
 class BrandTaskFeedView(generics.ListAPIView):
     """
     Returns all active brand ad campaigns as task cards for the gamification feed.
@@ -131,6 +185,7 @@ class BrandTaskFeedView(generics.ListAPIView):
         qs = (
             CreateAd.objects.filter(is_active=True)
             .exclude(id__in=completed_ad_ids)
+            .prefetch_related("ad_media")
             .order_by("-created_at")
         )
 
@@ -168,7 +223,20 @@ class BrandTaskFeedView(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Submit completion proof for a brand campaign task", tags=["Brand Tasks"])
+@extend_schema(
+    summary="Submit completion proof for a brand campaign task",
+    tags=["Tasks"],
+    description="Submit proof of completing a brand campaign task. Social engage and app download tasks require a screenshot and are queued for review; all other types are auto-approved immediately.",
+    request=SubmitBrandTaskSerializer,
+    responses={
+        201: inline_serializer(name="SubmitBrandTaskResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="SubmitBrandTaskData", fields={"submission_id": s.UUIDField()}),
+        }),
+        400: inline_serializer(name="SubmitBrandTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SubmitBrandTaskView(generics.CreateAPIView):
     """
     User submits proof of completing a brand campaign task.
@@ -235,7 +303,90 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="List my brand task submissions", tags=["Brand Tasks"])
+@extend_schema(
+    summary="Complete a webview brand task",
+    tags=["Tasks"],
+    description="Marks a website visit or video watch task as completed from the mobile webview and credits the reward points immediately.",
+    request=CompleteWebviewTaskSerializer,
+    responses={
+        201: inline_serializer(name="CompleteWebviewTaskResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="CompleteWebviewTaskData", fields={
+                "submission_id": s.UUIDField(),
+                "task_id": s.IntegerField(),
+                "reward_points": s.IntegerField(),
+                "reward_issued": s.BooleanField(),
+            }),
+        }),
+        400: inline_serializer(name="CompleteWebviewTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
+class CompleteWebviewTaskView(APIView):
+    """
+    Mobile webview callback for tasks that are completed client-side.
+    Only watch_video and website_visit tasks are accepted here.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = CompleteWebviewTaskSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+
+            ad = serializer.validated_data["ad"]
+            submission = BrandTaskSubmission.objects.create(
+                ad=ad,
+                user=request.user,
+                notes="Completed via mobile webview.",
+            )
+
+            points_awarded = approve_brand_submission_now(str(submission.pk), None)
+            cache.delete(f"brand_task_feed:{request.user.id}")
+
+            response_data = {
+                "status": "success",
+                "message": "Task completed. Points credited.",
+                "data": {
+                    "submission_id": str(submission.pk),
+                    "task_id": ad.id,
+                    "reward_points": points_awarded or 0,
+                    "reward_issued": True,
+                },
+            }
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
+
+        except s.ValidationError as err:
+            logger.info("Webview task completion validation failed: %s", err.detail)
+            return Response(
+                data=encrypt({"status": "error", "message": err.detail}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error("Webview task completion failed: %s", str(err), exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Task completion failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="List my brand task submissions",
+    tags=["Tasks"],
+    description="Returns a paginated list of all brand campaign task submissions made by the authenticated user, including status and reward information.",
+    responses={
+        200: inline_serializer(name="MyBrandSubmissionsResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": BrandTaskSubmissionSerializer(many=True),
+        }),
+    },
+)
 class MyBrandSubmissionsView(generics.ListAPIView):
     serializer_class = BrandTaskSubmissionSerializer
     authentication_classes = [JWTAuthentication]
@@ -267,5 +418,3 @@ class MyBrandSubmissionsView(generics.ListAPIView):
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-
-

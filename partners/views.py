@@ -13,6 +13,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 from cloudinary import uploader as cloud
 
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+
 # In project imports.
 from .serializers import (
     BecomePartnerSerializer,
@@ -50,6 +54,30 @@ logger = logging.getLogger(__name__)
 
 
 # Create your views here.
+@extend_schema(
+    summary="Register as a partner",
+    tags=["Partner Services"],
+    description="Upgrades an authenticated user account to a Partner role by submitting business details such as business name, category, and location.",
+    request=BecomePartnerSerializer,
+    responses={
+        201: inline_serializer(
+            name="CreatePartnerSuccessResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": BecomePartnerSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="CreatePartnerErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        500: inline_serializer(
+            name="CreatePartnerServerErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class CreatePartner(generics.GenericAPIView):
     """CreatePartner handles the POST request of creating a partner
     account.
@@ -147,6 +175,12 @@ class CreatePartner(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="List all partners",
+    tags=["Partner Services"],
+    description="Returns a paginated list of all registered partner user profiles. Accessible to members, partner admins, and super admins.",
+    responses={200: PartnerProfileSerializer(many=True)},
+)
 class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
     authentication_classes = [JWTAuthentication]
@@ -181,6 +215,32 @@ class ListAllPartners(generics.ListAPIView):
         return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Create a partner service",
+    tags=["Partner Services"],
+    description="Creates a new service listing for a verified partner. Supports multipart uploads for service and trainer photos.",
+    request=PartnerServiceSerializer,
+    responses={
+        201: inline_serializer(
+            name="CreatePartnerServiceResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "image_urls": s.ListField(child=s.CharField()),
+                "gym_trainers": s.ListField(child=s.CharField()),
+                "data": PartnerServiceSerializer(),
+            },
+        ),
+        403: inline_serializer(
+            name="CreatePartnerServiceForbiddenResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        500: inline_serializer(
+            name="CreatePartnerServiceServerErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class CreatePartnerService(generics.CreateAPIView):
     """
     API endpoint to create a PartnerService.
@@ -361,6 +421,32 @@ class CreatePartnerService(generics.CreateAPIView):
         )
 
 
+@extend_schema(
+    summary="Update a partner service",
+    tags=["Partner Services"],
+    description="Partially updates an existing partner service by service ID. Supports re-uploading service and trainer photos.",
+    request=UpdatePartnerServiceSerializer,
+    responses={
+        200: inline_serializer(
+            name="UpdatePartnerServiceResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "image_urls": s.ListField(child=s.CharField()),
+                "gym_trainers": s.ListField(child=s.CharField()),
+                "data": UpdatePartnerServiceSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="UpdatePartnerServiceErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="UpdatePartnerServiceNotFoundResponse",
+            fields={"detail": s.CharField()},
+        ),
+    },
+)
 class UpdatePartnerService(generics.UpdateAPIView):
     """
     API endpoint to update a PartnerService.
@@ -519,6 +605,21 @@ class UpdatePartnerService(generics.UpdateAPIView):
             )
 
 
+@extend_schema(
+    summary="List own partner services",
+    tags=["Partner Services"],
+    description="Returns a paginated list of all services created by the authenticated partner user, with associated photo URLs.",
+    responses={
+        200: inline_serializer(
+            name="PartnerServiceListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": PartnerServiceSerializer(many=True),
+            },
+        ),
+    },
+)
 class PartnerServiceList(generics.ListAPIView):
     """PartnerServiceList lists all the services belonging to
     an authenticated Partner.
@@ -601,6 +702,25 @@ class PartnerServiceList(generics.ListAPIView):
             )
 
 
+@extend_schema(
+    summary="Retrieve a single partner service",
+    tags=["Partner Services"],
+    description="Fetches the full details and associated photo URLs for a specific partner service by its ID.",
+    responses={
+        200: inline_serializer(
+            name="PartnerServiceDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": PartnerServiceSerializer(),
+            },
+        ),
+        404: inline_serializer(
+            name="PartnerServiceDetailNotFoundResponse",
+            fields={"detail": s.CharField()},
+        ),
+    },
+)
 class PartnerServiceDetailView(views.APIView):
     """PartnerServiceDetailView is the GET request handler to get the details of a single
     service of any authenticated Partner.
@@ -639,6 +759,25 @@ class PartnerServiceDetailView(views.APIView):
         )
 
 
+@extend_schema(
+    summary="Delete a partner service",
+    tags=["Partner Services"],
+    description="Permanently removes a partner service listing. Only the partner who created the service can delete it.",
+    responses={
+        204: inline_serializer(
+            name="DeletePartnerServiceResponse",
+            fields={"status": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="DeletePartnerServiceForbiddenResponse",
+            fields={"detail": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="DeletePartnerServiceNotFoundResponse",
+            fields={"detail": s.CharField()},
+        ),
+    },
+)
 class DeletePartnerService(generics.DestroyAPIView):
     """
     DeletePartnerService is the DELETE request handler that allows a
@@ -731,6 +870,21 @@ class DeletePartnerService(generics.DestroyAPIView):
             )
 
 
+@extend_schema(
+    summary="List all partner services by business type",
+    tags=["Partner Services"],
+    description="Returns all partner service listings, optionally scoped to a specific business category, with associated photo URLs.",
+    responses={
+        200: inline_serializer(
+            name="AllPartnersServiceListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": PartnerServiceSerializer(many=True),
+            },
+        ),
+    },
+)
 class AllPartnersServiceList(generics.ListAPIView):
     serializer_class = PartnerServiceSerializer
     authentication_classes = [JWTAuthentication]
@@ -780,6 +934,12 @@ class AllPartnersServiceList(generics.ListAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Get partner profile",
+    tags=["Partner Services"],
+    description="Returns the full profile of the authenticated partner user, including business details and account balance.",
+    responses={200: PartnerProfileSerializer},
+)
 class GetPartnerDetails(generics.RetrieveAPIView):
     """GetPartnerDetails returns the profile details of a partner user."""
 
@@ -793,6 +953,13 @@ class GetPartnerDetails(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Update partner profile",
+    tags=["Partner Services"],
+    description="Updates profile fields (state, city, website, business category) for the authenticated partner or partner admin.",
+    request=UpdateProfileSerializer,
+    responses={200: UpdateProfileSerializer},
+)
 class UpdatePartnerProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
@@ -815,6 +982,12 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="List partner service photos",
+    tags=["Partner Services"],
+    description="Returns all uploaded service photos associated with the authenticated partner's service listings.",
+    responses={200: PartnerServicePhotosSerializer(many=True)},
+)
 class PartnerServicePhotosList(generics.ListAPIView):
     """List view to retrieve all partner service photos."""
 
@@ -832,6 +1005,12 @@ class PartnerServicePhotosList(generics.ListAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="List gym trainer photos",
+    tags=["Partner Services"],
+    description="Returns all gym trainer profiles and photos associated with the authenticated partner's fitness services.",
+    responses={200: PartnerServiceGymPhotosSerializer(many=True)},
+)
 class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
     """List view to retrieve all partner gym trainer photos."""
 
@@ -849,6 +1028,34 @@ class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Verify partner business",
+    tags=["Partner Services"],
+    description="Verifies a partner's business via CAC lookup using the submitted business name and account number. Sets the partner's business as verified on success.",
+    request=VerifyPartnerSerializers,
+    responses={
+        200: inline_serializer(
+            name="VerifyPartnerBusinessSuccessResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            name="VerifyPartnerBusinessErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="VerifyPartnerBusinessMismatchResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        500: inline_serializer(
+            name="VerifyPartnerBusinessServerErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class VerifyPartnerBusinessView(generics.GenericAPIView):
     """
     VerifyPartnerBusinessView is a POST request handler for verifying a

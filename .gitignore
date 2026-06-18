@@ -271,5 +271,6 @@ pyrightconfig.json
 # Logs
 logs/
 *.log
+.claude
 picadailys/static/
 picadailys/static/staticfiles.json
