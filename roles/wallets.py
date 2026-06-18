@@ -35,13 +35,20 @@ from cloudinary import uploader as cloud
 from accounts.models import UserNotification, User
 from commons import Messaging
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 logger = logging.getLogger(__name__)
 
 
 @extend_schema(
-    summary="List all wallet users with recent transactions", tags=["Banking"]
+    summary="[Admin] List all wallet users with recent transactions",
+    tags=["Wallet"],
+    description="Returns all registered wallet owners with their account details and last 5 transactions. Results are cached for 5 minutes.",
+    responses={
+        200: inline_serializer("GetallWalletUsersResponse", fields={"status": s.CharField(), "message": s.CharField(), "num_of_wallet_owners": s.IntegerField(), "wallet_owners": s.ListField()}),
+    },
 )
 class GetallWalletUsers(generics.ListAPIView):
     """
@@ -108,7 +115,15 @@ class GetallWalletUsers(generics.ListAPIView):
         return Response(encrypt(data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Search wallets by account number or name", tags=["Banking"])
+@extend_schema(
+    summary="[Admin] Search wallets by account number or name",
+    tags=["Wallet"],
+    description="Searches wallet records by account number (numeric query) or account name (text query). Returns matching wallet entries.",
+    responses={
+        200: inline_serializer("WalletSearchResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        404: inline_serializer("WalletSearchNotFound", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+    },
+)
 class WalletSearch(generics.ListAPIView):
     """
     WalletSearch handles the GET request of searching
@@ -149,7 +164,18 @@ class WalletSearch(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Change the status of a wallet (admin)", tags=["Banking"])
+@extend_schema(
+    summary="[Admin] Change the status of a wallet",
+    tags=["Wallet"],
+    description="Updates the status of a wallet (e.g., active, frozen, suspended). Requires admin PIN verification before the change is applied.",
+    request=ChangeWalletStatusSerializer,
+    responses={
+        200: inline_serializer("ChangeWalletStatusResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("ChangeWalletStatusBadRequest", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("ChangeWalletStatusUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("ChangeWalletStatusNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ChangeWalletStatusView(generics.RetrieveAPIView):
     """
     ChangeWalletStatusView handles the POST request to change the status of a wallet.
@@ -240,7 +266,12 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
 
 
 @extend_schema(
-    summary="List users with KYC and address verification records", tags=["KYC"]
+    summary="[Admin] List users with KYC and address verification records",
+    tags=["Wallet"],
+    description="Returns all wallet owners who have submitted KYC information and have at least one address verification record, annotated with the latest verification status.",
+    responses={
+        200: inline_serializer("UserKYCListResponse", fields={"data": s.ListField()}),
+    },
 )
 class UserKYCListView(generics.ListAPIView):
     serializer_class = WalletKYCSerializer
@@ -283,8 +314,9 @@ class UserKYCListView(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="Upgrade wallet to Tier 3 (admin-initiated)",
-    tags=["Banking"],
+    summary="[Admin] Upgrade wallet to Tier 3",
+    tags=["Wallet"],
+    description="Admin-initiated Tier 3 wallet upgrade. Submits BVN, NIN, and proof-of-address document to the banking provider. Requires admin PIN verification.",
     request={
         "multipart/form-data": {
             "type": "object",
@@ -295,6 +327,12 @@ class UserKYCListView(generics.ListAPIView):
                 "proofOfAddressVerification": {"type": "string", "format": "binary"},
             },
         }
+    },
+    responses={
+        200: inline_serializer("UpgradeToTier3WalletResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("UpgradeToTier3WalletError", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("UpgradeToTier3WalletUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("UpgradeToTier3WalletNotFound", fields={"error": s.CharField()}),
     },
 )
 class UpgradeToTier3Wallet(generics.GenericAPIView):
@@ -406,8 +444,15 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Generate Dojah address verification link for a corporate applicant (admin)",
-    tags=["Banking"],
+    summary="[Admin] Generate Dojah address verification link for a corporate applicant",
+    tags=["Wallet"],
+    description="Generates and emails a Dojah identity verification link to the contact person of a pending corporate wallet application. Identified by TIN.",
+    request=inline_serializer("RequestCorporateAddressVerificationRequest", fields={"tin": s.CharField()}),
+    responses={
+        200: inline_serializer("RequestCorporateAddressVerificationResponse", fields={"status": s.CharField(), "message": s.CharField(), "reference_id": s.CharField()}),
+        400: inline_serializer("RequestCorporateAddressVerificationError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("RequestCorporateAddressVerificationNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class RequestCorporateAddressVerification(generics.GenericAPIView):
     """
@@ -519,8 +564,9 @@ class RequestCorporateAddressVerification(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Submit a corporate application to 9PSB after address verification (admin)",
-    tags=["Banking"],
+    summary="[Admin] Submit a corporate wallet application to 9PSB",
+    tags=["Wallet"],
+    description="Finalises a corporate account submission by sending stored documents plus proof-of-address to the 9PSB banking provider. Requires completed Dojah address verification and admin PIN.",
     request={
         "multipart/form-data": {
             "type": "object",
@@ -530,6 +576,13 @@ class RequestCorporateAddressVerification(generics.GenericAPIView):
                 "proofOfAddressVerification": {"type": "string", "format": "binary"},
             },
         }
+    },
+    responses={
+        200: inline_serializer("SubmitCorporateTo9PSBResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer("SubmitCorporateTo9PSBError", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("SubmitCorporateTo9PSBUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("SubmitCorporateTo9PSBNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        502: inline_serializer("SubmitCorporateTo9PSBGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
     },
 )
 class SubmitCorporateTo9PSB(generics.GenericAPIView):

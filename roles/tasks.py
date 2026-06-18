@@ -12,7 +12,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 # In project imports.
 from .serializers import (
@@ -37,6 +39,16 @@ from commons import Messaging
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    summary="[Admin] Create a step count campaign",
+    tags=["Tasks"],
+    description="Creates a new step count campaign and notifies all users who have completed the survey. Returns the created campaign's details.",
+    request=StepCampaignSerializer,
+    responses={
+        201: inline_serializer("CreateStepCampaignResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("CreateStepCampaignError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CreateStepCampaign(generics.GenericAPIView):
     """
     CreateStepCampaign is the POST request handler that allows a Task Admin
@@ -93,6 +105,14 @@ class CreateStepCampaign(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="[Admin] List all step count campaigns",
+    tags=["Tasks"],
+    description="Returns all step count campaigns ordered by creation date. Results are cached for 10 minutes.",
+    responses={
+        200: inline_serializer("GetAllStepCampaignsResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+    },
+)
 class GetAllStepCampaigns(generics.ListAPIView):
     """
     GetAllStepCampaigns is the GET request handler that allows a Task Admin
@@ -104,10 +124,6 @@ class GetAllStepCampaigns(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = StepCampaignModel.objects.all().order_by("-created_at")
 
-    @extend_schema(
-        description="Retrieve all step count campaigns",
-        responses={200: {"description": "List of step campaigns"}},
-    )
     def list(self, request, *args, **kwargs):
         cache_key = "all_step_campaigns"
         cached_data = cache.get(cache_key)
@@ -134,6 +150,15 @@ class GetAllStepCampaigns(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="[Admin] Get a single step campaign with participants",
+    tags=["Tasks"],
+    description="Retrieves full details for a specific step count campaign, including a list of all participating users.",
+    responses={
+        200: inline_serializer("GetSingleStepCampaignResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        404: inline_serializer("GetSingleStepCampaignNotFound", fields={"detail": s.CharField()}),
+    },
+)
 class GetSingleStepCampaign(generics.RetrieveAPIView):
     """
     GetSingleStepCampaign is the GET request handler that allows a Task Admin
@@ -144,10 +169,6 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        description="Retrieve a specific step campaign and its participants",
-        responses={200: {"description": "Step campaign details with participants"}},
-    )
     def retrieve(self, request, *args, **kwargs):
         campaign_id = kwargs.get("campaign_id")
         campaign = get_object_or_404(StepCampaignModel, campaign_id=campaign_id)
@@ -161,6 +182,14 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="[Admin] List all campaigns with participant details",
+    tags=["Tasks"],
+    description="Returns all step count campaigns alongside their enrolled participants. Results are cached for 10 minutes.",
+    responses={
+        200: inline_serializer("CampaignParticipantListResponse", fields={"success": s.BooleanField(), "message": s.CharField(), "data": s.ListField()}),
+    },
+)
 class CampaignParticipantListView(generics.ListAPIView):
     serializer_class = CampaignWithParticipantsSerializer
 
@@ -199,6 +228,16 @@ class CampaignParticipantListView(generics.ListAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] Send a newsletter to users",
+    tags=["Tasks"],
+    description="Sends a newsletter email to the specified list of recipients. Requires Task Admin or Super Admin permission.",
+    request=SendNewsletterSerializer,
+    responses={
+        201: inline_serializer("SendNewsLetterResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("SendNewsLetterError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SendNewsLetter(generics.GenericAPIView):
     """
     SendNewsLetter is the POST request handler that allows a Task Admin
@@ -261,6 +300,16 @@ class SendNewsLetter(generics.GenericAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="[Admin] Create an in-app task (streak challenge)",
+    tags=["Tasks"],
+    description="Creates a new in-app streak challenge task. Requires Ad Admin or Super Admin permission.",
+    request=InAppTaskCreateSerializer,
+    responses={
+        201: inline_serializer("CreateInAppTaskResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("CreateInAppTaskError", fields={"status": s.CharField(), "errors": s.DictField()}),
+    },
+)
 class CreateInAppTaskView(generics.GenericAPIView):
     """POST /v1/roles/tasks/in-app/create/ — create a new in-app task."""
 
@@ -289,6 +338,17 @@ class CreateInAppTaskView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] List in-app tasks with optional status filter",
+    tags=["Tasks"],
+    description="Returns all in-app streak challenge tasks. Optionally filter by status: active, scheduled, expired, or cancelled.",
+    parameters=[
+        OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Filter by task status: active, scheduled, expired, or cancelled", required=False),
+    ],
+    responses={
+        200: inline_serializer("ListInAppTasksResponse", fields={"status": s.CharField(), "total": s.IntegerField(), "data": s.ListField()}),
+    },
+)
 class ListInAppTasksView(generics.GenericAPIView):
     """
     GET /v1/roles/tasks/in-app/?status=active|scheduled|expired|cancelled
@@ -326,6 +386,15 @@ class ListInAppTasksView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] Get a single in-app task with stats",
+    tags=["Tasks"],
+    description="Retrieves full details for a specific in-app streak challenge, including total rewards distributed and participant count.",
+    responses={
+        200: inline_serializer("InAppTaskDetailResponse", fields={"status": s.CharField(), "stats": s.DictField(), "data": s.DictField()}),
+        404: inline_serializer("InAppTaskDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class InAppTaskDetailView(generics.GenericAPIView):
     """GET /v1/roles/tasks/in-app/<task_id>/ — retrieve a single in-app task with stats."""
 
@@ -360,6 +429,17 @@ class InAppTaskDetailView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="[Admin] Update or cancel an in-app task",
+    tags=["Tasks"],
+    description="Partially updates an in-app streak challenge task. Can be used to edit fields, pause, or cancel the task.",
+    request=InAppTaskUpdateSerializer,
+    responses={
+        200: inline_serializer("UpdateInAppTaskResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("UpdateInAppTaskError", fields={"status": s.CharField(), "errors": s.DictField()}),
+        404: inline_serializer("UpdateInAppTaskNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class UpdateInAppTaskView(generics.GenericAPIView):
     """PATCH /v1/roles/tasks/in-app/<task_id>/update/ — edit, pause, or cancel a task."""
 

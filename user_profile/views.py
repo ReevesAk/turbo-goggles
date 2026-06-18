@@ -18,7 +18,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 
-from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema, inline_serializer
 
 
 from .serializers import (
@@ -65,7 +66,15 @@ from .fcm import send_push_to_user
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(summary="Switch active role to Member", tags=["User Profile"])
+@extend_schema(
+    summary="Switch active role to Member",
+    tags=["Profile"],
+    description="Switches the authenticated user's active role to Member. The user must already be registered with a Member account type.",
+    responses={
+        200: inline_serializer(name="SwitchToMemberResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.CharField()}),
+        400: inline_serializer(name="SwitchToMemberError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SwitchToMember(generics.RetrieveAPIView):
     """
     SwitchToMember is the PUT request method for updating and switching
@@ -152,7 +161,15 @@ class SwitchToMember(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Switch active role to Partner", tags=["User Profile"])
+@extend_schema(
+    summary="Switch active role to Partner",
+    tags=["Profile"],
+    description="Switches the authenticated user's active role to Partner. The user must already be registered with a Partner account type.",
+    responses={
+        200: inline_serializer(name="SwitchToPartnerResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.CharField()}),
+        400: inline_serializer(name="SwitchToPartnerError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SwitchToPartner(generics.RetrieveAPIView):
     """
     SwitchToPartner is the PUT request method for updating and switching
@@ -241,7 +258,15 @@ class SwitchToPartner(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Switch active role to BrandAd", tags=["User Profile"])
+@extend_schema(
+    summary="Switch active role to BrandAd",
+    tags=["Profile"],
+    description="Switches the authenticated user's active role to BrandAd. The user must already be registered with a BrandAd account type.",
+    responses={
+        200: inline_serializer(name="SwitchToBrandAdResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.CharField()}),
+        400: inline_serializer(name="SwitchToBrandAdError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SwitchToBrandAd(generics.RetrieveAPIView):
     """
     SwitchToBrandAd is the PUT request method for updating and switching
@@ -330,7 +355,16 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
         return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Upload or update profile image", tags=["User Profile"])
+@extend_schema(
+    summary="Upload or update profile image",
+    tags=["Profile"],
+    description="Updates the authenticated user's profile image URL. Accepts a base64 URL or CDN URL to the new profile picture.",
+    request=ProfileImageSerializer,
+    responses={
+        200: inline_serializer(name="ProfileImageResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ProfileImageError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ProfileImage(generics.UpdateAPIView):
     """
     Upload profile image.
@@ -389,7 +423,14 @@ class ProfileImage(generics.UpdateAPIView):
 
 
 @extend_schema(
-    summary="Set preferred alert type (SMS, Email, or Both)", tags=["User Profile"]
+    summary="Set preferred alert type (SMS, Email, or Both)",
+    tags=["Profile"],
+    description="Sets the user's preferred notification channel for transaction alerts. Accepted values are SMS, Email, or Both.",
+    request=SetAlertTypeSerializer,
+    responses={
+        200: inline_serializer(name="ChooseAlertTypeResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ChooseAlertTypeError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class ChooseAlertTypeView(generics.GenericAPIView):
     """ChooseAlertTypeView is the POST request method that allows
@@ -430,7 +471,12 @@ class ChooseAlertTypeView(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Get authenticated user profile details", tags=["User Profile"])
+@extend_schema(
+    summary="Get authenticated user profile details",
+    tags=["Profile"],
+    description="Returns the full profile information for the currently authenticated user.",
+    responses={200: GetUserSerializer},
+)
 class GetUserDetails(generics.RetrieveAPIView):
     """User Detials"""
 
@@ -444,7 +490,16 @@ class GetUserDetails(generics.RetrieveAPIView):
         return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Update user profile", tags=["User Profile"])
+@extend_schema(
+    summary="Update user profile",
+    tags=["Profile"],
+    description="Updates editable fields on the authenticated user's profile. Sends a confirmation email on success.",
+    request=UpdateUserSerializer,
+    responses={
+        200: inline_serializer(name="UpdateProfileResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="UpdateProfileError", fields={"status": s.CharField(), "errors": s.DictField()}),
+    },
+)
 class UpdateUserProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
@@ -545,7 +600,16 @@ class UpdateUserProfile(generics.UpdateAPIView):
             )
 
 
-@extend_schema(summary="Change account password", tags=["User Profile"])
+@extend_schema(
+    summary="Change account password",
+    tags=["Profile"],
+    description="Changes the authenticated user's password. The old password is verified first, and the existing refresh token is blacklisted on success.",
+    request=ChangePasswordSerializer,
+    responses={
+        200: inline_serializer(name="ChangePasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ChangePasswordError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ChangePassword(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
     authentication_classes = [JWTAuthentication]
@@ -763,7 +827,16 @@ class ChangePassword(generics.UpdateAPIView):
 #             )
 
 
-@extend_schema(summary="Submit member onboarding survey", tags=["User Profile"])
+@extend_schema(
+    summary="Submit member onboarding survey",
+    tags=["Profile"],
+    description="Records the member onboarding survey answers and social media handles. Only accessible to users with the Member role.",
+    request=MemberSurveySerializers,
+    responses={
+        201: inline_serializer(name="PostMemberSurveyResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="PostMemberSurveyError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class PostMemberSurvey(generics.CreateAPIView):
     """
     PostMemberSurvey handles POST request of conducting member survey.
@@ -827,7 +900,16 @@ HANDLE_FIELDS = {
 }
 
 
-@extend_schema(summary="Get or update social profile handles", tags=["User Profile"])
+@extend_schema(
+    summary="Get or update social profile handles",
+    tags=["Profile"],
+    description="Retrieves or updates the authenticated user's linked social media handles. Handle changes require admin approval; submit a handle change request first.",
+    request=MemberSurveySerializers,
+    responses={
+        200: MemberSurveySerializers,
+        403: inline_serializer(name="SocialProfileForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SocialProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = MemberSurveySerializers
     authentication_classes = [JWTAuthentication]
@@ -878,7 +960,16 @@ class SocialProfileView(generics.RetrieveUpdateAPIView):
         return response
 
 
-@extend_schema(summary="Request a social handle change", tags=["User Profile"])
+@extend_schema(
+    summary="Request a social handle change",
+    tags=["Profile"],
+    description="Submits a request to change a social media handle. Admins are notified via push notification; only one pending request per platform is allowed.",
+    request=HandleChangeRequestSerializer,
+    responses={
+        201: HandleChangeRequestSerializer,
+        400: inline_serializer(name="HandleChangeRequestError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RequestHandleChangeView(generics.CreateAPIView):
     serializer_class = HandleChangeRequestSerializer
     authentication_classes = [JWTAuthentication]
@@ -921,7 +1012,14 @@ class RequestHandleChangeView(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="Delete a user account (super admin only)", tags=["User Profile"]
+    summary="Delete a user account (super admin only)",
+    tags=["Profile"],
+    description="Permanently deletes a user account. Requires super admin role and a valid X-Delete-Credentials header containing base64-encoded email:password.",
+    responses={
+        204: inline_serializer(name="DeleteUserResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer(name="DeleteUserUnauth", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(name="DeleteUserNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class DeleteUser(generics.DestroyAPIView):
     serializer_class = DeleteUserSerializer
@@ -1027,7 +1125,15 @@ class DeleteUser(generics.DestroyAPIView):
             )
 
 
-@extend_schema(summary="Open the mystery reward box", tags=["Gamification"])
+@extend_schema(
+    summary="Open the mystery reward box",
+    tags=["Profile"],
+    description="Opens the mystery reward box if the authenticated Member user has at least 100 reward points. Returns the prize type ready to be claimed.",
+    responses={
+        200: inline_serializer(name="OpenRewardBoxResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="OpenRewardBoxError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class OpenRewardBox(generics.GenericAPIView):
     """
     OpenRewardBox is the GET request handler for opening the reward box.
@@ -1115,7 +1221,14 @@ class OpenRewardBox(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Claim mystery box reward (airtime or data)", tags=["Gamification"]
+    summary="Claim mystery box reward (airtime or data)",
+    tags=["Profile"],
+    description="Redeems the mystery box reward as airtime or data for the specified phone number and network. Requires the box to have been opened first.",
+    request=ClaimRewardSerializers,
+    responses={
+        200: inline_serializer(name="ClaimGiftResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ClaimGiftError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class ClaimMysteryBoxGift(generics.GenericAPIView):
     """
@@ -1256,7 +1369,17 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="Add a product or service to favourites", tags=["User Profile"])
+@extend_schema(
+    summary="Add a product or service to favourites",
+    tags=["Profile"],
+    description="Adds a purchased product or service to the authenticated user's favourites list. Requires both object_id and model_name fields identifying the item.",
+    request=AddToFavouriteSerializer,
+    responses={
+        201: inline_serializer(name="AddToFavouriteResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(name="AlreadyFavouriteResponse", fields={"message": s.CharField()}),
+        400: inline_serializer(name="AddToFavouriteError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class AddToFavourite(generics.CreateAPIView):
     """
     AddToFavourite is the POST request handler for allowing a
@@ -1373,7 +1496,10 @@ class AddToFavourite(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="List all favourites for the authenticated user", tags=["User Profile"]
+    summary="List all favourites for the authenticated user",
+    tags=["Profile"],
+    description="Returns all items saved as favourites by the authenticated user across all supported product and service categories.",
+    responses={200: FavouriteSerializer(many=True)},
 )
 class ListFavourites(generics.ListAPIView):
     """
@@ -1397,7 +1523,15 @@ class ListFavourites(generics.ListAPIView):
         return queryset
 
 
-@extend_schema(summary="Retrieve a specific favourite by ID", tags=["User Profile"])
+@extend_schema(
+    summary="Retrieve a specific favourite by ID",
+    tags=["Profile"],
+    description="Returns a single favourite item by its UUID. The item must belong to the authenticated user.",
+    responses={
+        200: FavouriteSerializer,
+        404: inline_serializer(name="FavouriteNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RetrieveFavourite(generics.RetrieveAPIView):
     """
     Retrieve a specific favourite by its ID.
@@ -1423,7 +1557,24 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     lookup_field = "id"
 
 
-@extend_schema(summary="Create a customer support ticket", tags=["User Profile"])
+@extend_schema(
+    summary="Create a customer support ticket",
+    tags=["Profile"],
+    description="Creates a support ticket for the authenticated user. The ticket is placed in the queue and assigned a ticket number for tracking.",
+    request=SupportTicketSerializer,
+    responses={
+        201: inline_serializer(name="CreateTicketResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="TicketData", fields={
+                "Ticket Number": s.CharField(),
+                "Category": s.CharField(),
+                "Status": s.CharField(),
+            }),
+        }),
+        400: inline_serializer(name="CreateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CustomerTicketCreation(generics.GenericAPIView):
     """
     CustomerTicketCreation is the POST request handler for allowing a
@@ -1498,7 +1649,15 @@ class CustomerTicketCreation(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Rate a support agent after ticket resolution", tags=["User Profile"]
+    summary="Rate a support agent after ticket resolution",
+    tags=["Profile"],
+    description="Allows the authenticated user to rate the support agent who resolved their ticket. The ticket must be resolved and the user must not have already submitted a rating.",
+    request=AgentRatingSerializers,
+    responses={
+        201: inline_serializer(name="RateAgentResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="RateAgentError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(name="RateAgentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
 )
 class RateAgentViewByCustomer(generics.GenericAPIView):
     serializer_class = AgentRatingSerializers
@@ -1590,10 +1749,11 @@ example_response = OpenApiExample(
 
 @extend_schema_view(
     retrieve=extend_schema(
+        tags=["Profile"],
         responses={200: TierListResponseSerializer},
         examples=[example_response],
         description="Returns all tier levels with required points and the current level of the user.",
-        summary="User Tier Levels",
+        summary="Get user tier levels",
     )
 )
 class TierListView(generics.RetrieveAPIView):
@@ -1618,6 +1778,19 @@ class TierListView(generics.RetrieveAPIView):
 logger_fcm = logging.getLogger(__name__)
 
 
+@extend_schema(
+    summary="Register or remove an FCM device push token",
+    tags=["Profile"],
+    description="POST to save or refresh an FCM push token for the authenticated user. DELETE to remove the token on logout. Supports android, ios, and web platforms.",
+    request=inline_serializer(name="DeviceTokenRequest", fields={
+        "token": s.CharField(),
+        "platform": s.ChoiceField(choices=["android", "ios", "web"]),
+    }),
+    responses={
+        200: inline_serializer(name="DeviceTokenResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="DeviceTokenError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RegisterDeviceTokenView(generics.GenericAPIView):
     """
     POST  /v1/user_profile/device-token/  — save or refresh an FCM push token.

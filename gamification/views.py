@@ -1,7 +1,9 @@
 import logging
 import json
 from decouple import config as conf
-from drf_spectacular.utils import extend_schema, OpenApiExample
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 from django.utils import timezone
 from django.db import transaction
@@ -44,7 +46,27 @@ logger = logging.getLogger(__name__)
 
 
 # Create your views here.
-@extend_schema(summary="SSO login for NextBee gamification portal", tags=["Gamification"])
+@extend_schema(
+    summary="SSO login for NextBee gamification portal",
+    tags=["Gamification"],
+    description="Initiates a Single Sign-On session for the authenticated member into the NextBee gamification portal, returning a redirect URL and session token.",
+    request=SSOLoginSerializer,
+    responses={
+        200: inline_serializer(
+            name="SSOLoginSuccessResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "gamificcation_redirect_url": s.CharField(),
+                "token": s.CharField(allow_null=True),
+            },
+        ),
+        400: inline_serializer(
+            name="SSOLoginErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
 class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
     """NextBeeGamificationLSSOLogin is the POST request handler for
     NextBee Gamification SSO login.
@@ -107,7 +129,30 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Join a step campaign", tags=["Gamification"])
+@extend_schema(
+    summary="Join a step campaign",
+    tags=["Gamification"],
+    description="Enrolls the authenticated member into a step campaign. If the user has already joined, their existing session details are returned.",
+    request=StepCountSessionSerializer,
+    responses={
+        201: inline_serializer(
+            name="JoinCampaignResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": StepCountSessionSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="JoinCampaignErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="JoinCampaignNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class JoinCampaignView(generics.CreateAPIView):
     """
     Allows a user to join a step campaign.
@@ -185,7 +230,37 @@ class JoinCampaignView(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="Add steps to an active campaign session", tags=["Gamification"])
+@extend_schema(
+    summary="Add steps to an active campaign session",
+    tags=["Gamification"],
+    description="Records steps taken by the member for an active campaign session. Excess steps beyond the target are trimmed automatically.",
+    request=inline_serializer(
+        name="AddStepsRequest",
+        fields={"step_count": s.IntegerField(min_value=1)},
+    ),
+    responses={
+        200: inline_serializer(
+            name="AddStepsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": StepCountSessionSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="AddStepsErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="AddStepsForbiddenResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="AddStepsNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class AddStepsView(generics.UpdateAPIView):
     """
     Allows a user to add steps to their current campaign session.
@@ -343,7 +418,29 @@ class AddStepsView(generics.UpdateAPIView):
         )
 
 
-@extend_schema(summary="Get current status of a campaign session", tags=["Gamification"])
+@extend_schema(
+    summary="Get current status of a campaign session",
+    tags=["Gamification"],
+    description="Retrieves the member's progress, step totals, and time remaining for a specific campaign session.",
+    responses={
+        200: inline_serializer(
+            name="CampaignStatusResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": StepCountSessionSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="CampaignStatusErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="CampaignStatusNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class CampaignStatusView(generics.RetrieveAPIView):
     """
     Retrieves the current status of a user's campaign session.
@@ -407,8 +504,19 @@ class CampaignStatusView(generics.RetrieveAPIView):
 
 @extend_schema(
     summary="Submit social media activity image",
+    tags=["Gamification"],
     description="Log a social media post activity for points. Upload the image to Cloudinary first, then send the URL here.",
     request=SocialEngagementSerializer,
+    responses={
+        200: inline_serializer(
+            name="SubmitActivityImageResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="SubmitActivityImageErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
     examples=[
         OpenApiExample(
             "Facebook post",
@@ -473,7 +581,31 @@ class SubmitActivityImageView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Get member points summary", tags=["Gamification"])
+@extend_schema(
+    summary="Get member points summary",
+    tags=["Gamification"],
+    description="Returns the authenticated member's current points balance, tier, conversion rate, lifetime points, and total streaks joined.",
+    responses={
+        200: inline_serializer(
+            name="MemberPointsSummaryResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="MemberPointsSummaryData",
+                    fields={
+                        "points_balance": s.IntegerField(),
+                        "tier": s.CharField(),
+                        "tier_rate": s.CharField(allow_null=True),
+                        "naira_value": s.CharField(),
+                        "lifetime_points": s.IntegerField(),
+                        "streaks_joined": s.IntegerField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
 class GetMemberPointsSummary(generics.GenericAPIView):
     """Returns the authenticated user's points balance, tier, and tier rate."""
     authentication_classes = [JWTAuthentication]
@@ -507,7 +639,20 @@ class GetMemberPointsSummary(generics.GenericAPIView):
 
 # ── Streak Challenge views (user-facing) ─────────────────────────────────────
 
-@extend_schema(summary="List active streak challenges", tags=["Streaks"])
+@extend_schema(
+    summary="List active streak challenges",
+    tags=["Gamification"],
+    description="Returns all currently ongoing streak challenges visible to members, ordered by creation date.",
+    responses={
+        200: inline_serializer(
+            name="ActiveStreakChallengesResponse",
+            fields={
+                "status": s.CharField(),
+                "data": StreakChallengeSerializer(many=True),
+            },
+        ),
+    },
+)
 class ActiveStreakChallengesView(generics.ListAPIView):
     """Returns all ongoing streak challenges. Used in the tasks/gamification feed."""
     serializer_class = StreakChallengeSerializer
@@ -532,7 +677,37 @@ class ActiveStreakChallengesView(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Join a streak challenge", tags=["Streaks"])
+@extend_schema(
+    summary="Join a streak challenge",
+    tags=["Gamification"],
+    description="Enrolls the authenticated user in a streak challenge. Returns the existing enrollment record if the user has already joined.",
+    responses={
+        200: inline_serializer(
+            name="JoinStreakAlreadyJoinedResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": UserStreakSerializer(),
+            },
+        ),
+        201: inline_serializer(
+            name="JoinStreakCreatedResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": UserStreakSerializer(),
+            },
+        ),
+        400: inline_serializer(
+            name="JoinStreakErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="JoinStreakNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class JoinStreakChallengeView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -564,7 +739,20 @@ class JoinStreakChallengeView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="My streak progress across all joined challenges", tags=["Streaks"])
+@extend_schema(
+    summary="My streak progress across all joined challenges",
+    tags=["Gamification"],
+    description="Lists the authenticated user's streak progress records for every challenge they have enrolled in, ordered by most recently joined.",
+    responses={
+        200: inline_serializer(
+            name="MyStreakProgressResponse",
+            fields={
+                "status": s.CharField(),
+                "data": UserStreakSerializer(many=True),
+            },
+        ),
+    },
+)
 class MyStreakProgressView(generics.ListAPIView):
     serializer_class = UserStreakSerializer
     authentication_classes = [JWTAuthentication]
@@ -585,7 +773,25 @@ class MyStreakProgressView(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Leaderboard for a streak challenge", tags=["Streaks"])
+@extend_schema(
+    summary="Leaderboard for a streak challenge",
+    tags=["Gamification"],
+    description="Returns the top 50 participants for a given streak challenge, ranked by current streak count then longest streak count.",
+    responses={
+        200: inline_serializer(
+            name="StreakLeaderboardResponse",
+            fields={
+                "status": s.CharField(),
+                "challenge": s.CharField(),
+                "leaderboard": StreakLeaderboardEntrySerializer(many=True),
+            },
+        ),
+        404: inline_serializer(
+            name="StreakLeaderboardNotFoundResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
 class StreakLeaderboardView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -627,7 +833,20 @@ class StreakLeaderboardView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="My streak history", tags=["Streaks"])
+@extend_schema(
+    summary="My streak history",
+    tags=["Gamification"],
+    description="Returns a full historical log of the authenticated user's streak activity across all challenges, ordered by most recent.",
+    responses={
+        200: inline_serializer(
+            name="MyStreakHistoryResponse",
+            fields={
+                "status": s.CharField(),
+                "data": StreakHistorySerializer(many=True),
+            },
+        ),
+    },
+)
 class MyStreakHistoryView(generics.ListAPIView):
     serializer_class = StreakHistorySerializer
     authentication_classes = [JWTAuthentication]

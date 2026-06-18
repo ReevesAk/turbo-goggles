@@ -215,6 +215,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "slot_cap",
             # Targeting
             "location_type",
+            "targeting_type",
             "countries",
             "auto_boost",
         ]
@@ -339,6 +340,7 @@ class AdSerializers(serializers.ModelSerializer):
             "auto_boost_points",
             # Targeting
             "location_type",
+            "targeting_type",
             "countries",
             "auto_boost",
         ]

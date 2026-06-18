@@ -11,7 +11,8 @@ from django.template.loader import render_to_string
 from rest_framework import generics, status
 from rest_framework.response import Response
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import TreasuryAccount, TreasuryNotification, TreasuryCardFunding
 from .controllers import Anchor
@@ -27,7 +28,19 @@ anchor_api_key = config("ANCHOR_API_KEY", default="")
 paystack_secret_key = config("PAYSTACK_SECRET_KEY", default="")
 
 
-@extend_schema(summary="Anchor webhook receiver (credit/debit/KYC events)", tags=["Webhooks"])
+@extend_schema(
+    summary="Anchor webhook receiver (credit/debit/KYC events)",
+    tags=["Treasury"],
+    description="Receives and processes Anchor webhook events including account credits, debits, and KYC approval/rejection. Validates the HMAC-SHA512 signature before processing.",
+    request=inline_serializer(name="AnchorWebhookRequest", fields={
+        "type": s.CharField(),
+        "data": s.DictField(),
+    }),
+    responses={
+        200: inline_serializer(name="AnchorWebhookResponse", fields={"status": s.CharField()}),
+        400: inline_serializer(name="AnchorWebhookError", fields={"status": s.CharField()}),
+    },
+)
 class AnchorWebhookView(generics.GenericAPIView):
     """
     Handles Anchor webhook events for credit/debit on user sub-accounts.
@@ -321,7 +334,19 @@ class AnchorWebhookView(generics.GenericAPIView):
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Paystack webhook for treasury card deposits", tags=["Webhooks"])
+@extend_schema(
+    summary="Paystack webhook for treasury card deposits",
+    tags=["Treasury"],
+    description="Receives Paystack charge.success webhook events and updates the corresponding treasury card funding record. Validates the Paystack signature before processing.",
+    request=inline_serializer(name="PaystackWebhookRequest", fields={
+        "event": s.CharField(),
+        "data": s.DictField(),
+    }),
+    responses={
+        200: inline_serializer(name="PaystackWebhookResponse", fields={"status": s.CharField()}),
+        400: inline_serializer(name="PaystackWebhookError", fields={"status": s.CharField()}),
+    },
+)
 class CardDepositPaystackWebhook(generics.CreateAPIView):
     """
     Handles Paystack webhook events for card deposits into treasury account.
@@ -368,7 +393,24 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         return Response({"status": "not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-@extend_schema(summary="Verify treasury card payment transaction status", tags=["Treasury"])
+@extend_schema(
+    summary="Verify treasury card payment transaction status",
+    tags=["Treasury"],
+    description="Returns the current status of a Paystack card deposit by its transaction reference. Use this to confirm a card funding before crediting the treasury account.",
+    responses={
+        200: inline_serializer(name="VerifyCardPaymentResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "transaction": inline_serializer(name="VerifyCardPaymentTransaction", fields={
+                "txn_reference": s.CharField(),
+                "amount": s.CharField(),
+                "email": s.EmailField(),
+                "status": s.CharField(),
+            }),
+        }),
+        404: inline_serializer(name="VerifyCardPaymentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class VerifyCardPaymentTransaction(generics.GenericAPIView):
     """
     Verify the status of a Paystack card deposit by reference.

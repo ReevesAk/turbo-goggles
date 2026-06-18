@@ -11,7 +11,16 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiParameter,
+    OpenApiExample,
+    OpenApiResponse,
+    inline_serializer,
+)
+from drf_spectacular.types import OpenApiTypes
 
 # In project imports.
 from .serializers import (
@@ -24,7 +33,8 @@ from .serializers import (
 # from mail import send_email
 from accounts.models import User, UserNotification, AccountType, TxModel
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
-from .models import CreateAd
+from .models import BrandAdCreditWallet, CreateAd
+from .credit import apply_credit, reconcile_credit
 from banking.helpers import verify_wallet_auth
 from banking.controllers import Wallet
 from banking.models import WalletModel
@@ -38,8 +48,222 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
+_CREATE_AD_DESCRIPTION = """
+Creates a new ad campaign and auto-onboards the user as a **BrandAd** if they don't already have that role.
+
+**Idempotency:** Send `Idempotency-Key: <uuid>` header to safely retry on network failure without double-charging.
+
+---
+
+### `task_details` shape per `task_type`
+
+| `task_type` | Required fields in `task_details` |
+|---|---|
+| `watch_video` | `video_url`, `platform` (`YouTube`\\|`TikTok`\\|`Instagram`\\|`X`), `min_watch_duration` (`15s`\\|`30s`\\|`60s`\\|`full`) |
+| `social_engage` | `platform`, `post_url`, `required_actions` (list of `like`\\|`comment`\\|`share`\\|`follow`); optional: `timing` (`15s`\\|`30s`\\|`60s`) |
+| `website_visit` | `landing_url`, `min_time_on_page` (`30`\\|`60`\\|`120`\\|`180` seconds) |
+| `store_visit` | `store_name`, `store_address` |
+| `survey` | `survey_title`, `questions` (list, min 1) |
+| `app_download` | `app_name`, `play_store_url` |
+
+---
+
+### Targeting type & pricing multiplier
+
+| `targeting_type` | Label | Multiplier |
+|---|---|---|
+| `broad` *(default)* | All of Nigeria | ×1.00 |
+| `city` | City-Specific | ×1.15 |
+| `niche` | Niche Behaviour | ×1.25 |
+| `influencer` | Influencer Tier (10k+ followers) | ×1.50 |
+
+**Cost formula:** `slot_cap × cost_per_engagement × targeting_multiplier`
+"""
+
+_SUCCESS_RESP = inline_serializer(
+    name="AdSuccessResponse",
+    fields={"status": s.CharField(), "message": s.CharField()},
+)
+
+_ERROR_RESP = inline_serializer(
+    name="AdErrorResponse",
+    fields={"status": s.CharField(), "message": s.CharField()},
+)
+
+
 @extend_schema(
-    summary="Create brand ad and onboard as BrandAd user", tags=["Brand Ads"]
+    summary="Create brand ad and onboard as BrandAd user",
+    tags=["Brand Ads"],
+    description=_CREATE_AD_DESCRIPTION,
+    request=CreateAdSerializers,
+    responses={
+        200: _SUCCESS_RESP,
+        400: _ERROR_RESP,
+        500: _ERROR_RESP,
+    },
+    examples=[
+        OpenApiExample(
+            "Watch Video — Wallet payment",
+            summary="Watch Video task paid via wallet",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Co",
+                "type_of_business": "Online",
+                "industry": "Technology",
+                "brand_objective": "Brand Awareness",
+                "campaign_name": "Summer 2025",
+                "gender": "All",
+                "demography": "26 - 35",
+                "campaign_duration": "7",
+                "amount": "15000",
+                "targeting_type": "broad",
+                "location_type": "states",
+                "state": ["Lagos", "Abuja"],
+                "city": ["Ikeja", "Wuse"],
+                "task_type": "watch_video",
+                "task_name": "Watch our promo",
+                "task_description": "Watch 30 secs of our latest ad.",
+                "task_details": {
+                    "video_url": "https://youtube.com/watch?v=abc123",
+                    "platform": "YouTube",
+                    "min_watch_duration": "30s",
+                },
+                "slot_cap": 200,
+                "auto_boost": False,
+            },
+        ),
+        OpenApiExample(
+            "Social Engage — Wallet payment",
+            summary="Social engagement task paid via wallet",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Co",
+                "campaign_name": "Follow & Like Campaign",
+                "campaign_duration": "3",
+                "amount": "10000",
+                "targeting_type": "city",
+                "location_type": "cities",
+                "state": ["Lagos"],
+                "city": ["Ikeja"],
+                "task_type": "social_engage",
+                "task_name": "Follow us on Instagram",
+                "task_details": {
+                    "platform": "Instagram",
+                    "post_url": "https://instagram.com/p/xyz123",
+                    "required_actions": ["like", "follow"],
+                    "timing": "30s",
+                },
+                "slot_cap": 100,
+            },
+        ),
+        OpenApiExample(
+            "App Download — Wallet payment",
+            summary="App download task paid via wallet",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Co",
+                "campaign_name": "Install our App",
+                "campaign_duration": "14",
+                "amount": "60000",
+                "targeting_type": "niche",
+                "location_type": "nationwide",
+                "task_type": "app_download",
+                "task_name": "Download Acme App",
+                "task_details": {
+                    "app_name": "Acme",
+                    "play_store_url": "https://play.google.com/store/apps/details?id=com.acme",
+                },
+                "slot_cap": 150,
+            },
+        ),
+        OpenApiExample(
+            "Survey — Card payment",
+            summary="Survey task paid via card",
+            request_only=True,
+            value={
+                "payment_option": "CARD",
+                "business_or_brand_name": "Acme Co",
+                "campaign_name": "Customer Feedback Q3",
+                "campaign_duration": "7",
+                "amount": "40000",
+                "targeting_type": "broad",
+                "location_type": "nationwide",
+                "task_type": "survey",
+                "task_name": "Quick 2-question survey",
+                "task_details": {
+                    "survey_title": "Customer Feedback Q3 2025",
+                    "questions": [
+                        "How did you hear about us?",
+                        "Would you recommend us to a friend?",
+                    ],
+                },
+                "slot_cap": 100,
+            },
+        ),
+        OpenApiExample(
+            "Website Visit",
+            summary="Website visit task",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Co",
+                "campaign_name": "Visit our promo page",
+                "campaign_duration": "7",
+                "amount": "10000",
+                "targeting_type": "broad",
+                "task_type": "website_visit",
+                "task_name": "Visit our promo page",
+                "task_details": {
+                    "landing_url": "https://acme.com/summer-promo",
+                    "min_time_on_page": 60,
+                },
+                "slot_cap": 200,
+            },
+        ),
+        OpenApiExample(
+            "Store Visit",
+            summary="Physical store visit task",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Lagos",
+                "campaign_name": "Visit our Ikeja store",
+                "campaign_duration": "7",
+                "amount": "300000",
+                "targeting_type": "city",
+                "location_type": "cities",
+                "state": ["Lagos"],
+                "city": ["Ikeja"],
+                "task_type": "store_visit",
+                "task_name": "Visit Acme Ikeja",
+                "task_details": {
+                    "store_name": "Acme Ikeja Branch",
+                    "store_address": "12 Allen Avenue, Ikeja, Lagos",
+                },
+                "slot_cap": 50,
+            },
+        ),
+        OpenApiExample(
+            "Success",
+            response_only=True,
+            status_codes=["200"],
+            value={"status": "Success!", "message": "Brand advert promoted successfully."},
+        ),
+        OpenApiExample(
+            "Insufficient Balance",
+            response_only=True,
+            status_codes=["400"],
+            value={"status": "fail", "message": "Insufficient balance."},
+        ),
+    ],
 )
 class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     serializer_class = CreateAdSerializers
@@ -68,6 +292,8 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             payment_option = decrypted_data.get("payment_option")
             biometrics = decrypted_data.get("use_biometrics")
 
+            full_charge = Decimal(str(amount))
+
             # Generate transaction reference.
             tx_reference = (
                 idempotency_key
@@ -86,12 +312,19 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             if not is_verified:
                 return error_response
 
-            wallet_debit_amount = int(Decimal(str(amount)))
-
             match payment_option:
                 case "WALLET":
                     try:
                         with transaction.atomic():
+                            # Reconcile unused credit from expired ads, then apply
+                            # any available balance against this ad's charge.
+                            reconcile_credit(user)
+                            new_ad = serializer.save()
+                            credit_applied, effective_charge = apply_credit(
+                                user, new_ad, full_charge
+                            )
+                            effective_debit = int(effective_charge)
+
                             account = WalletModel.objects.select_for_update().get(
                                 user=user
                             )
@@ -109,7 +342,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             else:
                                 live_balance = account.balance
 
-                            if live_balance < wallet_debit_amount:
+                            if live_balance < effective_debit:
                                 return Response(
                                     data=encrypt(
                                         {
@@ -120,43 +353,52 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     status=status.HTTP_400_BAD_REQUEST,
                                 )
 
-                            debit_response = Wallet.Debit(
-                                debitAccount=account.account_number,
-                                amount=wallet_debit_amount,
-                                reason="Debit for brand promotion.",
-                                merchantFeeAmount="0.00",
-                            )
+                            if effective_debit > 0:
+                                debit_response = Wallet.Debit(
+                                    debitAccount=account.account_number,
+                                    amount=effective_debit,
+                                    reason="Debit for brand promotion.",
+                                    merchantFeeAmount="0.00",
+                                )
+                                debit_ok = (
+                                    debit_response is not None
+                                    and debit_response.status_code == 200
+                                )
+                            else:
+                                # Fully covered by credit — no wallet debit needed.
+                                debit_ok = True
 
-                            if (
-                                debit_response is not None
-                                and debit_response.status_code == 200
-                            ):
-                                serializer.save()
+                            if debit_ok:
+                                credit_msg = (
+                                    f" (₦{credit_applied} credit applied)"
+                                    if credit_applied > 0 else ""
+                                )
 
                                 TxModel.objects.create(
                                     user=user,
                                     tx_reference=tx_reference,
                                     tx_type="Brand Promotion",
-                                    amount=wallet_debit_amount,
-                                    description="Brand promotion payment",
+                                    amount=effective_debit,
+                                    description=f"Brand promotion payment{credit_msg}",
                                     status="SUCCESS",
                                 )
 
                                 UserNotification.objects.create(
                                     user=user,
                                     title="Brand Promotion",
-                                    message=f"Your payment of {wallet_debit_amount} for brand promotion was successful.",
+                                    message=f"Your payment of ₦{effective_debit} for brand promotion was successful.{credit_msg}",
                                 )
 
                                 ActivityModel.objects.create(
                                     user=user,
                                     title="Brand Promotion",
-                                    description=f"{user} promoted their brand successfully.",
+                                    description=f"{user} promoted their brand successfully.{credit_msg}",
                                 )
 
                                 logger.info(
-                                    "Brand promotion payment successful for user %s",
-                                    user.email,
+                                    "Brand promotion payment successful for user %s "
+                                    "(charged: %s, credit applied: %s)",
+                                    user.email, effective_debit, credit_applied,
                                 )
 
                                 return Response(
@@ -190,28 +432,38 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         )
 
                 case "CARD":
-                    serializer.save()
+                    with transaction.atomic():
+                        reconcile_credit(user)
+                        new_ad = serializer.save()
+                        credit_applied, effective_charge = apply_credit(
+                            user, new_ad, full_charge
+                        )
+                        effective_debit = int(effective_charge)
+                    credit_msg = (
+                        f" (₦{credit_applied} credit applied)" if credit_applied > 0 else ""
+                    )
                     TxModel.objects.create(
                         user=user,
                         tx_reference=tx_reference,
                         tx_type="Brand Promotion",
-                        amount=wallet_debit_amount,
-                        description="Brand promotion payment",
+                        amount=effective_debit,
+                        description=f"Brand promotion payment{credit_msg}",
                         status="SUCCESS",
                     )
                     UserNotification.objects.create(
                         user=user,
                         title="Brand Promotion",
-                        message=f"Your payment of {wallet_debit_amount} for brand promotion was successful.",
+                        message=f"Your payment of ₦{effective_debit} for brand promotion was successful.{credit_msg}",
                     )
                     ActivityModel.objects.create(
                         user=user,
                         title="Brand Promotion",
-                        description=f"{user} promoted their brand successfully.",
+                        description=f"{user} promoted their brand successfully.{credit_msg}",
                     )
                     logger.info(
-                        "Brand promotion payment successful for user %s",
-                        user.email,
+                        "Brand promotion payment successful for user %s "
+                        "(charged: %s, credit applied: %s)",
+                        user.email, effective_debit, credit_applied,
                     )
                     return Response(
                         data=encrypt(
@@ -244,7 +496,15 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="List all BrandAd users", tags=["Brand Ads"])
+@extend_schema(
+    summary="List all BrandAd users",
+    tags=["Brand Ads"],
+    description="Admin-only. Returns all users who have the **BrandAd** role. Paginated — 20 per page.",
+    parameters=[
+        OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Page number (default: 1)", required=False),
+    ],
+    responses={200: BrandAdProfileSerializers(many=True)},
+)
 class ListAllBrandAdsUsers(generics.ListAPIView):
     serializer_class = BrandAdProfileSerializers
     authentication_classes = [JWTAuthentication]
@@ -288,7 +548,17 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="List all ads created by the current BrandAd user", tags=["Brand Ads"]
+    summary="List all ads created by the current BrandAd user",
+    tags=["Brand Ads"],
+    description=(
+        "Returns all ad campaigns created by the authenticated user. "
+        "Results are cached for **2 minutes**. "
+        "`remaining_time` returns `'Expired'` once the campaign duration elapses."
+    ),
+    parameters=[
+        OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Page number (default: 1)", required=False),
+    ],
+    responses={200: AdSerializers(many=True)},
 )
 class ListAllBrandAds(generics.ListAPIView):
     serializer_class = AdSerializers
@@ -340,7 +610,30 @@ class ListAllBrandAds(generics.ListAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Get BrandAd profile details by email", tags=["Brand Ads"])
+@extend_schema(
+    summary="Get BrandAd profile details by email",
+    tags=["Brand Ads"],
+    description="Returns the BrandAd profile for any user by email. Cached for **5 minutes**.",
+    parameters=[
+        OpenApiParameter(
+            "email",
+            OpenApiTypes.EMAIL,
+            OpenApiParameter.QUERY,
+            description="Email address of the BrandAd user to look up.",
+            required=True,
+        ),
+    ],
+    responses={
+        200: BrandAdProfileSerializers,
+        400: inline_serializer(name="ProfileMissingEmailError", fields={"status": s.CharField(), "error": s.CharField()}),
+        403: inline_serializer(name="ProfileNotBrandAdError", fields={"status": s.CharField(), "error": s.CharField()}),
+        404: inline_serializer(name="ProfileNotFoundError", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
+    examples=[
+        OpenApiExample("Not a BrandAd", response_only=True, status_codes=["403"], value={"status": "fail", "error": "User is not a BrandAd"}),
+        OpenApiExample("User not found", response_only=True, status_codes=["404"], value={"status": "fail", "error": "User not found"}),
+    ],
+)
 class GetBrandAdDetails(generics.RetrieveAPIView):
     """Returns the profile details of a BrandAd user."""
 
@@ -400,7 +693,19 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         return Response(encrypted_response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Update BrandAd profile", tags=["Brand Ads"])
+@extend_schema(
+    summary="Update BrandAd profile",
+    tags=["Brand Ads"],
+    description=(
+        "Update the authenticated user's BrandAd profile. "
+        "Use **PATCH** to update individual fields without sending the full object."
+    ),
+    request=UpdateBrandAdProfileSerializers,
+    responses={
+        200: UpdateBrandAdProfileSerializers,
+        400: inline_serializer(name="UpdateProfileError", fields={"detail": s.CharField()}),
+    },
+)
 class UpdateBrandAdProfile(generics.UpdateAPIView):
     """Update brand_Ad Profile"""
 
@@ -448,7 +753,18 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
             )
 
 
-@extend_schema(summary="Get details of a single brand ad", tags=["Brand Ads"])
+@extend_schema(
+    summary="Get details of a single brand ad",
+    tags=["Brand Ads"],
+    description="Fetch one ad campaign by its numeric ID. Cached for **5 minutes**.",
+    responses={
+        200: AdSerializers,
+        404: inline_serializer(name="SingleAdNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+    examples=[
+        OpenApiExample("Not found", response_only=True, status_codes=["404"], value={"status": "fail", "message": "Ad not found."}),
+    ],
+)
 class SingleAdDetailView(generics.RetrieveAPIView):
     """SingleAdDetailView is the GET request handler to get the details of a single
     brandAd of any authenticated Brand advertiser.
@@ -644,3 +960,140 @@ class SingleAdDetailView(generics.RetrieveAPIView):
 #                 }
 #                 encrypted_success = encrypt(response_data)
 #                 return Response(data=encrypted_success, status=status.HTTP_200_OK)
+
+
+
+_COST_PREVIEW_REQUEST = inline_serializer(
+    name="CostPreviewRequest",
+    fields={"amount": s.CharField(help_text="Total campaign cost the frontend calculated (Naira). E.g. '15000'")},
+)
+
+_COST_PREVIEW_RESPONSE = inline_serializer(
+    name="CostPreviewResponse",
+    fields={
+        "status": s.CharField(),
+        "data": inline_serializer(
+            name="CostPreviewData",
+            fields={
+                "new_ad_total": s.CharField(help_text="The amount you sent"),
+                "ledger_balance": s.CharField(help_text="Available credit from unused slots on past expired ads"),
+                "credit_to_apply": s.CharField(help_text="How much credit will be deducted"),
+                "amount_to_charge": s.CharField(help_text="What the user actually pays"),
+            },
+        ),
+    },
+)
+
+
+@extend_schema(
+    summary="Preview cost after credit is applied",
+    tags=["Brand Ads"],
+    description=(
+        "Call this **before** creating an ad to show the user their real charge after any "
+        "available ledger credit (sourced from unused slots on expired ads) is applied."
+    ),
+    request=_COST_PREVIEW_REQUEST,
+    responses={
+        200: _COST_PREVIEW_RESPONSE,
+        400: inline_serializer(name="CostPreviewError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+    examples=[
+        OpenApiExample(
+            "Request",
+            request_only=True,
+            value={"amount": "15000"},
+        ),
+        OpenApiExample(
+            "Success — partial credit applied",
+            response_only=True,
+            status_codes=["200"],
+            value={
+                "status": "success",
+                "data": {
+                    "new_ad_total": "15000",
+                    "ledger_balance": "3000",
+                    "credit_to_apply": "3000",
+                    "amount_to_charge": "12000",
+                },
+            },
+        ),
+        OpenApiExample(
+            "Success — no credit available",
+            response_only=True,
+            status_codes=["200"],
+            value={
+                "status": "success",
+                "data": {
+                    "new_ad_total": "15000",
+                    "ledger_balance": "0",
+                    "credit_to_apply": "0",
+                    "amount_to_charge": "15000",
+                },
+            },
+        ),
+        OpenApiExample(
+            "Invalid amount",
+            response_only=True,
+            status_codes=["400"],
+            value={"status": "fail", "message": "amount must be a valid number."},
+        ),
+    ],
+)
+class AdCostPreviewView(generics.GenericAPIView):
+    """
+    POST /v1/brands/ads/cost-preview/
+
+    Frontend sends the amount it has already calculated.
+    Backend reconciles past expired ads, reads the ledger balance,
+    and returns how much the brand actually needs to pay.
+
+    Request body:
+        amount — total cost the frontend calculated for the new ad
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        payload = decrypt(request.data)
+
+        try:
+            amount = Decimal(str(payload.get("amount", 0)))
+        except Exception:
+            return Response(
+                data=encrypt({"status": "fail", "message": "amount must be a valid number."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if amount <= 0:
+            return Response(
+                data=encrypt({"status": "fail", "message": "amount must be greater than zero."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+
+        # Sweep expired ads and credit any unused slots to the wallet.
+        with transaction.atomic():
+            reconcile_credit(user)
+
+        wallet, _ = BrandAdCreditWallet.objects.get_or_create(user=user)
+        ledger_balance = wallet.balance
+
+        credit_to_apply = min(ledger_balance, amount)
+        amount_to_charge = amount - credit_to_apply
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "data": {
+                    "new_ad_total": str(amount),
+                    "ledger_balance": str(ledger_balance),
+                    "credit_to_apply": str(credit_to_apply),
+                    "amount_to_charge": str(amount_to_charge),
+                },
+            }),
+            status=status.HTTP_200_OK,
+        )
+
+

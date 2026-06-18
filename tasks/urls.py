@@ -8,6 +8,7 @@ from .views import (
     SubmitTaskView,
     # Brand campaign tasks
     BrandTaskFeedView,
+    CompleteWebviewTaskView,
     MyBrandSubmissionsView,
     SubmitBrandTaskView,
 )
@@ -20,5 +21,6 @@ urlpatterns = [
 
     path("brand/feed/", BrandTaskFeedView.as_view(), name="brand-task-feed"),
     path("brand/submit/", SubmitBrandTaskView.as_view(), name="brand-task-submit"),
+    path("brand/webview/complete/", CompleteWebviewTaskView.as_view(), name="brand-webview-complete"),
     path("brand/my-submissions/", MyBrandSubmissionsView.as_view(), name="brand-my-submissions"),
 ]

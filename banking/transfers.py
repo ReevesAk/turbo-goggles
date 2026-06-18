@@ -10,7 +10,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.template.loader import render_to_string
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 from permissions import (
     IsPartnerUserOrMember,
@@ -61,7 +63,25 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(summary="Get all supported banks and their codes", tags=["Banking"])
+@extend_schema(
+    summary="Get all supported banks and their codes",
+    tags=["Banking"],
+    description="Return a list of all financial institutions and their 3-digit bank codes supported by the 9PSB transfer network.",
+    responses={
+        200: inline_serializer(
+            name="GetAllBanksResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(child=s.DictField()),
+            },
+        ),
+        500: inline_serializer(
+            name="GetAllBanksErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class GetAllBanks(APIView):
     """
     GetAllBanks handles the GET request of retrieving all available financial
@@ -110,7 +130,28 @@ class GetAllBanks(APIView):
             )
 
 
-@extend_schema(summary="Validate a 9PSB wallet account number", tags=["Banking"])
+@extend_schema(
+    summary="Validate a 9PSB wallet account number",
+    tags=["Banking"],
+    description="Verify that an account number belongs to a Picadailys/9PSB wallet and return the account name. Falls back to the local database if the live enquiry fails.",
+    request=Get9PSBWalletSerializer,
+    responses={
+        200: inline_serializer(
+            name="Get9PSBWalletResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="Get9PSBWalletData",
+                    fields={
+                        "account_number": s.CharField(),
+                        "acc_name": s.CharField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
 class Get9PSBWallet(generics.GenericAPIView):
     """
     Get9PSBWallet handles the GET request of validating supplied account number
@@ -180,7 +221,26 @@ class Get9PSBWallet(generics.GenericAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Validate an account at another bank", tags=["Banking"])
+@extend_schema(
+    summary="Validate an account at another bank",
+    tags=["Banking"],
+    description="Resolve an account number and bank code against the 9PSB NIP network and return the account holder's name.",
+    request=GetAccountSerializer,
+    responses={
+        200: inline_serializer(
+            name="ValidateOtherBankAccountResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            name="ValidateOtherBankAccountErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class ValidateAccountOfOtherBank(generics.GenericAPIView):
     """
     ValidateAccountOfOtherBank handles the GET request of validating supplied account number
@@ -242,7 +302,51 @@ class ValidateAccountOfOtherBank(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Transfer funds to another Picadailys user (intra-bank)", tags=["Banking"]
+    summary="Transfer funds to another Picadailys user (intra-bank)",
+    tags=["Banking"],
+    description="Send funds to another Picadailys/9PSB wallet. Requires an Idempotency-Key header to prevent duplicate debits. Authorization via PIN or biometrics. First 5 transfers to the same beneficiary per day are free; subsequent ones attract a ₦10 fee.",
+    request=BankTransfersSerializer,
+    parameters=[
+        OpenApiParameter(
+            name="Idempotency-Key",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            required=True,
+            description="Unique key per transfer request to ensure idempotency.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="IntraBankTransferResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="IntraBankTransferData",
+                    fields={
+                        "credit_account": s.CharField(),
+                        "debit_account": s.CharField(),
+                        "amount": s.CharField(),
+                        "narration": s.CharField(),
+                        "beneficiaryBank": s.CharField(),
+                        "transactionReference": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        202: inline_serializer(
+            name="IntraBankTransferPendingResponse",
+            fields={"status": s.CharField(), "message": s.CharField(), "transactionReference": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="IntraBankTransferErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="IntraBankTransferUnauthorizedResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
 )
 class IntraBankTransfer(generics.CreateAPIView):
     """
@@ -538,7 +642,34 @@ class IntraBankTransfer(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="Get remaining free intra-bank transfer count for today", tags=["Banking"]
+    summary="Get remaining free intra-bank transfer count for today",
+    tags=["Banking"],
+    description="Return how many free intra-bank transfers the authenticated user has remaining today for a given beneficiary account. Each user gets 5 free transfers per beneficiary per day.",
+    parameters=[
+        OpenApiParameter(
+            name="beneficiary_account_number",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description="The beneficiary account number to check the free transfer count against.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="IntraBankFreeCountResponse",
+            fields={
+                "status": s.CharField(),
+                "free_transfers_used": s.IntegerField(),
+                "free_transfers_remaining": s.IntegerField(),
+                "free_limit": s.IntegerField(),
+                "fee_after_limit": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="IntraBankFreeCountErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
 )
 class IntraBankFreeTransferCount(APIView):
     """
@@ -588,7 +719,53 @@ class IntraBankFreeTransferCount(APIView):
 
 
 @extend_schema(
-    summary="Transfer funds to another bank (inter-bank NIP)", tags=["Banking"]
+    summary="Transfer funds to another bank (inter-bank NIP)",
+    tags=["Banking"],
+    description="Send funds via NIP to a beneficiary at any Nigerian bank. Requires an Idempotency-Key header. Transfer fees, VAT, and stamp duty are auto-calculated and deducted from the sender's balance.",
+    request=BankTransfersSerializer,
+    parameters=[
+        OpenApiParameter(
+            name="Idempotency-Key",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            required=True,
+            description="Unique key per transfer request to ensure idempotency.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="InterBankTransferResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="InterBankTransferData",
+                    fields={
+                        "credit_account": s.CharField(),
+                        "debit_account": s.CharField(),
+                        "amount": s.CharField(),
+                        "vat": s.CharField(),
+                        "total": s.CharField(),
+                        "narration": s.CharField(),
+                        "beneficiaryBank": s.CharField(),
+                        "transactionReference": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        202: inline_serializer(
+            name="InterBankTransferPendingResponse",
+            fields={"status": s.CharField(), "message": s.CharField(), "transactionReference": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="InterBankTransferErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="InterBankTransferUnauthorizedResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
 )
 class InterBankTransfer(generics.CreateAPIView):
     """
@@ -875,7 +1052,30 @@ class InterBankTransfer(generics.CreateAPIView):
             )
 
 
-@extend_schema(summary="Get inter-bank transfer status by reference", tags=["Banking"])
+@extend_schema(
+    summary="Get inter-bank transfer status by reference",
+    tags=["Banking"],
+    description="Query 9PSB for the current status of an inter-bank transfer using the transaction reference returned at initiation.",
+    parameters=[
+        OpenApiParameter(
+            name="tx_reference",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            required=True,
+            description="The transaction reference number returned when the transfer was initiated.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="TransactionStatusResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        500: inline_serializer(
+            name="TransactionStatusErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
+)
 class TransactionStatus(generics.GenericAPIView):
     """
     TransactionStatus handles the GET request of validating the supplied single
@@ -950,7 +1150,35 @@ class TransactionStatus(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Generate Paystack checkout URL to fund with card", tags=["Banking"]
+    summary="Generate Paystack checkout URL to fund with card",
+    tags=["Banking"],
+    description="Create a Paystack payment session for a guest user and return the checkout URL and access code. The X-Guest-ID header is required for guest identification.",
+    request=PaymentURLSerializers,
+    parameters=[
+        OpenApiParameter(
+            name="X-Guest-ID",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            required=True,
+            description="Unique identifier for the guest user making the card payment.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="PayWithCardResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "checkout_url": s.CharField(),
+                "access_code": s.CharField(),
+                "reference": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="PayWithCardErrorResponse",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+    },
 )
 class PayWithCard(generics.CreateAPIView):
     """
@@ -1024,7 +1252,24 @@ class PayWithCard(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="Credit wallet after confirmed Paystack card payment", tags=["Banking"]
+    summary="Credit wallet after confirmed Paystack card payment",
+    tags=["Banking"],
+    description="Credit a user's 9PSB wallet following a verified Paystack card transaction. Also awards the ₦500 welcome bonus if the funded amount is ≥ ₦2,000 and the bonus has not yet been awarded.",
+    request=FundWalletSerializers,
+    responses={
+        200: inline_serializer(
+            name="FundWalletResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="FundWalletErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="FundWalletForbiddenResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
 )
 class FundWallet(generics.GenericAPIView):
     """

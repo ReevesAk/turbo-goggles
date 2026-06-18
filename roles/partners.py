@@ -20,7 +20,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
 
 from accounts.models import User, AccountType, UserNotification
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
@@ -30,7 +32,14 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(summary="List all partner users", tags=["Partner Services"])
+@extend_schema(
+    summary="[Admin] List all partner users",
+    tags=["Partner Services"],
+    description="Returns a paginated list of all users registered as Partners. Results are cached for 5 minutes.",
+    responses={
+        200: inline_serializer("GetAllPartnersUsersResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+    },
+)
 class GetAllPartnersUsers(generics.ListAPIView):
     """
     GetAllAdminUsers is the GET request to retrieve the count
@@ -79,7 +88,18 @@ class GetAllPartnersUsers(generics.ListAPIView):
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Restrict a partner account", tags=["Partner Services"])
+@extend_schema(
+    summary="[Admin] Restrict a partner account",
+    tags=["Partner Services"],
+    description="Applies transaction and posting restrictions to a partner's account. Requires admin PIN verification before the restriction is saved.",
+    request=RestrictPartnersSerializers,
+    responses={
+        200: inline_serializer("RestrictPartnerAccountResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("RestrictPartnerAccountBadRequest", fields={"status": s.CharField(), "message": s.CharField()}),
+        401: inline_serializer("RestrictPartnerAccountUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        404: inline_serializer("RestrictPartnerAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class RestrictPartnerAccountView(generics.CreateAPIView):
     """
     RestrictPartnerAccount is the POST requests that handles the
@@ -241,7 +261,14 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="List all services for a partner (admin view)", tags=["Partner Services"]
+    summary="[Admin] List all services for a partner by email",
+    tags=["Partner Services"],
+    description="Returns all service listings belonging to the partner identified by the given email address.",
+    responses={
+        200: inline_serializer("AdminViewPartnerServiceListResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        400: inline_serializer("AdminViewPartnerServiceListBadRequest", fields={"status": s.CharField(), "error": s.CharField()}),
+        404: inline_serializer("AdminViewPartnerServiceListNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+    },
 )
 class AdminViewPartnerServiceList(generics.ListAPIView):
     """AdminViewPartnerServiceList lists all the services belonging to
@@ -300,8 +327,13 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="Search partners by name, category, or business name",
+    summary="[Admin] Search partners by name, category, or business name",
     tags=["Partner Services"],
+    description="Full-text search across partner business name, brand name, business category, and full name. Returns matching partner profiles.",
+    responses={
+        200: inline_serializer("PartnerSearchResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        404: inline_serializer("PartnerSearchNotFound", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+    },
 )
 class PartnerSearch(generics.ListAPIView):
     """

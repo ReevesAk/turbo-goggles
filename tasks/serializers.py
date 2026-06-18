@@ -121,6 +121,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
 
     task_type_display = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
+    ad_media = serializers.SerializerMethodField()
 
     class Meta:
         model = CreateAd
@@ -135,8 +136,15 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "expiry_date",
             "time_remaining",
             "is_active",
+            "ad_media",
         ]
         read_only_fields = fields
+
+    def get_ad_media(self, obj):
+        return [
+            {"images": m.images, "videos": m.videos}
+            for m in obj.ad_media.all()
+        ]
 
     def get_task_type_display(self, obj):
         return obj.get_task_type_display() if obj.task_type else None
@@ -218,3 +226,33 @@ class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
 class AdminBrandReviewSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["approve", "reject"])
     reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class CompleteWebviewTaskSerializer(serializers.Serializer):
+    task_id = serializers.IntegerField()
+    is_done = serializers.BooleanField()
+
+    def validate(self, attrs):
+        task_id = attrs["task_id"]
+
+        if attrs["is_done"] is not True:
+            raise serializers.ValidationError("is_done must be true.")
+
+        try:
+            ad = CreateAd.objects.get(pk=task_id)
+        except CreateAd.DoesNotExist:
+            raise serializers.ValidationError("Task not found.")
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is no longer active.")
+
+        webview_types = ("website_visit", "watch_video")
+        if ad.task_type not in webview_types:
+            raise serializers.ValidationError("This endpoint is only for website visit and video watch tasks.")
+
+        user = self.context["request"].user
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+            raise serializers.ValidationError("You have already completed this task.")
+
+        attrs["ad"] = ad
+        return attrs

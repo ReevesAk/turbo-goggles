@@ -12,7 +12,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from drf_spectacular.utils import extend_schema
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .serializers import (
     TreasuryStatusSerializer,
@@ -36,7 +37,23 @@ from roles.models import ActivityModel
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(summary="Create treasury account (Anchor)", tags=["Treasury"])
+@extend_schema(
+    summary="Create treasury account (Anchor)",
+    tags=["Treasury"],
+    description="Creates an Anchor customer and deposit account for the authenticated user. Returns the account number and bank details on success.",
+    request=CreateTreasuryAccountSerializer,
+    responses={
+        201: inline_serializer(name="CreateTreasuryAccountResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "account_number": s.CharField(),
+            "bank_name": s.CharField(),
+            "acct_name": s.CharField(),
+        }),
+        400: inline_serializer(name="CreateTreasuryAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
+        502: inline_serializer(name="CreateTreasuryAccountGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CreateTreasuryAccount(generics.GenericAPIView):
     """
     Create an Anchor customer + deposit account for the authenticated user.
@@ -174,7 +191,15 @@ class CreateTreasuryAccount(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Get treasury account details and live balance", tags=["Treasury"])
+@extend_schema(
+    summary="Get treasury account details and live balance",
+    tags=["Treasury"],
+    description="Returns the user's treasury account details including a live balance fetched from Anchor. Also returns tier level, upgrade status, and current tier limits.",
+    responses={
+        200: TreasuryAccountDetailsSerializer,
+        404: inline_serializer(name="TreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class GetTreasuryAccountDetails(generics.GenericAPIView):
     """
     Return account details with live balance from Anchor.
@@ -237,7 +262,16 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Set treasury account PIN", tags=["Treasury"])
+@extend_schema(
+    summary="Set treasury account PIN",
+    tags=["Treasury"],
+    description="Sets the PIN for the user's treasury account for the first time. Both pin and pin2 must match.",
+    request=CreateAccountPinSerializer,
+    responses={
+        201: inline_serializer(name="SetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="SetPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SetAccountPin(generics.CreateAPIView):
     """
     Set a PIN for the treasury account (first time).
@@ -314,7 +348,14 @@ class SetAccountPin(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="Send OTP to reset forgotten treasury account PIN", tags=["Treasury"])
+@extend_schema(
+    summary="Send OTP to reset forgotten treasury account PIN",
+    tags=["Treasury"],
+    description="Sends an OTP to the user's registered phone or email to initiate a PIN reset flow.",
+    responses={
+        201: inline_serializer(name="ForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class ForgotAccountPin(generics.GenericAPIView):
     """
     Send an OTP to initiate PIN reset.
@@ -366,7 +407,14 @@ class ForgotAccountPin(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Resend OTP for treasury PIN reset", tags=["Treasury"])
+@extend_schema(
+    summary="Resend OTP for treasury PIN reset",
+    tags=["Treasury"],
+    description="Resends the PIN reset OTP to the user's registered phone or email address.",
+    responses={
+        200: inline_serializer(name="PinResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class PinResendOTP(generics.GenericAPIView):
     """
     Resend OTP for PIN reset.
@@ -411,7 +459,16 @@ class PinResendOTP(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Verify OTP for treasury PIN reset", tags=["Treasury"])
+@extend_schema(
+    summary="Verify OTP for treasury PIN reset",
+    tags=["Treasury"],
+    description="Validates the OTP submitted during the PIN reset flow. On success the caller may proceed to reset the PIN.",
+    request=VerifyPinOTPSerializer,
+    responses={
+        200: inline_serializer(name="PinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="PinVerifyOTPError", fields={"error": s.CharField()}),
+    },
+)
 class PinVerifyOTP(generics.GenericAPIView):
     """
     Verify OTP submitted during PIN reset.
@@ -449,7 +506,16 @@ class PinVerifyOTP(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Reset treasury account PIN", tags=["Treasury"])
+@extend_schema(
+    summary="Reset treasury account PIN",
+    tags=["Treasury"],
+    description="Resets the treasury account PIN after OTP verification. Both new pin and pin2 must match.",
+    request=ResetAccountPinSerializer,
+    responses={
+        200: inline_serializer(name="ResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ResetPinError", fields={"error": s.CharField()}),
+    },
+)
 class ResetAccountPin(generics.CreateAPIView):
     """
     Reset account PIN after OTP verification.
@@ -509,7 +575,16 @@ class ResetAccountPin(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="Submit BVN for treasury Tier 2 KYC upgrade", tags=["Treasury"])
+@extend_schema(
+    summary="Submit BVN for treasury Tier 2 KYC upgrade",
+    tags=["Treasury"],
+    description="Submit BVN and date of birth to initiate Tier 2 KYC verification via Anchor. Tier 2 unlocks higher daily transaction limits per CBN guidelines. Verification is asynchronous; status updates arrive via webhook.",
+    request=UpgradeTier2Serializer,
+    responses={
+        200: inline_serializer(name="UpgradeTier2Response", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="UpgradeTier2Error", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class UpgradeTierTwoView(generics.GenericAPIView):
     """
     Submit BVN for Tier 2 KYC upgrade.
@@ -591,7 +666,16 @@ class UpgradeTierTwoView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Submit ID for treasury Tier 3 KYC upgrade", tags=["Treasury"])
+@extend_schema(
+    summary="Submit ID for treasury Tier 3 KYC upgrade",
+    tags=["Treasury"],
+    description="Submit a government-issued ID for Tier 3 KYC upgrade via Anchor manual review. The account must already be at Tier 2. Tier 3 unlocks unrestricted transaction limits.",
+    request=UpgradeTier3Serializer,
+    responses={
+        200: inline_serializer(name="UpgradeTier3Response", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="UpgradeTier3Error", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class UpgradeTierThreeView(generics.GenericAPIView):
     """
     Submit a government-issued ID for Tier 3 KYC upgrade (Anchor manual review).
@@ -679,7 +763,17 @@ class UpgradeTierThreeView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="List saved treasury beneficiaries", tags=["Treasury"])
+@extend_schema(
+    summary="List saved treasury beneficiaries",
+    tags=["Treasury"],
+    description="Returns all beneficiaries saved by the authenticated user for quick repeat transfers.",
+    responses={
+        200: inline_serializer(name="ListBeneficiariesResponse", fields={
+            "status": s.CharField(),
+            "data": TreasuryBeneficiarySerializer(many=True),
+        }),
+    },
+)
 class ListBeneficiariesView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -693,7 +787,15 @@ class ListBeneficiariesView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Delete a saved treasury beneficiary", tags=["Treasury"])
+@extend_schema(
+    summary="Delete a saved treasury beneficiary",
+    tags=["Treasury"],
+    description="Removes a previously saved beneficiary by its ID. The beneficiary must belong to the authenticated user.",
+    responses={
+        200: inline_serializer(name="DeleteBeneficiaryResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(name="DeleteBeneficiaryNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DeleteBeneficiaryView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -711,7 +813,19 @@ class DeleteBeneficiaryView(generics.GenericAPIView):
         )
 
 
-@extend_schema(summary="Get treasury account cashback balance", tags=["Treasury"])
+@extend_schema(
+    summary="Get treasury account cashback balance",
+    tags=["Treasury"],
+    description="Returns the cached cashback balance accrued on the user's treasury account from eligible transactions.",
+    responses={
+        200: inline_serializer(name="CashbackBalanceResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "cashback_balance": s.CharField(),
+        }),
+        404: inline_serializer(name="CashbackBalanceNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class GetTreasuryCashbackBalance(generics.GenericAPIView):
     """
     Return the cached cashback balance on the treasury account.

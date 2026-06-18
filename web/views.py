@@ -31,7 +31,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
-from drf_spectacular.utils import extend_schema, OpenApiExample
+import rest_framework.serializers as s
+from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
 
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
@@ -51,7 +52,16 @@ class CustomPageNumberPagination(PageNumberPagination):
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(summary="Create a job posting", tags=["Web"])
+@extend_schema(
+    summary="Create a job posting",
+    tags=["Web"],
+    description="Creates a new job posting. Requires admin role and a valid admin PIN in the request body.",
+    request=JobSerializer,
+    responses={
+        201: inline_serializer(name="CreateJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="CreateJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class CreateJob(generics.CreateAPIView):
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -109,7 +119,12 @@ class CreateJob(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="List all active job postings", tags=["Web"])
+@extend_schema(
+    summary="List all active job postings",
+    tags=["Web"],
+    description="Returns a paginated list of all job postings ordered by most recent first. Publicly accessible.",
+    responses={200: ListJobSerializer(many=True)},
+)
 class JobList(generics.ListAPIView):
     """
     List all active and non-expired job postings.
@@ -135,7 +150,15 @@ class JobList(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Get job posting details", tags=["Web"])
+@extend_schema(
+    summary="Get job posting details",
+    tags=["Web"],
+    description="Returns the full details of a single job posting identified by its integer ID. Publicly accessible.",
+    responses={
+        200: JobSerializer,
+        404: inline_serializer(name="JobDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class JobDetail(generics.RetrieveAPIView):
     serializer_class = JobSerializer
     queryset = JobModel.objects.all()
@@ -152,7 +175,16 @@ class JobDetail(generics.RetrieveAPIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Update a job posting", tags=["Web"])
+@extend_schema(
+    summary="Update a job posting",
+    tags=["Web"],
+    description="Partially updates an existing job posting. Requires admin role and a valid admin PIN in the request body.",
+    request=JobSerializer,
+    responses={
+        200: inline_serializer(name="UpdateJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="UpdateJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class UpdateJob(generics.UpdateAPIView):
     serializer_class = JobSerializer
     queryset = JobModel.objects.all()
@@ -188,7 +220,15 @@ class UpdateJob(generics.UpdateAPIView):
         return Response(encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Delete a job posting", tags=["Web"])
+@extend_schema(
+    summary="Delete a job posting",
+    tags=["Web"],
+    description="Permanently deletes a job posting by its ID. Requires admin role and a valid admin PIN in the request body.",
+    responses={
+        200: inline_serializer(name="DeleteJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="DeleteJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DeleteJob(generics.DestroyAPIView):
     queryset = JobModel.objects.all()
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -215,7 +255,24 @@ class DeleteJob(generics.DestroyAPIView):
         return Response(data=encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Submit a job application", tags=["Web"])
+@extend_schema(
+    summary="Submit a job application",
+    tags=["Web"],
+    description="Submits an application for a specific job by its ID. Accepts multipart/form-data including a CV file. Duplicate applications for the same email and job are rejected.",
+    request=ApplicationsSerializers,
+    responses={
+        201: inline_serializer(name="SubmitJobApplicationResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="SubmitJobApplicationData", fields={
+                "job_title": s.CharField(),
+                "first_name": s.CharField(),
+                "email": s.EmailField(),
+            }),
+        }),
+        400: inline_serializer(name="SubmitJobApplicationError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SubmitJobApplication(generics.CreateAPIView):
     """
     SubmitJobApplication handles the POST request of job applications to Picadailys.
@@ -340,7 +397,20 @@ class SubmitJobApplication(generics.CreateAPIView):
         self.uploaded_doc_url = doc_image["url"]
 
 
-@extend_schema(summary="List all applications for a specific job (admin)", tags=["Web"])
+@extend_schema(
+    summary="List all applications for a specific job (admin)",
+    tags=["Web"],
+    description="Admin-only POST endpoint that returns all applications for a specific job ID. Requires a valid admin PIN in the request body.",
+    request=inline_serializer(name="SingleJobApplicationsRequest", fields={"pin": s.CharField()}),
+    responses={
+        200: inline_serializer(name="SingleJobApplicationsResponse", fields={
+            "status": s.CharField(),
+            "count": s.IntegerField(),
+            "data": GetApplicationsSerializers(many=True),
+        }),
+        400: inline_serializer(name="SingleJobApplicationsError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class SingleJobApplicationsList(generics.ListAPIView):
     """
     List all applications for a specific job (Admin only).
@@ -409,7 +479,15 @@ class SingleJobApplicationsList(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="Delete a job application by ID", tags=["Web"])
+@extend_schema(
+    summary="Delete a job application by ID",
+    tags=["Web"],
+    description="Permanently deletes a specific job application by its primary key. Requires admin role and a valid admin PIN in the request body.",
+    responses={
+        200: inline_serializer(name="DeleteJobApplicationResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="DeleteJobApplicationError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class DeleteJobApplication(generics.DestroyAPIView):
     """
     Deletes a single job application entry by ID.
@@ -459,7 +537,18 @@ class DeleteJobApplication(generics.DestroyAPIView):
             )
 
 
-@extend_schema(summary="Get all job applications by email", tags=["Web"])
+@extend_schema(
+    summary="Get all job applications by email",
+    tags=["Web"],
+    description="Returns all job applications submitted by a given email address. Admin-only endpoint.",
+    responses={
+        200: inline_serializer(name="JobApplicationDetailResponse", fields={
+            "status": s.CharField(),
+            "data": ApplicationsSerializers(many=True),
+        }),
+        404: inline_serializer(name="JobApplicationDetailNotFound", fields={"error": s.CharField()}),
+    },
+)
 class JobApplicationDetail(generics.ListAPIView):
     serializer_class = ApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -492,7 +581,12 @@ class JobApplicationDetail(generics.ListAPIView):
         )
 
 
-@extend_schema(summary="List all job applications", tags=["Web"])
+@extend_schema(
+    summary="List all job applications",
+    tags=["Web"],
+    description="Returns a paginated list of all non-waitlist job applications. Admin-only endpoint.",
+    responses={200: GetApplicationsSerializers(many=True)},
+)
 class JobApplicationList(generics.ListAPIView):
     """
     List all job applications.
@@ -513,7 +607,16 @@ class JobApplicationList(generics.ListAPIView):
         return paginator.get_paginated_response(serializer.data)
 
 
-@extend_schema(summary="Subscribe to the newsletter", tags=["Web"])
+@extend_schema(
+    summary="Subscribe to the newsletter",
+    tags=["Web"],
+    description="Registers an email address for the Picadailys newsletter. Returns an error if the email is already subscribed.",
+    request=NewsletterSubscribersSerializer,
+    responses={
+        201: inline_serializer(name="NewsletterSubscribeResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="NewsletterSubscribeError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class NewsletterSubscriptionView(generics.CreateAPIView):
     """
     NewsletterSubscriptionView handles the POST request to subscribe to the newsletter.
@@ -551,7 +654,16 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
         )
 
 
-@extend_schema(summary="Unsubscribe from the newsletter via token", tags=["Web"])
+@extend_schema(
+    summary="Unsubscribe from the newsletter via token",
+    tags=["Web"],
+    description="Removes a subscriber from the newsletter using the unique unsubscribe token sent in newsletter emails.",
+    request=UnsubscribeNewsletterSerializer,
+    responses={
+        200: inline_serializer(name="NewsletterUnsubscribeResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="NewsletterUnsubscribeError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class NewsletterUnsubscribeView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UnsubscribeNewsletterSerializer
@@ -587,7 +699,12 @@ class NewsletterUnsubscribeView(generics.GenericAPIView):
             )
 
 
-@extend_schema(summary="List all newsletter subscribers (admin)", tags=["Web"])
+@extend_schema(
+    summary="List all newsletter subscribers (admin)",
+    tags=["Web"],
+    description="Returns a paginated list of all newsletter subscribers ordered by subscription date. Admin-only endpoint.",
+    responses={200: NewsletterSubscribersSerializer(many=True)},
+)
 class ListNewsletterSubscribersView(generics.ListAPIView):
     """
     List all newsletter subscribers.
@@ -617,7 +734,12 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
 @extend_schema(
     summary="Submit a Contact Us enquiry",
     tags=["Web"],
+    description="Submits a Contact Us enquiry for either Business or Personal use. Creates a support ticket and sends a notification email to the Picadailys team.",
     request=ContactUsSerializer,
+    responses={
+        200: inline_serializer(name="ContactUsResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="ContactUsError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
     examples=[
         OpenApiExample(
             "Business Use (WhatsApp)",
@@ -808,7 +930,19 @@ class ContactUsView(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="List all Contact Us requests grouped by type (admin)", tags=["Web"]
+    summary="List all Contact Us requests grouped by type (admin)",
+    tags=["Web"],
+    description="Returns all Contact Us submissions grouped into business_use and personal_use categories. Admin-only endpoint.",
+    responses={
+        200: inline_serializer(name="ListContactUsResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="ListContactUsData", fields={
+                "business_use": ContactUsSerializer(many=True),
+                "personal_use": ContactUsSerializer(many=True),
+            }),
+        }),
+    },
 )
 class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
     """
@@ -844,7 +978,24 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
         return Response(encrypt(response), status=status.HTTP_200_OK)
 
 
-@extend_schema(summary="Join the job application waitlist", tags=["Web"])
+@extend_schema(
+    summary="Join the job application waitlist",
+    tags=["Web"],
+    description="Submits a CV to join the Picadailys job application waitlist. The CV is uploaded to Cloudinary. Duplicate submissions for the same email are rejected.",
+    request=ApplicationsSerializers,
+    responses={
+        201: inline_serializer(name="JoinApplicationWaitlistResponse", fields={
+            "status": s.CharField(),
+            "message": s.CharField(),
+            "data": inline_serializer(name="JoinApplicationWaitlistData", fields={
+                "first_name": s.CharField(),
+                "email": s.EmailField(),
+                "cv": s.URLField(),
+            }),
+        }),
+        400: inline_serializer(name="JoinApplicationWaitlistError", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
 class JoinApplicationWaitlist(generics.CreateAPIView):
     """
     JoinApplicationWaitlist handles the POST request of applications waitlist to Picadailys.
@@ -902,7 +1053,10 @@ class JoinApplicationWaitlist(generics.CreateAPIView):
 
 
 @extend_schema(
-    summary="List all job application waitlist entries (admin)", tags=["Web"]
+    summary="List all job application waitlist entries (admin)",
+    tags=["Web"],
+    description="Returns a paginated list of all job application waitlist entries. Admin-only endpoint.",
+    responses={200: GetApplicationsWaitlistSerializers(many=True)},
 )
 class WaitlistApplicationList(generics.ListAPIView):
     """

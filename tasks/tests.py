@@ -8,6 +8,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import User
 from adverts.models import CreateAd
+from gamification.models import PointTransaction, Points
 from security import decrypt, encrypt
 from tasks.models import BrandTaskSubmission, SocialTask, TaskSubmission
 
@@ -221,6 +222,96 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         mock_delay.assert_not_called()
+
+
+class CompleteWebviewTaskViewTests(APITestCase):
+    url = "/v1/tasks/brand/webview/complete/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = _create_user()
+        self.brand = _create_user(active_role="BrandAd")
+        self.ad = _create_ad(self.brand, task_type="watch_video", reward_points=50)
+
+    def test_requires_authentication(self):
+        response = self.client.post(
+            self.url,
+            data=_make_payload(task_id=self.ad.id, is_done=True),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_webview_task_completion_awards_points_immediately(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            data=_make_payload(task_id=self.ad.id, is_done=True),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["data"]["task_id"], self.ad.id)
+        self.assertEqual(body["data"]["reward_points"], 50)
+        self.assertTrue(body["data"]["reward_issued"])
+
+        submission = BrandTaskSubmission.objects.get(ad=self.ad, user=self.user)
+        self.assertEqual(submission.status, "Approved")
+        self.assertTrue(submission.reward_issued)
+
+        points = Points.objects.get(user=self.user)
+        self.assertEqual(points.balance, 50)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.total_points, 50)
+        self.assertTrue(
+            PointTransaction.objects.filter(
+                user=self.user,
+                source="watch_video",
+                reference_id=str(submission.pk),
+                amount=50,
+            ).exists()
+        )
+
+    def test_rejects_when_is_done_is_false(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            data=_make_payload(task_id=self.ad.id, is_done=False),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists())
+
+    def test_rejects_non_webview_task(self):
+        social_ad = _create_ad(self.brand, task_type="social_engage")
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            data=_make_payload(task_id=social_ad.id, is_done=True),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(BrandTaskSubmission.objects.filter(ad=social_ad, user=self.user).exists())
+
+    def test_rejects_duplicate_completion(self):
+        BrandTaskSubmission.objects.create(ad=self.ad, user=self.user, status="Approved", reward_issued=True)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            data=_make_payload(task_id=self.ad.id, is_done=True),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).count(), 1)
 
 
 # My Brand Submissions
