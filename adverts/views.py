@@ -255,7 +255,10 @@ _ERROR_RESP = inline_serializer(
             "Success",
             response_only=True,
             status_codes=["200"],
-            value={"status": "Success!", "message": "Brand advert promoted successfully."},
+            value={
+                "status": "Success!",
+                "message": "Brand advert promoted successfully.",
+            },
         ),
         OpenApiExample(
             "Insufficient Balance",
@@ -314,6 +317,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
             match payment_option:
                 case "WALLET":
+                    insufficient_balance = False
                     try:
                         with transaction.atomic():
                             # 1. Bring in any credit from the user's expired ads.
@@ -321,30 +325,36 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
                             # 2. Check live wallet balance BEFORE saving the ad so
                             #    we never persist an ad the user can't pay for.
-                            account = WalletModel.objects.select_for_update().get(user=user)
+                            account = WalletModel.objects.select_for_update().get(
+                                user=user
+                            )
                             enquiry = Wallet.getWalletDetails(account.account_number)
                             if enquiry and hasattr(enquiry, "json"):
                                 enquiry_data = enquiry.json()
                                 live_balance = Decimal(
-                                    str(enquiry_data.get("data", {}).get("availableBalance", 0))
+                                    str(
+                                        enquiry_data.get("data", {}).get(
+                                            "availableBalance", 0
+                                        )
+                                    )
                                 )
                             else:
                                 live_balance = account.balance
 
                             preview_credit = min(available_credit, full_charge)
-                            preview_debit = int(full_charge - preview_credit)
+                            preview_debit = full_charge - preview_credit
 
                             if live_balance < preview_debit:
-                                return Response(
-                                    data=encrypt({"status": "fail", "message": "Insufficient balance."}),
-                                    status=status.HTTP_400_BAD_REQUEST,
-                                )
+                                insufficient_balance = True
+                                raise ValueError("Insufficient balance.")
 
                             # 3. Save the ad only after the balance check passes.
                             new_ad = serializer.save()
 
                             # 4. Apply any available credit against this ad's charge.
-                            credit_applied, effective_charge = apply_credit(user, new_ad, full_charge)
+                            credit_applied, effective_charge = apply_credit(
+                                user, new_ad, full_charge
+                            )
                             effective_debit = int(effective_charge)
 
                             # 5. Execute the wallet debit. Raise on failure so the
@@ -356,11 +366,16 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     reason="Debit for brand promotion.",
                                     merchantFeeAmount="0.00",
                                 )
-                                if debit_response is None or debit_response.status_code != 200:
+                                if (
+                                    debit_response is None
+                                    or debit_response.status_code != 200
+                                ):
                                     raise ValueError("Wallet debit failed")
 
                             credit_msg = (
-                                f" (₦{credit_applied} credit applied)" if credit_applied > 0 else ""
+                                f" (₦{credit_applied} credit applied)"
+                                if credit_applied > 0
+                                else ""
                             )
 
                             TxModel.objects.create(
@@ -387,23 +402,49 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             logger.info(
                                 "Brand promotion payment successful for user %s "
                                 "(charged: %s, credit applied: %s)",
-                                user.email, effective_debit, credit_applied,
+                                user.email,
+                                effective_debit,
+                                credit_applied,
                             )
 
                             return Response(
-                                data=encrypt({"status": "Success!", "message": "Brand advert promoted successfully."}),
+                                data=encrypt(
+                                    {
+                                        "status": "Success!",
+                                        "message": "Brand advert promoted successfully.",
+                                    }
+                                ),
                                 status=status.HTTP_200_OK,
                             )
 
                     except ValueError:
+                        if insufficient_balance:
+                            return Response(
+                                data=encrypt(
+                                    {
+                                        "status": "fail",
+                                        "message": "Insufficient balance.",
+                                    }
+                                ),
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
                         return Response(
-                            data=encrypt({"status": "fail", "message": "Debit failed. Please try again."}),
+                            data=encrypt(
+                                {
+                                    "status": "fail",
+                                    "message": "Debit failed. Please try again.",
+                                }
+                            ),
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                     except Exception as e:
-                        logger.exception(f"Transaction error during wallet payment: {e}")
+                        logger.exception(
+                            f"Transaction error during wallet payment: {e}"
+                        )
                         return Response(
-                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
 
@@ -416,7 +457,9 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         )
                         effective_debit = int(effective_charge)
                     credit_msg = (
-                        f" (₦{credit_applied} credit applied)" if credit_applied > 0 else ""
+                        f" (₦{credit_applied} credit applied)"
+                        if credit_applied > 0
+                        else ""
                     )
                     TxModel.objects.create(
                         user=user,
@@ -439,7 +482,9 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                     logger.info(
                         "Brand promotion payment successful for user %s "
                         "(charged: %s, credit applied: %s)",
-                        user.email, effective_debit, credit_applied,
+                        user.email,
+                        effective_debit,
+                        credit_applied,
                     )
                     return Response(
                         data=encrypt(
@@ -477,7 +522,13 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     tags=["Brand Ads"],
     description="Admin-only. Returns all users who have the **BrandAd** role. Paginated — 20 per page.",
     parameters=[
-        OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Page number (default: 1)", required=False),
+        OpenApiParameter(
+            "page",
+            OpenApiTypes.INT,
+            OpenApiParameter.QUERY,
+            description="Page number (default: 1)",
+            required=False,
+        ),
     ],
     responses={200: BrandAdProfileSerializers(many=True)},
 )
@@ -532,7 +583,13 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
         "`remaining_time` returns `'Expired'` once the campaign duration elapses."
     ),
     parameters=[
-        OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Page number (default: 1)", required=False),
+        OpenApiParameter(
+            "page",
+            OpenApiTypes.INT,
+            OpenApiParameter.QUERY,
+            description="Page number (default: 1)",
+            required=False,
+        ),
     ],
     responses={200: AdSerializers(many=True)},
 )
@@ -601,13 +658,32 @@ class ListAllBrandAds(generics.ListAPIView):
     ],
     responses={
         200: BrandAdProfileSerializers,
-        400: inline_serializer(name="ProfileMissingEmailError", fields={"status": s.CharField(), "error": s.CharField()}),
-        403: inline_serializer(name="ProfileNotBrandAdError", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer(name="ProfileNotFoundError", fields={"status": s.CharField(), "error": s.CharField()}),
+        400: inline_serializer(
+            name="ProfileMissingEmailError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="ProfileNotBrandAdError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="ProfileNotFoundError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
     examples=[
-        OpenApiExample("Not a BrandAd", response_only=True, status_codes=["403"], value={"status": "fail", "error": "User is not a BrandAd"}),
-        OpenApiExample("User not found", response_only=True, status_codes=["404"], value={"status": "fail", "error": "User not found"}),
+        OpenApiExample(
+            "Not a BrandAd",
+            response_only=True,
+            status_codes=["403"],
+            value={"status": "fail", "error": "User is not a BrandAd"},
+        ),
+        OpenApiExample(
+            "User not found",
+            response_only=True,
+            status_codes=["404"],
+            value={"status": "fail", "error": "User not found"},
+        ),
     ],
 )
 class GetBrandAdDetails(generics.RetrieveAPIView):
@@ -679,7 +755,9 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
     request=UpdateBrandAdProfileSerializers,
     responses={
         200: UpdateBrandAdProfileSerializers,
-        400: inline_serializer(name="UpdateProfileError", fields={"detail": s.CharField()}),
+        400: inline_serializer(
+            name="UpdateProfileError", fields={"detail": s.CharField()}
+        ),
     },
 )
 class UpdateBrandAdProfile(generics.UpdateAPIView):
@@ -735,10 +813,18 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
     description="Fetch one ad campaign by its numeric ID. Cached for **5 minutes**.",
     responses={
         200: AdSerializers,
-        404: inline_serializer(name="SingleAdNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(
+            name="SingleAdNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
     examples=[
-        OpenApiExample("Not found", response_only=True, status_codes=["404"], value={"status": "fail", "message": "Ad not found."}),
+        OpenApiExample(
+            "Not found",
+            response_only=True,
+            status_codes=["404"],
+            value={"status": "fail", "message": "Ad not found."},
+        ),
     ],
 )
 class SingleAdDetailView(generics.RetrieveAPIView):
@@ -938,10 +1024,13 @@ class SingleAdDetailView(generics.RetrieveAPIView):
 #                 return Response(data=encrypted_success, status=status.HTTP_200_OK)
 
 
-
 _COST_PREVIEW_REQUEST = inline_serializer(
     name="CostPreviewRequest",
-    fields={"amount": s.CharField(help_text="Total campaign cost the frontend calculated (Naira). E.g. '15000'")},
+    fields={
+        "amount": s.CharField(
+            help_text="Total campaign cost the frontend calculated (Naira). E.g. '15000'"
+        )
+    },
 )
 
 _COST_PREVIEW_RESPONSE = inline_serializer(
@@ -952,9 +1041,15 @@ _COST_PREVIEW_RESPONSE = inline_serializer(
             name="CostPreviewData",
             fields={
                 "new_ad_total": s.CharField(help_text="The amount you sent"),
-                "ledger_balance": s.CharField(help_text="Available credit from unused slots on past expired ads"),
-                "credit_to_apply": s.CharField(help_text="How much credit will be deducted"),
-                "amount_to_charge": s.CharField(help_text="What the user actually pays"),
+                "ledger_balance": s.CharField(
+                    help_text="Available credit from unused slots on past expired ads"
+                ),
+                "credit_to_apply": s.CharField(
+                    help_text="How much credit will be deducted"
+                ),
+                "amount_to_charge": s.CharField(
+                    help_text="What the user actually pays"
+                ),
             },
         ),
     },
@@ -971,7 +1066,10 @@ _COST_PREVIEW_RESPONSE = inline_serializer(
     request=_COST_PREVIEW_REQUEST,
     responses={
         200: _COST_PREVIEW_RESPONSE,
-        400: inline_serializer(name="CostPreviewError", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(
+            name="CostPreviewError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
     examples=[
         OpenApiExample(
@@ -1037,13 +1135,17 @@ class AdCostPreviewView(generics.GenericAPIView):
             amount = Decimal(str(payload.get("amount", 0)))
         except Exception:
             return Response(
-                data=encrypt({"status": "fail", "message": "amount must be a valid number."}),
+                data=encrypt(
+                    {"status": "fail", "message": "amount must be a valid number."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if amount <= 0:
             return Response(
-                data=encrypt({"status": "fail", "message": "amount must be greater than zero."}),
+                data=encrypt(
+                    {"status": "fail", "message": "amount must be greater than zero."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1060,16 +1162,16 @@ class AdCostPreviewView(generics.GenericAPIView):
         amount_to_charge = amount - credit_to_apply
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "data": {
-                    "new_ad_total": str(amount),
-                    "ledger_balance": str(ledger_balance),
-                    "credit_to_apply": str(credit_to_apply),
-                    "amount_to_charge": str(amount_to_charge),
-                },
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "new_ad_total": str(amount),
+                        "ledger_balance": str(ledger_balance),
+                        "credit_to_apply": str(credit_to_apply),
+                        "amount_to_charge": str(amount_to_charge),
+                    },
+                }
+            ),
             status=status.HTTP_200_OK,
         )
-
-

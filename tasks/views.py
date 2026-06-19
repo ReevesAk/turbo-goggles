@@ -16,7 +16,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from adverts.models import CreateAd
-from gamification.models import StreakChallenge
+from gamification.models import StreakChallenge, UserStreak
+from gamification.points import Points
 from security import encrypt, decrypt
 from .jobs import (
     approve_brand_submission,
@@ -35,7 +36,6 @@ from .serializers import (
     SubmitBrandTaskSerializer,
     SubmitTaskSerializer,
     TaskSubmissionSerializer,
-    UnifiedSubmitSerializer,
     UserTrustScoreSerializer,
 )
 
@@ -284,9 +284,9 @@ class BrandTaskFeedView(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="Submit completion proof for a brand campaign task",
+    summary="Submit proof for a social engagement brand task",
     tags=["Tasks"],
-    description="Submit proof of completing a brand campaign task. Social engage and app download tasks require a screenshot and are queued for review; all other types are auto-approved immediately.",
+    description="Submit screenshot proof for social_engage or app_download brand campaign tasks. The submission is queued for admin review. For watch_video, website_visit, survey, and store_visit tasks use the webview completion endpoint instead.",
     request=SubmitBrandTaskSerializer,
     responses={
         201: inline_serializer(name="SubmitBrandTaskResponse", fields={
@@ -298,11 +298,7 @@ class BrandTaskFeedView(generics.ListAPIView):
     },
 )
 class SubmitBrandTaskView(generics.CreateAPIView):
-    """
-    User submits proof of completing a brand campaign task.
-    - watch_video / website_visit / survey / store_visit: auto-approved on submission.
-    - social_engage / app_download: screenshot required, queued for review.
-    """
+    """Submit screenshot proof for social_engage / app_download brand tasks — always queued for review."""
 
     serializer_class = SubmitBrandTaskSerializer
     authentication_classes = [JWTAuthentication]
@@ -317,35 +313,11 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             serializer.is_valid(raise_exception=True)
             submission = serializer.save()
 
-            task_type = submission.ad.task_type
-            needs_screenshot_review = task_type in ("social_engage", "app_download")
+            trust, _ = UserTrustScore.objects.get_or_create(user=request.user)
 
-            if needs_screenshot_review:
-                # Stays Pending — admin/AI reviews the screenshot
-                logger.info(
-                    "Brand task submission %s queued for review (type: %s)",
-                    submission.pk, task_type,
-                )
-                send_push_to_admins(
-                    title="Brand Task Needs Review",
-                    body=f"{request.user.full_name or request.user.email} submitted proof for '{submission.ad.campaign_name}' — requires review.",
-                    data={"type": "brand_review", "submission_id": str(submission.pk)},
-                )
-                return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Submission received. Your screenshot is being reviewed.",
-                        "data": {"submission_id": str(submission.pk)},
-                    }),
-                    status=status.HTTP_201_CREATED,
-                )
-            else:
-                # Auto-approve: timer/QR/survey completed client-side
+            if trust.can_auto_approve:
                 approve_brand_submission.delay(str(submission.pk), None)
-                logger.info(
-                    "Brand task submission %s auto-approved (type: %s)",
-                    submission.pk, task_type,
-                )
+                logger.info("Brand task submission %s auto-approved (high trust, type: %s)", submission.pk, submission.ad.task_type)
                 return Response(
                     data=encrypt({
                         "status": "success",
@@ -354,6 +326,21 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                     }),
                     status=status.HTTP_201_CREATED,
                 )
+
+            send_push_to_admins(
+                title="Brand Task Needs Review",
+                body=f"{request.user.full_name or request.user.email} submitted proof for '{submission.ad.campaign_name}' — requires review.",
+                data={"type": "brand_review", "submission_id": str(submission.pk)},
+            )
+            logger.info("Brand task submission %s queued for review (type: %s)", submission.pk, submission.ad.task_type)
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Submission received. Your screenshot is being reviewed.",
+                    "data": {"submission_id": str(submission.pk)},
+                }),
+                status=status.HTTP_201_CREATED,
+            )
 
         except s.ValidationError as err:
             logger.warning("Brand task submission validation failed for user %s: %s", request.user.id, err.detail)
@@ -369,147 +356,29 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             )
 
 
+
 @extend_schema(
-    summary="Submit a task (unified)",
+    summary="Complete a webview or in-app task",
     tags=["Tasks"],
     description=(
-        "Single submission endpoint for all task types. "
-        "Pass source='social' for admin-created SocialTask items or source='brand' for brand campaign tasks. "
-        "screenshot_url is required when the task type is social_engage; optional otherwise."
+        "Marks a watch_video, website_visit, survey, or store_visit brand task as done and credits points immediately. "
+        "Also handles in-app StreakChallenge tasks (source='inapp'). "
+        "Payload: task_id, is_done=true, source ('brand' or 'inapp')."
     ),
-    request=inline_serializer(name="UnifiedSubmitRequest", fields={
-        "task_id": s.CharField(),
-        "source": s.ChoiceField(choices=["brand", "social"]),
-        "screenshot_url": s.CharField(required=False),
-        "notes": s.CharField(required=False),
-    }),
-    responses={
-        201: inline_serializer(name="UnifiedSubmitResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": s.DictField(),
-        }),
-        400: inline_serializer(name="UnifiedSubmitError", fields={"status": s.CharField(), "message": s.CharField()}),
-    },
-)
-class UnifiedSubmitView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            decrypted_payload = decrypt(request.data)
-            if not isinstance(decrypted_payload, dict):
-                raise ValueError("Decrypted payload is not a valid object.")
-
-            user_data = {
-                key: value.strip() if isinstance(value, str) else value
-                for key, value in decrypted_payload.items()
-            }
-
-            serializer = UnifiedSubmitSerializer(data=user_data, context={"request": request})
-            serializer.is_valid(raise_exception=True)
-
-            source = serializer.validated_data["source"]
-            screenshot_url = serializer.validated_data.get("screenshot_url")
-            notes = serializer.validated_data.get("notes", "")
-
-            if source == "social":
-                task = serializer.validated_data["task"]
-                verification_code = None
-                if task.task_type in ("Comment", "Post"):
-                    code = "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
-                    verification_code = f"PD-{code}"
-
-                submission = TaskSubmission.objects.create(
-                    user=request.user,
-                    task=task,
-                    screenshot_url=screenshot_url,
-                    notes=notes,
-                    verification_code=verification_code,
-                )
-                run_verification.delay(str(submission.pk))
-
-                response_data = {
-                    "status": "success",
-                    "message": "Submission received. Verification in progress.",
-                    "data": {"submission_id": str(submission.pk)},
-                }
-                if verification_code:
-                    response_data["data"]["verification_code"] = verification_code
-                    response_data["data"]["verification_note"] = (
-                        f"Include this code verbatim in your {task.task_type.lower()}: {verification_code}"
-                    )
-
-            else:  # brand
-                ad = serializer.validated_data["ad"]
-                submission = BrandTaskSubmission.objects.create(
-                    ad=ad,
-                    user=request.user,
-                    screenshot_url=screenshot_url,
-                    notes=notes,
-                )
-
-                if ad.task_type == "social_engage":
-                    send_push_to_admins(
-                        title="Brand Task Needs Review",
-                        body=f"{request.user.full_name or request.user.email} submitted proof for '{ad.campaign_name}' — requires review.",
-                        data={"type": "brand_review", "submission_id": str(submission.pk)},
-                    )
-                    response_data = {
-                        "status": "success",
-                        "message": "Submission received. Your screenshot is being reviewed.",
-                        "data": {"submission_id": str(submission.pk)},
-                    }
-                else:
-                    approve_brand_submission.delay(str(submission.pk), None)
-                    response_data = {
-                        "status": "success",
-                        "message": "Task completed! Points are being credited.",
-                        "data": {"submission_id": str(submission.pk)},
-                    }
-
-                cache.delete(f"brand_task_feed:{request.user.id}")
-
-            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
-
-        except s.ValidationError as err:
-            logger.warning("UnifiedSubmitView validation failed for user %s: %s", request.user.id, err.detail)
-            return Response(
-                data=encrypt({"status": "error", "message": err.detail}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as err:
-            logger.error("UnifiedSubmitView failed for user %s: %s", request.user.id, str(err), exc_info=True)
-            return Response(
-                data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-
-@extend_schema(
-    summary="Complete a brand task",
-    tags=["Tasks"],
-    description="Marks any brand campaign task as completed from the mobile app and credits the reward points immediately. The app is responsible for client-side verification (timers, engagement, etc.) before calling this endpoint.",
     request=CompleteWebviewTaskSerializer,
     responses={
         201: inline_serializer(name="CompleteWebviewTaskResponse", fields={
             "status": s.CharField(),
             "message": s.CharField(),
-            "data": inline_serializer(name="CompleteWebviewTaskData", fields={
-                "submission_id": s.UUIDField(),
-                "task_id": s.IntegerField(),
-                "reward_points": s.IntegerField(),
-                "reward_issued": s.BooleanField(),
-            }),
+            "data": s.DictField(),
         }),
         400: inline_serializer(name="CompleteWebviewTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
     },
 )
 class CompleteWebviewTaskView(APIView):
     """
-    Completes any brand campaign task. Client-side verification is handled
-    by the mobile app before this endpoint is called.
+    Completes watch_video / website_visit / survey / store_visit brand tasks, and any
+    in-app StreakChallenge tasks of those types created from the admin (source='inapp').
     """
 
     authentication_classes = [JWTAuthentication]
@@ -530,26 +399,81 @@ class CompleteWebviewTaskView(APIView):
                 data=user_data, context={"request": request}
             )
             serializer.is_valid(raise_exception=True)
-            ad = serializer.validated_data["ad"]
-            submission = BrandTaskSubmission.objects.create(
-                ad=ad,
-                user=request.user,
-                notes="Completed via mobile webview.",
-            )
+            source = serializer.validated_data.get("source", "brand")
 
-            points_awarded = approve_brand_submission_now(str(submission.pk), None)
-            cache.delete(f"brand_task_feed:{request.user.id}")
+            if source == "brand":
+                ad = serializer.validated_data["ad"]
+                submission = BrandTaskSubmission.objects.create(
+                    ad=ad,
+                    user=request.user,
+                    notes="Completed via mobile webview.",
+                )
+                points_awarded = approve_brand_submission_now(str(submission.pk), None)
+                cache.delete(f"brand_task_feed:{request.user.id}")
 
-            response_data = {
-                "status": "success",
-                "message": "Task completed. Points credited.",
-                "data": {
-                    "submission_id": str(submission.pk),
-                    "task_id": ad.id,
-                    "reward_points": points_awarded or 0,
-                    "reward_issued": True,
-                },
-            }
+                response_data = {
+                    "status": "success",
+                    "message": "Task completed. Points credited.",
+                    "data": {
+                        "submission_id": str(submission.pk),
+                        "task_id": ad.id,
+                        "reward_points": points_awarded or 0,
+                        "reward_issued": True,
+                    },
+                }
+
+            else:  # inapp
+                challenge = serializer.validated_data["challenge"]
+                today = timezone.now().date()
+
+                user_streak, _ = UserStreak.objects.get_or_create(
+                    user=request.user,
+                    challenge=challenge,
+                )
+
+                if user_streak.last_activity_date == today:
+                    return Response(
+                        data=encrypt({"status": "error", "message": "Already recorded today's activity for this challenge."}),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                user_streak.current_count += 1
+                user_streak.last_activity_date = today
+                if user_streak.current_count > user_streak.longest_count:
+                    user_streak.longest_count = user_streak.current_count
+
+                points_awarded = 0
+                reward_issued = False
+                if user_streak.current_count >= challenge.duration_days and not user_streak.reward_issued:
+                    awarded, _ = Points.award(
+                        user=request.user,
+                        amount=challenge.reward_points,
+                        reason=f"Completed challenge: {challenge.name}",
+                        source="inapp_task",
+                        reference_id=str(challenge.id),
+                    )
+                    if awarded:
+                        user_streak.completed = True
+                        user_streak.completed_at = timezone.now()
+                        user_streak.reward_issued = True
+                        points_awarded = challenge.reward_points
+                        reward_issued = True
+
+                user_streak.save()
+                cache.delete(f"brand_task_feed:{request.user.id}")
+
+                response_data = {
+                    "status": "success",
+                    "message": "Task completed. Points credited." if reward_issued else "Activity recorded.",
+                    "data": {
+                        "challenge_id": str(challenge.id),
+                        "current_count": user_streak.current_count,
+                        "duration_days": challenge.duration_days,
+                        "reward_points": points_awarded,
+                        "reward_issued": reward_issued,
+                    },
+                }
+
             return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
         except s.ValidationError as err:

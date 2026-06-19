@@ -39,6 +39,7 @@ from .views import (
     CreateKnowledgeBaseView,
     ListKnowledgeBaseView,
     KnowledgeBaseDetailView,
+    GamificationDashboardView,
 )
 
 from .tasks import (
@@ -223,9 +224,19 @@ urlpatterns = [
     ),
     # In-app task admin endpoints
     path("tasks/in-app/", ListInAppTasksView.as_view(), name="in_app_task_list"),
-    path("tasks/in-app/create/", CreateInAppTaskView.as_view(), name="in_app_task_create"),
-    path("tasks/in-app/<uuid:task_id>/", InAppTaskDetailView.as_view(), name="in_app_task_detail"),
-    path("tasks/in-app/<uuid:task_id>/update/", UpdateInAppTaskView.as_view(), name="in_app_task_update"),
+    path(
+        "tasks/in-app/create/", CreateInAppTaskView.as_view(), name="in_app_task_create"
+    ),
+    path(
+        "tasks/in-app/<uuid:task_id>/",
+        InAppTaskDetailView.as_view(),
+        name="in_app_task_detail",
+    ),
+    path(
+        "tasks/in-app/<uuid:task_id>/update/",
+        UpdateInAppTaskView.as_view(),
+        name="in_app_task_update",
+    ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.
     path(
@@ -285,8 +296,16 @@ urlpatterns = [
     ),
     # Brand task admin endpoints
     path("brands/tasks/", BrandTaskListAdminView.as_view(), name="brand_task_list"),
-    path("brands/tasks/<int:ad_id>/", BrandTaskDetailAdminView.as_view(), name="brand_task_detail"),
-    path("brands/tasks/<int:ad_id>/boost-points/", BoostTaskPointsView.as_view(), name="brand_task_boost_points"),
+    path(
+        "brands/tasks/<int:ad_id>/",
+        BrandTaskDetailAdminView.as_view(),
+        name="brand_task_detail",
+    ),
+    path(
+        "brands/tasks/<int:ad_id>/boost-points/",
+        BoostTaskPointsView.as_view(),
+        name="brand_task_boost_points",
+    ),
     # Streak challenge admin endpoints
     path("streaks/", ListStreakChallengesView.as_view(), name="admin_streak_list"),
     path(
@@ -346,6 +365,11 @@ urlpatterns = [
         "admin-dashboard-data",
         AdminDashboardDataView.as_view(),
         name="admin_dashboard_data",
+    ),
+    path(
+        "gamification-dashboard",
+        GamificationDashboardView.as_view(),
+        name="gamification_dashboard",
     ),
     # Treasury account admin endpoints.
     path(

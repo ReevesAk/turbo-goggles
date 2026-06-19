@@ -47,7 +47,15 @@ logger = logging.getLogger(__name__)
     tags=["Wallet"],
     description="Returns all registered wallet owners with their account details and last 5 transactions. Results are cached for 5 minutes.",
     responses={
-        200: inline_serializer("GetallWalletUsersResponse", fields={"status": s.CharField(), "message": s.CharField(), "num_of_wallet_owners": s.IntegerField(), "wallet_owners": s.ListField()}),
+        200: inline_serializer(
+            "GetallWalletUsersResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "num_of_wallet_owners": s.IntegerField(),
+                "wallet_owners": s.ListField(),
+            },
+        ),
     },
 )
 class GetallWalletUsers(generics.ListAPIView):
@@ -120,8 +128,22 @@ class GetallWalletUsers(generics.ListAPIView):
     tags=["Wallet"],
     description="Searches wallet records by account number (numeric query) or account name (text query). Returns matching wallet entries.",
     responses={
-        200: inline_serializer("WalletSearchResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
-        404: inline_serializer("WalletSearchNotFound", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "WalletSearchResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
+        404: inline_serializer(
+            "WalletSearchNotFound",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class WalletSearch(generics.ListAPIView):
@@ -170,10 +192,26 @@ class WalletSearch(generics.ListAPIView):
     description="Updates the status of a wallet (e.g., active, frozen, suspended). Requires admin PIN verification before the change is applied.",
     request=ChangeWalletStatusSerializer,
     responses={
-        200: inline_serializer("ChangeWalletStatusResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("ChangeWalletStatusBadRequest", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("ChangeWalletStatusUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("ChangeWalletStatusNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "ChangeWalletStatusResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "ChangeWalletStatusBadRequest",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "ChangeWalletStatusUnauthorized",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "ChangeWalletStatusNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ChangeWalletStatusView(generics.RetrieveAPIView):
@@ -329,10 +367,21 @@ class UserKYCListView(generics.ListAPIView):
         }
     },
     responses={
-        200: inline_serializer("UpgradeToTier3WalletResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("UpgradeToTier3WalletError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("UpgradeToTier3WalletUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("UpgradeToTier3WalletNotFound", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            "UpgradeToTier3WalletResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "UpgradeToTier3WalletError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "UpgradeToTier3WalletUnauthorized",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "UpgradeToTier3WalletNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class UpgradeToTier3Wallet(generics.GenericAPIView):
@@ -447,11 +496,26 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
     summary="[Admin] Generate Dojah address verification link for a corporate applicant",
     tags=["Wallet"],
     description="Generates and emails a Dojah identity verification link to the contact person of a pending corporate wallet application. Identified by TIN.",
-    request=inline_serializer("RequestCorporateAddressVerificationRequest", fields={"tin": s.CharField()}),
+    request=inline_serializer(
+        "RequestCorporateAddressVerificationRequest", fields={"tin": s.CharField()}
+    ),
     responses={
-        200: inline_serializer("RequestCorporateAddressVerificationResponse", fields={"status": s.CharField(), "message": s.CharField(), "reference_id": s.CharField()}),
-        400: inline_serializer("RequestCorporateAddressVerificationError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("RequestCorporateAddressVerificationNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "RequestCorporateAddressVerificationResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "reference_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "RequestCorporateAddressVerificationError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "RequestCorporateAddressVerificationNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class RequestCorporateAddressVerification(generics.GenericAPIView):
@@ -578,11 +642,26 @@ class RequestCorporateAddressVerification(generics.GenericAPIView):
         }
     },
     responses={
-        200: inline_serializer("SubmitCorporateTo9PSBResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SubmitCorporateTo9PSBError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("SubmitCorporateTo9PSBUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("SubmitCorporateTo9PSBNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer("SubmitCorporateTo9PSBGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "SubmitCorporateTo9PSBResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SubmitCorporateTo9PSBError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "SubmitCorporateTo9PSBUnauthorized",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "SubmitCorporateTo9PSBNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            "SubmitCorporateTo9PSBGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SubmitCorporateTo9PSB(generics.GenericAPIView):

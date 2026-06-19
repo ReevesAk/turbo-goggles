@@ -22,12 +22,16 @@ def reconcile_credit(user) -> Decimal:
     """
     now = timezone.now()
 
-    expired_unsettled = CreateAd.objects.select_for_update().filter(
-        user=user,
-        credit_settled=False,
-        slot_cap__isnull=False,
-        expiry_date__lte=now,
-    ).exclude(slot_cap=0)
+    expired_unsettled = (
+        CreateAd.objects.select_for_update()
+        .filter(
+            user=user,
+            credit_settled=False,
+            slot_cap__isnull=False,
+            expiry_date__lte=now,
+        )
+        .exclude(slot_cap=0)
+    )
 
     if not expired_unsettled.exists():
         wallet, _ = BrandAdCreditWallet.objects.get_or_create(user=user)

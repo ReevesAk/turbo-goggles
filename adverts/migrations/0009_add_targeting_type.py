@@ -6,13 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('adverts', '0008_add_credit_settled_wallet_ledger'),
+        ("adverts", "0008_add_credit_settled_wallet_ledger"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='createad',
-            name='targeting_type',
-            field=models.CharField(choices=[('broad', 'Broad — All of Nigeria'), ('city', 'City-Specific'), ('niche', 'Niche Behavior'), ('influencer', 'Influencer Tier (10k+ followers)')], default='broad', help_text='Determines the pricing multiplier: broad/city/niche/influencer', max_length=15),
+            model_name="createad",
+            name="targeting_type",
+            field=models.CharField(
+                choices=[
+                    ("broad", "Broad — All of Nigeria"),
+                    ("city", "City-Specific"),
+                    ("niche", "Niche Behavior"),
+                    ("influencer", "Influencer Tier (10k+ followers)"),
+                ],
+                default="broad",
+                help_text="Determines the pricing multiplier: broad/city/niche/influencer",
+                max_length=15,
+            ),
         ),
     ]

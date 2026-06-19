@@ -39,18 +39,27 @@ WAITLIST_REWARD = 500
     description="GET returns current waitlist slot counts. POST registers a new user on the beta waitlist, sends an OTP, and awards 10 points. Supports referral codes.",
     request=WaitlistSerialiser,
     responses={
-        200: inline_serializer(name="WaitlistStatusResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="WaitlistStatusData", fields={
-                "waitlist_target": s.IntegerField(),
-                "total_joined": s.IntegerField(),
-                "remaining_slots": s.IntegerField(),
-                "reward": s.IntegerField(),
-            }),
-        }),
+        200: inline_serializer(
+            name="WaitlistStatusResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="WaitlistStatusData",
+                    fields={
+                        "waitlist_target": s.IntegerField(),
+                        "total_joined": s.IntegerField(),
+                        "remaining_slots": s.IntegerField(),
+                        "reward": s.IntegerField(),
+                    },
+                ),
+            },
+        ),
         201: WaitlistSerialiser,
-        400: inline_serializer(name="JoinWaitlistError", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(
+            name="JoinWaitlistError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class JoinBetaUserWaitList(generics.GenericAPIView):
@@ -172,24 +181,44 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
     tags=["Waitlist"],
     description="Returns full waitlist details for a user identified by email. If the user is unverified, a new OTP is sent to their phone.",
     parameters=[
-        OpenApiParameter(name="email", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="The email address of the waitlist user"),
+        OpenApiParameter(
+            name="email",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="The email address of the waitlist user",
+        ),
     ],
     responses={
-        200: inline_serializer(name="WaitlistDashboardResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="WaitlistDashboardData", fields={
-                "first_name": s.CharField(),
-                "last_name": s.CharField(),
-                "email": s.EmailField(),
-                "referral_code": s.CharField(),
-                "points": s.IntegerField(),
-                "remaining_slots": s.IntegerField(),
-            }),
-        }),
-        400: inline_serializer(name="WaitlistDashboardError", fields={"status": s.CharField(), "message": s.CharField()}),
-        403: inline_serializer(name="WaitlistUnverified", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer(name="WaitlistDashboardNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="WaitlistDashboardResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="WaitlistDashboardData",
+                    fields={
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "email": s.EmailField(),
+                        "referral_code": s.CharField(),
+                        "points": s.IntegerField(),
+                        "remaining_slots": s.IntegerField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="WaitlistDashboardError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            name="WaitlistUnverified",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="WaitlistDashboardNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class WaitlistDashboardView(APIView):
@@ -262,9 +291,18 @@ class WaitlistDashboardView(APIView):
     description="Submit the OTP sent to the user's phone after joining the waitlist. On success, the account is marked as verified.",
     request=VerifyWaitlistOTPSerializer,
     responses={
-        200: inline_serializer(name="VerifyWaitlistOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="VerifyWaitlistOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer(name="VerifyWaitlistOTPNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="VerifyWaitlistOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="VerifyWaitlistOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="VerifyWaitlistOTPNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class VerifyWaitlistOTP(APIView):
@@ -321,16 +359,23 @@ class WaitlistPagination(PageNumberPagination):
     tags=["Waitlist"],
     description="Returns a paginated public leaderboard of waitlist users with limited details (name, referral code, points). Ordered by points descending.",
     responses={
-        200: inline_serializer(name="PublicWaitlistResponse", fields={
-            "count": s.IntegerField(),
-            "remaining_slots": s.IntegerField(),
-            "results": inline_serializer(name="PublicWaitlistItem", fields={
-                "first_name": s.CharField(),
-                "last_name": s.CharField(),
-                "referral_code": s.CharField(),
-                "points": s.IntegerField(),
-            }, many=True),
-        }),
+        200: inline_serializer(
+            name="PublicWaitlistResponse",
+            fields={
+                "count": s.IntegerField(),
+                "remaining_slots": s.IntegerField(),
+                "results": inline_serializer(
+                    name="PublicWaitlistItem",
+                    fields={
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "referral_code": s.CharField(),
+                        "points": s.IntegerField(),
+                    },
+                    many=True,
+                ),
+            },
+        ),
     },
 )
 class PublicWaitlistListView(generics.ListAPIView):
@@ -376,18 +421,25 @@ class PublicWaitlistListView(generics.ListAPIView):
     tags=["Waitlist"],
     description="Admin-only paginated list of all waitlist users with full details including email, phone, and institution. Accessible to TaskAdmin and SuperAdmin only.",
     responses={
-        200: inline_serializer(name="AdminWaitlistResponse", fields={
-            "count": s.IntegerField(),
-            "remaining_slots": s.IntegerField(),
-            "results": inline_serializer(name="AdminWaitlistItem", fields={
-                "id": s.IntegerField(),
-                "first_name": s.CharField(),
-                "last_name": s.CharField(),
-                "email": s.EmailField(),
-                "phone": s.CharField(),
-                "points": s.IntegerField(),
-            }, many=True),
-        }),
+        200: inline_serializer(
+            name="AdminWaitlistResponse",
+            fields={
+                "count": s.IntegerField(),
+                "remaining_slots": s.IntegerField(),
+                "results": inline_serializer(
+                    name="AdminWaitlistItem",
+                    fields={
+                        "id": s.IntegerField(),
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "email": s.EmailField(),
+                        "phone": s.CharField(),
+                        "points": s.IntegerField(),
+                    },
+                    many=True,
+                ),
+            },
+        ),
     },
 )
 class AdminWaitlistListView(generics.ListAPIView):
@@ -442,7 +494,10 @@ class AdminWaitlistListView(generics.ListAPIView):
     tags=["Waitlist"],
     description="Admin-only endpoint that removes all duplicate waitlist entries including those with swapped first and last names. Accessible to TaskAdmin and SuperAdmin only.",
     responses={
-        200: inline_serializer(name="DeleteDuplicatesResponse", fields={"status": s.CharField(), "deleted": s.IntegerField()}),
+        200: inline_serializer(
+            name="DeleteDuplicatesResponse",
+            fields={"status": s.CharField(), "deleted": s.IntegerField()},
+        ),
     },
 )
 class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
@@ -479,18 +534,25 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
     tags=["Waitlist"],
     description="Returns the top 5 waitlist users by referral count for the current week (Monday to Sunday), along with their points and referral details.",
     responses={
-        200: inline_serializer(name="WeeklyTopReferrersResponse", fields={
-            "status": s.CharField(),
-            "week_start": s.DateTimeField(),
-            "week_end": s.DateTimeField(),
-            "data": inline_serializer(name="WeeklyTopReferrerItem", fields={
-                "first_name": s.CharField(),
-                "last_name": s.CharField(),
-                "referral_code": s.CharField(),
-                "referral_count": s.IntegerField(),
-                "total_points": s.IntegerField(),
-            }, many=True),
-        }),
+        200: inline_serializer(
+            name="WeeklyTopReferrersResponse",
+            fields={
+                "status": s.CharField(),
+                "week_start": s.DateTimeField(),
+                "week_end": s.DateTimeField(),
+                "data": inline_serializer(
+                    name="WeeklyTopReferrerItem",
+                    fields={
+                        "first_name": s.CharField(),
+                        "last_name": s.CharField(),
+                        "referral_code": s.CharField(),
+                        "referral_count": s.IntegerField(),
+                        "total_points": s.IntegerField(),
+                    },
+                    many=True,
+                ),
+            },
+        ),
     },
 )
 class WeeklyTopReferrersView(APIView):
@@ -549,10 +611,19 @@ class WeeklyTopReferrersView(APIView):
     summary="Bulk delete waitlist users by email list (admin)",
     tags=["Waitlist"],
     description="Admin-only endpoint to delete multiple waitlist users in a single request by providing a list of email addresses.",
-    request=inline_serializer(name="BulkDeleteWaitlistRequest", fields={"emails": s.ListField(child=s.EmailField())}),
+    request=inline_serializer(
+        name="BulkDeleteWaitlistRequest",
+        fields={"emails": s.ListField(child=s.EmailField())},
+    ),
     responses={
-        200: inline_serializer(name="BulkDeleteWaitlistResponse", fields={"status": s.CharField(), "deleted_count": s.IntegerField()}),
-        400: inline_serializer(name="BulkDeleteWaitlistError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="BulkDeleteWaitlistResponse",
+            fields={"status": s.CharField(), "deleted_count": s.IntegerField()},
+        ),
+        400: inline_serializer(
+            name="BulkDeleteWaitlistError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BulkDeleteWaitlistUsers(APIView):

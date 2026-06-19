@@ -2,12 +2,13 @@ import logging
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Sum, F
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta
+from datetime import datetime
 
 from django.template.loader import render_to_string
 
@@ -78,6 +79,11 @@ from permissions import (
 
 from commons import Messaging
 
+from tasks.models import SocialTask, TaskSubmission, BrandTaskSubmission
+from adverts.models import CreateAd
+from gamification.models import StreakChallenge
+from permissions import IsTaskAdminOrSuperAdmin
+
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
@@ -98,8 +104,14 @@ class PaginationStyle(PageNumberPagination):
     description="One-time registration endpoint for the platform's SuperAdmin. Sends an OTP to the registered phone number for verification.",
     request=RegisterSuperAdminSerializer,
     responses={
-        201: inline_serializer("RegisterSuperAdminResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        403: inline_serializer("RegisterSuperAdminForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "RegisterSuperAdminResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            "RegisterSuperAdminForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class RegisterSuperAdmin(generics.GenericAPIView):
@@ -208,8 +220,18 @@ class RegisterSuperAdmin(generics.GenericAPIView):
     description="Authenticates an admin user by email and password, returning JWT tokens and user details on success.",
     request=AdminLoginSerializers,
     responses={
-        200: inline_serializer("AdminLoginResponse", fields={"status": s.CharField(), "message": s.CharField(), "tokens": s.DictField(), "user_data": s.DictField()}),
-        401: inline_serializer("AdminLoginUnauthorized", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            "AdminLoginResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "tokens": s.DictField(),
+                "user_data": s.DictField(),
+            },
+        ),
+        401: inline_serializer(
+            "AdminLoginUnauthorized", fields={"error": s.CharField()}
+        ),
     },
 )
 class LoginAdmin(APIView):
@@ -381,8 +403,18 @@ class LoginAdmin(APIView):
     description="Allows an FMCG admin or SuperAdmin to upload a new FMCG product, including its images, nutritional data, and storage details.",
     request=ProductSerializers,
     responses={
-        201: inline_serializer("AddProductResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("AddProductError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AddProductResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "AddProductError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AddProduct(generics.GenericAPIView):
@@ -500,7 +532,10 @@ class AddProduct(generics.GenericAPIView):
     description="Adds a new pickup address (name and state) for the FMCG store. Requires FMCG admin or SuperAdmin privileges.",
     request=AddFmcgPickupAddressSerializers,
     responses={
-        201: inline_serializer("AddAddressResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AddAddressResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
         400: inline_serializer("AddAddressError", fields={"status": s.CharField()}),
     },
 )
@@ -582,8 +617,17 @@ class AddAddress(generics.GenericAPIView):
     description="Creates a new admin user and sends a signup link to their email. Only the SuperAdmin can invoke this endpoint.",
     request=AddAdminSerializer,
     responses={
-        201: inline_serializer("AddAdminResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
-        400: inline_serializer("AddAdminError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AddAdminResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "user_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "AddAdminError", fields={"status": s.CharField(), "message": s.CharField()}
+        ),
     },
 )
 class AddAdmin(generics.CreateAPIView):
@@ -709,8 +753,14 @@ class AddAdmin(generics.CreateAPIView):
     description="Completes admin registration by setting a phone number and password for a user who received an invite link.",
     request=AddAdminContdSerializer,
     responses={
-        200: inline_serializer("AdAdminContdResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("AdAdminContdNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "AdAdminContdResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "AdAdminContdNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AdAdminContd(generics.UpdateAPIView):
@@ -835,8 +885,14 @@ class AdAdminContd(generics.UpdateAPIView):
     description="Creates a 5-digit transaction PIN for the currently authenticated admin user.",
     request=CreateAdminPinSerializer,
     responses={
-        201: inline_serializer("SetAdminPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SetAdminPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "SetAdminPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SetAdminPinError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SetAdminPin(generics.CreateAPIView):
@@ -921,8 +977,14 @@ class SetAdminPin(generics.CreateAPIView):
     description="Sends a password-reset OTP to a staff member's registered email address. Restricted to recognised staff roles.",
     request=StaffForgotPasswordSerializer,
     responses={
-        201: inline_serializer("StaffForgotPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        403: inline_serializer("StaffForgotPasswordForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "StaffForgotPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            "StaffForgotPasswordForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class StaffForgotPassword(generics.GenericAPIView):
@@ -1018,8 +1080,14 @@ class StaffForgotPassword(generics.GenericAPIView):
     description="Resends the password-reset OTP email to the provided staff email address.",
     request=StaffPasswordResendOTPSerializer,
     responses={
-        200: inline_serializer("StaffPasswordResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("StaffPasswordResendOTPNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "StaffPasswordResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "StaffPasswordResendOTPNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class StaffPasswordResendOTP(generics.GenericAPIView):
@@ -1102,8 +1170,18 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
     description="Validates the OTP received by a staff member and unlocks the password-reset flow, returning the user ID on success.",
     request=VerifyOTPSerializer,
     responses={
-        200: inline_serializer("StaffEmailVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
-        400: inline_serializer("StaffEmailVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "StaffEmailVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "user_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "StaffEmailVerifyOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class StaffEmailVerifyOTP(generics.GenericAPIView):
@@ -1208,8 +1286,13 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
     description="Resets the password for a staff member identified by admin_id after OTP verification. Optionally invalidates the refresh token.",
     request=StaffResetPasswordSerializer,
     responses={
-        200: inline_serializer("StaffResetPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("StaffResetPasswordError", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            "StaffResetPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "StaffResetPasswordError", fields={"error": s.CharField()}
+        ),
     },
 )
 class StaffResetPassword(generics.CreateAPIView):
@@ -1280,8 +1363,14 @@ class StaffResetPassword(generics.CreateAPIView):
     description="Sends a PIN-reset OTP to the admin's registered email address.",
     request=ForgotPinSerializer,
     responses={
-        201: inline_serializer("AdminForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("AdminForgotPinNotFound", fields={"status": s.CharField(), "detail": s.CharField()}),
+        201: inline_serializer(
+            "AdminForgotPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "AdminForgotPinNotFound",
+            fields={"status": s.CharField(), "detail": s.CharField()},
+        ),
     },
 )
 class AdminForgotPin(generics.GenericAPIView):
@@ -1363,8 +1452,18 @@ class AdminForgotPin(generics.GenericAPIView):
     description="Validates the OTP submitted for admin PIN reset and returns the user ID to proceed with the new PIN.",
     request=VerifyOTPSerializer,
     responses={
-        200: inline_serializer("PinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
-        400: inline_serializer("PinVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "PinVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "user_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "PinVerifyOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class PinVerifyOTP(generics.GenericAPIView):
@@ -1471,7 +1570,10 @@ class PinVerifyOTP(generics.GenericAPIView):
     description="Sets a new PIN for the admin identified by admin_id. Both pin and pin2 must match.",
     request=ResetPinSerializer,
     responses={
-        200: inline_serializer("ResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "ResetPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
         400: inline_serializer("ResetPinError", fields={"error": s.CharField()}),
     },
 )
@@ -1544,8 +1646,18 @@ class ResetPin(generics.CreateAPIView):
     description="Assigns an additional role to an existing admin user. Requires the SuperAdmin's PIN for confirmation.",
     request=AddRoleToAdminSerializer,
     responses={
-        200: inline_serializer("AddRoleToAdminResponse", fields={"status": s.CharField(), "message": s.CharField(), "new_role": s.CharField()}),
-        401: inline_serializer("AddRoleToAdminUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "AddRoleToAdminResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "new_role": s.CharField(),
+            },
+        ),
+        401: inline_serializer(
+            "AddRoleToAdminUnauthorized",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AddRoleToAdmin(generics.GenericAPIView):
@@ -1683,8 +1795,18 @@ class AddRoleToAdmin(generics.GenericAPIView):
     description="Removes a specified role from an admin user. Requires the SuperAdmin's PIN for confirmation.",
     request=RemoveRoleFromAdminSerializer,
     responses={
-        200: inline_serializer("RemoveAdminRoleResponse", fields={"status": s.CharField(), "message": s.CharField(), "removed_role": s.CharField()}),
-        401: inline_serializer("RemoveAdminRoleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "RemoveAdminRoleResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "removed_role": s.CharField(),
+            },
+        ),
+        401: inline_serializer(
+            "RemoveAdminRoleUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class RemoveAdminRole(generics.GenericAPIView):
@@ -1824,8 +1946,14 @@ class RemoveAdminRole(generics.GenericAPIView):
     description="Disables an admin account by email, preventing login. Requires the SuperAdmin's PIN for confirmation.",
     request=DisableAdminSerializer,
     responses={
-        200: inline_serializer("DisableAdminroleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("DisableAdminroleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "DisableAdminroleResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "DisableAdminroleUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class DisableAdminrole(generics.RetrieveUpdateAPIView):
@@ -1958,8 +2086,14 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     description="Re-enables a previously disabled admin account. Requires the SuperAdmin's PIN for confirmation.",
     request=EnableAdminSerializer,
     responses={
-        200: inline_serializer("EnableAdminroleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("EnableAdminroleUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "EnableAdminroleResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "EnableAdminroleUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class EnableAdminrole(generics.RetrieveUpdateAPIView):
@@ -2094,8 +2228,14 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
     description="Permanently deletes an admin user account by email or ID. Requires the SuperAdmin's PIN and sends a deletion notification.",
     request=AdminDeletionSerializer,
     responses={
-        204: inline_serializer("DeleteAdminResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("DeleteAdminUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        204: inline_serializer(
+            "DeleteAdminResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "DeleteAdminUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class DeleteAdmin(generics.GenericAPIView):
@@ -2456,7 +2596,12 @@ class GetAllAdminUsers(generics.ListAPIView):
     summary="List admin users grouped by role type",
     tags=["Admin"],
     description="Returns a count of admin users broken down by each admin role type.",
-    responses={200: inline_serializer("AdminUserTypesResponse", fields={"status": s.CharField(), "admin_role_counts": s.DictField()})},
+    responses={
+        200: inline_serializer(
+            "AdminUserTypesResponse",
+            fields={"status": s.CharField(), "admin_role_counts": s.DictField()},
+        )
+    },
 )
 class GetAllAdminUsersTypes(generics.ListAPIView):
     """
@@ -2603,8 +2748,18 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
     description="Allows an admin with multiple roles to switch their active role to another one they have been assigned.",
     request=SwitchRolesSerializers,
     responses={
-        200: inline_serializer("SwitchRolesResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.CharField()}),
-        400: inline_serializer("SwitchRolesError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "SwitchRolesResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "SwitchRolesError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SwitchRoles(generics.RetrieveAPIView):
@@ -2722,7 +2877,16 @@ class SwitchRoles(generics.RetrieveAPIView):
     summary="Get admin profile image",
     tags=["Admin"],
     description="Returns the URL of the currently authenticated admin's profile picture.",
-    responses={200: inline_serializer("GetProfileImageResponse", fields={"status": s.CharField(), "message": s.CharField(), "image": s.CharField()})},
+    responses={
+        200: inline_serializer(
+            "GetProfileImageResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "image": s.CharField(),
+            },
+        )
+    },
 )
 class GetProfileImage(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication]
@@ -2944,8 +3108,18 @@ class GetAllAdminActivites(generics.ListAPIView):
     tags=["Admin"],
     description="Retrieves the details of a specific activity log entry identified by its UUID.",
     responses={
-        200: inline_serializer("GetSingleAdminActivityResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        404: inline_serializer("GetSingleAdminActivityNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "GetSingleAdminActivityResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "GetSingleAdminActivityNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetSingleAdminActivity(generics.RetrieveAPIView):
@@ -3055,8 +3229,14 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     tags=["Admin"],
     description="Returns all activity log entries for the admin user identified by email address.",
     responses={
-        200: inline_serializer("GetAllSingleAdminUserActivityResponse", fields={"status": s.CharField(), "data": s.ListField()}),
-        404: inline_serializer("GetAllSingleAdminUserActivityNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "GetAllSingleAdminUserActivityResponse",
+            fields={"status": s.CharField(), "data": s.ListField()},
+        ),
+        404: inline_serializer(
+            "GetAllSingleAdminUserActivityNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetAllSingleAdminUserActivity(generics.ListAPIView):
@@ -3166,7 +3346,15 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
     summary="List available admin role types",
     tags=["Admin"],
     description="Returns the full list of available admin role types defined in the system.",
-    responses={200: inline_serializer("AdminTypesListResponse", fields={"status": s.CharField(), "categories": s.ListField(child=s.CharField())})},
+    responses={
+        200: inline_serializer(
+            "AdminTypesListResponse",
+            fields={
+                "status": s.CharField(),
+                "categories": s.ListField(child=s.CharField()),
+            },
+        )
+    },
 )
 class AdminTypesListView(APIView):
     """
@@ -3196,7 +3384,16 @@ class AdminTypesListView(APIView):
     summary="List all unique activity log titles",
     tags=["Admin"],
     description="Returns distinct admin and non-admin activity log titles, useful for filtering the activity feed.",
-    responses={200: inline_serializer("ActivityTitleListResponse", fields={"status": s.CharField(), "admin_titles": s.ListField(), "non_admin_titles": s.ListField()})},
+    responses={
+        200: inline_serializer(
+            "ActivityTitleListResponse",
+            fields={
+                "status": s.CharField(),
+                "admin_titles": s.ListField(),
+                "non_admin_titles": s.ListField(),
+            },
+        )
+    },
 )
 class ActivityTitleListView(APIView):
     """
@@ -3415,8 +3612,13 @@ class AdminDashboardDataView(APIView):
     description="Creates a new knowledge base article with optional media uploads. Supports scheduled publishing.",
     request=KnowledgeBaseSerializer,
     responses={
-        201: inline_serializer("CreateKnowledgeBaseResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("CreateKnowledgeBaseError", fields={"status": s.CharField()}),
+        201: inline_serializer(
+            "CreateKnowledgeBaseResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "CreateKnowledgeBaseError", fields={"status": s.CharField()}
+        ),
     },
 )
 class CreateKnowledgeBaseView(generics.GenericAPIView):
@@ -3508,7 +3710,10 @@ class ListKnowledgeBaseView(generics.ListAPIView):
     description="GET retrieves, PATCH partially updates, and DELETE removes a specific knowledge base entry by primary key.",
     responses={
         200: KnowledgeBaseSerializer,
-        404: inline_serializer("KnowledgeBaseDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(
+            "KnowledgeBaseDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class KnowledgeBaseDetailView(generics.GenericAPIView):
@@ -3584,4 +3789,175 @@ class KnowledgeBaseDetailView(generics.GenericAPIView):
                 {"status": "success", "message": "Entry deleted successfully."}
             ),
             status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+@extend_schema(
+    summary="Gamification dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns all stats needed for the Gamification admin dashboard: summary cards, "
+        "weekly Task vs Campaign chart, and In App / Brand Task breakdowns. "
+        "Accepts optional `start_date` and `end_date` query params (YYYY-MM-DD) for the "
+        "date-range panel and chart; defaults to the current calendar week."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "GamificationDashboardResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        )
+    },
+)
+class GamificationDashboardView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+
+    def get(self, request):
+
+        now = timezone.now()
+        today = now.date()
+
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            start_date = (
+                datetime.strptime(raw_start, "%Y-%m-%d").date()
+                if raw_start
+                else today - timedelta(days=today.weekday())
+            )
+            end_date = (
+                datetime.strptime(raw_end, "%Y-%m-%d").date() if raw_end else today
+            )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Summary cards ────────────────────────────────────────────────────
+        total_rewards = User.objects.aggregate(total=Sum("total_points"))["total"] or 0
+
+        active_tasks = (
+            SocialTask.objects.filter(is_active=True)
+            .exclude(expires_at__lt=now)
+            .count()
+        )
+
+        verif_qs = TaskSubmission.objects
+        task_verif = {
+            "total": verif_qs.count(),
+            "pending": verif_qs.filter(status="Pending").count(),
+            "approved": verif_qs.filter(status="Approved").count(),
+            "rejected": verif_qs.filter(status="Rejected").count(),
+        }
+
+        brand_task_total = CreateAd.objects.count()
+
+        # ── Weekly chart: Task vs Campaign per day ───────────────────────────
+        days_in_range = (end_date - start_date).days + 1
+        chart = []
+        for i in range(min(days_in_range, 7)):
+            day = start_date + timedelta(days=i)
+            chart.append(
+                {
+                    "day": day.strftime("%A"),
+                    "date": day.isoformat(),
+                    "tasks": SocialTask.objects.filter(created_at__date=day).count(),
+                    "campaigns": StreakChallenge.objects.filter(
+                        created_at__date=day
+                    ).count(),
+                }
+            )
+
+        # ── In App (StreakChallenge) — reward_points × participant_cap ───────
+        def streak_reward_total(qs):
+            return (
+                qs.annotate(cap=F("participant_cap")).aggregate(
+                    total=Sum(F("reward_points") * F("participant_cap"))
+                )["total"]
+                or 0
+            )
+
+        sc_active = StreakChallenge.objects.filter(
+            is_active=True,
+            is_cancelled=False,
+            is_paused=False,
+            start_date__lte=end_date,
+            end_date__gte=start_date,
+        )
+        sc_scheduled = StreakChallenge.objects.filter(
+            is_cancelled=False, start_date__gt=today
+        )
+        sc_expired = StreakChallenge.objects.filter(
+            is_cancelled=False, end_date__lt=today
+        )
+        sc_cancelled = StreakChallenge.objects.filter(is_cancelled=True)
+
+        in_app = {
+            "active": streak_reward_total(sc_active),
+            "scheduled": streak_reward_total(sc_scheduled),
+            "expired": streak_reward_total(sc_expired),
+            "cancelled": streak_reward_total(sc_cancelled),
+        }
+
+        # ── Brand Task (CreateAd) — reward_points × slot_cap ────────────────
+        def ad_reward_total(qs):
+            return (
+                qs.aggregate(total=Sum(F("reward_points") * F("slot_cap")))["total"]
+                or 0
+            )
+
+        ad_active = CreateAd.objects.filter(is_active=True, expiry_date__gt=now)
+        ad_expired = CreateAd.objects.filter(
+            Q(expiry_date__lt=now) | Q(is_active=False)
+        )
+        ad_watch = CreateAd.objects.filter(
+            task_type="watch_video", is_active=True, expiry_date__gt=now
+        )
+
+        brand_task = {
+            "verification_requests": BrandTaskSubmission.objects.filter(
+                status="Pending"
+            ).count(),
+            "active": ad_reward_total(ad_active),
+            "expired": ad_reward_total(ad_expired),
+            "watch_videos": ad_reward_total(ad_watch),
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "date_range": {
+                            "start": start_date.isoformat(),
+                            "end": end_date.isoformat(),
+                        },
+                        "summary": {
+                            "total_rewards_distributed": total_rewards,
+                            "active_tasks": active_tasks,
+                            "task_verifications": task_verif,
+                            "brand_task_creation": brand_task_total,
+                        },
+                        "chart": chart,
+                        "in_app": in_app,
+                        "brand_task": brand_task,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
         )

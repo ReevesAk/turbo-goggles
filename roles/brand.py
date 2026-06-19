@@ -58,8 +58,14 @@ class PaginationStyle(PageNumberPagination):
     description="Places spending and posting restrictions on a BrandAd account. Requires the admin's PIN for confirmation.",
     request=RestrictBrandAdSerializers,
     responses={
-        200: inline_serializer("RestrictBrandAdResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("RestrictBrandAdUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "RestrictBrandAdResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "RestrictBrandAdUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class RestrictBrandAdAccountView(generics.CreateAPIView):
@@ -260,7 +266,14 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     tags=["Brand Ads"],
     description="Returns aggregated ad statistics (total, active, completed) and graph data for a specific BrandAd user.",
     responses={
-        200: inline_serializer("AdStatsResponse", fields={"status": s.CharField(), "data": s.DictField(), "graph": s.DictField()}),
+        200: inline_serializer(
+            "AdStatsResponse",
+            fields={
+                "status": s.CharField(),
+                "data": s.DictField(),
+                "graph": s.DictField(),
+            },
+        ),
     },
 )
 class AdStatsView(generics.RetrieveAPIView):
@@ -435,7 +448,14 @@ class ListBrandSubmissionsAdminView(generics.ListAPIView):
     tags=["Brand Ads"],
     description="Returns all pending social task submissions and brand task submissions in a single response for the admin review queue.",
     responses={
-        200: inline_serializer("PendingSubmissionsResponse", fields={"status": s.CharField(), "social": s.DictField(), "brand": s.DictField()}),
+        200: inline_serializer(
+            "PendingSubmissionsResponse",
+            fields={
+                "status": s.CharField(),
+                "social": s.DictField(),
+                "brand": s.DictField(),
+            },
+        ),
     },
 )
 class PendingSubmissionsAdminView(generics.GenericAPIView):
@@ -480,8 +500,14 @@ class PendingSubmissionsAdminView(generics.GenericAPIView):
     description="Approve or reject a social or brand task submission by ID. The action is dispatched asynchronously via Celery.",
     request=AdminReviewSerializer,
     responses={
-        200: inline_serializer("ReviewTaskSubmissionResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("ReviewTaskSubmissionNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "ReviewTaskSubmissionResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "ReviewTaskSubmissionNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ReviewTaskSubmissionAdminView(generics.GenericAPIView):
@@ -567,12 +593,21 @@ class ReviewTaskSubmissionAdminView(generics.GenericAPIView):
 
 # ── Brand Task admin views ────────────────────────────────────────────────────
 
+
 @extend_schema(
     summary="[Admin] List all brand ad tasks with summary stats",
     tags=["Brand Ads"],
     description="Returns active/expired task counts, pending verification requests, and a paginated task card list. Supports ?status= and ?task_type= filters.",
     responses={
-        200: inline_serializer("BrandTaskListResponse", fields={"status": s.CharField(), "stats": s.DictField(), "total": s.IntegerField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "BrandTaskListResponse",
+            fields={
+                "status": s.CharField(),
+                "stats": s.DictField(),
+                "total": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class BrandTaskListAdminView(generics.GenericAPIView):
@@ -591,7 +626,9 @@ class BrandTaskListAdminView(generics.GenericAPIView):
         status_filter = request.query_params.get("status")
         task_type = request.query_params.get("task_type")
 
-        qs = CreateAd.objects.select_related("user").prefetch_related("ad_media", "brand_submissions")
+        qs = CreateAd.objects.select_related("user").prefetch_related(
+            "ad_media", "brand_submissions"
+        )
 
         if task_type:
             qs = qs.filter(task_type=task_type)
@@ -600,9 +637,15 @@ class BrandTaskListAdminView(generics.GenericAPIView):
         elif status_filter == "expired":
             qs = qs.filter(Q(is_active=False) | Q(expiry_date__lte=now))
 
-        active_count = CreateAd.objects.filter(is_active=True, expiry_date__gt=now).count()
-        expired_count = CreateAd.objects.filter(Q(is_active=False) | Q(expiry_date__lte=now)).count()
-        verification_request_count = BrandTaskSubmission.objects.filter(status="Pending").count()
+        active_count = CreateAd.objects.filter(
+            is_active=True, expiry_date__gt=now
+        ).count()
+        expired_count = CreateAd.objects.filter(
+            Q(is_active=False) | Q(expiry_date__lte=now)
+        ).count()
+        verification_request_count = BrandTaskSubmission.objects.filter(
+            status="Pending"
+        ).count()
 
         page = self.paginate_queryset(qs.order_by("-created_at"))
         items = page if page is not None else qs.order_by("-created_at")
@@ -612,35 +655,43 @@ class BrandTaskListAdminView(generics.GenericAPIView):
             media = ad.ad_media.first()
             pending = ad.brand_submissions.filter(status="Pending").count()
             days_left = max(0, (ad.expiry_date - now).days) if ad.expiry_date else None
-            task_cards.append({
-                "id": ad.id,
-                "task_name": ad.task_name,
-                "task_description": ad.task_description,
-                "task_type": ad.task_type,
-                "task_type_display": ad.get_task_type_display() if ad.task_type else None,
-                "brand_objective": ad.brand_objective,
-                "reward_points": ad.reward_points,
-                "slot_cap": ad.slot_cap,
-                "slots_filled": ad.slots_filled,
-                "slots_remaining": max(0, ad.slot_cap - ad.slots_filled) if ad.slot_cap else None,
-                "days_left": days_left,
-                "created_at": ad.created_at,
-                "thumbnail": media.images or media.videos if media else None,
-                "verification_request_count": pending,
-                "is_active": ad.is_active,
-            })
+            task_cards.append(
+                {
+                    "id": ad.id,
+                    "task_name": ad.task_name,
+                    "task_description": ad.task_description,
+                    "task_type": ad.task_type,
+                    "task_type_display": (
+                        ad.get_task_type_display() if ad.task_type else None
+                    ),
+                    "brand_objective": ad.brand_objective,
+                    "reward_points": ad.reward_points,
+                    "slot_cap": ad.slot_cap,
+                    "slots_filled": ad.slots_filled,
+                    "slots_remaining": (
+                        max(0, ad.slot_cap - ad.slots_filled) if ad.slot_cap else None
+                    ),
+                    "days_left": days_left,
+                    "created_at": ad.created_at,
+                    "thumbnail": media.images or media.videos if media else None,
+                    "verification_request_count": pending,
+                    "is_active": ad.is_active,
+                }
+            )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "stats": {
-                    "active_tasks": active_count,
-                    "expired_tasks": expired_count,
-                    "verification_requests": verification_request_count,
-                },
-                "total": qs.count(),
-                "data": task_cards,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "stats": {
+                        "active_tasks": active_count,
+                        "expired_tasks": expired_count,
+                        "verification_requests": verification_request_count,
+                    },
+                    "total": qs.count(),
+                    "data": task_cards,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -650,8 +701,19 @@ class BrandTaskListAdminView(generics.GenericAPIView):
     tags=["Brand Ads"],
     description="Returns complete task info, performance breakdown, demographic split, and pending verification requests for a single brand ad task.",
     responses={
-        200: inline_serializer("BrandTaskDetailResponse", fields={"status": s.CharField(), "data": s.DictField(), "performance_breakdown": s.DictField(), "verification_requests": s.DictField()}),
-        404: inline_serializer("BrandTaskDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "BrandTaskDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "data": s.DictField(),
+                "performance_breakdown": s.DictField(),
+                "verification_requests": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "BrandTaskDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BrandTaskDetailAdminView(generics.GenericAPIView):
@@ -665,9 +727,13 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
 
     def get(self, request, ad_id):
         try:
-            ad = CreateAd.objects.select_related("user").prefetch_related(
-                "ad_media", "brand_location", "brand_submissions__user"
-            ).get(id=ad_id)
+            ad = (
+                CreateAd.objects.select_related("user")
+                .prefetch_related(
+                    "ad_media", "brand_location", "brand_submissions__user"
+                )
+                .get(id=ad_id)
+            )
         except CreateAd.DoesNotExist:
             return Response(
                 data=encrypt({"status": "error", "message": "Brand task not found."}),
@@ -700,16 +766,21 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
 
         # State-level breakdown from participants' locations
         state_counts = (
-            approved_submissions
-            .select_related("user")
-            .values("user__state")
-            .annotate(count=DjCount("id"))
-            .order_by("-count")
-        ) if hasattr(approved_submissions.model, "user") else []
+            (
+                approved_submissions.select_related("user")
+                .values("user__state")
+                .annotate(count=DjCount("id"))
+                .order_by("-count")
+            )
+            if hasattr(approved_submissions.model, "user")
+            else []
+        )
 
         # ── Media ─────────────────────────────────────────────────────────────
         media = [{"images": m.images, "videos": m.videos} for m in ad.ad_media.all()]
-        locations = [{"state": loc.state, "city": loc.city} for loc in ad.brand_location.all()]
+        locations = [
+            {"state": loc.state, "city": loc.city} for loc in ad.brand_location.all()
+        ]
 
         # ── Verification request list ─────────────────────────────────────────
         verification_requests = [
@@ -728,54 +799,68 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
         is_completed = ad.slot_cap and ad.slots_filled >= ad.slot_cap
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "data": {
-                    "id": ad.id,
-                    "task_name": ad.task_name,
-                    "task_description": ad.task_description,
-                    "task_type": ad.task_type,
-                    "task_type_display": ad.get_task_type_display() if ad.task_type else None,
-                    "brand_name": ad.business_or_brand_name,
-                    "business_type": ad.type_of_business,
-                    "industry": ad.industry,
-                    "brand_objective": ad.brand_objective,
-                    "user_action": ad.engagement_type,
-                    "comment_prompt": ad.task_details.get("comment_prompt") if ad.task_details else None,
-                    "timing": ad.task_details.get("timing") if ad.task_details else None,
-                    "auto_boost": ad.auto_boost,
-                    "auto_boost_points": ad.auto_boost_points,
-                    "reward_points": ad.reward_points,
-                    "slot_cap": ad.slot_cap,
-                    "slots_filled": ad.slots_filled,
-                    "slots_remaining": max(0, ad.slot_cap - ad.slots_filled) if ad.slot_cap else None,
-                    "duration_days": duration_days,
-                    "days_left": days_left,
-                    "is_completed": bool(is_completed),
-                    "is_active": ad.is_active,
-                    "brand_socials": ad.brand_socials,
-                    "ad_media": media,
-                    "brand_location": locations,
-                    "created_at": ad.created_at,
-                },
-                "performance_breakdown": {
-                    "campaign_budget": ad.amount,
-                    "budget_spent": str(budget_spent),
-                    "ads_credit": str(ad.ads_credit),
-                    "total_points_rewarded": total_points_rewarded,
-                    "points_reward_per_person": ad.reward_points,
-                    "auto_boost_points": ad.auto_boost_points,
-                },
-                "performance_demographic": {
-                    "by_gender": dict(gender_counts),
-                    "by_demography": dict(demography_counts),
-                    "by_state": list(state_counts),
-                },
-                "verification_requests": {
-                    "total": pending_submissions.count(),
-                    "data": verification_requests,
-                },
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "id": ad.id,
+                        "task_name": ad.task_name,
+                        "task_description": ad.task_description,
+                        "task_type": ad.task_type,
+                        "task_type_display": (
+                            ad.get_task_type_display() if ad.task_type else None
+                        ),
+                        "brand_name": ad.business_or_brand_name,
+                        "business_type": ad.type_of_business,
+                        "industry": ad.industry,
+                        "brand_objective": ad.brand_objective,
+                        "user_action": ad.engagement_type,
+                        "comment_prompt": (
+                            ad.task_details.get("comment_prompt")
+                            if ad.task_details
+                            else None
+                        ),
+                        "timing": (
+                            ad.task_details.get("timing") if ad.task_details else None
+                        ),
+                        "auto_boost": ad.auto_boost,
+                        "auto_boost_points": ad.auto_boost_points,
+                        "reward_points": ad.reward_points,
+                        "slot_cap": ad.slot_cap,
+                        "slots_filled": ad.slots_filled,
+                        "slots_remaining": (
+                            max(0, ad.slot_cap - ad.slots_filled)
+                            if ad.slot_cap
+                            else None
+                        ),
+                        "duration_days": duration_days,
+                        "days_left": days_left,
+                        "is_completed": bool(is_completed),
+                        "is_active": ad.is_active,
+                        "brand_socials": ad.brand_socials,
+                        "ad_media": media,
+                        "brand_location": locations,
+                        "created_at": ad.created_at,
+                    },
+                    "performance_breakdown": {
+                        "campaign_budget": ad.amount,
+                        "budget_spent": str(budget_spent),
+                        "ads_credit": str(ad.ads_credit),
+                        "total_points_rewarded": total_points_rewarded,
+                        "points_reward_per_person": ad.reward_points,
+                        "auto_boost_points": ad.auto_boost_points,
+                    },
+                    "performance_demographic": {
+                        "by_gender": dict(gender_counts),
+                        "by_demography": dict(demography_counts),
+                        "by_state": list(state_counts),
+                    },
+                    "verification_requests": {
+                        "total": pending_submissions.count(),
+                        "data": verification_requests,
+                    },
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -784,10 +869,22 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
     summary="[Admin] Boost reward points for a brand ad task",
     tags=["Brand Ads"],
     description="Increases the reward_points for a brand ad task by a specified amount and records the boost in auto_boost_points.",
-    request=inline_serializer("BoostTaskPointsRequest", fields={"amount": s.IntegerField()}),
+    request=inline_serializer(
+        "BoostTaskPointsRequest", fields={"amount": s.IntegerField()}
+    ),
     responses={
-        200: inline_serializer("BoostTaskPointsResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("BoostTaskPointsError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "BoostTaskPointsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "BoostTaskPointsError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BoostTaskPointsView(generics.GenericAPIView):
@@ -817,7 +914,9 @@ class BoostTaskPointsView(generics.GenericAPIView):
                 raise ValueError
         except (TypeError, ValueError):
             return Response(
-                data=encrypt({"status": "error", "message": "amount must be a positive integer."}),
+                data=encrypt(
+                    {"status": "error", "message": "amount must be a positive integer."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -827,17 +926,22 @@ class BoostTaskPointsView(generics.GenericAPIView):
 
         logger.info(
             "Admin %s boosted task %s by %d pts (new reward: %d)",
-            request.user.email, ad_id, boost_amount, ad.reward_points,
+            request.user.email,
+            ad_id,
+            boost_amount,
+            ad.reward_points,
         )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": f"Points boosted by {boost_amount}.",
-                "data": {
-                    "reward_points": ad.reward_points,
-                    "auto_boost_points": ad.auto_boost_points,
-                },
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": f"Points boosted by {boost_amount}.",
+                    "data": {
+                        "reward_points": ad.reward_points,
+                        "auto_boost_points": ad.auto_boost_points,
+                    },
+                }
+            ),
             status=status.HTTP_200_OK,
         )

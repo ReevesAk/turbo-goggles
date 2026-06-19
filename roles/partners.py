@@ -37,7 +37,14 @@ logger = logging.getLogger(__name__)
     tags=["Partner Services"],
     description="Returns a paginated list of all users registered as Partners. Results are cached for 5 minutes.",
     responses={
-        200: inline_serializer("GetAllPartnersUsersResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "GetAllPartnersUsersResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class GetAllPartnersUsers(generics.ListAPIView):
@@ -94,10 +101,26 @@ class GetAllPartnersUsers(generics.ListAPIView):
     description="Applies transaction and posting restrictions to a partner's account. Requires admin PIN verification before the restriction is saved.",
     request=RestrictPartnersSerializers,
     responses={
-        200: inline_serializer("RestrictPartnerAccountResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("RestrictPartnerAccountBadRequest", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("RestrictPartnerAccountUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("RestrictPartnerAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "RestrictPartnerAccountResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "RestrictPartnerAccountBadRequest",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "RestrictPartnerAccountUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "RestrictPartnerAccountNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class RestrictPartnerAccountView(generics.CreateAPIView):
@@ -265,9 +288,22 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
     tags=["Partner Services"],
     description="Returns all service listings belonging to the partner identified by the given email address.",
     responses={
-        200: inline_serializer("AdminViewPartnerServiceListResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
-        400: inline_serializer("AdminViewPartnerServiceListBadRequest", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("AdminViewPartnerServiceListNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "AdminViewPartnerServiceListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
+        400: inline_serializer(
+            "AdminViewPartnerServiceListBadRequest",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "AdminViewPartnerServiceListNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class AdminViewPartnerServiceList(generics.ListAPIView):
@@ -331,8 +367,22 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
     tags=["Partner Services"],
     description="Full-text search across partner business name, brand name, business category, and full name. Returns matching partner profiles.",
     responses={
-        200: inline_serializer("PartnerSearchResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
-        404: inline_serializer("PartnerSearchNotFound", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "PartnerSearchResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
+        404: inline_serializer(
+            "PartnerSearchNotFound",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class PartnerSearch(generics.ListAPIView):

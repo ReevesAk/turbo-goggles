@@ -30,11 +30,14 @@ class PaginationStyle(PageNumberPagination):
     tags=["Profile"],
     description="Returns all in-app notifications for the authenticated user, ordered by most recent first.",
     responses={
-        200: inline_serializer(name="GetAllNotificationsResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": NotificationSerializers(many=True),
-        }),
+        200: inline_serializer(
+            name="GetAllNotificationsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": NotificationSerializers(many=True),
+            },
+        ),
     },
 )
 class GetAllNotifications(generics.ListAPIView):
@@ -93,8 +96,14 @@ class GetAllNotifications(generics.ListAPIView):
     description="Returns a specific notification by its ID. The notification must belong to the authenticated user.",
     responses={
         200: NotificationSerializers,
-        403: inline_serializer(name="SingleNotifForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer(name="SingleNotifNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        403: inline_serializer(
+            name="SingleNotifForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="SingleNotifNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetSingleNotification(generics.RetrieveAPIView):
@@ -168,7 +177,9 @@ class GetSingleNotification(generics.RetrieveAPIView):
     tags=["Profile"],
     description="Deletes all notifications for the authenticated user. Returns a 200 even if there are no notifications to clear.",
     responses={
-        200: inline_serializer(name="ClearNotificationsResponse", fields={"message": s.CharField()}),
+        200: inline_serializer(
+            name="ClearNotificationsResponse", fields={"message": s.CharField()}
+        ),
     },
 )
 class ClearNotifications(generics.DestroyAPIView):
@@ -208,7 +219,9 @@ class ClearNotifications(generics.DestroyAPIView):
     tags=["Profile"],
     description="Marks all of the authenticated user's notifications as read in a single operation.",
     responses={
-        200: inline_serializer(name="MarkNotificationsReadResponse", fields={"message": s.CharField()}),
+        200: inline_serializer(
+            name="MarkNotificationsReadResponse", fields={"message": s.CharField()}
+        ),
     },
 )
 class MarkNotificationsAsRead(generics.UpdateAPIView):
@@ -252,9 +265,15 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
     tags=["Profile"],
     description="Permanently deletes a specific notification by its ID. The notification must belong to the authenticated user.",
     responses={
-        204: inline_serializer(name="DeleteNotificationResponse", fields={"status": s.CharField()}),
-        403: inline_serializer(name="DeleteNotificationForbidden", fields={"detail": s.CharField()}),
-        404: inline_serializer(name="DeleteNotificationNotFound", fields={"detail": s.CharField()}),
+        204: inline_serializer(
+            name="DeleteNotificationResponse", fields={"status": s.CharField()}
+        ),
+        403: inline_serializer(
+            name="DeleteNotificationForbidden", fields={"detail": s.CharField()}
+        ),
+        404: inline_serializer(
+            name="DeleteNotificationNotFound", fields={"detail": s.CharField()}
+        ),
     },
 )
 class DeleteNotification(generics.DestroyAPIView):

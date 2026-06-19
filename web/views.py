@@ -58,8 +58,14 @@ logger = logging.getLogger(__name__)
     description="Creates a new job posting. Requires admin role and a valid admin PIN in the request body.",
     request=JobSerializer,
     responses={
-        201: inline_serializer(name="CreateJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="CreateJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="CreateJobResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="CreateJobError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CreateJob(generics.CreateAPIView):
@@ -156,7 +162,10 @@ class JobList(generics.ListAPIView):
     description="Returns the full details of a single job posting identified by its integer ID. Publicly accessible.",
     responses={
         200: JobSerializer,
-        404: inline_serializer(name="JobDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(
+            name="JobDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class JobDetail(generics.RetrieveAPIView):
@@ -181,8 +190,14 @@ class JobDetail(generics.RetrieveAPIView):
     description="Partially updates an existing job posting. Requires admin role and a valid admin PIN in the request body.",
     request=JobSerializer,
     responses={
-        200: inline_serializer(name="UpdateJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="UpdateJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="UpdateJobResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="UpdateJobError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpdateJob(generics.UpdateAPIView):
@@ -225,8 +240,14 @@ class UpdateJob(generics.UpdateAPIView):
     tags=["Web"],
     description="Permanently deletes a job posting by its ID. Requires admin role and a valid admin PIN in the request body.",
     responses={
-        200: inline_serializer(name="DeleteJobResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="DeleteJobError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="DeleteJobResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="DeleteJobError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DeleteJob(generics.DestroyAPIView):
@@ -261,16 +282,25 @@ class DeleteJob(generics.DestroyAPIView):
     description="Submits an application for a specific job by its ID. Accepts multipart/form-data including a CV file. Duplicate applications for the same email and job are rejected.",
     request=ApplicationsSerializers,
     responses={
-        201: inline_serializer(name="SubmitJobApplicationResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="SubmitJobApplicationData", fields={
-                "job_title": s.CharField(),
-                "first_name": s.CharField(),
-                "email": s.EmailField(),
-            }),
-        }),
-        400: inline_serializer(name="SubmitJobApplicationError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="SubmitJobApplicationResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="SubmitJobApplicationData",
+                    fields={
+                        "job_title": s.CharField(),
+                        "first_name": s.CharField(),
+                        "email": s.EmailField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="SubmitJobApplicationError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SubmitJobApplication(generics.CreateAPIView):
@@ -401,14 +431,22 @@ class SubmitJobApplication(generics.CreateAPIView):
     summary="List all applications for a specific job (admin)",
     tags=["Web"],
     description="Admin-only POST endpoint that returns all applications for a specific job ID. Requires a valid admin PIN in the request body.",
-    request=inline_serializer(name="SingleJobApplicationsRequest", fields={"pin": s.CharField()}),
+    request=inline_serializer(
+        name="SingleJobApplicationsRequest", fields={"pin": s.CharField()}
+    ),
     responses={
-        200: inline_serializer(name="SingleJobApplicationsResponse", fields={
-            "status": s.CharField(),
-            "count": s.IntegerField(),
-            "data": GetApplicationsSerializers(many=True),
-        }),
-        400: inline_serializer(name="SingleJobApplicationsError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="SingleJobApplicationsResponse",
+            fields={
+                "status": s.CharField(),
+                "count": s.IntegerField(),
+                "data": GetApplicationsSerializers(many=True),
+            },
+        ),
+        400: inline_serializer(
+            name="SingleJobApplicationsError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SingleJobApplicationsList(generics.ListAPIView):
@@ -484,8 +522,14 @@ class SingleJobApplicationsList(generics.ListAPIView):
     tags=["Web"],
     description="Permanently deletes a specific job application by its primary key. Requires admin role and a valid admin PIN in the request body.",
     responses={
-        200: inline_serializer(name="DeleteJobApplicationResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="DeleteJobApplicationError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="DeleteJobApplicationResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="DeleteJobApplicationError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DeleteJobApplication(generics.DestroyAPIView):
@@ -542,11 +586,16 @@ class DeleteJobApplication(generics.DestroyAPIView):
     tags=["Web"],
     description="Returns all job applications submitted by a given email address. Admin-only endpoint.",
     responses={
-        200: inline_serializer(name="JobApplicationDetailResponse", fields={
-            "status": s.CharField(),
-            "data": ApplicationsSerializers(many=True),
-        }),
-        404: inline_serializer(name="JobApplicationDetailNotFound", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            name="JobApplicationDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "data": ApplicationsSerializers(many=True),
+            },
+        ),
+        404: inline_serializer(
+            name="JobApplicationDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class JobApplicationDetail(generics.ListAPIView):
@@ -613,8 +662,14 @@ class JobApplicationList(generics.ListAPIView):
     description="Registers an email address for the Picadailys newsletter. Returns an error if the email is already subscribed.",
     request=NewsletterSubscribersSerializer,
     responses={
-        201: inline_serializer(name="NewsletterSubscribeResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="NewsletterSubscribeError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="NewsletterSubscribeResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="NewsletterSubscribeError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class NewsletterSubscriptionView(generics.CreateAPIView):
@@ -660,8 +715,14 @@ class NewsletterSubscriptionView(generics.CreateAPIView):
     description="Removes a subscriber from the newsletter using the unique unsubscribe token sent in newsletter emails.",
     request=UnsubscribeNewsletterSerializer,
     responses={
-        200: inline_serializer(name="NewsletterUnsubscribeResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="NewsletterUnsubscribeError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="NewsletterUnsubscribeResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="NewsletterUnsubscribeError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class NewsletterUnsubscribeView(generics.GenericAPIView):
@@ -737,8 +798,14 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
     description="Submits a Contact Us enquiry for either Business or Personal use. Creates a support ticket and sends a notification email to the Picadailys team.",
     request=ContactUsSerializer,
     responses={
-        200: inline_serializer(name="ContactUsResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="ContactUsError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="ContactUsResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="ContactUsError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
     examples=[
         OpenApiExample(
@@ -934,14 +1001,20 @@ class ContactUsView(generics.GenericAPIView):
     tags=["Web"],
     description="Returns all Contact Us submissions grouped into business_use and personal_use categories. Admin-only endpoint.",
     responses={
-        200: inline_serializer(name="ListContactUsResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="ListContactUsData", fields={
-                "business_use": ContactUsSerializer(many=True),
-                "personal_use": ContactUsSerializer(many=True),
-            }),
-        }),
+        200: inline_serializer(
+            name="ListContactUsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="ListContactUsData",
+                    fields={
+                        "business_use": ContactUsSerializer(many=True),
+                        "personal_use": ContactUsSerializer(many=True),
+                    },
+                ),
+            },
+        ),
     },
 )
 class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
@@ -984,16 +1057,25 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
     description="Submits a CV to join the Picadailys job application waitlist. The CV is uploaded to Cloudinary. Duplicate submissions for the same email are rejected.",
     request=ApplicationsSerializers,
     responses={
-        201: inline_serializer(name="JoinApplicationWaitlistResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="JoinApplicationWaitlistData", fields={
-                "first_name": s.CharField(),
-                "email": s.EmailField(),
-                "cv": s.URLField(),
-            }),
-        }),
-        400: inline_serializer(name="JoinApplicationWaitlistError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="JoinApplicationWaitlistResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="JoinApplicationWaitlistData",
+                    fields={
+                        "first_name": s.CharField(),
+                        "email": s.EmailField(),
+                        "cv": s.URLField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="JoinApplicationWaitlistError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class JoinApplicationWaitlist(generics.CreateAPIView):

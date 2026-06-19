@@ -12,7 +12,7 @@ from .models import (
     UserTrustScore,
 )
 from adverts.models import CreateAd
-from gamification.models import StreakChallenge
+from gamification.models import StreakChallenge, UserStreak
 
 
 class SocialTaskSerializer(serializers.ModelSerializer):
@@ -283,6 +283,9 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
         return None
 
 
+SCREENSHOT_TASK_TYPES = ("social_engage", "app_download")
+
+
 class SubmitBrandTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandTaskSubmission
@@ -295,14 +298,16 @@ class SubmitBrandTaskSerializer(serializers.ModelSerializer):
         if not ad.is_active:
             raise serializers.ValidationError("This campaign is not currently active.")
 
+        if ad.task_type not in SCREENSHOT_TASK_TYPES:
+            raise serializers.ValidationError(
+                f"Use the webview completion endpoint for {ad.get_task_type_display()} tasks."
+            )
+
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
             raise serializers.ValidationError("You have already submitted this task.")
 
-        # Screenshot required for social_engage and app_download
-        if ad.task_type in ("social_engage", "app_download") and not attrs.get("screenshot_url"):
-            raise serializers.ValidationError(
-                "A screenshot is required as proof for this task type."
-            )
+        if not attrs.get("screenshot_url"):
+            raise serializers.ValidationError("A screenshot is required as proof for this task type.")
 
         return attrs
 
@@ -351,67 +356,22 @@ class AdminBrandReviewSerializer(serializers.Serializer):
 
 
 class CompleteWebviewTaskSerializer(serializers.Serializer):
-    task_id = serializers.IntegerField()
+    task_id = serializers.CharField()
     is_done = serializers.BooleanField()
+    source = serializers.ChoiceField(choices=["brand", "inapp"], default="brand")
 
-    WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit")
+    BRAND_WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit", "survey")
+    INAPP_WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit", "survey_completion")
 
     def validate(self, attrs):
         task_id = attrs["task_id"]
+        source = attrs.get("source", "brand")
+        user = self.context["request"].user
 
         if attrs["is_done"] is not True:
             raise serializers.ValidationError("is_done must be true.")
 
-        try:
-            ad = CreateAd.objects.get(pk=task_id)
-        except CreateAd.DoesNotExist:
-            raise serializers.ValidationError("Task not found.")
-
-        if not ad.is_active:
-            raise serializers.ValidationError("This campaign is no longer active.")
-
-        if ad.task_type not in self.WEBVIEW_TYPES:
-            raise serializers.ValidationError(
-                "This endpoint is only for website visit, video watch, and store visit tasks."
-            )
-
-        user = self.context["request"].user
-        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
-            raise serializers.ValidationError("You have already completed this task.")
-
-        attrs["ad"] = ad
-        return attrs
-
-
-class UnifiedSubmitSerializer(serializers.Serializer):
-    task_id = serializers.CharField()
-    source = serializers.ChoiceField(choices=["brand", "social"])
-    screenshot_url = serializers.CharField(required=False, allow_blank=True, default=None)
-    notes = serializers.CharField(required=False, allow_blank=True, default="")
-
-    def validate(self, attrs):
-        source = attrs["source"]
-        task_id = attrs["task_id"]
-        user = self.context["request"].user
-
-        if source == "social":
-            try:
-                task = SocialTask.objects.get(pk=task_id)
-            except (SocialTask.DoesNotExist, Exception):
-                raise serializers.ValidationError("Task not found.")
-
-            if not task.is_available:
-                raise serializers.ValidationError("This task is not currently available.")
-
-            if TaskSubmission.objects.filter(task=task, user=user).exists():
-                raise serializers.ValidationError("You have already submitted this task.")
-
-            if not attrs.get("screenshot_url"):
-                raise serializers.ValidationError("A screenshot is required for this task.")
-
-            attrs["task"] = task
-
-        else:  # brand
+        if source == "brand":
             try:
                 ad = CreateAd.objects.get(pk=int(task_id))
             except (CreateAd.DoesNotExist, ValueError, TypeError):
@@ -420,12 +380,34 @@ class UnifiedSubmitSerializer(serializers.Serializer):
             if not ad.is_active:
                 raise serializers.ValidationError("This campaign is no longer active.")
 
-            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
-                raise serializers.ValidationError("You have already submitted this task.")
+            if ad.task_type not in self.BRAND_WEBVIEW_TYPES:
+                raise serializers.ValidationError(
+                    "This endpoint is only for website visit, video watch, store visit, and survey tasks."
+                )
 
-            if ad.task_type in SCREENSHOT_REQUIRED_TASK_TYPES and not attrs.get("screenshot_url"):
-                raise serializers.ValidationError("A screenshot is required for this task type.")
+            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+                raise serializers.ValidationError("You have already completed this task.")
 
             attrs["ad"] = ad
+
+        else:  # inapp
+            try:
+                challenge = StreakChallenge.objects.get(pk=task_id)
+            except StreakChallenge.DoesNotExist:
+                raise serializers.ValidationError("Task not found.")
+
+            if not challenge.is_active or challenge.is_cancelled:
+                raise serializers.ValidationError("This challenge is no longer active.")
+
+            if challenge.streak_type not in self.INAPP_WEBVIEW_TYPES:
+                raise serializers.ValidationError(
+                    "This endpoint is only for website visit, video watch, store visit, and survey challenges."
+                )
+
+            streak = UserStreak.objects.filter(user=user, challenge=challenge).first()
+            if streak and streak.completed:
+                raise serializers.ValidationError("You have already completed this challenge.")
+
+            attrs["challenge"] = challenge
 
         return attrs
