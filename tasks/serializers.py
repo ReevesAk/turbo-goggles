@@ -148,6 +148,9 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
         }
 
     def get_ad_media(self, obj):
+        media = obj.ad_media.all()
+        if media:
+            return [{"images": m.images, "videos": m.videos} for m in media]
         details = obj.task_details or {}
         if obj.task_type == "watch_video" and details.get("video_url"):
             return [{"videos": details["video_url"], "images": None}]
