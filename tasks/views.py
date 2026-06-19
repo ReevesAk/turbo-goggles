@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
+from yaml import serializer
 
 from adverts.models import CreateAd
 from gamification.models import StreakChallenge
@@ -335,12 +336,19 @@ class CompleteWebviewTaskView(APIView):
 
     def post(self, request):
         try:
-            decrypted_data = decrypt(request.data)
+            decrypted_payload = decrypt(request.data)
+            if not isinstance(decrypted_payload, dict):
+                raise ValueError("Decrypted payload is not a valid object.")
+
+            user_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+
             serializer = CompleteWebviewTaskSerializer(
-                data=decrypted_data, context={"request": request}
+                data=user_data, context={"request": request}
             )
             serializer.is_valid(raise_exception=True)
-
             ad = serializer.validated_data["ad"]
             submission = BrandTaskSubmission.objects.create(
                 ad=ad,
