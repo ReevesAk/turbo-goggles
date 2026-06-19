@@ -118,27 +118,96 @@ class AdminReviewSerializer(serializers.Serializer):
 
 # ── Brand campaign task serializers ──────────────────────────────────────────
 
-class BrandTaskFeedSerializer(serializers.ModelSerializer):
-    """Read-only task card shown to users on the gamification feed."""
+_SOCIAL_TASK_TYPE_TO_ACTION = {
+    "Follow": "follow",
+    "Like": "like",
+    "Comment": "comment",
+    "Post": "post",
+}
+
+SCREENSHOT_REQUIRED_TASK_TYPES = {"social_engage"}
+
+
+class SocialTaskFeedSerializer(serializers.ModelSerializer):
+    """Read-only task card for admin-created SocialTask items on the unified feed."""
 
     task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
+    campaign_name = serializers.SerializerMethodField()
+    business_or_brand_name = serializers.SerializerMethodField()
+    expiry_date = serializers.DateTimeField(source="expires_at")
+    source = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SocialTask
+        fields = [
+            "id", "source", "campaign_name", "business_or_brand_name",
+            "task", "reward_points", "expiry_date", "time_remaining",
+            "is_active", "ad_media",
+        ]
+
+    def get_source(self, obj):
+        return "social"
+
+    def get_campaign_name(self, obj):
+        return obj.title
+
+    def get_business_or_brand_name(self, obj):
+        return obj.ad.business_or_brand_name if obj.ad_id else None
+
+    def get_task(self, obj):
+        action = _SOCIAL_TASK_TYPE_TO_ACTION.get(obj.task_type, obj.task_type.lower())
+        return {
+            "type": "social_engage",
+            "display": "Social Engage",
+            "details": {
+                "platform": obj.platform,
+                "post_url": obj.target_url,
+                "target_account": obj.target_account,
+                "required_actions": [action],
+                "required_hashtag": obj.required_hashtag,
+                "required_mention": obj.required_mention,
+            },
+        }
+
+    def get_ad_media(self, obj):
+        if obj.ad_id:
+            media = obj.ad.ad_media.all()
+            if media:
+                return [{"images": m.images, "videos": m.videos} for m in media]
+        return []
+
+    def get_time_remaining(self, obj):
+        if obj.expires_at:
+            remaining = obj.expires_at - timezone.now()
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                return f"{days}d {hours}h remaining"
+            return "Expired"
+        return None
+
+
+class BrandTaskFeedSerializer(serializers.ModelSerializer):
+    """Read-only task card for brand campaign (CreateAd) items on the unified feed."""
+
+    task = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+    ad_media = serializers.SerializerMethodField()
+    source = serializers.SerializerMethodField()
 
     class Meta:
         model = CreateAd
         fields = [
-            "id",
-            "campaign_name",
-            "business_or_brand_name",
-            "task",
-            "reward_points",
-            "expiry_date",
-            "time_remaining",
-            "is_active",
-            "ad_media",
+            "id", "source", "campaign_name", "business_or_brand_name",
+            "task", "reward_points", "expiry_date", "time_remaining",
+            "is_active", "ad_media",
         ]
         read_only_fields = fields
+
+    def get_source(self, obj):
+        return "brand"
 
     def get_task(self, obj):
         return {
@@ -168,7 +237,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
 
 
 class InAppTaskFeedSerializer(serializers.ModelSerializer):
-    """Unified task card for StreakChallenge in-app tasks on the gamification feed."""
+    """Unified task card for StreakChallenge in-app tasks on the unified feed."""
 
     task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
@@ -181,6 +250,7 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         return {
             "id": data["id"],
+            "source": "inapp",
             "campaign_name": data["name"],
             "business_or_brand_name": None,
             "task": data["task"],
@@ -284,6 +354,8 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
     task_id = serializers.IntegerField()
     is_done = serializers.BooleanField()
 
+    WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit")
+
     def validate(self, attrs):
         task_id = attrs["task_id"]
 
@@ -298,13 +370,62 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
         if not ad.is_active:
             raise serializers.ValidationError("This campaign is no longer active.")
 
-        webview_types = ("website_visit", "watch_video", "store_visit")
-        if ad.task_type not in webview_types:
-            raise serializers.ValidationError("This endpoint is only for website visit, video watch, and store visit tasks.")
+        if ad.task_type not in self.WEBVIEW_TYPES:
+            raise serializers.ValidationError(
+                "This endpoint is only for website visit, video watch, and store visit tasks."
+            )
 
         user = self.context["request"].user
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
             raise serializers.ValidationError("You have already completed this task.")
 
         attrs["ad"] = ad
+        return attrs
+
+
+class UnifiedSubmitSerializer(serializers.Serializer):
+    task_id = serializers.CharField()
+    source = serializers.ChoiceField(choices=["brand", "social"])
+    screenshot_url = serializers.CharField(required=False, allow_blank=True, default=None)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        source = attrs["source"]
+        task_id = attrs["task_id"]
+        user = self.context["request"].user
+
+        if source == "social":
+            try:
+                task = SocialTask.objects.get(pk=task_id)
+            except (SocialTask.DoesNotExist, Exception):
+                raise serializers.ValidationError("Task not found.")
+
+            if not task.is_available:
+                raise serializers.ValidationError("This task is not currently available.")
+
+            if TaskSubmission.objects.filter(task=task, user=user).exists():
+                raise serializers.ValidationError("You have already submitted this task.")
+
+            if not attrs.get("screenshot_url"):
+                raise serializers.ValidationError("A screenshot is required for this task.")
+
+            attrs["task"] = task
+
+        else:  # brand
+            try:
+                ad = CreateAd.objects.get(pk=int(task_id))
+            except (CreateAd.DoesNotExist, ValueError, TypeError):
+                raise serializers.ValidationError("Task not found.")
+
+            if not ad.is_active:
+                raise serializers.ValidationError("This campaign is no longer active.")
+
+            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+                raise serializers.ValidationError("You have already submitted this task.")
+
+            if ad.task_type in SCREENSHOT_REQUIRED_TASK_TYPES and not attrs.get("screenshot_url"):
+                raise serializers.ValidationError("A screenshot is required for this task type.")
+
+            attrs["ad"] = ad
+
         return attrs
