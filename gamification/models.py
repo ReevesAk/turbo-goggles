@@ -162,17 +162,16 @@ class StreakChallenge(models.Model):
         return self.is_active and not self.is_paused and self.start_date <= today <= self.end_date
 
     @property
+    def is_scheduled(self):
+        return not self.is_cancelled and timezone.now().date() < self.start_date
+
+    @property
     def task_status(self):
         if self.is_cancelled:
             return "cancelled"
-        today = timezone.now().date()
-        if self.start_date > today:
-            return "scheduled"
-        if today > self.end_date:
-            return "expired"
-        if self.is_active and not self.is_paused:
+        if self.is_ongoing:
             return "active"
-        return "paused"
+        return "inactive"
 
 
 class UserStreak(models.Model):
