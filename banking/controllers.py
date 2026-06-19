@@ -382,7 +382,7 @@ class Wallet:
 
         try:
             response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload, timeout=30
             )
             return response
 
@@ -416,7 +416,7 @@ class Wallet:
         }
         try:
             response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload, timeout=30
             )
             return response
 
@@ -492,6 +492,7 @@ class Transfers:
             response = requests.get(
                 url=base_url + resource,
                 headers=headers,
+                timeout=15,
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -521,7 +522,7 @@ class Transfers:
 
         try:
             response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -554,7 +555,7 @@ class Transfers:
 
         try:
             response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -651,7 +652,7 @@ class Transfers:
 
         try:
             response = requests.post(
-                url=base_url + resource, headers=headers, json=payload
+                url=base_url + resource, headers=headers, json=payload, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -991,7 +992,7 @@ class Paystack:
 
         try:
             response = requests.post(
-                url=generate_url_resource, json=payload, headers=headers
+                url=generate_url_resource, json=payload, headers=headers, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
@@ -1025,7 +1026,7 @@ class Paystack:
 
         try:
             response = requests.post(
-                url=refund_url_resource, json=payload, headers=headers
+                url=refund_url_resource, json=payload, headers=headers, timeout=30
             )
             return response
         except requests.exceptions.RequestException as e:
