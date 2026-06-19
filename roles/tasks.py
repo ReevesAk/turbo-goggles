@@ -45,8 +45,18 @@ logger = logging.getLogger(__name__)
     description="Creates a new step count campaign and notifies all users who have completed the survey. Returns the created campaign's details.",
     request=StepCampaignSerializer,
     responses={
-        201: inline_serializer("CreateStepCampaignResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("CreateStepCampaignError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "CreateStepCampaignResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateStepCampaignError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CreateStepCampaign(generics.GenericAPIView):
@@ -110,7 +120,14 @@ class CreateStepCampaign(generics.GenericAPIView):
     tags=["Tasks"],
     description="Returns all step count campaigns ordered by creation date. Results are cached for 10 minutes.",
     responses={
-        200: inline_serializer("GetAllStepCampaignsResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "GetAllStepCampaignsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class GetAllStepCampaigns(generics.ListAPIView):
@@ -155,8 +172,17 @@ class GetAllStepCampaigns(generics.ListAPIView):
     tags=["Tasks"],
     description="Retrieves full details for a specific step count campaign, including a list of all participating users.",
     responses={
-        200: inline_serializer("GetSingleStepCampaignResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        404: inline_serializer("GetSingleStepCampaignNotFound", fields={"detail": s.CharField()}),
+        200: inline_serializer(
+            "GetSingleStepCampaignResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "GetSingleStepCampaignNotFound", fields={"detail": s.CharField()}
+        ),
     },
 )
 class GetSingleStepCampaign(generics.RetrieveAPIView):
@@ -187,7 +213,14 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
     tags=["Tasks"],
     description="Returns all step count campaigns alongside their enrolled participants. Results are cached for 10 minutes.",
     responses={
-        200: inline_serializer("CampaignParticipantListResponse", fields={"success": s.BooleanField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "CampaignParticipantListResponse",
+            fields={
+                "success": s.BooleanField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class CampaignParticipantListView(generics.ListAPIView):
@@ -234,8 +267,18 @@ class CampaignParticipantListView(generics.ListAPIView):
     description="Sends a newsletter email to the specified list of recipients. Requires Task Admin or Super Admin permission.",
     request=SendNewsletterSerializer,
     responses={
-        201: inline_serializer("SendNewsLetterResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("SendNewsLetterError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "SendNewsLetterResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "SendNewsLetterError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SendNewsLetter(generics.GenericAPIView):
@@ -306,8 +349,18 @@ class SendNewsLetter(generics.GenericAPIView):
     description="Creates a new in-app streak challenge task. Requires Ad Admin or Super Admin permission.",
     request=InAppTaskCreateSerializer,
     responses={
-        201: inline_serializer("CreateInAppTaskResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("CreateInAppTaskError", fields={"status": s.CharField(), "errors": s.DictField()}),
+        201: inline_serializer(
+            "CreateInAppTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateInAppTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
     },
 )
 class CreateInAppTaskView(generics.GenericAPIView):
@@ -329,11 +382,13 @@ class CreateInAppTaskView(generics.GenericAPIView):
         logger.info("In-app task '%s' created by %s", task.name, request.user.email)
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Task created successfully.",
-                "data": InAppTaskSerializer(task).data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task created successfully.",
+                    "data": InAppTaskSerializer(task).data,
+                }
+            ),
             status=status.HTTP_201_CREATED,
         )
 
@@ -343,10 +398,23 @@ class CreateInAppTaskView(generics.GenericAPIView):
     tags=["Tasks"],
     description="Returns all in-app streak challenge tasks. Optionally filter by status: active, inactive, or cancelled.",
     parameters=[
-        OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Filter by task status: active, inactive, or cancelled", required=False),
+        OpenApiParameter(
+            name="status",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by task status: active, inactive, or cancelled",
+            required=False,
+        ),
     ],
     responses={
-        200: inline_serializer("ListInAppTasksResponse", fields={"status": s.CharField(), "total": s.IntegerField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "ListInAppTasksResponse",
+            fields={
+                "status": s.CharField(),
+                "total": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class ListInAppTasksView(generics.GenericAPIView):
@@ -395,8 +463,18 @@ class ListInAppTasksView(generics.GenericAPIView):
     tags=["Tasks"],
     description="Retrieves full details for a specific in-app streak challenge, including total rewards distributed and participant count.",
     responses={
-        200: inline_serializer("InAppTaskDetailResponse", fields={"status": s.CharField(), "stats": s.DictField(), "data": s.DictField()}),
-        404: inline_serializer("InAppTaskDetailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "InAppTaskDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "stats": s.DictField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "InAppTaskDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class InAppTaskDetailView(generics.GenericAPIView):
@@ -416,19 +494,23 @@ class InAppTaskDetailView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        completed_count = UserStreak.objects.filter(challenge=task, reward_issued=True).count()
+        completed_count = UserStreak.objects.filter(
+            challenge=task, reward_issued=True
+        ).count()
         total_rewards_distributed = completed_count * task.reward_points
         participants = UserStreak.objects.filter(challenge=task).count()
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "stats": {
-                    "total_rewards_distributed": total_rewards_distributed,
-                    "participants": participants,
-                },
-                "data": InAppTaskSerializer(task).data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "stats": {
+                        "total_rewards_distributed": total_rewards_distributed,
+                        "participants": participants,
+                    },
+                    "data": InAppTaskSerializer(task).data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -439,9 +521,22 @@ class InAppTaskDetailView(generics.GenericAPIView):
     description="Partially updates an in-app streak challenge task. Can be used to edit fields, pause, or cancel the task.",
     request=InAppTaskUpdateSerializer,
     responses={
-        200: inline_serializer("UpdateInAppTaskResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("UpdateInAppTaskError", fields={"status": s.CharField(), "errors": s.DictField()}),
-        404: inline_serializer("UpdateInAppTaskNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "UpdateInAppTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateInAppTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "UpdateInAppTaskNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpdateInAppTaskView(generics.GenericAPIView):
@@ -471,10 +566,12 @@ class UpdateInAppTaskView(generics.GenericAPIView):
         logger.info("In-app task '%s' updated by %s", task.name, request.user.email)
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Task updated successfully.",
-                "data": InAppTaskSerializer(task).data,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task updated successfully.",
+                    "data": InAppTaskSerializer(task).data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )

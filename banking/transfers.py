@@ -336,7 +336,11 @@ class ValidateAccountOfOtherBank(generics.GenericAPIView):
         ),
         202: inline_serializer(
             name="IntraBankTransferPendingResponse",
-            fields={"status": s.CharField(), "message": s.CharField(), "transactionReference": s.CharField()},
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "transactionReference": s.CharField(),
+            },
         ),
         400: inline_serializer(
             name="IntraBankTransferErrorResponse",
@@ -755,7 +759,11 @@ class IntraBankFreeTransferCount(APIView):
         ),
         202: inline_serializer(
             name="InterBankTransferPendingResponse",
-            fields={"status": s.CharField(), "message": s.CharField(), "transactionReference": s.CharField()},
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "transactionReference": s.CharField(),
+            },
         ),
         400: inline_serializer(
             name="InterBankTransferErrorResponse",

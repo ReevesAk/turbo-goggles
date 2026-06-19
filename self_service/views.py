@@ -64,10 +64,26 @@ class PaginationStyle(PageNumberPagination):
     description="Creates a restaurant table booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=RestaurantBookingSerializers,
     responses={
-        200: inline_serializer("TableBookingResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("TableBookingError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("TableBookingUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("TableBookingNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "TableBookingResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "TableBookingError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "TableBookingUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "TableBookingNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class TableBooking(generics.CreateAPIView):
@@ -289,7 +305,15 @@ class TableBooking(generics.CreateAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all restaurant table bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("TableBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "TableBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class TableBookingList(generics.ListAPIView):
@@ -335,7 +359,9 @@ class TableBookingList(generics.ListAPIView):
     description="Retrieves a single restaurant table booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: RestaurantBookingSerializers,
-        404: inline_serializer("TableBookingDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "TableBookingDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class TableBookingDetail(generics.RetrieveAPIView):
@@ -374,10 +400,26 @@ class TableBookingDetail(generics.RetrieveAPIView):
     description="Creates a gym subscription booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=GymSubcriptionSerializers,
     responses={
-        200: inline_serializer("GymBookingResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("GymBookingError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("GymBookingUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("GymBookingNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "GymBookingResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "GymBookingError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "GymBookingUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "GymBookingNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class GymBooking(generics.CreateAPIView):
@@ -592,7 +634,15 @@ class GymBooking(generics.CreateAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all gym subscription bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("GymBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "GymBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class GymBookingList(generics.ListAPIView):
@@ -638,7 +688,9 @@ class GymBookingList(generics.ListAPIView):
     description="Retrieves a single gym subscription booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: GymSubcriptionSerializers,
-        404: inline_serializer("GymBookingDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "GymBookingDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class GymBookingDetail(generics.RetrieveAPIView):
@@ -677,10 +729,26 @@ class GymBookingDetail(generics.RetrieveAPIView):
     description="Creates a cinema seat booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=CinemaBookingSerializers,
     responses={
-        200: inline_serializer("CinemaBookingResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("CinemaBookingError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("CinemaBookingUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("CinemaBookingNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "CinemaBookingResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CinemaBookingError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "CinemaBookingUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "CinemaBookingNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class CinemaBookingView(generics.CreateAPIView):
@@ -895,7 +963,15 @@ class CinemaBookingView(generics.CreateAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all cinema seat bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("CinemaBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "CinemaBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class CinemaBookingList(generics.ListAPIView):
@@ -941,7 +1017,9 @@ class CinemaBookingList(generics.ListAPIView):
     description="Retrieves a single cinema seat booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: CinemaBookingSerializers,
-        404: inline_serializer("CinemaBookingDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "CinemaBookingDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class CinemaBookingDetail(generics.RetrieveAPIView):
@@ -980,10 +1058,26 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     description="Creates a courier service booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=CourierBookingSerializers,
     responses={
-        200: inline_serializer("BookCourierResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("BookCourierError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("BookCourierUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("BookCourierNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "BookCourierResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "BookCourierError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "BookCourierUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "BookCourierNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class BookCourierSercvice(generics.CreateAPIView):
@@ -1201,7 +1295,15 @@ class BookCourierSercvice(generics.CreateAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all courier service bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("CourierBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "CourierBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class CourierBookingList(generics.ListAPIView):
@@ -1245,7 +1347,9 @@ class CourierBookingList(generics.ListAPIView):
     description="Retrieves a single courier service booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: CourierBookingSerializers,
-        404: inline_serializer("CourierBookingDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "CourierBookingDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class CourierBookingDetail(generics.RetrieveAPIView):
@@ -1285,10 +1389,26 @@ class CourierBookingDetail(generics.RetrieveAPIView):
     description="Creates a consumable (FMCG) service booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=ConsumableSerializers,
     responses={
-        201: inline_serializer("BookConsumableResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("BookConsumableError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("BookConsumableUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("BookConsumableNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        201: inline_serializer(
+            "BookConsumableResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "BookConsumableError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            "BookConsumableUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "BookConsumableNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class BookConsumableSercvice(generics.CreateAPIView):
@@ -1451,7 +1571,15 @@ class BookConsumableSercvice(generics.CreateAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all consumable (FMCG) service bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("ConsumableBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "ConsumableBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class ConsumableBookingList(generics.ListAPIView):
@@ -1485,7 +1613,9 @@ class ConsumableBookingList(generics.ListAPIView):
     description="Retrieves a single consumable (FMCG) service booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: ConsumableSerializers,
-        404: inline_serializer("ConsumableBookingDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "ConsumableBookingDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class ConsumableBookingDetail(generics.RetrieveAPIView):
@@ -1525,8 +1655,18 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
     description="Creates a land travel booking (one-way or round trip) for the authenticated user. No payment is charged at booking; a product tag is issued.",
     request=LandTravelsSerilaizers,
     responses={
-        201: inline_serializer("BookLandTripResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("BookLandTripError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "BookLandTripResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "BookLandTripError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BookLandTrip(generics.GenericAPIView):
@@ -1688,7 +1828,9 @@ class BookLandTrip(generics.GenericAPIView):
     description="Retrieves a single land travel booking by ID. Returns 404 if the booking doesn't exist or doesn't belong to the authenticated user.",
     responses={
         200: LandTravelsSerilaizers,
-        404: inline_serializer("LandTripDetailNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "LandTripDetailNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class LandTripBookingDetail(generics.RetrieveAPIView):
@@ -1727,7 +1869,15 @@ class LandTripBookingDetail(generics.RetrieveAPIView):
     tags=["Self-Service"],
     description="Returns a paginated list of all land travel bookings made by the currently authenticated user.",
     responses={
-        200: inline_serializer("LandTripBookingListResponse", fields={"count": s.IntegerField(), "next": s.CharField(allow_null=True), "previous": s.CharField(allow_null=True), "results": s.ListField()}),
+        200: inline_serializer(
+            "LandTripBookingListResponse",
+            fields={
+                "count": s.IntegerField(),
+                "next": s.CharField(allow_null=True),
+                "previous": s.CharField(allow_null=True),
+                "results": s.ListField(),
+            },
+        ),
     },
 )
 class LandTripBookingList(generics.ListAPIView):
@@ -1773,10 +1923,25 @@ class LandTripBookingList(generics.ListAPIView):
     description="Creates a hotel room booking for the authenticated user and processes payment via wallet or card. Requires wallet PIN or biometric verification.",
     request=HotelSerializers,
     responses={
-        200: inline_serializer("BookHotelResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("BookHotelError", fields={"status": s.CharField(), "message": s.CharField()}),
-        401: inline_serializer("BookHotelUnauthorized", fields={"status": s.CharField(), "error": s.CharField()}),
-        404: inline_serializer("BookHotelNotFound", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            "BookHotelResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "BookHotelError", fields={"status": s.CharField(), "message": s.CharField()}
+        ),
+        401: inline_serializer(
+            "BookHotelUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        404: inline_serializer(
+            "BookHotelNotFound",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class BookHotel(generics.GenericAPIView):
@@ -1967,9 +2132,13 @@ class BookHotel(generics.GenericAPIView):
     description="Allows the authenticated user to rate and review a specific self-service booking (restaurant, gym, cinema, courier, consumable, land travel, or hotel). Each user may only rate a given service once.",
     request=CustomerRatingSerializer,
     responses={
-        201: inline_serializer("ServiceRatingResponse", fields={"success": s.CharField()}),
+        201: inline_serializer(
+            "ServiceRatingResponse", fields={"success": s.CharField()}
+        ),
         400: inline_serializer("ServiceRatingError", fields={"error": s.CharField()}),
-        404: inline_serializer("ServiceRatingNotFound", fields={"error": s.CharField()}),
+        404: inline_serializer(
+            "ServiceRatingNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class ServiceRating(generics.GenericAPIView):
@@ -2067,7 +2236,9 @@ class ServiceRating(generics.GenericAPIView):
     description="Retrieves a self-service transaction record using its product tag prefix (RST, GYM, CIN, COU, FMCG, LTS, HOT). Returns 400 if not found.",
     responses={
         200: GetTransactionSerializer,
-        400: inline_serializer("GetTransactionNotFound", fields={"error": s.CharField()}),
+        400: inline_serializer(
+            "GetTransactionNotFound", fields={"error": s.CharField()}
+        ),
     },
 )
 class GetTransaction(generics.RetrieveAPIView):

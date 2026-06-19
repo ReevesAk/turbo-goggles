@@ -63,6 +63,7 @@ TASK_TYPE_CHOICES = (
     ("app_download", "App Download"),
 )
 
+
 class CreateAd(models.Model):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name="create_ad"
@@ -129,8 +130,10 @@ class CreateAd(models.Model):
         choices=LOCATION_TYPE_CHOICES, max_length=20, null=True, blank=True
     )
     targeting_type = models.CharField(
-        choices=TARGETING_TYPE_CHOICES, max_length=15, default="broad",
-        help_text="Determines the pricing multiplier: broad/city/niche/influencer"
+        choices=TARGETING_TYPE_CHOICES,
+        max_length=15,
+        default="broad",
+        help_text="Determines the pricing multiplier: broad/city/niche/influencer",
     )
     countries = models.JSONField(default=list, blank=True)
     auto_boost = models.BooleanField(default=False)
@@ -145,7 +148,10 @@ class CreateAd(models.Model):
 
 class BrandAdCreditWallet(models.Model):
     """Running credit balance for a brand — sourced from unfilled ad slots."""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="ad_credit_wallet")
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="ad_credit_wallet"
+    )
     balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -155,16 +161,23 @@ class BrandAdCreditWallet(models.Model):
 
 class BrandAdCreditLedger(models.Model):
     """Immutable log of every credit (unused slot refund) and debit (applied to new ad)."""
+
     CREDIT = "credit"
     DEBIT = "debit"
     TYPES = ((CREDIT, "Credit"), (DEBIT, "Debit"))
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ad_credit_ledger")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="ad_credit_ledger"
+    )
     transaction_type = models.CharField(choices=TYPES, max_length=10)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     balance_after = models.DecimalField(max_digits=14, decimal_places=2)
     source_ad = models.ForeignKey(
-        CreateAd, on_delete=models.SET_NULL, null=True, blank=True, related_name="credit_entries"
+        CreateAd,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="credit_entries",
     )
     reason = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)

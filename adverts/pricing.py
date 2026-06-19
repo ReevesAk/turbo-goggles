@@ -1,27 +1,26 @@
 from decimal import Decimal
 
-
 # Unit cost table: task_type → (1-3 days, 4-7 days, 8-14 days)
 UNIT_COST_TABLE = {
-    "watch_video":   (Decimal("20"),   Decimal("15"),   Decimal("10")),
-    "social_engage": (Decimal("50"),   Decimal("30"),   Decimal("20")),
-    "app_download":  (Decimal("400"),  Decimal("200"),  Decimal("150")),
-    "survey":        (Decimal("400"),  Decimal("200"),  Decimal("150")),
-    "store_visit":   (Decimal("2000"), Decimal("1500"), Decimal("1200")),
-    "website_visit": (Decimal("100"),  Decimal("50"),   Decimal("30")),
+    "watch_video": (Decimal("20"), Decimal("15"), Decimal("10")),
+    "social_engage": (Decimal("50"), Decimal("30"), Decimal("20")),
+    "app_download": (Decimal("400"), Decimal("200"), Decimal("150")),
+    "survey": (Decimal("400"), Decimal("200"), Decimal("150")),
+    "store_visit": (Decimal("2000"), Decimal("1500"), Decimal("1200")),
+    "website_visit": (Decimal("100"), Decimal("50"), Decimal("30")),
 }
 
 TARGETING_MULTIPLIERS = {
-    "broad":      Decimal("1.00"),
-    "city":       Decimal("1.15"),
-    "niche":      Decimal("1.25"),
+    "broad": Decimal("1.00"),
+    "city": Decimal("1.15"),
+    "niche": Decimal("1.25"),
     "influencer": Decimal("1.50"),
 }
 
 TARGETING_TYPE_CHOICES = (
-    ("broad",      "Broad — All of Nigeria"),
-    ("city",       "City-Specific"),
-    ("niche",      "Niche Behavior"),
+    ("broad", "Broad — All of Nigeria"),
+    ("city", "City-Specific"),
+    ("niche", "Niche Behavior"),
     ("influencer", "Influencer Tier (10k+ followers)"),
 )
 

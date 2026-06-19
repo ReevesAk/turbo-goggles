@@ -135,7 +135,7 @@ class SubmitBrandTaskViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     @patch("tasks.jobs.approve_brand_submission.delay")
-    def test_watch_video_auto_approves_and_queues_points(self, mock_delay):
+    def test_watch_video_rejected_use_webview_endpoint(self, mock_delay):
         self.client.force_authenticate(user=self.user)
 
         response = self.client.post(
@@ -144,13 +144,9 @@ class SubmitBrandTaskViewTests(APITestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        body = decrypt(response.data)
-        self.assertEqual(body["status"], "success")
-        self.assertIn("Points are being credited", body["message"])
-        mock_delay.assert_called_once()
-        submission = BrandTaskSubmission.objects.get(pk=body["data"]["submission_id"])
-        self.assertEqual(submission.user, self.user)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        mock_delay.assert_not_called()
+        self.assertFalse(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists())
 
     @patch("tasks.jobs.approve_brand_submission.delay")
     def test_social_engage_without_screenshot_returns_400(self, mock_delay):

@@ -248,6 +248,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
         task_type = validated_data.get("task_type")
         if task_type:
             from gamification.models import PointConfig
+
             TASK_TYPE_TO_KEY = {
                 "watch_video": "watch_video",
                 "social_engage": "social_engagement",

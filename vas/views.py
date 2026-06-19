@@ -62,11 +62,17 @@ logger = logging.getLogger(__name__)
     description="Processes an airtime top-up for any Nigerian network (MTN, GLO, Airtel, Etisalat). Supports wallet, points, cashback, and card payment options. Authenticated users must use wallet; guests must use card.",
     request=AirtimeTopupSerializer,
     responses={
-        200: inline_serializer(name="AirtimeTopupResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-        }),
-        400: inline_serializer(name="AirtimeTopupError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="AirtimeTopupResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="AirtimeTopupError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AirTimeTopUp(generics.GenericAPIView):
@@ -631,10 +637,13 @@ class AirTimeTopUp(generics.GenericAPIView):
     tags=["VAS"],
     description="Retrieve available data bundle plans for a network provider. Pass the network name as a path parameter (e.g. mtn, glo, airtel, etisalat).",
     responses={
-        200: inline_serializer(name="GetDataPlansResponse", fields={
-            "status": s.CharField(),
-            "data": s.DictField(),
-        }),
+        200: inline_serializer(
+            name="GetDataPlansResponse",
+            fields={
+                "status": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
         400: OpenApiResponse(description="Invalid network provided"),
         502: OpenApiResponse(description="Failed to fetch data plans from provider"),
     },
@@ -707,8 +716,14 @@ class GetDataPlans(generics.RetrieveAPIView):
     description="Purchases a mobile data bundle for any Nigerian network. Supports wallet, cashback, points, and card payment options. Authenticated users must use wallet; guests must use card.",
     request=DataSubscriptionSerializer,
     responses={
-        200: inline_serializer(name="DataSubscriptionResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="DataSubscriptionError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="DataSubscriptionResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="DataSubscriptionError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DataSubscriptionView(generics.GenericAPIView):
@@ -1243,12 +1258,26 @@ class DataSubscriptionView(generics.GenericAPIView):
     tags=["VAS"],
     description="Returns the available service variations (packages/plans) for a given VAS service ID. Pass the serviceID as a query parameter (e.g. dstv, gotv).",
     parameters=[
-        OpenApiParameter(name="serviceID", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="VAS service ID (e.g. dstv, gotv, startimes)"),
+        OpenApiParameter(
+            name="serviceID",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="VAS service ID (e.g. dstv, gotv, startimes)",
+        ),
     ],
     responses={
-        200: inline_serializer(name="GetPaymentCategoriesResponse", fields={"status": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer(name="GetPaymentCategoriesError", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer(name="GetPaymentCategoriesGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="GetPaymentCategoriesResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            name="GetPaymentCategoriesError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="GetPaymentCategoriesGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetPaymentCategoriesView(APIView):
@@ -1302,12 +1331,26 @@ class GetPaymentCategoriesView(APIView):
     tags=["VAS"],
     description="Returns the available bill payment categories for a given category ID. Can be passed as a URL path parameter or query parameter.",
     parameters=[
-        OpenApiParameter(name="category_id", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Bill payment category ID"),
+        OpenApiParameter(
+            name="category_id",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Bill payment category ID",
+        ),
     ],
     responses={
-        200: inline_serializer(name="BillPaymentCategoriesResponse", fields={"status": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer(name="BillPaymentCategoriesError", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer(name="BillPaymentCategoriesGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="BillPaymentCategoriesResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            name="BillPaymentCategoriesError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="BillPaymentCategoriesGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BillPaymentCategoriesView(APIView):
@@ -1362,12 +1405,26 @@ class BillPaymentCategoriesView(APIView):
     tags=["VAS"],
     description="Returns the required fields and items for a specific biller ID (e.g. electricity distributor or cable provider).",
     parameters=[
-        OpenApiParameter(name="billers_id", type=OpenApiTypes.STR, location=OpenApiParameter.PATH, description="Biller ID (e.g. ikeja-electric, dstv)"),
+        OpenApiParameter(
+            name="billers_id",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.PATH,
+            description="Biller ID (e.g. ikeja-electric, dstv)",
+        ),
     ],
     responses={
-        200: inline_serializer(name="BillersCategoriesResponse", fields={"status": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer(name="BillersCategoriesError", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer(name="BillersCategoriesGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="BillersCategoriesResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            name="BillersCategoriesError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="BillersCategoriesGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BillersCategoriesView(APIView):
@@ -1418,9 +1475,18 @@ class BillersCategoriesView(APIView):
     description="Verifies a meter number (electricity) or smart card/IUC number (cable TV) against the VAS provider. Returns the customer name and details on success.",
     request=VerifyBillerSerializer,
     responses={
-        200: inline_serializer(name="VerifyBillerResponse", fields={"status": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer(name="VerifyBillerError", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer(name="VerifyBillerGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="VerifyBillerResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            name="VerifyBillerError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="VerifyBillerGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class VerifyBillerAccountView(generics.GenericAPIView):
@@ -1533,13 +1599,19 @@ class VerifyBillerAccountView(generics.GenericAPIView):
     description="Processes an electricity prepaid token purchase or cable TV subscription. Service type is detected automatically: responses with a token field indicate electricity. Supports wallet, points, and card payment options.",
     request=BillPaymentSerializer,
     responses={
-        200: inline_serializer(name="BillPaymentResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "token_details": s.CharField(required=False),
-            "units_bought": s.CharField(required=False),
-        }),
-        400: inline_serializer(name="BillPaymentError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="BillPaymentResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "token_details": s.CharField(required=False),
+                "units_bought": s.CharField(required=False),
+            },
+        ),
+        400: inline_serializer(
+            name="BillPaymentError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class BillPaymentView(generics.GenericAPIView):
