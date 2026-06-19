@@ -72,7 +72,11 @@ class SocialTaskListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         qs = [t for t in self.get_queryset() if t.is_available]
         serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)
+        return Response(data=encrypt({
+            "status": "success",
+            "message": "Tasks retrieved successfully.",
+            "data": serializer.data,
+        }), status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -96,24 +100,46 @@ class SubmitTaskView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        submission = serializer.save()
+        try:
+            decrypted_payload = decrypt(request.data)
+            if not isinstance(decrypted_payload, dict):
+                raise ValueError("Decrypted payload is not a valid object.")
+            user_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(data=user_data, context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            submission = serializer.save()
 
-        run_verification.delay(str(submission.pk))
+            run_verification.delay(str(submission.pk))
 
-        response_data = {
-            "detail": "Submission received. Verification in progress.",
-            "id": str(submission.pk),
-        }
-        if submission.verification_code:
-            response_data["verification_code"] = submission.verification_code
-            response_data["verification_note"] = (
-                f"Include this code verbatim in your {submission.task.task_type.lower()}: "
-                f"{submission.verification_code}"
+            response_data = {
+                "status": "success",
+                "message": "Submission received. Verification in progress.",
+                "data": {"submission_id": str(submission.pk)},
+            }
+            if submission.verification_code:
+                response_data["data"]["verification_code"] = submission.verification_code
+                response_data["data"]["verification_note"] = (
+                    f"Include this code verbatim in your {submission.task.task_type.lower()}: "
+                    f"{submission.verification_code}"
+                )
+
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
+
+        except s.ValidationError as err:
+            logger.warning("SubmitTaskView validation failed for user %s: %s", request.user.id, err.detail)
+            return Response(
+                data=encrypt({"status": "error", "message": err.detail}),
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        except Exception as err:
+            logger.error("SubmitTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 @extend_schema(
@@ -134,6 +160,14 @@ class MySubmissionsView(generics.ListAPIView):
             .order_by("-created_at")
         )
 
+    def list(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_queryset(), many=True)
+        return Response(data=encrypt({
+            "status": "success",
+            "message": "Submissions retrieved successfully.",
+            "data": serializer.data,
+        }), status=status.HTTP_200_OK)
+
 
 @extend_schema(
     summary="Get my trust score",
@@ -147,7 +181,11 @@ class MyTrustScoreView(APIView):
 
     def get(self, request):
         trust, _ = UserTrustScore.objects.get_or_create(user=request.user)
-        return Response(UserTrustScoreSerializer(trust).data)
+        return Response(data=encrypt({
+            "status": "success",
+            "message": "Trust score retrieved successfully.",
+            "data": UserTrustScoreSerializer(trust).data,
+        }), status=status.HTTP_200_OK)
 
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
