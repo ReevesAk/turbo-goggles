@@ -8,6 +8,9 @@ from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import F
+from django.core.cache import cache
+
+from accounts.models import User
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -863,5 +866,93 @@ class MyStreakHistoryView(generics.ListAPIView):
         data = StreakHistorySerializer(self.get_queryset(), many=True).data
         return Response(
             data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="All-time points leaderboard",
+    tags=["Gamification"],
+    description="Returns the top 100 users ranked by all-time earned points. Also includes the requesting user's own rank and points, even if they fall outside the top 100.",
+    responses={
+        200: inline_serializer(
+            name="PointsLeaderboardResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "leaderboard": inline_serializer(
+                    name="LeaderboardEntry",
+                    fields={
+                        "rank": s.IntegerField(),
+                        "user_id": s.UUIDField(),
+                        "full_name": s.CharField(),
+                        "total_points": s.IntegerField(),
+                        "tier": s.CharField(),
+                    },
+                    many=True,
+                ),
+                "my_rank": inline_serializer(
+                    name="MyRankEntry",
+                    fields={
+                        "rank": s.IntegerField(),
+                        "user_id": s.UUIDField(),
+                        "full_name": s.CharField(),
+                        "total_points": s.IntegerField(),
+                        "tier": s.CharField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
+class PointsLeaderboardView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        cache_key = "points_leaderboard_top100"
+        leaderboard = cache.get(cache_key)
+
+        if leaderboard is None:
+            top_users = (
+                User.objects.filter(is_active=True, total_points__gt=0)
+                .only("id", "full_name", "total_points")
+                .order_by("-total_points")[:100]
+            )
+            leaderboard = [
+                {
+                    "rank": idx + 1,
+                    "user_id": str(u.id),
+                    "full_name": u.full_name or "Anonymous",
+                    "total_points": u.total_points or 0,
+                    "tier": Points.get_user_tier(u.total_points or 0),
+                }
+                for idx, u in enumerate(top_users)
+            ]
+            cache.set(cache_key, leaderboard, timeout=300)
+
+        user = request.user
+        user_rank = (
+            User.objects.filter(
+                is_active=True,
+                total_points__gt=(user.total_points or 0),
+            ).count()
+            + 1
+        )
+        my_entry = {
+            "rank": user_rank,
+            "user_id": str(user.id),
+            "full_name": user.full_name or "Anonymous",
+            "total_points": user.total_points or 0,
+            "tier": Points.get_user_tier(user.total_points or 0),
+        }
+
+        return Response(
+            data=encrypt({
+                "status": "success",
+                "message": "Leaderboard retrieved successfully.",
+                "leaderboard": leaderboard,
+                "my_rank": my_entry,
+            }),
             status=status.HTTP_200_OK,
         )

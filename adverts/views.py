@@ -316,43 +316,39 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                 case "WALLET":
                     try:
                         with transaction.atomic():
-                            # Reconcile unused credit from expired ads, then apply
-                            # any available balance against this ad's charge.
-                            reconcile_credit(user)
-                            new_ad = serializer.save()
-                            credit_applied, effective_charge = apply_credit(
-                                user, new_ad, full_charge
-                            )
-                            effective_debit = int(effective_charge)
+                            # 1. Bring in any credit from the user's expired ads.
+                            available_credit = reconcile_credit(user)
 
-                            account = WalletModel.objects.select_for_update().get(
-                                user=user
-                            )
-
+                            # 2. Check live wallet balance BEFORE saving the ad so
+                            #    we never persist an ad the user can't pay for.
+                            account = WalletModel.objects.select_for_update().get(user=user)
                             enquiry = Wallet.getWalletDetails(account.account_number)
                             if enquiry and hasattr(enquiry, "json"):
                                 enquiry_data = enquiry.json()
                                 live_balance = Decimal(
-                                    str(
-                                        enquiry_data.get("data", {}).get(
-                                            "availableBalance", 0
-                                        )
-                                    )
+                                    str(enquiry_data.get("data", {}).get("availableBalance", 0))
                                 )
                             else:
                                 live_balance = account.balance
 
-                            if live_balance < effective_debit:
+                            preview_credit = min(available_credit, full_charge)
+                            preview_debit = int(full_charge - preview_credit)
+
+                            if live_balance < preview_debit:
                                 return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "fail",
-                                            "message": "Insufficient balance.",
-                                        }
-                                    ),
+                                    data=encrypt({"status": "fail", "message": "Insufficient balance."}),
                                     status=status.HTTP_400_BAD_REQUEST,
                                 )
 
+                            # 3. Save the ad only after the balance check passes.
+                            new_ad = serializer.save()
+
+                            # 4. Apply any available credit against this ad's charge.
+                            credit_applied, effective_charge = apply_credit(user, new_ad, full_charge)
+                            effective_debit = int(effective_charge)
+
+                            # 5. Execute the wallet debit. Raise on failure so the
+                            #    atomic block rolls back and the ad is not persisted.
                             if effective_debit > 0:
                                 debit_response = Wallet.Debit(
                                     debitAccount=account.account_number,
@@ -360,74 +356,54 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                     reason="Debit for brand promotion.",
                                     merchantFeeAmount="0.00",
                                 )
-                                debit_ok = (
-                                    debit_response is not None
-                                    and debit_response.status_code == 200
-                                )
-                            else:
-                                # Fully covered by credit — no wallet debit needed.
-                                debit_ok = True
+                                if debit_response is None or debit_response.status_code != 200:
+                                    raise ValueError("Wallet debit failed")
 
-                            if debit_ok:
-                                credit_msg = (
-                                    f" (₦{credit_applied} credit applied)"
-                                    if credit_applied > 0 else ""
-                                )
+                            credit_msg = (
+                                f" (₦{credit_applied} credit applied)" if credit_applied > 0 else ""
+                            )
 
-                                TxModel.objects.create(
-                                    user=user,
-                                    tx_reference=tx_reference,
-                                    tx_type="Brand Promotion",
-                                    amount=effective_debit,
-                                    description=f"Brand promotion payment{credit_msg}",
-                                    status="SUCCESS",
-                                )
+                            TxModel.objects.create(
+                                user=user,
+                                tx_reference=tx_reference,
+                                tx_type="Brand Promotion",
+                                amount=effective_debit,
+                                description=f"Brand promotion payment{credit_msg}",
+                                status="SUCCESS",
+                            )
 
-                                UserNotification.objects.create(
-                                    user=user,
-                                    title="Brand Promotion",
-                                    message=f"Your payment of ₦{effective_debit} for brand promotion was successful.{credit_msg}",
-                                )
+                            UserNotification.objects.create(
+                                user=user,
+                                title="Brand Promotion",
+                                message=f"Your payment of ₦{effective_debit} for brand promotion was successful.{credit_msg}",
+                            )
 
-                                ActivityModel.objects.create(
-                                    user=user,
-                                    title="Brand Promotion",
-                                    description=f"{user} promoted their brand successfully.{credit_msg}",
-                                )
+                            ActivityModel.objects.create(
+                                user=user,
+                                title="Brand Promotion",
+                                description=f"{user} promoted their brand successfully.{credit_msg}",
+                            )
 
-                                logger.info(
-                                    "Brand promotion payment successful for user %s "
-                                    "(charged: %s, credit applied: %s)",
-                                    user.email, effective_debit, credit_applied,
-                                )
+                            logger.info(
+                                "Brand promotion payment successful for user %s "
+                                "(charged: %s, credit applied: %s)",
+                                user.email, effective_debit, credit_applied,
+                            )
 
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "Success!",
-                                            "message": "Brand advert promoted successfully.",
-                                        }
-                                    ),
-                                    status=status.HTTP_200_OK,
-                                )
-                            else:
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "fail",
-                                            "message": "Debit failed. Please try again.",
-                                        }
-                                    ),
-                                    status=status.HTTP_400_BAD_REQUEST,
-                                )
-                    except Exception as e:
-                        logger.exception(
-                            f"Transaction error during wallet bill payment: {e}"
-                        )
+                            return Response(
+                                data=encrypt({"status": "Success!", "message": "Brand advert promoted successfully."}),
+                                status=status.HTTP_200_OK,
+                            )
+
+                    except ValueError:
                         return Response(
-                            data=encrypt(
-                                {"status": "fail", "message": "Transaction failed"}
-                            ),
+                            data=encrypt({"status": "fail", "message": "Debit failed. Please try again."}),
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    except Exception as e:
+                        logger.exception(f"Transaction error during wallet payment: {e}")
+                        return Response(
+                            data=encrypt({"status": "fail", "message": "Transaction failed"}),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         )
 

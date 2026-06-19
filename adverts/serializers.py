@@ -1,4 +1,5 @@
 import logging
+from itertools import zip_longest
 
 from django.utils import timezone
 
@@ -270,7 +271,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
         for state, city in zip(states, cities):
             AdLocation.objects.create(brand=create_ad, state=state, city=city)
 
-        for image, video in zip(images, videos):
+        for image, video in zip_longest(images, videos):
             AdMedia.objects.create(brand=create_ad, images=image, videos=video)
 
         return create_ad
