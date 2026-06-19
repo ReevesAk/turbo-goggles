@@ -298,9 +298,9 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
         if not ad.is_active:
             raise serializers.ValidationError("This campaign is no longer active.")
 
-        webview_types = ("website_visit", "watch_video")
+        webview_types = ("website_visit", "watch_video", "store_visit")
         if ad.task_type not in webview_types:
-            raise serializers.ValidationError("This endpoint is only for website visit and video watch tasks.")
+            raise serializers.ValidationError("This endpoint is only for website visit, video watch, and store visit tasks.")
 
         user = self.context["request"].user
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
