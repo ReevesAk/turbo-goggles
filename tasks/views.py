@@ -366,7 +366,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
 class CompleteWebviewTaskView(APIView):
     """
     Mobile webview callback for tasks that are completed client-side.
-    Only watch_video and website_visit tasks are accepted here.
+    Accepts watch_video, website_visit, and store_visit task types.
     """
 
     authentication_classes = [JWTAuthentication]
