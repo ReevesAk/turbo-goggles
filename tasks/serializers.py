@@ -1,6 +1,7 @@
 import secrets
 import string
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
@@ -11,6 +12,7 @@ from .models import (
     UserTrustScore,
 )
 from adverts.models import CreateAd
+from gamification.models import StreakChallenge
 
 
 class SocialTaskSerializer(serializers.ModelSerializer):
@@ -119,7 +121,7 @@ class AdminReviewSerializer(serializers.Serializer):
 class BrandTaskFeedSerializer(serializers.ModelSerializer):
     """Read-only task card shown to users on the gamification feed."""
 
-    task_type_display = serializers.SerializerMethodField()
+    task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
 
@@ -129,9 +131,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "id",
             "campaign_name",
             "business_or_brand_name",
-            "task_type",
-            "task_type_display",
-            "task_details",
+            "task",
             "reward_points",
             "expiry_date",
             "time_remaining",
@@ -140,23 +140,72 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_ad_media(self, obj):
-        return [
-            {"images": m.images, "videos": m.videos}
-            for m in obj.ad_media.all()
-        ]
+    def get_task(self, obj):
+        return {
+            "type": obj.task_type,
+            "display": obj.get_task_type_display() if obj.task_type else None,
+            "details": obj.task_details,
+        }
 
-    def get_task_type_display(self, obj):
-        return obj.get_task_type_display() if obj.task_type else None
+    def get_ad_media(self, obj):
+        details = obj.task_details or {}
+        if obj.task_type == "watch_video" and details.get("video_url"):
+            return [{"videos": details["video_url"], "images": None}]
+        return []
 
     def get_time_remaining(self, obj):
-        from django.utils import timezone
         if obj.expiry_date:
             remaining = obj.expiry_date - timezone.now()
             if remaining.total_seconds() > 0:
                 days = remaining.days
                 hours = remaining.seconds // 3600
                 return f"{days}d {hours}h remaining"
+            return "Expired"
+        return None
+
+
+class InAppTaskFeedSerializer(serializers.ModelSerializer):
+    """Unified task card for StreakChallenge in-app tasks on the gamification feed."""
+
+    task = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StreakChallenge
+        fields = ["id", "name", "task", "reward_points", "end_date", "time_remaining", "is_active"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            "id": data["id"],
+            "campaign_name": data["name"],
+            "business_or_brand_name": None,
+            "task": data["task"],
+            "reward_points": data["reward_points"],
+            "expiry_date": data["end_date"],
+            "time_remaining": data["time_remaining"],
+            "is_active": data["is_active"],
+            "ad_media": [],
+        }
+
+    def get_task(self, obj):
+        return {
+            "type": obj.streak_type,
+            "display": obj.get_streak_type_display(),
+            "details": {
+                "description": obj.description,
+                "duration_days": obj.duration_days,
+                "participant_cap": obj.participant_cap,
+                "schedule_type": obj.schedule_type,
+            },
+        }
+
+    def get_time_remaining(self, obj):
+        today = timezone.now().date()
+        if obj.end_date:
+            remaining_days = (obj.end_date - today).days
+            if remaining_days > 0:
+                return f"{remaining_days}d remaining"
             return "Expired"
         return None
 

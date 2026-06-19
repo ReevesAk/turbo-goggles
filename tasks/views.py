@@ -1,6 +1,7 @@
 import logging
 
 from django.core.cache import cache
+from django.utils import timezone
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
@@ -13,6 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from adverts.models import CreateAd
+from gamification.models import StreakChallenge
 from security import encrypt, decrypt
 from .jobs import (
     approve_brand_submission,
@@ -25,7 +27,7 @@ from .serializers import (
     BrandTaskFeedSerializer,
     BrandTaskSubmissionSerializer,
     CompleteWebviewTaskSerializer,
-
+    InAppTaskFeedSerializer,
     SocialTaskSerializer,
     SubmitBrandTaskSerializer,
     SubmitTaskSerializer,
@@ -203,23 +205,23 @@ class BrandTaskFeedView(generics.ListAPIView):
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
 
-        qs = self.get_queryset()
+        brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True).data
 
-        page = self.paginate_queryset(qs)
-        serializer = (
-            self.get_serializer(page, many=True)
-            if page is not None
-            else self.get_serializer(qs, many=True)
-        )
+        today = timezone.now().date()
+        inapp_qs = StreakChallenge.objects.filter(
+            is_active=True,
+            is_cancelled=False,
+            end_date__gte=today,
+        ).order_by("-created_at")
+        inapp_data = InAppTaskFeedSerializer(inapp_qs, many=True).data
 
         response_data = {
             "status": "success",
-            "message": "Brand tasks retrieved successfully.",
-            "data": serializer.data,
+            "message": "Tasks retrieved successfully.",
+            "data": list(brand_data) + list(inapp_data),
         }
 
         cache.set(cache_key, response_data, timeout=60)
-
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
