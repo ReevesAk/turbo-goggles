@@ -341,9 +341,9 @@ class CreateInAppTaskView(generics.GenericAPIView):
 @extend_schema(
     summary="[Admin] List in-app tasks with optional status filter",
     tags=["Tasks"],
-    description="Returns all in-app streak challenge tasks. Optionally filter by status: active, scheduled, expired, or cancelled.",
+    description="Returns all in-app streak challenge tasks. Optionally filter by status: active, inactive, or cancelled.",
     parameters=[
-        OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Filter by task status: active, scheduled, expired, or cancelled", required=False),
+        OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Filter by task status: active, inactive, or cancelled", required=False),
     ],
     responses={
         200: inline_serializer("ListInAppTasksResponse", fields={"status": s.CharField(), "total": s.IntegerField(), "data": s.ListField()}),
@@ -351,7 +351,7 @@ class CreateInAppTaskView(generics.GenericAPIView):
 )
 class ListInAppTasksView(generics.GenericAPIView):
     """
-    GET /v1/roles/tasks/in-app/?status=active|scheduled|expired|cancelled
+    GET /v1/roles/tasks/in-app/?status=active|inactive|cancelled
     Returns all in-app tasks, optionally filtered by status.
     """
 
@@ -372,10 +372,14 @@ class ListInAppTasksView(generics.GenericAPIView):
                 start_date__lte=today,
                 end_date__gte=today,
             )
-        elif status_filter == "scheduled":
-            qs = qs.filter(is_cancelled=False, start_date__gt=today)
-        elif status_filter == "expired":
-            qs = qs.filter(is_cancelled=False, end_date__lt=today)
+        elif status_filter == "inactive":
+            # not yet started, expired, or paused — anything not active and not cancelled
+            qs = qs.exclude(is_cancelled=True).exclude(
+                is_active=True,
+                is_paused=False,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
         elif status_filter == "cancelled":
             qs = qs.filter(is_cancelled=True)
 

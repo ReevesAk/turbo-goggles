@@ -273,6 +273,7 @@ class InAppTaskSerializer(serializers.ModelSerializer):
     """Full read serializer for an in-app task — maps fields for the frontend."""
 
     task_status = serializers.CharField(read_only=True)
+    is_scheduled = serializers.BooleanField(read_only=True)
     participant_count = serializers.SerializerMethodField()
     days_remaining = serializers.SerializerMethodField()
 
@@ -296,11 +297,12 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "is_active",
             "is_paused",
             "is_cancelled",
+            "is_scheduled",
             "task_status",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "task_status", "participant_count", "days_remaining", "created_at", "updated_at"]
+        read_only_fields = ["id", "task_status", "is_scheduled", "participant_count", "days_remaining", "created_at", "updated_at"]
 
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
