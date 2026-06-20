@@ -750,30 +750,17 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
 
         # ── Performance demographic from approved participants' profiles ───────
         from django.db.models import Count as DjCount
-        from collections import defaultdict
 
-        approved_users = approved_submissions.select_related("user").values(
-            "user__gender", "user__demography"
-        )
-
-        gender_counts = defaultdict(int)
-        demography_counts = defaultdict(int)
-        for row in approved_users:
-            if row["user__gender"]:
-                gender_counts[row["user__gender"]] += 1
-            if row["user__demography"]:
-                demography_counts[row["user__demography"]] += 1
+        # User model has no gender/demography fields; return empty breakdowns
+        gender_counts = {}
+        demography_counts = {}
 
         # State-level breakdown from participants' locations
         state_counts = (
-            (
-                approved_submissions.select_related("user")
-                .values("user__state")
-                .annotate(count=DjCount("id"))
-                .order_by("-count")
-            )
-            if hasattr(approved_submissions.model, "user")
-            else []
+            approved_submissions.select_related("user")
+            .values("user__state")
+            .annotate(count=DjCount("id"))
+            .order_by("-count")
         )
 
         # ── Media ─────────────────────────────────────────────────────────────

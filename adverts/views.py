@@ -1024,15 +1024,6 @@ class SingleAdDetailView(generics.RetrieveAPIView):
 #                 return Response(data=encrypted_success, status=status.HTTP_200_OK)
 
 
-_COST_PREVIEW_REQUEST = inline_serializer(
-    name="CostPreviewRequest",
-    fields={
-        "amount": s.CharField(
-            help_text="Total campaign cost the frontend calculated (Naira). E.g. '15000'"
-        )
-    },
-)
-
 _COST_PREVIEW_RESPONSE = inline_serializer(
     name="CostPreviewResponse",
     fields={
@@ -1040,15 +1031,11 @@ _COST_PREVIEW_RESPONSE = inline_serializer(
         "data": inline_serializer(
             name="CostPreviewData",
             fields={
-                "new_ad_total": s.CharField(help_text="The amount you sent"),
                 "ledger_balance": s.CharField(
                     help_text="Available credit from unused slots on past expired ads"
                 ),
                 "credit_to_apply": s.CharField(
-                    help_text="How much credit will be deducted"
-                ),
-                "amount_to_charge": s.CharField(
-                    help_text="What the user actually pays"
+                    help_text="Credit the user can apply against their next ad"
                 ),
             },
         ),
@@ -1057,119 +1044,62 @@ _COST_PREVIEW_RESPONSE = inline_serializer(
 
 
 @extend_schema(
-    summary="Preview cost after credit is applied",
+    summary="Get available ad credit",
     tags=["Brand Ads"],
     description=(
-        "Call this **before** creating an ad to show the user their real charge after any "
-        "available ledger credit (sourced from unused slots on expired ads) is applied."
+        "Call this **before** creating an ad. Returns the brand's available ledger credit "
+        "(from unused slots on expired ads). Frontend subtracts this from the ad total to "
+        "get the actual charge."
     ),
-    request=_COST_PREVIEW_REQUEST,
-    responses={
-        200: _COST_PREVIEW_RESPONSE,
-        400: inline_serializer(
-            name="CostPreviewError",
-            fields={"status": s.CharField(), "message": s.CharField()},
-        ),
-    },
+    responses={200: _COST_PREVIEW_RESPONSE},
     examples=[
         OpenApiExample(
-            "Request",
-            request_only=True,
-            value={"amount": "15000"},
-        ),
-        OpenApiExample(
-            "Success — partial credit applied",
+            "Credit available",
             response_only=True,
             status_codes=["200"],
             value={
                 "status": "success",
-                "data": {
-                    "new_ad_total": "15000",
-                    "ledger_balance": "3000",
-                    "credit_to_apply": "3000",
-                    "amount_to_charge": "12000",
-                },
+                "data": {"ledger_balance": "3000", "credit_to_apply": "3000"},
             },
         ),
         OpenApiExample(
-            "Success — no credit available",
+            "No credit available",
             response_only=True,
             status_codes=["200"],
             value={
                 "status": "success",
-                "data": {
-                    "new_ad_total": "15000",
-                    "ledger_balance": "0",
-                    "credit_to_apply": "0",
-                    "amount_to_charge": "15000",
-                },
+                "data": {"ledger_balance": "0", "credit_to_apply": "0"},
             },
-        ),
-        OpenApiExample(
-            "Invalid amount",
-            response_only=True,
-            status_codes=["400"],
-            value={"status": "fail", "message": "amount must be a valid number."},
         ),
     ],
 )
 class AdCostPreviewView(generics.GenericAPIView):
     """
-    POST /v1/brands/ads/cost-preview/
+    GET /v1/brands/ads/cost-preview/
 
-    Frontend sends the amount it has already calculated.
-    Backend reconciles past expired ads, reads the ledger balance,
-    and returns how much the brand actually needs to pay.
-
-    Request body:
-        amount — total cost the frontend calculated for the new ad
+    Returns the brand's available ledger credit after reconciling expired ads.
+    Frontend uses credit_to_apply to calculate the actual charge on their side.
     """
 
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        payload = decrypt(request.data)
-
-        try:
-            amount = Decimal(str(payload.get("amount", 0)))
-        except Exception:
-            return Response(
-                data=encrypt(
-                    {"status": "fail", "message": "amount must be a valid number."}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if amount <= 0:
-            return Response(
-                data=encrypt(
-                    {"status": "fail", "message": "amount must be greater than zero."}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+    def get(self, request):
         user = request.user
 
-        # Sweep expired ads and credit any unused slots to the wallet.
         with transaction.atomic():
             reconcile_credit(user)
 
         wallet, _ = BrandAdCreditWallet.objects.get_or_create(user=user)
         ledger_balance = wallet.balance
 
-        credit_to_apply = min(ledger_balance, amount)
-        amount_to_charge = amount - credit_to_apply
-
         return Response(
             data=encrypt(
                 {
                     "status": "success",
                     "data": {
-                        "new_ad_total": str(amount),
                         "ledger_balance": str(ledger_balance),
-                        "credit_to_apply": str(credit_to_apply),
-                        "amount_to_charge": str(amount_to_charge),
+                        "credit_to_apply": str(ledger_balance),
                     },
                 }
             ),

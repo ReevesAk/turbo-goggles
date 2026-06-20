@@ -197,6 +197,7 @@ class BrandTaskSubmission(BaseModel):
 
     screenshot_url = models.CharField(max_length=500, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    survey_answers = models.JSONField(default=list, blank=True)
 
     status = models.CharField(choices=BRAND_SUBMISSION_STATUS, max_length=20, default="Pending")
     reviewed_by = models.ForeignKey(
