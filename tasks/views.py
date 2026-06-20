@@ -250,6 +250,58 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in decrypted_payload.items()
             }
+
+            raw_task = user_data.get("task", "")
+
+            # Integer task id → brand campaign (CreateAd) social_engage submission.
+            try:
+                ad_id = int(raw_task)
+                is_brand_task = True
+            except (ValueError, TypeError):
+                is_brand_task = False
+
+            if is_brand_task:
+                user = request.user
+                try:
+                    ad = CreateAd.objects.get(pk=ad_id)
+                except CreateAd.DoesNotExist:
+                    raise s.ValidationError({"task": ["Task not found."]})
+
+                if not ad.is_active:
+                    raise s.ValidationError({"task": ["This campaign is no longer active."]})
+
+                if ad.task_type != "social_engage":
+                    raise s.ValidationError({"task": ["This endpoint is only for social engage tasks."]})
+
+                if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+                    raise s.ValidationError({"task": ["You have already submitted this task."]})
+
+                screenshot_url = user_data.get("screenshot_url")
+                if not screenshot_url:
+                    raise s.ValidationError({"screenshot_url": ["A screenshot is required."]})
+
+                submission = BrandTaskSubmission.objects.create(
+                    ad=ad,
+                    user=user,
+                    screenshot_url=screenshot_url,
+                    notes=user_data.get("notes", ""),
+                )
+                points_awarded = approve_brand_submission_now(str(submission.pk), None)
+                cache.delete(f"brand_task_feed:{user.id}")
+
+                return Response(
+                    data=encrypt({
+                        "status": "success",
+                        "message": "Submission received. Points credited.",
+                        "data": {
+                            "submission_id": str(submission.pk),
+                            "reward_points": points_awarded or 0,
+                        },
+                    }),
+                    status=status.HTTP_201_CREATED,
+                )
+
+            # UUID task id → admin-created SocialTask submission.
             serializer = self.get_serializer(data=user_data, context={"request": request})
             serializer.is_valid(raise_exception=True)
             submission = serializer.save()
