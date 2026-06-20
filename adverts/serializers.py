@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # ── Per-type required fields in task_details ─────────────────────────────────
 
-WATCH_VIDEO_PLATFORMS = ("YouTube", "TikTok", "Instagram", "X")
+WATCH_VIDEO_PLATFORMS = ("YouTube", "TikTok", "Instagram", "X", "Vimeo", "Facebook")
 WATCH_VIDEO_DURATIONS = ("15s", "30s", "60s", "full")
 
 SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "X", "TikTok", "Instagram", "YouTube")
