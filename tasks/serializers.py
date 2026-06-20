@@ -286,35 +286,6 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
 SCREENSHOT_TASK_TYPES = ("social_engage", "app_download")
 
 
-class SubmitBrandTaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BrandTaskSubmission
-        fields = ["ad", "screenshot_url", "notes"]
-
-    def validate(self, attrs):
-        user = self.context["request"].user
-        ad = attrs["ad"]
-
-        if not ad.is_active:
-            raise serializers.ValidationError("This campaign is not currently active.")
-
-        if ad.task_type not in SCREENSHOT_TASK_TYPES:
-            raise serializers.ValidationError(
-                f"Use the webview completion endpoint for {ad.get_task_type_display()} tasks."
-            )
-
-        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
-            raise serializers.ValidationError("You have already submitted this task.")
-
-        if not attrs.get("screenshot_url"):
-            raise serializers.ValidationError("A screenshot is required as proof for this task type.")
-
-        return attrs
-
-    def create(self, validated_data):
-        user = self.context["request"].user
-        return BrandTaskSubmission.objects.create(user=user, **validated_data)
-
 
 class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
     campaign_name = serializers.CharField(source="ad.campaign_name", read_only=True)

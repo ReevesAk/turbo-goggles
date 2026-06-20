@@ -1,7 +1,4 @@
 import logging
-import secrets
-import string
-
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -20,11 +17,9 @@ from gamification.models import StreakChallenge, UserStreak
 from gamification.points import Points
 from security import encrypt, decrypt
 from .jobs import (
-    approve_brand_submission,
     approve_brand_submission_now,
     run_verification,
 )
-from user_profile.fcm import send_push_to_admins
 from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
 from .serializers import (
     BrandTaskFeedSerializer,
@@ -33,7 +28,6 @@ from .serializers import (
     InAppTaskFeedSerializer,
     SocialTaskFeedSerializer,
     SocialTaskSerializer,
-    SubmitBrandTaskSerializer,
     SubmitTaskSerializer,
     TaskSubmissionSerializer,
     UserTrustScoreSerializer,
@@ -82,67 +76,6 @@ class SocialTaskListView(generics.ListAPIView):
         }), status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    summary="Submit proof for a social task",
-    tags=["Tasks"],
-    description="Submit a screenshot URL or post URL as proof of completing a social task. A verification code is returned for Comment and Post task types.",
-    request=SubmitTaskSerializer,
-    responses={
-        201: inline_serializer(name="SubmitTaskResponse", fields={
-            "detail": s.CharField(),
-            "id": s.UUIDField(),
-            "verification_code": s.CharField(required=False),
-            "verification_note": s.CharField(required=False),
-        }),
-        400: inline_serializer(name="SubmitTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
-    },
-)
-class SubmitTaskView(generics.CreateAPIView):
-    serializer_class = SubmitTaskSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def create(self, request, *args, **kwargs):
-        try:
-            decrypted_payload = decrypt(request.data)
-            if not isinstance(decrypted_payload, dict):
-                raise ValueError("Decrypted payload is not a valid object.")
-            user_data = {
-                key: value.strip() if isinstance(value, str) else value
-                for key, value in decrypted_payload.items()
-            }
-            serializer = self.get_serializer(data=user_data, context={"request": request})
-            serializer.is_valid(raise_exception=True)
-            submission = serializer.save()
-
-            run_verification.delay(str(submission.pk))
-
-            response_data = {
-                "status": "success",
-                "message": "Submission received. Verification in progress.",
-                "data": {"submission_id": str(submission.pk)},
-            }
-            if submission.verification_code:
-                response_data["data"]["verification_code"] = submission.verification_code
-                response_data["data"]["verification_note"] = (
-                    f"Include this code verbatim in your {submission.task.task_type.lower()}: "
-                    f"{submission.verification_code}"
-                )
-
-            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
-
-        except s.ValidationError as err:
-            logger.warning("SubmitTaskView validation failed for user %s: %s", request.user.id, err.detail)
-            return Response(
-                data=encrypt({"status": "error", "message": err.detail}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as err:
-            logger.error("SubmitTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
-            return Response(
-                data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
 
 @extend_schema(
@@ -284,72 +217,65 @@ class BrandTaskFeedView(generics.ListAPIView):
 
 
 @extend_schema(
-    summary="Submit proof for a social engagement brand task",
+    summary="Submit proof for a task",
     tags=["Tasks"],
-    description="Submit screenshot proof for social_engage or app_download brand campaign tasks. The submission is queued for admin review. For watch_video, website_visit, survey, and store_visit tasks use the webview completion endpoint instead.",
-    request=SubmitBrandTaskSerializer,
+    description="Submit screenshot proof for a task. The submission is verified immediately using AI. A verification code is returned for Comment and Post task types.",
+    request=SubmitTaskSerializer,
     responses={
         201: inline_serializer(name="SubmitBrandTaskResponse", fields={
             "status": s.CharField(),
             "message": s.CharField(),
-            "data": inline_serializer(name="SubmitBrandTaskData", fields={"submission_id": s.UUIDField()}),
+            "data": inline_serializer(name="SubmitBrandTaskData", fields={
+                "submission_id": s.UUIDField(),
+                "verification_code": s.CharField(required=False),
+                "verification_note": s.CharField(required=False),
+            }),
         }),
         400: inline_serializer(name="SubmitBrandTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
     },
 )
 class SubmitBrandTaskView(generics.CreateAPIView):
-    """Submit screenshot proof for social_engage / app_download brand tasks — always queued for review."""
-
-    serializer_class = SubmitBrandTaskSerializer
+    serializer_class = SubmitTaskSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         try:
-            decrypted_data = decrypt(request.data)
-            serializer = self.get_serializer(
-                data=decrypted_data, context={"request": request}
-            )
+            decrypted_payload = decrypt(request.data)
+            if not isinstance(decrypted_payload, dict):
+                raise ValueError("Decrypted payload is not a valid object.")
+            user_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(data=user_data, context={"request": request})
             serializer.is_valid(raise_exception=True)
             submission = serializer.save()
 
-            trust, _ = UserTrustScore.objects.get_or_create(user=request.user)
+            run_verification.delay(str(submission.pk))
 
-            if trust.can_auto_approve:
-                approve_brand_submission.delay(str(submission.pk), None)
-                logger.info("Brand task submission %s auto-approved (high trust, type: %s)", submission.pk, submission.ad.task_type)
-                return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Task completed! Points are being credited.",
-                        "data": {"submission_id": str(submission.pk)},
-                    }),
-                    status=status.HTTP_201_CREATED,
+            response_data = {
+                "status": "success",
+                "message": "Submission received. Verification in progress.",
+                "data": {"submission_id": str(submission.pk)},
+            }
+            if submission.verification_code:
+                response_data["data"]["verification_code"] = submission.verification_code
+                response_data["data"]["verification_note"] = (
+                    f"Include this code verbatim in your {submission.task.task_type.lower()}: "
+                    f"{submission.verification_code}"
                 )
 
-            send_push_to_admins(
-                title="Brand Task Needs Review",
-                body=f"{request.user.full_name or request.user.email} submitted proof for '{submission.ad.campaign_name}' — requires review.",
-                data={"type": "brand_review", "submission_id": str(submission.pk)},
-            )
-            logger.info("Brand task submission %s queued for review (type: %s)", submission.pk, submission.ad.task_type)
-            return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Submission received. Your screenshot is being reviewed.",
-                    "data": {"submission_id": str(submission.pk)},
-                }),
-                status=status.HTTP_201_CREATED,
-            )
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
         except s.ValidationError as err:
-            logger.warning("Brand task submission validation failed for user %s: %s", request.user.id, err.detail)
+            logger.warning("SubmitBrandTaskView validation failed for user %s: %s", request.user.id, err.detail)
             return Response(
                 data=encrypt({"status": "error", "message": err.detail}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
-            logger.error("Brand task submission failed: %s", str(err), exc_info=True)
+            logger.error("SubmitBrandTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
             return Response(
                 data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
                 status=status.HTTP_400_BAD_REQUEST,
