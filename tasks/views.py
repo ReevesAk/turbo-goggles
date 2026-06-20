@@ -282,7 +282,6 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             )
 
 
-
 @extend_schema(
     summary="Complete a webview or in-app task",
     tags=["Tasks"],
@@ -412,6 +411,114 @@ class CompleteWebviewTaskView(APIView):
             logger.error("Webview task completion failed: %s", str(err), exc_info=True)
             return Response(
                 data=encrypt({"status": "error", "message": "Task completion failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Submit survey task answers",
+    tags=["Tasks"],
+    description=(
+        "Submit answers for a survey brand task. Mobile is trusted to have already verified "
+        "the answers — points are awarded immediately on submission. "
+        "Payload: task_id (CreateAd UUID), answers (list of answer objects)."
+    ),
+    request=inline_serializer(
+        name="SubmitSurveyTaskRequest",
+        fields={
+            "task_id": s.UUIDField(),
+            "answers": s.ListField(child=s.DictField(), help_text="List of survey answer objects"),
+        },
+    ),
+    responses={
+        201: inline_serializer(
+            name="SubmitSurveyTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            name="SubmitSurveyTaskError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class SubmitSurveyTaskView(APIView):
+    """
+    POST /v1/tasks/brand/survey/submit/
+
+    Accepts survey answers for a brand survey task, records the submission,
+    and immediately awards points (mobile has already verified the responses).
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            payload = decrypt(request.data)
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid payload.")
+
+            task_id = payload.get("task_id")
+            answers = payload.get("answers", [])
+
+            if not task_id:
+                return Response(
+                    data=encrypt({"status": "error", "message": "task_id is required."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not isinstance(answers, list) or not answers:
+                return Response(
+                    data=encrypt({"status": "error", "message": "answers must be a non-empty list."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                ad = CreateAd.objects.get(pk=task_id, task_type="survey", is_active=True)
+            except CreateAd.DoesNotExist:
+                return Response(
+                    data=encrypt({"status": "error", "message": "Survey task not found or inactive."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if BrandTaskSubmission.objects.filter(ad=ad, user=request.user).exists():
+                return Response(
+                    data=encrypt({"status": "error", "message": "You have already submitted this survey."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            submission = BrandTaskSubmission.objects.create(
+                ad=ad,
+                user=request.user,
+                survey_answers=answers,
+                notes="Survey submitted via mobile.",
+            )
+
+            points_awarded = approve_brand_submission_now(str(submission.pk), None)
+            cache.delete(f"brand_task_feed:{request.user.id}")
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Survey submitted. Points credited.",
+                    "data": {
+                        "submission_id": str(submission.pk),
+                        "task_id": str(ad.pk),
+                        "reward_points": points_awarded or 0,
+                        "reward_issued": True,
+                    },
+                }),
+                status=status.HTTP_201_CREATED,
+            )
+
+        except Exception as err:
+            logger.error("SubmitSurveyTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Survey submission failed. Please try again."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
