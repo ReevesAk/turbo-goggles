@@ -923,7 +923,7 @@ class PointsLeaderboardView(generics.GenericAPIView):
                 {
                     "rank": idx + 1,
                     "user_id": str(u.id),
-                    "full_name": u.full_name or "Anonymous",
+                    "full_name": u.first_name + " " + u.last_name,
                     "total_points": u.total_points or 0,
                     "tier": Points.get_user_tier(u.total_points or 0),
                 }
