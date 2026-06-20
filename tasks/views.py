@@ -13,9 +13,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from adverts.models import CreateAd
+from commons import Messaging
 from gamification.models import StreakChallenge, UserStreak
 from gamification.points import Points
 from security import encrypt, decrypt
+from user_profile.fcm import send_push_to_user
 from .jobs import (
     approve_brand_submission_now,
     run_verification,
@@ -415,6 +417,45 @@ class CompleteWebviewTaskView(APIView):
             )
 
 
+def _notify_brand_of_survey(ad, answers):
+    brand_user = ad.user
+    rows = "".join(
+        f"<tr><td style='padding:6px 12px;border:1px solid #ddd'>{i + 1}</td>"
+        f"<td style='padding:6px 12px;border:1px solid #ddd'>{a.get('question', '')}</td>"
+        f"<td style='padding:6px 12px;border:1px solid #ddd'>{a.get('answer', '')}</td></tr>"
+        for i, a in enumerate(answers)
+    )
+    html = (
+        f"<p>A new survey response has been submitted for your campaign "
+        f"<strong>{ad.campaign_name}</strong>.</p>"
+        f"<table style='border-collapse:collapse;width:100%'>"
+        f"<thead><tr>"
+        f"<th style='padding:6px 12px;border:1px solid #ddd'>#</th>"
+        f"<th style='padding:6px 12px;border:1px solid #ddd'>Question</th>"
+        f"<th style='padding:6px 12px;border:1px solid #ddd'>Answer</th>"
+        f"</tr></thead><tbody>{rows}</tbody></table>"
+    )
+    try:
+        Messaging.send_email(
+            email=brand_user.email,
+            sender_email="notifications@picadailys.com",
+            subject=f"New Survey Response — {ad.campaign_name}",
+            html_content=html,
+            body=f"A new survey response was submitted for your campaign: {ad.campaign_name}.",
+        )
+    except Exception:
+        logger.exception("Failed to email survey response to brand %s", brand_user.email)
+
+    try:
+        send_push_to_user(
+            user=brand_user,
+            title="New Survey Response",
+            body=f'Someone completed your survey for "{ad.campaign_name}".',
+        )
+    except Exception:
+        logger.exception("Failed to push survey notification to brand %s", brand_user.id)
+
+
 @extend_schema(
     summary="Submit survey task answers",
     tags=["Tasks"],
@@ -500,6 +541,8 @@ class SubmitSurveyTaskView(APIView):
 
             points_awarded = approve_brand_submission_now(str(submission.pk), None)
             cache.delete(f"brand_task_feed:{request.user.id}")
+
+            _notify_brand_of_survey(ad, answers)
 
             return Response(
                 data=encrypt({
