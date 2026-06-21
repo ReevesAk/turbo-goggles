@@ -351,10 +351,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             reason="Debit for brand promotion.",
                             merchantFeeAmount="0.00",
                         )
-                        if (
-                            debit_response is None
-                            or debit_response.status_code != 200
-                        ):
+                        if debit_response is None or debit_response.status_code != 200:
                             return Response(
                                 data=encrypt(
                                     {
@@ -369,7 +366,12 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         with transaction.atomic():
                             new_ad = serializer.save()
 
-                            credit_wallet, _ = BrandAdCreditWallet.objects.select_for_update().get_or_create(user=user)
+                            (
+                                credit_wallet,
+                                _,
+                            ) = BrandAdCreditWallet.objects.select_for_update().get_or_create(
+                                user=user
+                            )
                             credit_applied = credit_wallet.balance
                             if credit_applied > 0:
                                 credit_wallet.balance = Decimal("0")

@@ -332,3 +332,109 @@ def verify_submission(submission) -> dict:
         "verification_code_found": bool(data.get("verification_code_found", True)),
         "flags": list(data.get("flags", [])),
     }
+
+
+def verify_brand_submission(submission) -> dict:
+    """
+    Verifies a BrandTaskSubmission screenshot using Claude Vision.
+
+    Builds a prompt from the linked CreateAd's task_details (platform,
+    post_url, required_actions) and returns the same verdict dict as
+    verify_submission so the same approval logic can be reused.
+
+    Raises VerificationError if the screenshot URL is missing or the API call fails.
+    """
+    if not submission.screenshot_url:
+        raise VerificationError("No screenshot URL on brand submission")
+
+    ad = submission.ad
+    task_details = ad.task_details or {}
+    platform = task_details.get("platform", "")
+    post_url = task_details.get("post_url", "")
+    required_actions = task_details.get("required_actions", [])
+
+    lines = [
+        f"Platform: {platform}",
+        f"Campaign: {ad.campaign_name}",
+        f"Target page/profile URL: {post_url}",
+        f"Required action(s): {', '.join(required_actions)}",
+        "",
+    ]
+
+    for action in required_actions:
+        guidance = _PLATFORM_PROOF_GUIDANCE.get((platform, action.capitalize()))
+        if guidance:
+            lines.append(
+                guidance
+                .replace("{target}", post_url)
+                .replace("{code}", "")
+                .replace("{hint}", ad.campaign_name or "")
+            )
+            lines.append("")
+
+    lines += [
+        "Examine the screenshot above and evaluate:",
+        f"- Is this a genuine, unedited screenshot from {platform}? Any other platform UI is an immediate Fail.",
+        "- Does it clearly show the required action(s) were performed on the correct page?",
+        f"- Is the target page or profile at {post_url} identifiable in the screenshot?",
+        "- Are there any red flags: wrong platform, error screens, inconsistent UI, obvious edits?",
+        "",
+        "Return ONLY valid JSON matching this structure, no other text:",
+        json.dumps({
+            "verdict": "Pass|Fail|Uncertain",
+            "confidence_score": "0-100 integer",
+            "reasoning": "one or two sentences",
+            "username_matched": "true if the user's profile is visible",
+            "target_matched": "true if the target page/profile at the URL is identifiable",
+            "hashtag_found": True,
+            "mention_found": True,
+            "action_confirmed": "true if the required action is clearly confirmed",
+            "verification_code_found": True,
+            "flags": ["list", "of", "concerns"],
+        }),
+    ]
+
+    prompt = "\n".join(lines)
+    client = anthropic.Anthropic(api_key=conf("ANTHROPIC_API_KEY"))
+
+    try:
+        response = client.messages.create(
+            model=VERIFICATION_MODEL,
+            max_tokens=512,
+            output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "url", "url": submission.screenshot_url},
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+        )
+    except anthropic.APIError as exc:
+        logger.exception("Claude API error verifying brand submission %s", submission.pk)
+        raise VerificationError(str(exc)) from exc
+
+    raw = response.content[0].text
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error("Non-JSON response from Claude for brand submission %s: %s", submission.pk, raw)
+        raise VerificationError("Invalid JSON from Claude") from exc
+
+    return {
+        "verdict": data.get("verdict", "Uncertain"),
+        "confidence_score": max(0, min(100, int(data.get("confidence_score", 0)))),
+        "reasoning": str(data.get("reasoning", "")),
+        "username_matched": bool(data.get("username_matched", False)),
+        "target_matched": bool(data.get("target_matched", False)),
+        "hashtag_found": True,
+        "mention_found": True,
+        "action_confirmed": bool(data.get("action_confirmed", False)),
+        "verification_code_found": True,
+        "flags": list(data.get("flags", [])),
+    }

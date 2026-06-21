@@ -21,6 +21,7 @@ from user_profile.fcm import send_push_to_user
 from .jobs import (
     approve_brand_submission_now,
     run_verification,
+    run_brand_verification,
 )
 from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
 from .serializers import (
@@ -286,16 +287,15 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                     screenshot_url=screenshot_url,
                     notes=user_data.get("notes", ""),
                 )
-                points_awarded = approve_brand_submission_now(str(submission.pk), None)
+                run_brand_verification.delay(str(submission.pk))
                 cache.delete(f"brand_task_feed:{user.id}")
 
                 return Response(
                     data=encrypt({
                         "status": "success",
-                        "message": "Submission received. Points credited.",
+                        "message": "Submission received. Verification in progress.",
                         "data": {
                             "submission_id": str(submission.pk),
-                            "reward_points": points_awarded or 0,
                         },
                     }),
                     status=status.HTTP_201_CREATED,
