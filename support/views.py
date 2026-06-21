@@ -52,7 +52,7 @@ from roles.models import ActivityModel
 from permissions import (
     IsManagerModeratorOrSuperAdmin, IsManagerOrSuperAdmin, IsAgent
 )
-from commons import Messaging
+from commons import Messaging, first_validation_error
 
 logger = logging.getLogger(__name__)
 
@@ -2146,9 +2146,13 @@ class AddAgent(generics.CreateAPIView):
                     data=resp,
                     status=status.HTTP_201_CREATED,
                 )
-        except ValidationError as e:
-            logger.warning(f"Validation error: {e}")
-            raise ValidationError(message=e, code=status.HTTP_400_BAD_REQUEST)
+        except serializers.ValidationError as e:
+            message = first_validation_error(e.detail)
+            logger.warning(f"Validation error creating agent: {e.detail}")
+            return Response(
+                data={"status": "error", "message": message},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}", exc_info=True)
             return Response(
@@ -2253,9 +2257,10 @@ class AgentSignUpComplete(generics.UpdateAPIView):
                     status=status.HTTP_200_OK,
                 )
         except serializers.ValidationError as e:
-            logger.error("Validation error for user ID %s: %s", user_id, e)
+            message = first_validation_error(e.detail)
+            logger.error("Validation error for user ID %s: %s", user_id, e.detail)
             return Response(
-                data={"status": "fail", "message": "Invalid data submitted. Please check your input."},
+                data={"status": "fail", "message": message},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:

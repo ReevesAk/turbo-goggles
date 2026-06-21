@@ -6,6 +6,18 @@ import requests
 from decimal import Decimal
 
 
+def first_validation_error(detail) -> str:
+    """Recursively extract the first human-readable string from a DRF error detail structure."""
+    if isinstance(detail, list):
+        return first_validation_error(detail[0]) if detail else ""
+    if isinstance(detail, dict):
+        for v in detail.values():
+            msg = first_validation_error(v)
+            if msg:
+                return msg
+    return str(detail)
+
+
 from decouple import config
 
 from accounts.models import User

@@ -5,6 +5,7 @@ from django.http import Http404
 
 # Third party imports.
 from rest_framework import generics, views
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
@@ -44,6 +45,7 @@ from permissions import (
     IsSuperAdmin,
 )
 from security import encrypt, decrypt
+from commons import first_validation_error
 
 
 class PaginationStyle(PageNumberPagination):
@@ -1172,6 +1174,18 @@ class VerifyPartnerBusinessView(generics.GenericAPIView):
             )
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning(
+                "Business verification validation failed for user %s: %s",
+                request.user.id,
+                exc.detail,
+            )
+            return Response(
+                data=encrypt({"status": "error", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Exception as e:

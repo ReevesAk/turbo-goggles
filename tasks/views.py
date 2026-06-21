@@ -13,7 +13,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from adverts.models import CreateAd
-from commons import Messaging
+from commons import Messaging, first_validation_error
 from gamification.models import StreakChallenge, UserStreak
 from gamification.points import Points
 from security import encrypt, decrypt
@@ -325,7 +325,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
         except s.ValidationError as err:
             logger.warning("SubmitBrandTaskView validation failed for user %s: %s", request.user.id, err.detail)
             return Response(
-                data=encrypt({"status": "error", "message": err.detail}),
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
@@ -458,7 +458,7 @@ class CompleteWebviewTaskView(APIView):
         except s.ValidationError as err:
             logger.info("Webview task completion validation failed: %s", err.detail)
             return Response(
-                data=encrypt({"status": "error", "message": err.detail}),
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
