@@ -1,5 +1,6 @@
 import logging
 from itertools import zip_longest
+from urllib.parse import urlparse
 
 from django.utils import timezone
 
@@ -17,6 +18,14 @@ WATCH_VIDEO_DURATIONS = ("15s", "30s", "60s", "full")
 
 SOCIAL_ENGAGE_PLATFORMS = ("Facebook", "X", "TikTok", "Instagram", "YouTube")
 SOCIAL_ENGAGE_ACTIONS = ("like", "comment", "share", "follow")
+
+_PLATFORM_DOMAINS = {
+    "Facebook": ("facebook.com", "fb.com"),
+    "X": ("x.com", "twitter.com"),
+    "TikTok": ("tiktok.com",),
+    "Instagram": ("instagram.com",),
+    "YouTube": ("youtube.com", "youtu.be"),
+}
 
 WEBSITE_VISIT_MIN_TIMES = (30, 60, 120, 180)
 
@@ -45,10 +54,30 @@ def _validate_social_engage(details: dict):
         errors["platform"] = (
             f"Platform must be one of: {', '.join(SOCIAL_ENGAGE_PLATFORMS)}."
         )
-    if not details.get("post_url"):
+    post_url = details.get("post_url", "").strip()
+    if not post_url:
         errors["post_url"] = (
             "A post or profile URL is required for Social Engage tasks."
         )
+    else:
+        try:
+            parsed = urlparse(post_url)
+            netloc = parsed.netloc.lower().removeprefix("www.")
+            path = parsed.path.strip("/")
+            platform = details.get("platform", "")
+            allowed = _PLATFORM_DOMAINS.get(platform, ())
+            if allowed and not any(
+                netloc == d or netloc.endswith("." + d) for d in allowed
+            ):
+                errors["post_url"] = (
+                    f"The URL must point to a {platform} page or profile."
+                )
+            elif not path:
+                errors["post_url"] = (
+                    "Please provide a specific page or profile URL, not just the platform home."
+                )
+        except Exception:
+            errors["post_url"] = "Please provide a valid URL."
     actions = details.get("required_actions", [])
     if not isinstance(actions, list) or len(actions) == 0:
         errors["required_actions"] = "At least one required action must be specified."

@@ -8,7 +8,7 @@ from accounts.models import User
 from gamification.points import Points, BASE_POINTS
 from user_profile.fcm import send_push_to_user, send_push_to_admins
 from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
-from .verification import verify_submission, VerificationError
+from .verification import verify_submission, verify_brand_submission, VerificationError
 
 logger = logging.getLogger(__name__)
 
@@ -286,3 +286,65 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         data={"type": "brand_task_rejected", "submission_id": submission_id},
     )
     logger.info("Brand submission %s rejected by %s", submission_id, reviewer.email)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def run_brand_verification(self, submission_id: str):
+    """
+    Async task: verify a BrandTaskSubmission screenshot using Claude Vision,
+    then approve or reject based on the verdict.
+    """
+    try:
+        submission = BrandTaskSubmission.objects.select_related("ad", "user").get(pk=submission_id)
+    except BrandTaskSubmission.DoesNotExist:
+        logger.error("run_brand_verification: submission %s not found", submission_id)
+        return
+
+    if submission.status != "Pending":
+        logger.info("Skipping already-processed brand submission %s", submission_id)
+        return
+
+    try:
+        result = verify_brand_submission(submission)
+    except VerificationError as exc:
+        logger.warning("Brand verification failed for %s: %s", submission_id, exc)
+        self.retry(exc=exc)
+        return
+
+    verdict = result["verdict"]
+    confidence = result["confidence_score"]
+
+    if verdict == "Pass" and confidence >= 70:
+        approve_brand_submission_now(submission_id, None)
+    elif verdict == "Fail" and confidence >= 80:
+        with transaction.atomic():
+            submission.status = "Rejected"
+            submission.rejection_reason = f"AI verification failed: {result['reasoning']}"
+            submission.reviewed_at = timezone.now()
+            submission.save(update_fields=["status", "rejection_reason", "reviewed_at"])
+        send_push_to_user(
+            user=submission.user,
+            title="Submission Not Accepted",
+            body=(
+                f"Your proof for '{submission.ad.campaign_name}' was not accepted. "
+                "Please submit a valid screenshot showing the completed action."
+            ),
+            data={"type": "brand_task_rejected", "submission_id": submission_id},
+        )
+        logger.info(
+            "Brand submission %s auto-rejected by AI (confidence=%d): %s",
+            submission_id, confidence, result["reasoning"],
+        )
+    else:
+        logger.info(
+            "Brand submission %s queued for manual review (verdict=%s, confidence=%d)",
+            submission_id, verdict, confidence,
+        )
+        send_push_to_admins(
+            title="Brand Submission Needs Review",
+            body=(
+                f"{submission.user.full_name or submission.user.email} submitted proof "
+                f"for '{submission.ad.campaign_name}' — requires manual review."
+            ),
+            data={"type": "manual_review_brand", "submission_id": submission_id},
+        )
