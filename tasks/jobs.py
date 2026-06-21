@@ -338,8 +338,12 @@ def run_brand_verification(self, submission_id: str):
             submission_id, confidence, result["reasoning"],
         )
     else:
+        with transaction.atomic():
+            submission.status = "Flagged"
+            submission.reviewed_at = timezone.now()
+            submission.save(update_fields=["status", "reviewed_at"])
         logger.info(
-            "Brand submission %s queued for manual review (verdict=%s, confidence=%d)",
+            "Brand submission %s flagged for manual review (verdict=%s, confidence=%d)",
             submission_id, verdict, confidence,
         )
         send_push_to_admins(
