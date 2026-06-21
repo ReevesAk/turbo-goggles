@@ -13,7 +13,7 @@ _SCHEMA = {
     "additionalProperties": False,
     "properties": {
         "verdict": {"type": "string", "enum": ["Pass", "Fail", "Uncertain"]},
-        "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "confidence_score": {"type": "integer"},
         "reasoning": {"type": "string"},
         "username_matched": {"type": "boolean"},
         "hashtag_found": {"type": "boolean"},
