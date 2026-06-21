@@ -6,6 +6,7 @@ from django.db import transaction
 
 # Third party imports
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -40,6 +41,7 @@ from banking.controllers import Wallet
 from banking.models import WalletModel
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+from commons import first_validation_error
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +498,14 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning("Brand advert validation failed: %s", exc.detail)
+            return Response(
+                data=encrypt({"status": "error", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         except Exception as err:
             logger.error(f"Brand advert creation failed: {str(err)}", exc_info=True)
