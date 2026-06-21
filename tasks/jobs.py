@@ -313,10 +313,12 @@ def run_brand_verification(self, submission_id: str):
 
     verdict = result["verdict"]
     confidence = result["confidence_score"]
+    action_confirmed = result["action_confirmed"]
+    target_matched = result["target_matched"]
 
-    if verdict == "Pass" and confidence >= 70:
+    if verdict == "Pass" and confidence >= 85 and action_confirmed and target_matched:
         approve_brand_submission_now(submission_id, None)
-    elif verdict == "Fail" and confidence >= 80:
+    elif verdict == "Fail" or (verdict == "Pass" and not (action_confirmed and target_matched)) or confidence < 60:
         with transaction.atomic():
             submission.status = "Rejected"
             submission.rejection_reason = f"AI verification failed: {result['reasoning']}"

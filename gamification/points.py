@@ -5,6 +5,7 @@ from django.db import models, transaction
 
 from .models import PointTransaction, Points as PointsModel
 from .utils import NextBee
+from user_profile.fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +287,14 @@ class Points:
             return False, str(exc)
 
         logger.info("Deducted %d pts from %s (balance: %d)", actual_deduction, user.email, new_balance)
+
+        send_push_to_user(
+            user=user,
+            title="Points Deducted",
+            body=f"{actual_deduction} pts have been deducted from your account. Reason: {reason}",
+            data={"type": "points_deducted", "amount": str(actual_deduction), "reference_id": str(reference_id) if reference_id else ""},
+        )
+
         return True, f"{actual_deduction} points deducted. New balance: {new_balance}"
 
     @staticmethod
