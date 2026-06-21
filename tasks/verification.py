@@ -334,6 +334,9 @@ def verify_submission(submission) -> dict:
     }
 
 
+BRAND_VERIFICATION_MODEL = "claude-sonnet-4-6"
+
+
 def verify_brand_submission(submission) -> dict:
     """
     Verifies a BrandTaskSubmission screenshot using Claude Vision.
@@ -359,6 +362,13 @@ def verify_brand_submission(submission) -> dict:
         f"Target page/profile URL: {post_url}",
         f"Required action(s): {', '.join(required_actions)}",
         "",
+        "INSTANT FAIL — return Fail with confidence 100 if ANY of these are true:",
+        f"- The screenshot is not from {platform} (wrong app, wrong website, error screen, loading screen, blank screen)",
+        "- The screenshot shows an error message, crash screen, or video player error",
+        "- The screenshot shows a different social media platform entirely",
+        "- The required action is not visibly confirmed in the screenshot",
+        f"- The target page or profile ({post_url}) cannot be identified anywhere in the screenshot",
+        "",
     ]
 
     for action in required_actions:
@@ -373,24 +383,27 @@ def verify_brand_submission(submission) -> dict:
             lines.append("")
 
     lines += [
-        "Examine the screenshot above and evaluate:",
-        f"- Is this a genuine, unedited screenshot from {platform}? Any other platform UI is an immediate Fail.",
-        "- Does it clearly show the required action(s) were performed on the correct page?",
-        f"- Is the target page or profile at {post_url} identifiable in the screenshot?",
-        "- Are there any red flags: wrong platform, error screens, inconsistent UI, obvious edits?",
+        "For a Pass verdict ALL of the following must be true:",
+        f"1. The screenshot is genuinely from {platform} — the UI, fonts, icons, and layout are authentic.",
+        f"2. The required action ({', '.join(required_actions)}) is clearly and unambiguously confirmed.",
+        f"3. The target page or profile at {post_url} is identifiable in the screenshot.",
+        "4. The user's own profile or handle is visible, confirming it is their account.",
+        "5. There are no signs of editing, cropping to hide context, or UI inconsistencies.",
+        "",
+        "If you are not fully certain on any of the above, return Uncertain — do NOT guess Pass.",
         "",
         "Return ONLY valid JSON matching this structure, no other text:",
         json.dumps({
             "verdict": "Pass|Fail|Uncertain",
             "confidence_score": "0-100 integer",
-            "reasoning": "one or two sentences",
-            "username_matched": "true if the user's profile is visible",
-            "target_matched": "true if the target page/profile at the URL is identifiable",
+            "reasoning": "one or two sentences explaining the verdict",
+            "username_matched": "true if the user's profile or handle is visible",
+            "target_matched": "true if the target page/profile at the URL is clearly identifiable",
             "hashtag_found": True,
             "mention_found": True,
-            "action_confirmed": "true if the required action is clearly confirmed",
+            "action_confirmed": "true only if the required action is unambiguously confirmed",
             "verification_code_found": True,
-            "flags": ["list", "of", "concerns"],
+            "flags": ["list every concern, even minor ones"],
         }),
     ]
 
@@ -399,7 +412,7 @@ def verify_brand_submission(submission) -> dict:
 
     try:
         response = client.messages.create(
-            model=VERIFICATION_MODEL,
+            model=BRAND_VERIFICATION_MODEL,
             max_tokens=512,
             output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             messages=[

@@ -206,6 +206,8 @@ class CreateAdSerializers(serializers.ModelSerializer):
         default=list,
     )
 
+    campaign_name = serializers.CharField(max_length=150)
+
     pin = serializers.CharField(max_length=6, write_only=True, required=False)
     payment_option = serializers.CharField(
         max_length=20, write_only=True, required=True
