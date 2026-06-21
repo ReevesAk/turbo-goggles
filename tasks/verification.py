@@ -10,6 +10,7 @@ VERIFICATION_MODEL = "claude-haiku-4-5"
 
 _SCHEMA = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "verdict": {"type": "string", "enum": ["Pass", "Fail", "Uncertain"]},
         "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100},
