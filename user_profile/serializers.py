@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User, UserNotification
-from .models import MemberSurvey, THandleChangeRequest as HandleChangeRequest
+from .models import MemberSurvey, HandleChangeRequest
 from fmcg.models import Favourite
 from support.models import Ticket
 
