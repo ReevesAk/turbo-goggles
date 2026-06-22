@@ -1047,7 +1047,16 @@ class RequestHandleChangeView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
+
+        serializer = self.get_serializer(
+            data=payload,
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
 
         pending_exists = HandleChangeRequest.objects.filter(
