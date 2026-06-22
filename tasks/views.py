@@ -149,8 +149,6 @@ class MyTrustScoreView(APIView):
 
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
-
-
 @extend_schema(
     summary="List active brand campaign tasks (gamification feed)",
     tags=["Tasks"],
@@ -207,47 +205,39 @@ class BrandTaskFeedView(generics.ListAPIView):
         # Get user's location from their profile
         user_city = user.city
         user_state = user.state
+        user_country = user.country
 
-        if user_city or user_state:
-            # Build location filter conditions
+        # Build location filter - start with nationwide
+        location_filter = Q(location_type="nationwide") | Q(location_type__isnull=True)
 
-            # Nationwide (no location restrictions)
-            location_filter = Q(location_type="nationwide") | Q(
-                location_type__isnull=True
+        # Add state-level targeting if user has state
+        if user_state:
+            location_filter |= Q(
+                location_type="states", brand_location__state=user_state
             )
 
-            # In the user's state
-            if user_state:
-                location_filter |= Q(
-                    location_type="states", brand_location__state=user_state
-                )
+        # Add city-level targeting if user has city
+        if user_city:
+            location_filter |= Q(
+                location_type="cities", brand_location__city=user_city
+            )
 
-            # In the user's city
-            if user_city:
-                location_filter |= Q(
-                    location_type="cities", brand_location__city=user_city
-                )
+        # Apply location filter
+        qs = qs.filter(location_filter)
 
-            qs = qs.filter(location_filter)
-
-            # using the countries JSON field
-            if user.country:
-                # Show ads that have no country restriction or include user's country
-                qs = qs.filter(
-                    Q(countries__isnull=True)
-                    | Q(countries__exact=[])
-                    | Q(countries__contains=[user.country])
-                )
-        else:
-            # If user has no location data, only show nationwide ads
+        # Country filtering that runs independently
+        if user_country:
             qs = qs.filter(
-                Q(location_type="nationwide") | Q(location_type__isnull=True)
+                Q(countries__isnull=True)
+                | Q(countries__exact=[])
+                | Q(countries__contains=[user_country])
             )
 
         # Filter out ads that have hit their slot cap
         qs = qs.filter(slots_filled__lt=F("slot_cap"))
 
-        return qs
+        # Prevent duplicate rows from relational joins
+        return qs.distinct()
 
     def list(self, request, *args, **kwargs):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
@@ -292,7 +282,6 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         cache.set(cache_key, response_data, timeout=60)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
-
 
 @extend_schema(
     summary="Submit proof for a task",
