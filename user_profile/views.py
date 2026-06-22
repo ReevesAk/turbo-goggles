@@ -66,7 +66,7 @@ from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 from .models import DeviceToken, MemberSurvey, HandleChangeRequest
-from .fcm import send_push_to_user
+from .fcm import send_push_to_user, send_push_to_admins
 
 logger = logging.getLogger(__name__)
 
