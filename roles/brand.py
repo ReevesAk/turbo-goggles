@@ -5,6 +5,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
+from rest_framework.views import APIView
 
 # In project imports.
 from .serializers import (
@@ -928,6 +929,79 @@ class BoostTaskPointsView(generics.GenericAPIView):
                         "reward_points": ad.reward_points,
                         "auto_boost_points": ad.auto_boost_points,
                     },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Ads dashboard summary stats",
+    tags=["Brand Ads"],
+    description=(
+        "Returns platform-wide ad statistics for the admin dashboard: "
+        "total ads placed, active ads, completed ads (with reach and conversion), "
+        "and ongoing ads (with current reach)."
+    ),
+    responses={
+        200: inline_serializer(
+            "AdsDashboardResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+    },
+)
+class AdsDashboardView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
+
+    def get(self, request):
+        now = timezone.now()
+
+        total_ads_placed = CreateAd.objects.count()
+
+        active_qs = CreateAd.objects.filter(is_active=True, expiry_date__gt=now)
+        active_ads = active_qs.count()
+
+        from django.db.models import F
+
+        completed_qs = CreateAd.objects.filter(
+            Q(is_active=False)
+            | Q(expiry_date__lte=now)
+            | Q(slots_filled__gte=F("slot_cap"))
+        ).distinct()
+        completed_ads = completed_qs.count()
+        completed_reach = (
+            completed_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
+        )
+        completed_cap = completed_qs.aggregate(total=Sum("slot_cap"))["total"] or 0
+        conversion_pct = (
+            round((completed_reach / completed_cap) * 100, 1) if completed_cap else 0
+        )
+
+        ongoing_qs = active_qs
+        ongoing_ads = active_ads
+        ongoing_reach = ongoing_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
+
+        data = {
+            "total_ads_placed": total_ads_placed,
+            "active_ads": active_ads,
+            "completed_ads": {
+                "count": completed_ads,
+                "reach": completed_reach,
+                "conversion_pct": conversion_pct,
+            },
+            "ongoing_ads": {
+                "count": ongoing_ads,
+                "reach": ongoing_reach,
+            },
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Ads dashboard data retrieved successfully",
+                    "data": data,
                 }
             ),
             status=status.HTTP_200_OK,
