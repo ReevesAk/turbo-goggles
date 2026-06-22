@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User, UserNotification
-from .models import MemberSurvey, HandleChangeRequest
+from .models import MemberSurvey, THandleChangeRequest as HandleChangeRequest
 from fmcg.models import Favourite
 from support.models import Ticket
 
@@ -22,6 +22,7 @@ class GetUserSerializer(serializers.ModelSerializer):
     balance = serializers.SerializerMethodField()
     redeemable = serializers.SerializerMethodField()
     tier = serializers.CharField(read_only=True)
+    socials = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -56,6 +57,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "points_naira_value",
             "tier",
             "referral_code",
+            "socials",
         ]
 
     def get_balance(self, obj):
@@ -69,6 +71,43 @@ class GetUserSerializer(serializers.ModelSerializer):
         if points and points.exists():
             return points.first().redeemable
         return 0
+
+    def get_socials(self, obj):
+        try:
+            profile = obj.social_profile
+        except MemberSurvey.DoesNotExist:
+            return None
+        return {
+            "facebook": {
+                "handle": profile.facebook_handle,
+                "followers": profile.facebook_followers,
+            },
+            "twitter": {
+                "handle": profile.twitter_handle,
+                "followers": profile.twitter_followers,
+            },
+            "instagram": {
+                "handle": profile.instagram_handle,
+                "followers": profile.instagram_followers,
+            },
+            "tiktok": {
+                "handle": profile.tiktok_handle,
+                "followers": profile.tiktok_followers,
+            },
+            "youtube": {
+                "handle": profile.youtube_handle,
+                "followers": profile.youtube_followers,
+            },
+            "linkedin": {"handle": profile.linkedin_handle, "followers": None},
+            "threads": {
+                "handle": profile.thread_handle,
+                "followers": profile.thread_followers,
+            },
+            "telegram": {
+                "handle": profile.telegram_handle,
+                "followers": profile.telegram_followers,
+            },
+        }
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
