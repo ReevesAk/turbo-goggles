@@ -1,5 +1,6 @@
 import logging
 import base64
+from urllib import response
 
 from commons import Messaging
 from permissions import IsSuperAdmin, IsMember
@@ -1066,10 +1067,10 @@ class RequestHandleChangeView(generics.CreateAPIView):
         ).exists()
         if pending_exists:
             return Response(
-                {
+                encrypt({
                     "status": "fail",
                     "message": "You already have a pending request for this platform.",
-                },
+                }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1081,14 +1082,17 @@ class RequestHandleChangeView(generics.CreateAPIView):
             data={"type": "handle_change_request", "request_id": str(req.id)},
         )
 
+        response = {
+            "status": "success",
+            "message": "Request submitted. You'll be notified once an admin reviews it.",
+            "data": serializer.data,
+        },
+        
         return Response(
-            {
-                "status": "success",
-                "message": "Request submitted. You'll be notified once an admin reviews it.",
-                "data": serializer.data,
-            },
+            encrypt(response),
             status=status.HTTP_201_CREATED,
         )
+
 
 
 @extend_schema(
