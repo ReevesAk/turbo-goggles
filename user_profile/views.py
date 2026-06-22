@@ -1,5 +1,6 @@
 import logging
 import base64
+from urllib import response
 
 from commons import Messaging
 from permissions import IsSuperAdmin, IsMember
@@ -66,7 +67,7 @@ from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
 from .models import DeviceToken, MemberSurvey, HandleChangeRequest
-from .fcm import send_push_to_user
+from .fcm import send_push_to_user, send_push_to_admins
 
 logger = logging.getLogger(__name__)
 
@@ -1047,7 +1048,16 @@ class RequestHandleChangeView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
+
+        serializer = self.get_serializer(
+            data=payload,
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
 
         pending_exists = HandleChangeRequest.objects.filter(
@@ -1057,10 +1067,10 @@ class RequestHandleChangeView(generics.CreateAPIView):
         ).exists()
         if pending_exists:
             return Response(
-                {
+                encrypt({
                     "status": "fail",
                     "message": "You already have a pending request for this platform.",
-                },
+                }),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1072,14 +1082,17 @@ class RequestHandleChangeView(generics.CreateAPIView):
             data={"type": "handle_change_request", "request_id": str(req.id)},
         )
 
+        response = {
+            "status": "success",
+            "message": "Request submitted. You'll be notified once an admin reviews it.",
+            "data": serializer.data,
+        },
+        
         return Response(
-            {
-                "status": "success",
-                "message": "Request submitted. You'll be notified once an admin reviews it.",
-                "data": serializer.data,
-            },
+            encrypt(response),
             status=status.HTTP_201_CREATED,
         )
+
 
 
 @extend_schema(
