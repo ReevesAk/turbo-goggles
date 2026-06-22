@@ -276,10 +276,4 @@ logs/
 picadailys/static/
 picadailys/static/staticfiles.json
 
-
-login.py
-verify_otp
-verify_otp.py
-verify_otp_response.json
-tokens.json
-.vscode/PythonImportHelper-v2-Completion.json
+.vscode/
