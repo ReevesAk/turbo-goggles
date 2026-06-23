@@ -3,6 +3,7 @@ import logging
 # Third party imports.
 from cloudinary import uploader as cloud
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 # In project imports.
 from accounts.models import User
@@ -454,7 +455,7 @@ class ForgotPinSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ResetPinSerializer(serializers.ModelSerializer):
+class AdminResetPinSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=68, min_length=5, write_only=True)
     pin2 = serializers.CharField(max_length=68, min_length=5, write_only=True)
     admin_id = serializers.CharField(max_length=68, write_only=True)
@@ -632,6 +633,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "wallet_status",
         ]
 
+    @extend_schema_field(serializers.CharField())
     def get_name(self, obj):
         if obj.full_name:
             return obj.full_name

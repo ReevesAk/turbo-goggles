@@ -1173,7 +1173,7 @@ class TransactionStatus(generics.GenericAPIView):
     ],
     responses={
         200: inline_serializer(
-            name="PayWithCardResponse",
+            name="BankingPayWithCardResponse",
             fields={
                 "status": s.CharField(),
                 "message": s.CharField(),

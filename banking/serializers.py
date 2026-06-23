@@ -1,5 +1,6 @@
 # Third party imports.
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 from accounts.models import TxModel
 
@@ -140,6 +141,7 @@ class TxModelSerializer(serializers.ModelSerializer):
         transfers = obj.transfers.all()
         return transfers[0] if transfers else None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_sender_name(self, obj):
         t = self._get_transfer(obj)
         if t:
@@ -152,14 +154,17 @@ class TxModelSerializer(serializers.ModelSerializer):
                 return match.group(1)
         return None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_sender_account_number(self, obj):
         t = self._get_transfer(obj)
         return t.sender_account_number if t else None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_beneficiary_name(self, obj):
         t = self._get_transfer(obj)
         return t.beneficiary_name if t else None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_beneficiary_account_number(self, obj):
         t = self._get_transfer(obj)
         return t.beneficiary_account_number if t else None

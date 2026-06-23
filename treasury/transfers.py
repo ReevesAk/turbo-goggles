@@ -682,7 +682,7 @@ class InternalTransferFreeCount(APIView):
     description="Generates a Paystack checkout URL to fund the user's treasury account using a debit or credit card. Returns the authorization URL, access code, and payment reference.",
     request=CardFundingSerializer,
     responses={
-        200: inline_serializer(name="PayWithCardResponse", fields={
+        200: inline_serializer(name="TreasuryPayWithCardResponse", fields={
             "status": s.CharField(),
             "message": s.CharField(),
             "checkout_url": s.URLField(),

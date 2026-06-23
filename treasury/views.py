@@ -412,7 +412,7 @@ class ForgotAccountPin(generics.GenericAPIView):
     tags=["Treasury"],
     description="Resends the PIN reset OTP to the user's registered phone or email address.",
     responses={
-        200: inline_serializer(name="PinResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(name="TreasuryPinResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
     },
 )
 class PinResendOTP(generics.GenericAPIView):
@@ -465,8 +465,8 @@ class PinResendOTP(generics.GenericAPIView):
     description="Validates the OTP submitted during the PIN reset flow. On success the caller may proceed to reset the PIN.",
     request=VerifyPinOTPSerializer,
     responses={
-        200: inline_serializer(name="PinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="PinVerifyOTPError", fields={"error": s.CharField()}),
+        200: inline_serializer(name="TreasuryPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="TreasuryPinVerifyOTPError", fields={"error": s.CharField()}),
     },
 )
 class PinVerifyOTP(generics.GenericAPIView):
@@ -512,8 +512,8 @@ class PinVerifyOTP(generics.GenericAPIView):
     description="Resets the treasury account PIN after OTP verification. Both new pin and pin2 must match.",
     request=ResetAccountPinSerializer,
     responses={
-        200: inline_serializer(name="ResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="ResetPinError", fields={"error": s.CharField()}),
+        200: inline_serializer(name="TreasuryResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        400: inline_serializer(name="TreasuryResetPinError", fields={"error": s.CharField()}),
     },
 )
 class ResetAccountPin(generics.CreateAPIView):
@@ -818,7 +818,7 @@ class DeleteBeneficiaryView(generics.GenericAPIView):
     tags=["Treasury"],
     description="Returns the cached cashback balance accrued on the user's treasury account from eligible transactions.",
     responses={
-        200: inline_serializer(name="CashbackBalanceResponse", fields={
+        200: inline_serializer(name="TreasuryCashbackBalanceResponse", fields={
             "status": s.CharField(),
             "message": s.CharField(),
             "cashback_balance": s.CharField(),

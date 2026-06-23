@@ -1,5 +1,6 @@
 # Third party imports.
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 # In project imports.
 from accounts.models import User
@@ -105,6 +106,7 @@ class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
             "participant_count",
         ]
 
+    @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return len({session.user_id for session in obj.sessions.all()})
 
@@ -156,6 +158,7 @@ class StreakChallengeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
 
@@ -204,6 +207,7 @@ class UserStreakSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):
         return max(obj.challenge.duration_days - obj.current_count, 0)
 
@@ -304,9 +308,11 @@ class InAppTaskSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "task_status", "is_scheduled", "participant_count", "days_remaining", "created_at", "updated_at"]
 
+    @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):
         from django.utils import timezone
         today = timezone.now().date()

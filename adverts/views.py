@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import F, Q, Sum
+from django.utils import timezone
 
 # Third party imports
 from rest_framework import generics, status
@@ -736,10 +738,49 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
 
         serializer = self.get_serializer(user)
 
+        now = timezone.now()
+        user_ads = CreateAd.objects.filter(user=user)
+
+        total_ads_placed = user_ads.count()
+
+        active_qs = user_ads.filter(is_active=True, expiry_date__gt=now)
+        active_ads = active_qs.count()
+
+        completed_qs = user_ads.filter(
+            Q(is_active=False)
+            | Q(expiry_date__lte=now)
+            | Q(slots_filled__gte=F("slot_cap"))
+        ).distinct()
+        completed_ads = completed_qs.count()
+        completed_reach = (
+            completed_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
+        )
+        completed_cap = completed_qs.aggregate(total=Sum("slot_cap"))["total"] or 0
+        conversion_pct = (
+            round((completed_reach / completed_cap) * 100, 1) if completed_cap else 0
+        )
+
+        ongoing_reach = active_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
+
         response = {
             "status": "success",
             "message": "Ad detail retrieved successfully!",
-            "data": serializer.data,
+            "data": {
+                **serializer.data,
+                "ads_dashboard": {
+                    "total_ads_placed": total_ads_placed,
+                    "active_ads": active_ads,
+                    "completed_ads": {
+                        "count": completed_ads,
+                        "reach": completed_reach,
+                        "conversion_pct": conversion_pct,
+                    },
+                    "ongoing_ads": {
+                        "count": active_ads,
+                        "reach": ongoing_reach,
+                    },
+                },
+            },
         }
 
         cache.set(cache_key, response, timeout=300)
@@ -759,7 +800,7 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
     responses={
         200: UpdateBrandAdProfileSerializers,
         400: inline_serializer(
-            name="UpdateProfileError", fields={"detail": s.CharField()}
+            name="BrandAdUpdateProfileError", fields={"detail": s.CharField()}
         ),
     },
 )
