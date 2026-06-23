@@ -1,6 +1,5 @@
 import logging
 import base64
-from urllib import response
 
 from commons import Messaging
 from permissions import IsSuperAdmin, IsMember

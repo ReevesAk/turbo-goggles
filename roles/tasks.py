@@ -428,7 +428,7 @@ class ListInAppTasksView(generics.GenericAPIView):
 
     def get(self, request):
         status_filter = request.query_params.get("status")
-        today = timezone.now().date()
+        now = timezone.now()
 
         qs = StreakChallenge.objects.all().order_by("-created_at")
 
@@ -437,16 +437,16 @@ class ListInAppTasksView(generics.GenericAPIView):
                 is_cancelled=False,
                 is_active=True,
                 is_paused=False,
-                start_date__lte=today,
-                end_date__gte=today,
+                start_date__lte=now,
+                end_date__gte=now,
             )
         elif status_filter == "inactive":
             # not yet started, expired, or paused — anything not active and not cancelled
             qs = qs.exclude(is_cancelled=True).exclude(
                 is_active=True,
                 is_paused=False,
-                start_date__lte=today,
-                end_date__gte=today,
+                start_date__lte=now,
+                end_date__gte=now,
             )
         elif status_filter == "cancelled":
             qs = qs.filter(is_cancelled=True)

@@ -1,3 +1,5 @@
+import logging
+
 from permissions import IsSuperAdmin, IsMember
 
 # Third party imports
@@ -9,8 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 
 from .serializers import (
@@ -42,6 +43,8 @@ from banking.models import WalletModel
 from commons import Biometrics, Pay
 from roles.models import ActivityModel
 from security import encrypt, decrypt
+
+logger = logging.getLogger(__name__)
 
 SERVICES = (
     ("restaurant", "restaurant"),
@@ -1434,8 +1437,8 @@ class BookConsumableSercvice(generics.CreateAPIView):
         biometrics = payload.get("use_biometrics")
 
         try:
-            account = AccountCreation.objects.get(user=authenticated_user)
-        except AccountCreation.DoesNotExist:
+            account = WalletModel.objects.get(user=authenticated_user)
+        except WalletModel.DoesNotExist:
             return Response(
                 data=encrypt({"status": "fail", "error": "Account not found for user"}),
                 status=status.HTTP_404_NOT_FOUND,
@@ -1467,10 +1470,10 @@ class BookConsumableSercvice(generics.CreateAPIView):
 
         price = payload.get("price")
         payment_option = payload.get("payment_option")
-        user_details = AccountCreation.objects.get(user=authenticated_user)
+        user_details = WalletModel.objects.get(user=authenticated_user)
         match payment_option:
             case "WALLET":
-                debit_response = Account.Debit(
+                debit_response = Wallet.Debit(
                     debitAccount=user_details.account_number,
                     amount=price,
                     reason="Debit for booking courier service.",
@@ -1967,8 +1970,8 @@ class BookHotel(generics.GenericAPIView):
                 biometrics = user_data.get("use_biometrics")
 
                 try:
-                    account = AccountCreation.objects.get(user=authenticated_user)
-                except AccountCreation.DoesNotExist:
+                    account = WalletModel.objects.get(user=authenticated_user)
+                except WalletModel.DoesNotExist:
                     return Response(
                         data=decrypt(
                             {"status": "fail", "error": "Account not found for user"}
@@ -2007,10 +2010,10 @@ class BookHotel(generics.GenericAPIView):
                 # Inititate a debit on a users' account.
                 amount = user_data.get("amount")
                 payment_option = user_data.get("payment_option")
-                user_detail = AccountCreation.objects.get(user=authenticated_user)
+                user_detail = WalletModel.objects.get(user=authenticated_user)
                 match payment_option:
                     case "WALLET":
-                        debit_response = Account.Debit(
+                        debit_response = Wallet.Debit(
                             debitAccount=user_detail.account_number,
                             amount=amount,
                             reason="Debit for hotel booking.",

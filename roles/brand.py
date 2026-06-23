@@ -35,8 +35,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from accounts.models import User, AccountType, UserNotification
 from permissions import (

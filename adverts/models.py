@@ -1,5 +1,5 @@
 from datetime import timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone

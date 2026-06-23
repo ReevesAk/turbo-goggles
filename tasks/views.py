@@ -76,7 +76,13 @@ class SocialTaskListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = SocialTask.objects.filter(is_active=True).order_by("-created_at")
+        user = self.request.user
+        submitted_ids = TaskSubmission.objects.filter(user=user).values_list("task_id", flat=True)
+        qs = (
+            SocialTask.objects.filter(is_active=True)
+            .exclude(id__in=submitted_ids)
+            .order_by("-created_at")
+        )
         platform = self.request.query_params.get("platform")
         task_type = self.request.query_params.get("task_type")
         if platform:
@@ -272,11 +278,10 @@ class BrandTaskFeedView(generics.ListAPIView):
             [t for t in social_qs if t.is_available], many=True
         ).data
 
-        today = timezone.now().date()
         inapp_qs = StreakChallenge.objects.filter(
             is_active=True,
             is_cancelled=False,
-            end_date__gte=today,
+            end_date__gte=timezone.now(),
         ).order_by("-created_at")
         inapp_data = InAppTaskFeedSerializer(inapp_qs, many=True).data
 

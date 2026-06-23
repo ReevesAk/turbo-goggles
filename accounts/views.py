@@ -18,8 +18,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 # In project imports.
 from .serializers import (
@@ -998,13 +997,12 @@ class Login(APIView):
             description=f"{user.first_name} {user.last_name} successfully logged into their account.",
         )
         if user.has_done_survey:
-            today = timezone.now().date()
             active_campaign = StreakChallenge.objects.filter(
                 streak_type="daily_login",
                 is_active=True,
                 is_paused=False,
-                start_date__lte=today,
-                end_date__gte=today,
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now(),
             ).first()
             if active_campaign:
                 points = Points.determine(activity_type="daily_login", level=user.level)

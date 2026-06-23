@@ -33,10 +33,6 @@ from banking.tasks import post_vas_update
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
 from gamification.models import Points as PointsModel
-from treasury.models import TreasuryAccount
-from treasury.helpers import Pin as TreasuryPin
-from treasury.controllers import Anchor, anchor_ops_account_id
-from treasury.tasks import post_treasury_vas_update
 from .utility import (
     create_activity,
     create_notification,
@@ -46,12 +42,12 @@ from .utility import (
 
 from decouple import config
 from .helpers import VAS
-
-operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
-collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 from .models import ValueAddedServices
 from commons import Pay, Biometrics, Messaging
 from security import encrypt, decrypt
+
+operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
+collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 
 logger = logging.getLogger(__name__)
 

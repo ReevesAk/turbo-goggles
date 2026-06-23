@@ -3900,10 +3900,10 @@ class GamificationDashboardView(APIView):
             end_date__gte=start_date,
         )
         sc_scheduled = StreakChallenge.objects.filter(
-            is_cancelled=False, start_date__gt=today
+            is_cancelled=False, start_date__gt=now
         )
         sc_expired = StreakChallenge.objects.filter(
-            is_cancelled=False, end_date__lt=today
+            is_cancelled=False, end_date__lt=now
         )
         sc_cancelled = StreakChallenge.objects.filter(is_cancelled=True)
 

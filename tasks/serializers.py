@@ -332,11 +332,17 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
         }
 
     def get_time_remaining(self, obj):
-        today = timezone.now().date()
         if obj.end_date:
-            remaining_days = (obj.end_date - today).days
-            if remaining_days > 0:
-                return f"{remaining_days}d remaining"
+            remaining = obj.end_date - timezone.now()
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                minutes = (remaining.seconds % 3600) // 60
+                if days > 0:
+                    return f"{days}d {hours}h remaining"
+                elif hours > 0:
+                    return f"{hours}h {minutes}m remaining"
+                return f"{minutes}m remaining"
             return "Expired"
         return None
 

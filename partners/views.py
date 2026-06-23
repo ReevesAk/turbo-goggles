@@ -15,8 +15,7 @@ from rest_framework.pagination import PageNumberPagination
 from cloudinary import uploader as cloud
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 # In project imports.
 from .serializers import (

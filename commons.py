@@ -112,6 +112,16 @@ class Messaging:
         return response.json()
 
     @staticmethod
+    def _normalize_phone(phone_number: str) -> str:
+        """Always returns 10-digit local number (e.g. 8134649680) ready for 234 prefix."""
+        p = phone_number.strip().lstrip("+")
+        if p.startswith("234"):
+            p = p[3:]
+        elif p.startswith("0"):
+            p = p[1:]
+        return p
+
+    @staticmethod
     def send_sms(phone_number, msg):
         url = yournotify_base_url + "campaigns/sms/"
 
@@ -119,7 +129,7 @@ class Messaging:
             "Authorization": yournotify_api_key,
             "Content-Type": "application/json"
         }
-        phone = "234" + phone_number
+        phone = "234" + Messaging._normalize_phone(phone_number)
         payload = {
             "name": "Picadailys SMS",
             "from": "PICADAILYS",
@@ -142,7 +152,7 @@ class Messaging:
             "Content-Type": "application/json"
         }
 
-        phone = "234" + phone_number
+        phone = "234" + Messaging._normalize_phone(phone_number)
         payload = {
             "name": "Picadailys OTP",
             "status": "running",

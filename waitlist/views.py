@@ -113,10 +113,15 @@ class JoinBetaUserWaitList(generics.GenericAPIView):
         if waitlist_user.phone:
             otp = otp_manager.create_otp(user_id=str(waitlist_user.id))
             phone = waitlist_user.phone.lstrip("0")
-            Messaging.send_sms(
-                phone_number=phone,
-                msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
-            )
+            try:
+                Messaging.send_sms(
+                    phone_number=phone,
+                    msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to send OTP SMS to waitlist user %s", waitlist_user.id
+                )
 
         # Award 10 points for joining the waitlist
         waitlist_user.points = 10
@@ -247,10 +252,15 @@ class WaitlistDashboardView(APIView):
             if user.phone:
                 otp = otp_manager.create_otp(user_id=str(user.id))
                 phone = user.phone.lstrip("0")
-                Messaging.send_sms(
-                    phone_number=phone,
-                    msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
-                )
+                try:
+                    Messaging.send_sms(
+                        phone_number=phone,
+                        msg=f"Your Picadailys verification code is {otp}. Expires in 5 minutes.",
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to send OTP SMS to waitlist user %s", user.id
+                    )
             return Response(
                 {
                     "status": "unverified",

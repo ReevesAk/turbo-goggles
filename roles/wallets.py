@@ -31,13 +31,10 @@ from banking.serializers import WalletStatusSerializer
 from permissions import IsNotDisabled, IsWalletAdminOrSuperAdmin
 from security import encrypt, decrypt
 from decouple import config
-from cloudinary import uploader as cloud
-from accounts.models import UserNotification, User
 from commons import Messaging
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 logger = logging.getLogger(__name__)
 
