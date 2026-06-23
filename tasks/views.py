@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
+from django.db.models import Q, F
 from adverts.models import CreateAd
 from commons import Messaging, first_validation_error
 from gamification.models import StreakChallenge, UserStreak
@@ -43,14 +44,29 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
+def invalidate_brand_feed_cache(user):
+    """Invalidate brand feed cache for a user with location-based keys."""
+
+    location_key = f"{user.city}:{user.state}:{user.country}"
+    cache_key = f"brand_task_feed:{user.id}:{location_key}"
+    cache.delete(cache_key)
+
 
 @extend_schema(
     summary="List available social tasks",
     tags=["Tasks"],
     description="Returns all active social tasks that are currently available for the authenticated user to complete. Supports optional filtering by platform and task type.",
     parameters=[
-        OpenApiParameter(name="platform", type=OpenApiTypes.STR, description="Filter by social platform (e.g. twitter, instagram)"),
-        OpenApiParameter(name="task_type", type=OpenApiTypes.STR, description="Filter by task type (e.g. Follow, Comment, Post)"),
+        OpenApiParameter(
+            name="platform",
+            type=OpenApiTypes.STR,
+            description="Filter by social platform (e.g. twitter, instagram)",
+        ),
+        OpenApiParameter(
+            name="task_type",
+            type=OpenApiTypes.STR,
+            description="Filter by task type (e.g. Follow, Comment, Post)",
+        ),
     ],
     responses={200: SocialTaskSerializer(many=True)},
 )
@@ -72,13 +88,16 @@ class SocialTaskListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         qs = [t for t in self.get_queryset() if t.is_available]
         serializer = self.get_serializer(qs, many=True)
-        return Response(data=encrypt({
-            "status": "success",
-            "message": "Tasks retrieved successfully.",
-            "data": serializer.data,
-        }), status=status.HTTP_200_OK)
-
-
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Tasks retrieved successfully.",
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
@@ -101,11 +120,16 @@ class MySubmissionsView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_queryset(), many=True)
-        return Response(data=encrypt({
-            "status": "success",
-            "message": "Submissions retrieved successfully.",
-            "data": serializer.data,
-        }), status=status.HTTP_200_OK)
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Submissions retrieved successfully.",
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
@@ -120,28 +144,39 @@ class MyTrustScoreView(APIView):
 
     def get(self, request):
         trust, _ = UserTrustScore.objects.get_or_create(user=request.user)
-        return Response(data=encrypt({
-            "status": "success",
-            "message": "Trust score retrieved successfully.",
-            "data": UserTrustScoreSerializer(trust).data,
-        }), status=status.HTTP_200_OK)
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Trust score retrieved successfully.",
+                    "data": UserTrustScoreSerializer(trust).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
-
 @extend_schema(
     summary="List active brand campaign tasks (gamification feed)",
     tags=["Tasks"],
     description="Returns paginated brand ad campaigns as task cards for the gamification feed. Excludes campaigns the user has already submitted and those that have hit their slot cap.",
     parameters=[
-        OpenApiParameter(name="task_type", type=OpenApiTypes.STR, description="Filter by task type (e.g. watch_video, social_engage, app_download)"),
+        OpenApiParameter(
+            name="task_type",
+            type=OpenApiTypes.STR,
+            description="Filter by task type (e.g. watch_video, social_engage, app_download)",
+        ),
     ],
     responses={
-        200: inline_serializer(name="BrandTaskFeedResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": BrandTaskFeedSerializer(many=True),
-        }),
+        200: inline_serializer(
+            name="BrandTaskFeedResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": BrandTaskFeedSerializer(many=True),
+            },
+        ),
     },
 )
 class BrandTaskFeedView(generics.ListAPIView):
@@ -158,10 +193,11 @@ class BrandTaskFeedView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        completed_ad_ids = BrandTaskSubmission.objects.filter(
-            user=user
-        ).values_list("ad_id", flat=True)
+        completed_ad_ids = BrandTaskSubmission.objects.filter(user=user).values_list(
+            "ad_id", flat=True
+        )
 
+        # Base queryset
         qs = (
             CreateAd.objects.filter(is_active=True)
             .exclude(id__in=completed_ad_ids)
@@ -169,27 +205,62 @@ class BrandTaskFeedView(generics.ListAPIView):
             .order_by("-created_at")
         )
 
+        # Filter by task_type if provided
         task_type = self.request.query_params.get("task_type")
         if task_type:
             qs = qs.filter(task_type=task_type)
 
-        return qs
+        # Get user's location from their profile
+        user_city = user.city
+        user_state = user.state
+        user_country = user.country
+
+        # Build location filter - start with nationwide
+        location_filter = Q(location_type="nationwide") | Q(location_type__isnull=True)
+
+        # Add state-level targeting if user has state
+        if user_state:
+            location_filter |= Q(
+                location_type="states", brand_location__state=user_state
+            )
+
+        # Add city-level targeting if user has city
+        if user_city:
+            location_filter |= Q(location_type="cities", brand_location__city=user_city)
+
+        # Apply location filter
+        qs = qs.filter(location_filter)
+
+        # Country filtering that runs independently
+        if user_country:
+            qs = qs.filter(
+                Q(countries__isnull=True)
+                | Q(countries__exact=[])
+                | Q(countries__contains=[user_country])
+            )
+
+        # Filter out ads that have hit their slot cap
+        qs = qs.filter(slots_filled__lt=F("slot_cap"))
+
+        # Prevent duplicate rows from relational joins
+        return qs.distinct()
 
     def list(self, request, *args, **kwargs):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
 
-        cache_key = f"brand_task_feed:{request.user.id}"
+        # Include location in cache key to respect targeting
+        user = request.user
+        location_key = f"{user.city}:{user.state}:{user.country}"
+        cache_key = f"brand_task_feed:{request.user.id}:{location_key}"
         cached = cache.get(cache_key)
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
 
-        user = request.user
-
         brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True).data
 
-        completed_social_ids = TaskSubmission.objects.filter(
-            user=user
-        ).values_list("task_id", flat=True)
+        completed_social_ids = TaskSubmission.objects.filter(user=user).values_list(
+            "task_id", flat=True
+        )
         social_qs = (
             SocialTask.objects.filter(is_active=True)
             .exclude(id__in=completed_social_ids)
@@ -225,16 +296,25 @@ class BrandTaskFeedView(generics.ListAPIView):
     description="Submit screenshot proof for a task. The submission is verified immediately using AI. A verification code is returned for Comment and Post task types.",
     request=SubmitTaskSerializer,
     responses={
-        201: inline_serializer(name="SubmitBrandTaskResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="SubmitBrandTaskData", fields={
-                "submission_id": s.UUIDField(),
-                "verification_code": s.CharField(required=False),
-                "verification_note": s.CharField(required=False),
-            }),
-        }),
-        400: inline_serializer(name="SubmitBrandTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="SubmitBrandTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="SubmitBrandTaskData",
+                    fields={
+                        "submission_id": s.UUIDField(),
+                        "verification_code": s.CharField(required=False),
+                        "verification_note": s.CharField(required=False),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="SubmitBrandTaskError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SubmitBrandTaskView(generics.CreateAPIView):
@@ -269,17 +349,25 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                     raise s.ValidationError({"task": ["Task not found."]})
 
                 if not ad.is_active:
-                    raise s.ValidationError({"task": ["This campaign is no longer active."]})
+                    raise s.ValidationError(
+                        {"task": ["This campaign is no longer active."]}
+                    )
 
                 if ad.task_type != "social_engage":
-                    raise s.ValidationError({"task": ["This endpoint is only for social engage tasks."]})
+                    raise s.ValidationError(
+                        {"task": ["This endpoint is only for social engage tasks."]}
+                    )
 
                 if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
-                    raise s.ValidationError({"task": ["You have already submitted this task."]})
+                    raise s.ValidationError(
+                        {"task": ["You have already submitted this task."]}
+                    )
 
                 screenshot_url = user_data.get("screenshot_url")
                 if not screenshot_url:
-                    raise s.ValidationError({"screenshot_url": ["A screenshot is required."]})
+                    raise s.ValidationError(
+                        {"screenshot_url": ["A screenshot is required."]}
+                    )
 
                 submission = BrandTaskSubmission.objects.create(
                     ad=ad,
@@ -288,21 +376,25 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                     notes=user_data.get("notes", ""),
                 )
                 run_brand_verification.delay(str(submission.pk))
-                cache.delete(f"brand_task_feed:{user.id}")
+                invalidate_brand_feed_cache(user)
 
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Submission received. Verification in progress.",
-                        "data": {
-                            "submission_id": str(submission.pk),
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Submission received. Verification in progress.",
+                            "data": {
+                                "submission_id": str(submission.pk),
+                            },
+                        }
+                    ),
                     status=status.HTTP_201_CREATED,
                 )
 
             # UUID task id → admin-created SocialTask submission.
-            serializer = self.get_serializer(data=user_data, context={"request": request})
+            serializer = self.get_serializer(
+                data=user_data, context={"request": request}
+            )
             serializer.is_valid(raise_exception=True)
             submission = serializer.save()
 
@@ -314,7 +406,9 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                 "data": {"submission_id": str(submission.pk)},
             }
             if submission.verification_code:
-                response_data["data"]["verification_code"] = submission.verification_code
+                response_data["data"][
+                    "verification_code"
+                ] = submission.verification_code
                 response_data["data"]["verification_note"] = (
                     f"Include this code verbatim in your {submission.task.task_type.lower()}: "
                     f"{submission.verification_code}"
@@ -323,15 +417,31 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
 
         except s.ValidationError as err:
-            logger.warning("SubmitBrandTaskView validation failed for user %s: %s", request.user.id, err.detail)
+            logger.warning(
+                "SubmitBrandTaskView validation failed for user %s: %s",
+                request.user.id,
+                err.detail,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                data=encrypt(
+                    {"status": "error", "message": first_validation_error(err.detail)}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
-            logger.error("SubmitBrandTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
+            logger.error(
+                "SubmitBrandTaskView failed for user %s: %s",
+                request.user.id,
+                str(err),
+                exc_info=True,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Submission failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Submission failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -346,12 +456,18 @@ class SubmitBrandTaskView(generics.CreateAPIView):
     ),
     request=CompleteWebviewTaskSerializer,
     responses={
-        201: inline_serializer(name="CompleteWebviewTaskResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": s.DictField(),
-        }),
-        400: inline_serializer(name="CompleteWebviewTaskError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="CompleteWebviewTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            name="CompleteWebviewTaskError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CompleteWebviewTaskView(APIView):
@@ -388,7 +504,8 @@ class CompleteWebviewTaskView(APIView):
                     notes="Completed via mobile webview.",
                 )
                 points_awarded = approve_brand_submission_now(str(submission.pk), None)
-                cache.delete(f"brand_task_feed:{request.user.id}")
+
+                invalidate_brand_feed_cache(request.user)
 
                 response_data = {
                     "status": "success",
@@ -412,7 +529,12 @@ class CompleteWebviewTaskView(APIView):
 
                 if user_streak.last_activity_date == today:
                     return Response(
-                        data=encrypt({"status": "error", "message": "Already recorded today's activity for this challenge."}),
+                        data=encrypt(
+                            {
+                                "status": "error",
+                                "message": "Already recorded today's activity for this challenge.",
+                            }
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -423,7 +545,10 @@ class CompleteWebviewTaskView(APIView):
 
                 points_awarded = 0
                 reward_issued = False
-                if user_streak.current_count >= challenge.duration_days and not user_streak.reward_issued:
+                if (
+                    user_streak.current_count >= challenge.duration_days
+                    and not user_streak.reward_issued
+                ):
                     awarded, _ = Points.award(
                         user=request.user,
                         amount=challenge.reward_points,
@@ -443,7 +568,11 @@ class CompleteWebviewTaskView(APIView):
 
                 response_data = {
                     "status": "success",
-                    "message": "Task completed. Points credited." if reward_issued else "Activity recorded.",
+                    "message": (
+                        "Task completed. Points credited."
+                        if reward_issued
+                        else "Activity recorded."
+                    ),
                     "data": {
                         "challenge_id": str(challenge.id),
                         "current_count": user_streak.current_count,
@@ -458,13 +587,20 @@ class CompleteWebviewTaskView(APIView):
         except s.ValidationError as err:
             logger.info("Webview task completion validation failed: %s", err.detail)
             return Response(
-                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                data=encrypt(
+                    {"status": "error", "message": first_validation_error(err.detail)}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
             logger.error("Webview task completion failed: %s", str(err), exc_info=True)
             return Response(
-                data=encrypt({"status": "error", "message": "Task completion failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Task completion failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -496,7 +632,9 @@ def _notify_brand_of_survey(ad, answers):
             body=f"A new survey response was submitted for your campaign: {ad.campaign_name}.",
         )
     except Exception:
-        logger.exception("Failed to email survey response to brand %s", brand_user.email)
+        logger.exception(
+            "Failed to email survey response to brand %s", brand_user.email
+        )
 
     try:
         send_push_to_user(
@@ -505,7 +643,9 @@ def _notify_brand_of_survey(ad, answers):
             body=f'Someone completed your survey for "{ad.campaign_name}".',
         )
     except Exception:
-        logger.exception("Failed to push survey notification to brand %s", brand_user.id)
+        logger.exception(
+            "Failed to push survey notification to brand %s", brand_user.id
+        )
 
 
 @extend_schema(
@@ -520,7 +660,9 @@ def _notify_brand_of_survey(ad, answers):
         name="SubmitSurveyTaskRequest",
         fields={
             "task_id": s.UUIDField(),
-            "answers": s.ListField(child=s.DictField(), help_text="List of survey answer objects"),
+            "answers": s.ListField(
+                child=s.DictField(), help_text="List of survey answer objects"
+            ),
         },
     ),
     responses={
@@ -560,27 +702,46 @@ class SubmitSurveyTaskView(APIView):
 
             if not task_id:
                 return Response(
-                    data=encrypt({"status": "error", "message": "task_id is required."}),
+                    data=encrypt(
+                        {"status": "error", "message": "task_id is required."}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if not isinstance(answers, list) or not answers:
                 return Response(
-                    data=encrypt({"status": "error", "message": "answers must be a non-empty list."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "answers must be a non-empty list.",
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             try:
-                ad = CreateAd.objects.get(pk=task_id, task_type="survey", is_active=True)
+                ad = CreateAd.objects.get(
+                    pk=task_id, task_type="survey", is_active=True
+                )
             except CreateAd.DoesNotExist:
                 return Response(
-                    data=encrypt({"status": "error", "message": "Survey task not found or inactive."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "Survey task not found or inactive.",
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if BrandTaskSubmission.objects.filter(ad=ad, user=request.user).exists():
                 return Response(
-                    data=encrypt({"status": "error", "message": "You have already submitted this survey."}),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "You have already submitted this survey.",
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -592,28 +753,41 @@ class SubmitSurveyTaskView(APIView):
             )
 
             points_awarded = approve_brand_submission_now(str(submission.pk), None)
-            cache.delete(f"brand_task_feed:{request.user.id}")
+
+            invalidate_brand_feed_cache(request.user)
 
             _notify_brand_of_survey(ad, answers)
 
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Survey submitted. Points credited.",
-                    "data": {
-                        "submission_id": str(submission.pk),
-                        "task_id": str(ad.pk),
-                        "reward_points": points_awarded or 0,
-                        "reward_issued": True,
-                    },
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Survey submitted. Points credited.",
+                        "data": {
+                            "submission_id": str(submission.pk),
+                            "task_id": str(ad.pk),
+                            "reward_points": points_awarded or 0,
+                            "reward_issued": True,
+                        },
+                    }
+                ),
                 status=status.HTTP_201_CREATED,
             )
 
         except Exception as err:
-            logger.error("SubmitSurveyTaskView failed for user %s: %s", request.user.id, str(err), exc_info=True)
+            logger.error(
+                "SubmitSurveyTaskView failed for user %s: %s",
+                request.user.id,
+                str(err),
+                exc_info=True,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Survey submission failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Survey submission failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -623,11 +797,14 @@ class SubmitSurveyTaskView(APIView):
     tags=["Tasks"],
     description="Returns a paginated list of all brand campaign task submissions made by the authenticated user, including status and reward information.",
     responses={
-        200: inline_serializer(name="MyBrandSubmissionsResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": BrandTaskSubmissionSerializer(many=True),
-        }),
+        200: inline_serializer(
+            name="MyBrandSubmissionsResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": BrandTaskSubmissionSerializer(many=True),
+            },
+        ),
     },
 )
 class MyBrandSubmissionsView(generics.ListAPIView):

@@ -22,12 +22,25 @@ class SocialTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialTask
         fields = [
-            "id", "title", "description", "platform", "task_type",
-            "target_url", "target_account", "target_content_hint",
-            "required_hashtag", "required_mention", "required_keywords",
-            "reward_points", "reward_naira",
-            "max_submissions", "total_submissions",
-            "is_active", "expires_at", "is_expired", "is_available",
+            "id",
+            "title",
+            "description",
+            "platform",
+            "task_type",
+            "target_url",
+            "target_account",
+            "target_content_hint",
+            "required_hashtag",
+            "required_mention",
+            "required_keywords",
+            "reward_points",
+            "reward_naira",
+            "max_submissions",
+            "total_submissions",
+            "is_active",
+            "expires_at",
+            "is_expired",
+            "is_available",
         ]
         read_only_fields = ["id", "total_submissions", "is_expired", "is_available"]
 
@@ -36,10 +49,16 @@ class VerificationResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = VerificationResult
         fields = [
-            "verdict", "confidence_score", "ai_reasoning", "flags",
-            "username_matched", "target_matched",
-            "hashtag_found", "mention_found",
-            "action_confirmed", "verification_code_found",
+            "verdict",
+            "confidence_score",
+            "ai_reasoning",
+            "flags",
+            "username_matched",
+            "target_matched",
+            "hashtag_found",
+            "mention_found",
+            "action_confirmed",
+            "verification_code_found",
         ]
 
 
@@ -52,16 +71,29 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskSubmission
         fields = [
-            "id", "task", "task_title", "task_platform", "task_type",
-            "screenshot_url", "post_url", "notes",
-            "status", "reward_issued",
-            "rejection_reason", "reviewed_at",
+            "id",
+            "task",
+            "task_title",
+            "task_platform",
+            "task_type",
+            "screenshot_url",
+            "post_url",
+            "notes",
+            "status",
+            "reward_issued",
+            "rejection_reason",
+            "reviewed_at",
             "verification_code",
             "verification",
         ]
         read_only_fields = [
-            "id", "status", "reward_issued", "rejection_reason",
-            "reviewed_at", "verification_code", "verification",
+            "id",
+            "status",
+            "reward_issued",
+            "rejection_reason",
+            "reviewed_at",
+            "verification_code",
+            "verification",
         ]
 
 
@@ -105,9 +137,13 @@ class UserTrustScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserTrustScore
         fields = [
-            "score", "total_submissions", "approved_submissions",
-            "rejected_submissions", "flagged_submissions",
-            "approval_rate", "can_auto_approve",
+            "score",
+            "total_submissions",
+            "approved_submissions",
+            "rejected_submissions",
+            "flagged_submissions",
+            "approval_rate",
+            "can_auto_approve",
         ]
 
 
@@ -142,9 +178,16 @@ class SocialTaskFeedSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialTask
         fields = [
-            "id", "source", "campaign_name", "business_or_brand_name",
-            "task", "reward_points", "expiry_date", "time_remaining",
-            "is_active", "ad_media",
+            "id",
+            "source",
+            "campaign_name",
+            "business_or_brand_name",
+            "task",
+            "reward_points",
+            "expiry_date",
+            "time_remaining",
+            "is_active",
+            "ad_media",
         ]
 
     def get_source(self, obj):
@@ -200,9 +243,16 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
     class Meta:
         model = CreateAd
         fields = [
-            "id", "source", "campaign_name", "business_or_brand_name",
-            "task", "reward_points", "expiry_date", "time_remaining",
-            "is_active", "ad_media",
+            "id",
+            "source",
+            "campaign_name",
+            "business_or_brand_name",
+            "task",
+            "reward_points",
+            "expiry_date",
+            "time_remaining",
+            "is_active",
+            "ad_media",
         ]
         read_only_fields = fields
 
@@ -244,7 +294,15 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StreakChallenge
-        fields = ["id", "name", "task", "reward_points", "end_date", "time_remaining", "is_active"]
+        fields = [
+            "id",
+            "name",
+            "task",
+            "reward_points",
+            "end_date",
+            "time_remaining",
+            "is_active",
+        ]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -286,10 +344,11 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
 SCREENSHOT_TASK_TYPES = ("social_engage", "app_download")
 
 
-
 class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
     campaign_name = serializers.CharField(source="ad.campaign_name", read_only=True)
-    brand_name = serializers.CharField(source="ad.business_or_brand_name", read_only=True)
+    brand_name = serializers.CharField(
+        source="ad.business_or_brand_name", read_only=True
+    )
     task_type = serializers.CharField(source="ad.task_type", read_only=True)
     task_type_display = serializers.SerializerMethodField()
     reward_points = serializers.IntegerField(source="ad.reward_points", read_only=True)
@@ -313,8 +372,12 @@ class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = [
-            "id", "status", "reward_issued", "rejection_reason",
-            "reviewed_at", "created_at",
+            "id",
+            "status",
+            "reward_issued",
+            "rejection_reason",
+            "reviewed_at",
+            "created_at",
         ]
 
     def get_task_type_display(self, obj):
@@ -332,7 +395,12 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
     source = serializers.ChoiceField(choices=["brand", "inapp"], default="brand")
 
     BRAND_WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit", "survey")
-    INAPP_WEBVIEW_TYPES = ("website_visit", "watch_video", "store_visit", "survey_completion")
+    INAPP_WEBVIEW_TYPES = (
+        "website_visit",
+        "watch_video",
+        "store_visit",
+        "survey_completion",
+    )
 
     def validate(self, attrs):
         task_id = attrs["task_id"]
@@ -357,7 +425,9 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
                 )
 
             if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
-                raise serializers.ValidationError("You have already completed this task.")
+                raise serializers.ValidationError(
+                    "You have already completed this task."
+                )
 
             attrs["ad"] = ad
 
@@ -377,7 +447,9 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
 
             streak = UserStreak.objects.filter(user=user, challenge=challenge).first()
             if streak and streak.completed:
-                raise serializers.ValidationError("You have already completed this challenge.")
+                raise serializers.ValidationError(
+                    "You have already completed this challenge."
+                )
 
             attrs["challenge"] = challenge
 
