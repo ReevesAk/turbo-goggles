@@ -28,7 +28,7 @@ from .serializers import (
     EnableAdminSerializer,
     GetAllActivityLogsSerializer,
     ForgotPinSerializer,
-    ResetPinSerializer,
+    AdminResetPinSerializer,
     AdminDdashboardDataSerializer,
     StaffForgotPasswordSerializer,
     StaffPasswordResendOTPSerializer,
@@ -1453,7 +1453,7 @@ class AdminForgotPin(generics.GenericAPIView):
     request=VerifyOTPSerializer,
     responses={
         200: inline_serializer(
-            "PinVerifyOTPResponse",
+            "RolesPinVerifyOTPResponse",
             fields={
                 "status": s.CharField(),
                 "message": s.CharField(),
@@ -1461,7 +1461,7 @@ class AdminForgotPin(generics.GenericAPIView):
             },
         ),
         400: inline_serializer(
-            "PinVerifyOTPError",
+            "RolesPinVerifyOTPError",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
     },
@@ -1568,17 +1568,17 @@ class PinVerifyOTP(generics.GenericAPIView):
     summary="Reset admin PIN",
     tags=["Admin"],
     description="Sets a new PIN for the admin identified by admin_id. Both pin and pin2 must match.",
-    request=ResetPinSerializer,
+    request=AdminResetPinSerializer,
     responses={
         200: inline_serializer(
-            "ResetPinResponse",
+            "RolesResetPinResponse",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
-        400: inline_serializer("ResetPinError", fields={"error": s.CharField()}),
+        400: inline_serializer("RolesResetPinError", fields={"error": s.CharField()}),
     },
 )
 class ResetPin(generics.CreateAPIView):
-    serializer_class = ResetPinSerializer
+    serializer_class = AdminResetPinSerializer
 
     def create(self, request):
         decrypted_payload = decrypt(request.data)

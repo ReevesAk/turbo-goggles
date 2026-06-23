@@ -1,5 +1,6 @@
 # Third party imports.
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 # In project imports.
 from accounts.models import User
@@ -151,6 +152,7 @@ class PartnerProfileSerializer(serializers.ModelSerializer):
             "has_card",
         ]
 
+    @extend_schema_field(serializers.CharField())
     def get_acc_balance(self, obj):
         wallet = getattr(obj, "walletmodel", None)
         return str(wallet.balance) if wallet else "0.00"

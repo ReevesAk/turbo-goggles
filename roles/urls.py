@@ -85,7 +85,6 @@ from .brand import (
     BrandTaskListAdminView,
     BrandTaskDetailAdminView,
     BoostTaskPointsView,
-    AdsDashboardView,
 )
 from .streaks import (
     ListPointConfigsView,
@@ -295,8 +294,6 @@ urlpatterns = [
         ReviewTaskSubmissionAdminView.as_view(),
         name="admin_review_submission",
     ),
-    # Ads dashboard summary
-    path("brands/ads-dashboard/", AdsDashboardView.as_view(), name="ads_dashboard"),
     # Brand task admin endpoints
     path("brands/tasks/", BrandTaskListAdminView.as_view(), name="brand_task_list"),
     path(

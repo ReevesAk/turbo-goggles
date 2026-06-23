@@ -1405,7 +1405,7 @@ class ForgotWalletPin(generics.GenericAPIView):
     description="Resend the wallet-PIN reset OTP to the authenticated user via their preferred notification channel (SMS or email).",
     responses={
         200: inline_serializer(
-            name="PinResendOTPResponse",
+            name="BankingPinResendOTPResponse",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
     },
@@ -1471,7 +1471,7 @@ class PinResendOTP(generics.GenericAPIView):
     request=VerifyPinOTPSerializer,
     responses={
         200: inline_serializer(
-            name="PinVerifyOTPResponse",
+            name="BankingPinVerifyOTPResponse",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
         400: inline_serializer(
@@ -1531,7 +1531,7 @@ class PinVerifyOTP(generics.GenericAPIView):
     request=ResetPinSerializer,
     responses={
         200: inline_serializer(
-            name="ResetPinResponse",
+            name="BankingResetPinResponse",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
         400: inline_serializer(
@@ -1703,7 +1703,7 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
     description="Retrieve the cashback balance stored in the authenticated user's individual wallet.",
     responses={
         200: inline_serializer(
-            name="CashbackBalanceResponse",
+            name="BankingCashbackBalanceResponse",
             fields={
                 "status": s.CharField(),
                 "message": s.CharField(),

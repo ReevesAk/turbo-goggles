@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from django.utils import timezone
 
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 from .models import CreateAd, AdLocation, AdMedia
 
@@ -322,15 +323,18 @@ class AdSerializers(serializers.ModelSerializer):
     slots_remaining = serializers.SerializerMethodField()
     task_type_display = serializers.SerializerMethodField()
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_ad_media(self, obj):
         media = obj.ad_media.all()
         return [{"images": m.images, "videos": m.videos} for m in media]
 
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
     def get_slots_remaining(self, obj):
         if obj.slot_cap:
             return max(0, obj.slot_cap - obj.slots_filled)
         return None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_task_type_display(self, obj):
         return obj.get_task_type_display() if obj.task_type else None
 
@@ -378,6 +382,7 @@ class AdSerializers(serializers.ModelSerializer):
             "auto_boost",
         ]
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_remaining_time(self, obj):
         if obj.expiry_date:
             remaining = obj.expiry_date - timezone.now()

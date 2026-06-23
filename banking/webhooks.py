@@ -639,7 +639,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
     ],
     responses={
         200: inline_serializer(
-            name="VerifyCardPaymentResponse",
+            name="BankingVerifyCardPaymentResponse",
             fields={
                 "status": s.CharField(),
                 "message": s.CharField(),

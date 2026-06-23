@@ -398,7 +398,7 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
     tags=["Treasury"],
     description="Returns the current status of a Paystack card deposit by its transaction reference. Use this to confirm a card funding before crediting the treasury account.",
     responses={
-        200: inline_serializer(name="VerifyCardPaymentResponse", fields={
+        200: inline_serializer(name="TreasuryVerifyCardPaymentResponse", fields={
             "status": s.CharField(),
             "message": s.CharField(),
             "transaction": inline_serializer(name="VerifyCardPaymentTransaction", fields={
