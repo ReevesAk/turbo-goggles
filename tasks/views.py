@@ -43,6 +43,15 @@ logger = logging.getLogger(__name__)
 class PaginationStyle(PageNumberPagination):
     page_size = 20
 
+def invalidate_brand_feed_cache(user):
+    """Invalidate brand feed cache for a user with location-based keys."""
+    
+    location_key = f"{user.city}:{user.state}:{user.country}"
+    cache_key = f"brand_task_feed:{user.id}:{location_key}"
+    cache.delete(cache_key)
+    
+    # Also delete old format keys for backward compatibility
+    cache.delete(f"brand_task_feed:{user.id}")
 
 @extend_schema(
     summary="List available social tasks",
@@ -369,7 +378,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                     notes=user_data.get("notes", ""),
                 )
                 run_brand_verification.delay(str(submission.pk))
-                cache.delete(f"brand_task_feed:{user.id}")
+                invalidate_brand_feed_cache(user)
 
                 return Response(
                     data=encrypt(
@@ -497,7 +506,8 @@ class CompleteWebviewTaskView(APIView):
                     notes="Completed via mobile webview.",
                 )
                 points_awarded = approve_brand_submission_now(str(submission.pk), None)
-                cache.delete(f"brand_task_feed:{request.user.id}")
+                
+                invalidate_brand_feed_cache(request.user)
 
                 response_data = {
                     "status": "success",
@@ -745,7 +755,8 @@ class SubmitSurveyTaskView(APIView):
             )
 
             points_awarded = approve_brand_submission_now(str(submission.pk), None)
-            cache.delete(f"brand_task_feed:{request.user.id}")
+            
+            invalidate_brand_feed_cache(request.user)
 
             _notify_brand_of_survey(ad, answers)
 
