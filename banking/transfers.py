@@ -17,7 +17,6 @@ from drf_spectacular.types import OpenApiTypes
 from permissions import (
     IsPartnerUserOrMember,
     IsBrandAd,
-    IsAuthenticatedOrGuestWithValidId,
     IsGuestWithValidId,
 )
 from commons import generate_txId, Biometrics

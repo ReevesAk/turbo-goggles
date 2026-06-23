@@ -21,8 +21,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from accounts.models import User, AccountType, UserNotification
 from permissions import IsNotDisabled, IsPartnerAdminOrSuperAdmin
@@ -268,7 +267,7 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
                 data=encrypt({"status": "fail", "message": str(ve)}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Unexpected error occurred while processing request for user_id: {user_id}."
             )

@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
+from accounts.models import User
 from .models import CreateAd, AdLocation, AdMedia
 
 logger = logging.getLogger(__name__)
@@ -153,15 +154,54 @@ TASK_DETAIL_VALIDATORS = {
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
+    business_or_brand_name = serializers.SerializerMethodField()
+    type_of_business = serializers.SerializerMethodField()
+    industry = serializers.SerializerMethodField()
+    brand_objective = serializers.SerializerMethodField()
+
     class Meta:
-        model = CreateAd
-        fields = "__all__"
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "active_role",
+            "business_or_brand_name",
+            "type_of_business",
+            "industry",
+            "brand_objective",
+        ]
+
+    def _latest_ad(self, obj):
+        return obj.create_ad.order_by("-created_at").first()
+
+    def get_business_or_brand_name(self, obj):
+        ad = self._latest_ad(obj)
+        return ad.business_or_brand_name if ad else None
+
+    def get_type_of_business(self, obj):
+        ad = self._latest_ad(obj)
+        return ad.type_of_business if ad else None
+
+    def get_industry(self, obj):
+        ad = self._latest_ad(obj)
+        return ad.industry if ad else None
+
+    def get_brand_objective(self, obj):
+        ad = self._latest_ad(obj)
+        return ad.brand_objective if ad else None
 
 
 class UpdateBrandAdProfileSerializers(serializers.ModelSerializer):
     class Meta:
-        model = CreateAd
-        fields = "__all__"
+        model = User
+        fields = ["first_name", "last_name", "phone_number", "email"]
+        extra_kwargs = {
+            "email": {"required": False},
+            "phone_number": {"required": False},
+        }
 
 
 class CreateAdSerializers(serializers.ModelSerializer):

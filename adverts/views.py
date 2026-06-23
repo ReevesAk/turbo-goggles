@@ -20,7 +20,6 @@ from drf_spectacular.utils import (
     extend_schema,
     OpenApiParameter,
     OpenApiExample,
-    OpenApiResponse,
     inline_serializer,
 )
 from drf_spectacular.types import OpenApiTypes
@@ -36,7 +35,7 @@ from .serializers import (
 # from mail import send_email
 from accounts.models import User, UserNotification, AccountType, TxModel
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
-from .models import BrandAdCreditWallet, BrandAdCreditLedger, CreateAd
+from .models import BrandAdCreditWallet, CreateAd
 from .credit import apply_credit, reconcile_credit
 from banking.helpers import verify_wallet_auth
 from banking.controllers import Wallet
@@ -322,7 +321,17 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             match payment_option:
                 case "WALLET":
                     try:
-                        # 1. Check live wallet balance against the net amount.
+                        # 1. Sweep expired-ad credit before checking balance.
+                        with transaction.atomic():
+                            reconcile_credit(user)
+
+                        credit_wallet, _ = BrandAdCreditWallet.objects.get_or_create(
+                            user=user
+                        )
+                        credit_available = credit_wallet.balance
+                        net_charge = max(full_charge - credit_available, Decimal("0"))
+
+                        # 2. Check live wallet balance against the net (post-credit) amount.
                         account = WalletModel.objects.get(user=user)
                         enquiry = Wallet.getWalletDetails(account.account_number)
                         if enquiry and hasattr(enquiry, "json"):
@@ -337,7 +346,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         else:
                             live_balance = account.balance
 
-                        if live_balance < full_charge:
+                        if live_balance < net_charge:
                             return Response(
                                 data=encrypt(
                                     {
@@ -348,46 +357,32 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
 
-                        # 2. Debit the wallet before creating anything.
-                        debit_response = Wallet.Debit(
-                            debitAccount=account.account_number,
-                            amount=int(full_charge),
-                            reason="Debit for brand promotion.",
-                            merchantFeeAmount="0.00",
-                        )
-                        if debit_response is None or debit_response.status_code != 200:
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "fail",
-                                        "message": "Debit failed. Please try again.",
-                                    }
-                                ),
-                                status=status.HTTP_400_BAD_REQUEST,
+                        # 3. Debit only the net amount (full charge minus credit).
+                        if net_charge > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=int(net_charge),
+                                reason="Debit for brand promotion.",
+                                merchantFeeAmount="0.00",
                             )
+                            if (
+                                debit_response is None
+                                or debit_response.status_code != 200
+                            ):
+                                return Response(
+                                    data=encrypt(
+                                        {
+                                            "status": "fail",
+                                            "message": "Debit failed. Please try again.",
+                                        }
+                                    ),
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
 
-                        # 3. Debit succeeded — persist the ad and consume credit atomically.
+                        # 4. Debit succeeded — persist the ad and consume credit atomically.
                         with transaction.atomic():
                             new_ad = serializer.save()
-
-                            (
-                                credit_wallet,
-                                _,
-                            ) = BrandAdCreditWallet.objects.select_for_update().get_or_create(
-                                user=user
-                            )
-                            credit_applied = credit_wallet.balance
-                            if credit_applied > 0:
-                                credit_wallet.balance = Decimal("0")
-                                credit_wallet.save(update_fields=["balance"])
-                                BrandAdCreditLedger.objects.create(
-                                    user=user,
-                                    transaction_type=BrandAdCreditLedger.DEBIT,
-                                    amount=credit_applied,
-                                    balance_after=Decimal("0"),
-                                    source_ad=new_ad,
-                                    reason=f"Credit applied to new ad '{new_ad.campaign_name}'",
-                                )
+                            credit_applied, _ = apply_credit(user, new_ad, full_charge)
 
                             credit_msg = (
                                 f" (₦{credit_applied} credit applied)"
@@ -399,7 +394,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 user=user,
                                 tx_reference=tx_reference,
                                 tx_type="Brand Promotion",
-                                amount=int(full_charge),
+                                amount=int(net_charge),
                                 description=f"Brand promotion payment{credit_msg}",
                                 status="SUCCESS",
                             )
@@ -407,7 +402,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             UserNotification.objects.create(
                                 user=user,
                                 title="Brand Promotion",
-                                message=f"Your payment of ₦{int(full_charge)} for brand promotion was successful.{credit_msg}",
+                                message=f"Your payment of ₦{int(net_charge)} for brand promotion was successful.{credit_msg}",
                             )
 
                             ActivityModel.objects.create(
@@ -420,7 +415,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             "Brand promotion payment successful for user %s "
                             "(charged: %s, credit applied: %s)",
                             user.email,
-                            int(full_charge),
+                            int(net_charge),
                             credit_applied,
                         )
 

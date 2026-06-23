@@ -133,8 +133,8 @@ class StreakChallenge(models.Model):
     description = models.TextField(blank=True)
     streak_type = models.CharField(max_length=50, choices=STREAK_TYPE_CHOICES)
     duration_days = models.PositiveIntegerField()
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
     reward_points = models.PositiveIntegerField()
     reminder_time = models.TimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -158,12 +158,12 @@ class StreakChallenge(models.Model):
 
     @property
     def is_ongoing(self):
-        today = timezone.now().date()
-        return self.is_active and not self.is_paused and self.start_date <= today <= self.end_date
+        now = timezone.now()
+        return self.is_active and not self.is_paused and self.start_date <= now <= self.end_date
 
     @property
     def is_scheduled(self):
-        return not self.is_cancelled and timezone.now().date() < self.start_date
+        return not self.is_cancelled and timezone.now() < self.start_date
 
     @property
     def task_status(self):

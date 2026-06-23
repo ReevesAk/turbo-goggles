@@ -175,10 +175,10 @@ class StreakChallengeCreateSerializer(serializers.ModelSerializer):
         if data.get("start_date") and data.get("end_date"):
             if data["end_date"] <= data["start_date"]:
                 raise serializers.ValidationError("end_date must be after start_date.")
-            duration = (data["end_date"] - data["start_date"]).days
-            if data.get("duration_days", 0) > duration:
+            total_days = max(1, (data["end_date"] - data["start_date"]).days)
+            if data.get("duration_days", 0) > total_days:
                 raise serializers.ValidationError(
-                    "duration_days cannot exceed the number of days between start_date and end_date."
+                    "duration_days cannot exceed the duration of the challenge."
                 )
         return data
 
@@ -262,9 +262,10 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
         if start and end:
             if end <= start:
                 raise serializers.ValidationError("end_date must be after start_date.")
-            if data.get("duration_days", 0) > (end - start).days:
+            total_days = max(1, (end - start).days)
+            if data.get("duration_days", 0) > total_days:
                 raise serializers.ValidationError(
-                    "duration_days cannot exceed the number of days between start_date and end_date."
+                    "duration_days cannot exceed the duration of the challenge."
                 )
         if data.get("schedule_type") and not data.get("scheduled_start_time"):
             raise serializers.ValidationError(
@@ -315,8 +316,8 @@ class InAppTaskSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):
         from django.utils import timezone
-        today = timezone.now().date()
-        return max(0, (obj.end_date - today).days)
+        remaining = obj.end_date - timezone.now()
+        return max(0, remaining.days)
 
 
 class InAppTaskUpdateSerializer(serializers.ModelSerializer):
