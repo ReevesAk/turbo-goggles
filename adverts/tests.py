@@ -282,7 +282,7 @@ class BrandAdAnalyticsViewTests(APITestCase):
         breakdown = decrypt(response.data)["data"]["performance_breakdown"]
         self.assertIsNotNone(breakdown)
         self.assertEqual(breakdown["campaign_budget"], "170000")
-        self.assertEqual(breakdown["ads_credit"], "10000")
+        self.assertEqual(breakdown["ads_credit"], "10000.00")
         self.assertEqual(breakdown["reward_per_person"], 40)
         self.assertEqual(breakdown["auto_boost_points"], 300000)
         self.assertEqual(breakdown["total_points_rewarded"], 1000 * 40)
