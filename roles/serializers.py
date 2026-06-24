@@ -231,11 +231,11 @@ class ListAdminSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "full_name", "email", "status", "user_type", "last_login"]
 
-    def get_user_type(self, obj):
+    def get_user_type(self, obj) -> list:
         # Fetch user_type values from AccountType model related to the user
         return list(obj.account_types.values_list("user_type", flat=True))
 
-    def get_status(self, obj):
+    def get_status(self, obj) -> str:
         return "Disabled" if obj.is_admin_disabled else "Active"
 
 
@@ -347,16 +347,16 @@ class ListBrandAdSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_user_type(self, obj):
+    def get_user_type(self, obj) -> list:
         return list(obj.user.account_types.values_list("user_type", flat=True))
 
-    def get_status(self, obj):
+    def get_status(self, obj) -> str:
         return "Disabled" if obj.user.is_disabled else "Active"
 
-    def get_state(self, obj):
+    def get_state(self, obj) -> list:
         return [loc.state for loc in obj.brand_location.all()]
 
-    def get_city(self, obj):
+    def get_city(self, obj) -> list:
         return [loc.city for loc in obj.brand_location.all()]
 
 

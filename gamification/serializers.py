@@ -147,6 +147,8 @@ class PointConfigUpdateSerializer(serializers.ModelSerializer):
 class StreakChallengeSerializer(serializers.ModelSerializer):
     is_ongoing = serializers.BooleanField(read_only=True)
     participant_count = serializers.SerializerMethodField()
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
 
     class Meta:
         model = StreakChallenge

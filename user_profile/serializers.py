@@ -60,19 +60,19 @@ class GetUserSerializer(serializers.ModelSerializer):
             "socials",
         ]
 
-    def get_balance(self, obj):
+    def get_balance(self, obj) -> int:
         points = getattr(obj, "points_set", None)
         if points and points.exists():
             return points.first().balance
         return 0
 
-    def get_redeemable(self, obj):
+    def get_redeemable(self, obj) -> int:
         points = getattr(obj, "points_set", None)
         if points and points.exists():
             return points.first().redeemable
         return 0
 
-    def get_socials(self, obj):
+    def get_socials(self, obj) -> dict | None:
         try:
             profile = obj.social_profile
         except MemberSurvey.DoesNotExist:

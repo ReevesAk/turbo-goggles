@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 
 from django.db import models
@@ -158,12 +159,16 @@ class StreakChallenge(models.Model):
 
     @property
     def is_ongoing(self):
-        now = timezone.now()
-        return self.is_active and not self.is_paused and self.start_date <= now <= self.end_date
+        today = timezone.now().date()
+        start = self.start_date.date() if isinstance(self.start_date, datetime.datetime) else self.start_date
+        end = self.end_date.date() if isinstance(self.end_date, datetime.datetime) else self.end_date
+        return self.is_active and not self.is_paused and start <= today <= end
 
     @property
     def is_scheduled(self):
-        return not self.is_cancelled and timezone.now() < self.start_date
+        today = timezone.now().date()
+        start = self.start_date.date() if isinstance(self.start_date, datetime.datetime) else self.start_date
+        return not self.is_cancelled and today < start
 
     @property
     def task_status(self):

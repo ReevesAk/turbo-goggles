@@ -23,8 +23,8 @@ from .serializers import (
     CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer,
     TicketAssignmentHistorySerializer, UpdateTicketStatusSerializer,
     DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer,
-    UserProfileSerializer, CompleteTicketSerializer, ForgotPinSerializer,
-    VerifyOTPSerializer, ResetPinSerializer, SupportStaffForgotPasswordSerializer,
+    UserProfileSerializer, CompleteTicketSerializer, AgentForgotPinSerializer,
+    AgentVerifyOTPSerializer, AgentResetPinSerializer, SupportStaffForgotPasswordSerializer,
     SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer
     
 )
@@ -188,7 +188,7 @@ class RegisterManager(generics.GenericAPIView):
     summary="Request a forgot-pin OTP for a support agent",
     tags=["Support"],
     description="Sends a PIN reset OTP to the support agent's registered email address.",
-    request=ForgotPinSerializer,
+    request=AgentForgotPinSerializer,
     responses={
         201: inline_serializer("AgentForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
         404: inline_serializer("AgentForgotPinNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
@@ -200,7 +200,7 @@ class AgentForgotPin(generics.GenericAPIView):
     forgot pin request for an agent user.
     """
 
-    serializer_class = ForgotPinSerializer
+    serializer_class = AgentForgotPinSerializer
     throttle_classes = []
 
     def post(self, request):
@@ -272,7 +272,7 @@ class AgentForgotPin(generics.GenericAPIView):
     summary="Verify PIN reset OTP for a support agent",
     tags=["Support"],
     description="Validates the OTP sent to the support agent's email before allowing a PIN reset.",
-    request=VerifyOTPSerializer,
+    request=AgentVerifyOTPSerializer,
     responses={
         200: inline_serializer("AgentPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
         400: inline_serializer("AgentPinVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
@@ -285,7 +285,7 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
     """
 
     permission_classes = (AllowAny,)
-    serializer_class = VerifyOTPSerializer
+    serializer_class = AgentVerifyOTPSerializer
     throttle_classes = []
 
     def post(self, request):
@@ -377,14 +377,14 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
     summary="Reset the PIN for a support agent",
     tags=["Support"],
     description="Sets a new PIN for a support agent after successful OTP verification.",
-    request=ResetPinSerializer,
+    request=AgentResetPinSerializer,
     responses={
         200: inline_serializer("AgentResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
         400: inline_serializer("AgentResetPinError", fields={"status": s.CharField(), "message": s.CharField()}),
     },
 )
 class AgentResetPin(generics.CreateAPIView):
-    serializer_class = ResetPinSerializer
+    serializer_class = AgentResetPinSerializer
     throttle_classes = []
 
     def create(self, request):
@@ -625,7 +625,7 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
     """
 
     permission_classes = (AllowAny,)
-    serializer_class = VerifyOTPSerializer
+    serializer_class = SupportVerifyOTPSerializer
 
     def post(self, request):
         user_data = {

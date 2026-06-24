@@ -20,7 +20,7 @@ class CreateAccountPinSerializer(serializers.ModelSerializer):
         fields = ["id", "pin", "pin2"]
 
 
-class VerifyPinOTPSerializer(serializers.Serializer):
+class TreasuryVerifyPinOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
 
@@ -128,7 +128,7 @@ class ListTreasuryAccountsSerializer(serializers.ModelSerializer):
             "userTypes",
         ]
 
-    def get_userTypes(self, obj):
+    def get_userTypes(self, obj) -> list:
         return list(obj.user.account_types.values_list("user_type", flat=True))
 
 
