@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 
 # Third party imports
@@ -1140,6 +1140,185 @@ class AdCostPreviewView(generics.GenericAPIView):
                         "ledger_balance": str(ledger_balance),
                         "credit_to_apply": str(ledger_balance),
                     },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Brand ad analytics (ongoing & finished)",
+    tags=["Brand Ads"],
+    description=(
+        "Returns full analytics for a single brand ad owned by the authenticated user. "
+        "The `is_finished` flag drives which screen the mobile renders. "
+        "Ongoing ads include `location_perimeter`; finished ads include "
+        "`performance_breakdown` and `performance_demographic`."
+    ),
+    responses={
+        200: inline_serializer(
+            "BrandAdAnalyticsResponse",
+            fields={
+                "status": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        403: inline_serializer(
+            "BrandAdAnalyticsForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "BrandAdAnalyticsNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class BrandAdAnalyticsView(generics.GenericAPIView):
+    """
+    GET /v1/brands/ads/analytics/<ad_id>/
+
+    Brand-user-facing ad analytics. Owned ads only.
+    is_finished = slots exhausted OR ad expired OR is_active==False.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, ad_id):
+        try:
+            ad = CreateAd.objects.prefetch_related(
+                "ad_media",
+                "brand_location",
+                "brand_submissions__user__social_profile",
+            ).get(id=ad_id)
+        except CreateAd.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "error", "message": "Ad not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if ad.user_id != request.user.id:
+            return Response(
+                data=encrypt({"status": "error", "message": "Not your ad."}),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        now = timezone.now()
+        slots_exhausted = bool(ad.slot_cap and ad.slots_filled >= ad.slot_cap)
+        expired = bool(ad.expiry_date and ad.expiry_date <= now)
+        is_finished = slots_exhausted or expired or not ad.is_active
+
+        duration_days = int(ad.campaign_duration) if ad.campaign_duration else None
+        if is_finished:
+            task_duration = (
+                f"{duration_days} Days (Completed)" if duration_days else None
+            )
+            current_day = None
+        else:
+            current_day = (now - ad.created_at).days + 1 if ad.created_at else None
+            task_duration = None
+
+        media = [{"images": m.images, "videos": m.videos} for m in ad.ad_media.all()]
+
+        base = {
+            "id": ad.id,
+            "is_finished": is_finished,
+            "ad_media": media,
+            "objective": ad.brand_objective,
+            "task_type": ad.task_type,
+            "task_type_display": ad.get_task_type_display() if ad.task_type else None,
+            "platform": ad.task_details.get("platform") if ad.task_details else None,
+            "slots_filled": ad.slots_filled,
+            "slot_cap": ad.slot_cap,
+            "current_day": current_day,
+            "duration_days": duration_days,
+            "task_duration_label": task_duration,
+            "task_name": ad.task_name,
+            "task_description": ad.task_description,
+            "campaign_budget": ad.amount,
+            "reward_points": ad.reward_points,
+            "brand_name": ad.business_or_brand_name,
+            "business_type": ad.type_of_business,
+            "industry": ad.industry,
+            "user_action": ad.engagement_type,
+            "comment_prompt": (
+                ad.task_details.get("comment_prompt") if ad.task_details else None
+            ),
+            "timing": ad.task_details.get("timing") if ad.task_details else None,
+            "auto_boost": ad.auto_boost,
+            "auto_boost_points": ad.auto_boost_points,
+        }
+
+        if not is_finished:
+            locations = [loc.state for loc in ad.brand_location.all() if loc.state]
+            base["location_perimeter"] = {
+                "gender": ad.gender,
+                "demography": ad.demography,
+                "states": locations,
+                "slot_cap": ad.slot_cap,
+                "reward_points": ad.reward_points,
+            }
+            base["performance_breakdown"] = None
+            base["performance_demographic"] = None
+        else:
+            approved = ad.brand_submissions.filter(status="Approved")
+
+            cpe = ad.cost_per_engagement
+            budget_spent = Decimal(str(ad.slots_filled or 0)) * cpe
+            if budget_spent == 0 and ad.amount:
+                budget_spent = Decimal(str(ad.amount))
+
+            total_points_rewarded = (ad.slots_filled or 0) * (ad.reward_points or 0)
+
+            sex_qs = (
+                approved.values("user__social_profile__sex")
+                .annotate(count=Count("id"))
+                .order_by("-count")
+            )
+            age_qs = (
+                approved.values("user__social_profile__age_bracket")
+                .annotate(count=Count("id"))
+                .order_by("-count")
+            )
+            state_qs = (
+                approved.values("user__social_profile__state")
+                .annotate(count=Count("id"))
+                .order_by("-count")
+            )
+
+            base["location_perimeter"] = None
+            base["performance_breakdown"] = {
+                "campaign_budget": ad.amount,
+                "budget_spent": str(budget_spent),
+                "ads_credit": str(ad.ads_credit),
+                "total_points_rewarded": total_points_rewarded,
+                "reward_per_person": ad.reward_points,
+                "auto_boost_points": ad.auto_boost_points,
+            }
+            base["performance_demographic"] = {
+                "by_sex": {
+                    row["user__social_profile__sex"]: row["count"]
+                    for row in sex_qs
+                    if row["user__social_profile__sex"]
+                },
+                "by_age_bracket": {
+                    row["user__social_profile__age_bracket"]: row["count"]
+                    for row in age_qs
+                    if row["user__social_profile__age_bracket"]
+                },
+                "by_state": {
+                    row["user__social_profile__state"]: row["count"]
+                    for row in state_qs
+                    if row["user__social_profile__state"]
+                },
+            }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Ad analytics retrieved successfully",
+                    "data": base,
                 }
             ),
             status=status.HTTP_200_OK,
