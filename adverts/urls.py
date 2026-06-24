@@ -7,6 +7,7 @@ from .views import (
     UpdateBrandAdProfile,
     CreateAdAndOnboardBrandView,
     AdCostPreviewView,
+    BrandAdAnalyticsView,
 )
 
 app_name = "adverts"
@@ -32,4 +33,5 @@ urlpatterns = [
     path("profile", GetBrandAdDetails.as_view(), name="profile"),
     path("update-profile", UpdateBrandAdProfile.as_view(), name="update_profile"),
     path("cost-preview/", AdCostPreviewView.as_view(), name="ad_cost_preview"),
+    path("analytics/<int:ad_id>/", BrandAdAnalyticsView.as_view(), name="ad_analytics"),
 ]
