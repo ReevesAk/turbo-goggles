@@ -37,9 +37,8 @@ class AllMembersView(generics.ListAPIView):
     def get_queryset(self):
         members = (
             User.objects.filter(
-                account_types__user_type="Member", walletmodel__isnull=False
+                account_types__user_type="Member", wallets__isnull=False
             )
-            .select_related("walletmodel")
             .distinct()
         )
         return members
