@@ -44,6 +44,7 @@ class AllTransactions(generics.ListAPIView):
 
 
 class RetrieveTransaction(generics.GenericAPIView):
+    serializer_class = TxModelSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 

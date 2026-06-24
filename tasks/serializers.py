@@ -256,17 +256,17 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_source(self, obj):
+    def get_source(self, obj) -> str:
         return "brand"
 
-    def get_task(self, obj):
+    def get_task(self, obj) -> dict:
         return {
             "type": obj.task_type,
             "display": obj.get_task_type_display() if obj.task_type else None,
             "details": obj.task_details,
         }
 
-    def get_ad_media(self, obj):
+    def get_ad_media(self, obj) -> list:
         media = obj.ad_media.all()
         if media:
             return [{"images": m.images, "videos": m.videos} for m in media]
@@ -275,7 +275,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             return [{"videos": details["video_url"], "images": None}]
         return []
 
-    def get_time_remaining(self, obj):
+    def get_time_remaining(self, obj) -> str | None:
         if obj.expiry_date:
             remaining = obj.expiry_date - timezone.now()
             if remaining.total_seconds() > 0:
@@ -291,6 +291,7 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
 
     task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
+    end_date = serializers.DateField()
 
     class Meta:
         model = StreakChallenge
@@ -386,7 +387,7 @@ class BrandTaskSubmissionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def get_task_type_display(self, obj):
+    def get_task_type_display(self, obj) -> str | None:
         return obj.ad.get_task_type_display() if obj.ad.task_type else None
 
 

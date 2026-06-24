@@ -19,7 +19,7 @@ from .serializers import (
     TreasuryStatusSerializer,
     CreateTreasuryAccountSerializer,
     CreateAccountPinSerializer,
-    VerifyPinOTPSerializer,
+    TreasuryVerifyPinOTPSerializer,
     ResetAccountPinSerializer,
     TreasuryAccountDetailsSerializer,
     UpgradeTier2Serializer,
@@ -463,7 +463,7 @@ class PinResendOTP(generics.GenericAPIView):
     summary="Verify OTP for treasury PIN reset",
     tags=["Treasury"],
     description="Validates the OTP submitted during the PIN reset flow. On success the caller may proceed to reset the PIN.",
-    request=VerifyPinOTPSerializer,
+    request=TreasuryVerifyPinOTPSerializer,
     responses={
         200: inline_serializer(name="TreasuryPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
         400: inline_serializer(name="TreasuryPinVerifyOTPError", fields={"error": s.CharField()}),
@@ -475,7 +475,7 @@ class PinVerifyOTP(generics.GenericAPIView):
     Equivalent to PinVerifyOTP in banking.
     """
 
-    serializer_class = VerifyPinOTPSerializer
+    serializer_class = TreasuryVerifyPinOTPSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 

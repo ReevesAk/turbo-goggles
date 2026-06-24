@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class ListPointConfigsView(generics.GenericAPIView):
     """GET /v1/roles/points/ — list all configurable point values."""
 
+    serializer_class = PointConfigSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
@@ -37,6 +38,7 @@ class ListPointConfigsView(generics.GenericAPIView):
 class UpdatePointConfigView(generics.GenericAPIView):
     """PATCH /v1/roles/points/<key>/ — update a single point value."""
 
+    serializer_class = PointConfigUpdateSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
@@ -85,6 +87,7 @@ class UpdatePointConfigView(generics.GenericAPIView):
 class CreateStreakChallengeView(generics.GenericAPIView):
     """POST /v1/roles/streaks/create/ — create a new streak challenge."""
 
+    serializer_class = StreakChallengeCreateSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
@@ -117,6 +120,7 @@ class CreateStreakChallengeView(generics.GenericAPIView):
 class ListStreakChallengesView(generics.GenericAPIView):
     """GET /v1/roles/streaks/ — list all streak challenges (all statuses)."""
 
+    serializer_class = StreakChallengeSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
@@ -134,6 +138,7 @@ class ListStreakChallengesView(generics.GenericAPIView):
 class UpdateStreakChallengeView(generics.GenericAPIView):
     """PATCH /v1/roles/streaks/<challenge_id>/update/ — edit, pause, or extend a challenge."""
 
+    serializer_class = StreakChallengeUpdateSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
@@ -178,6 +183,7 @@ class UpdateStreakChallengeView(generics.GenericAPIView):
 class StreakChallengeLeaderboardAdminView(generics.GenericAPIView):
     """GET /v1/roles/streaks/<challenge_id>/leaderboard/ — ranked participants."""
 
+    serializer_class = StreakChallengeSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 

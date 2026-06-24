@@ -1893,6 +1893,7 @@ example_response = OpenApiExample(
     )
 )
 class TierListView(generics.RetrieveAPIView):
+    serializer_class = TierListResponseSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 

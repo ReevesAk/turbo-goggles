@@ -768,6 +768,7 @@ class ActiveStreakChallengesView(generics.ListAPIView):
     },
 )
 class JoinStreakChallengeView(generics.GenericAPIView):
+    serializer_class = UserStreakSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 

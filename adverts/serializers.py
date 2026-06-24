@@ -177,19 +177,19 @@ class BrandAdProfileSerializers(serializers.ModelSerializer):
     def _latest_ad(self, obj):
         return obj.create_ad.order_by("-created_at").first()
 
-    def get_business_or_brand_name(self, obj):
+    def get_business_or_brand_name(self, obj) -> str | None:
         ad = self._latest_ad(obj)
         return ad.business_or_brand_name if ad else None
 
-    def get_type_of_business(self, obj):
+    def get_type_of_business(self, obj) -> str | None:
         ad = self._latest_ad(obj)
         return ad.type_of_business if ad else None
 
-    def get_industry(self, obj):
+    def get_industry(self, obj) -> str | None:
         ad = self._latest_ad(obj)
         return ad.industry if ad else None
 
-    def get_brand_objective(self, obj):
+    def get_brand_objective(self, obj) -> str | None:
         ad = self._latest_ad(obj)
         return ad.brand_objective if ad else None
 

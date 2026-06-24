@@ -411,7 +411,7 @@ class CompleteTicketSerializer(serializers.ModelSerializer):
         ]
 
 
-class ForgotPinSerializer(serializers.ModelSerializer):
+class AgentForgotPinSerializer(serializers.ModelSerializer):
     email = serializers.CharField(max_length=50, write_only=True)
 
     class Meta:
@@ -423,7 +423,7 @@ class ForgotPinSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class VerifyOTPSerializer(serializers.Serializer):
+class AgentVerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
     def validate(self, attrs):
@@ -432,7 +432,7 @@ class VerifyOTPSerializer(serializers.Serializer):
         return attrs
 
 
-class ResetPinSerializer(serializers.ModelSerializer):
+class AgentResetPinSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=68, min_length=5, write_only=True)
     pin2 = serializers.CharField(max_length=68, min_length=5, write_only=True)
     agent_id = serializers.CharField(max_length=68, write_only=True)
