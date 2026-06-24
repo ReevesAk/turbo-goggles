@@ -263,3 +263,18 @@ class WelcomeBonusAward(models.Model):
 
     class Meta:
         ordering = ["-awarded_at"]
+
+
+class UserLocation(models.Model):
+    """
+    Record the latitude and longitude of a user's current location.
+    """
+
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]

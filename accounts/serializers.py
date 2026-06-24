@@ -4,7 +4,7 @@ import logging
 from rest_framework import serializers
 
 # In project imports.
-from .models import User
+from .models import User, UserLocation
 
 logger = logging.getLogger(__name__)
 
@@ -206,3 +206,62 @@ class LogoutSerializer(serializers.Serializer):
         fields = [
             "refresh_token",
         ]
+
+
+# ===== User Location Serializers =====
+class CreateUpdateUserLocationSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating user location with encryption support."""
+
+    class Meta:
+        model = UserLocation
+        fields = [
+            "latitude",
+            "longitude",
+        ]
+
+    def validate_latitude(self, value):
+        """Validate latitude is within valid range."""
+        if value is None:
+            raise serializers.ValidationError("Latitude is required.")
+
+        if not -90 <= value <= 90:
+            raise serializers.ValidationError(
+                "Latitude must be between -90 and 90 degrees."
+            )
+        return value
+
+    def validate_longitude(self, value):
+        """Validate longitude is within valid range."""
+        if value is None:
+            raise serializers.ValidationError("Longitude is required.")
+
+        if not -180 <= value <= 180:
+            raise serializers.ValidationError(
+                "Longitude must be between -180 and 180 degrees."
+            )
+        return value
+
+
+class UserLocationResponseSerializer(serializers.ModelSerializer):
+    """Serializer for location response with user details."""
+
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserLocation
+        fields = [
+            "id",
+            "user_email",
+            "user_name",
+            "latitude",
+            "longitude",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_user_name(self, obj):
+        """Get user's full name or fallback to first/last name."""
+        if obj.user.full_name:
+            return obj.user.full_name
+        return f"{obj.user.first_name or ''} {obj.user.last_name or ''}".strip()
