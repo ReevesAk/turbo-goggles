@@ -405,7 +405,10 @@ cloudinary.config(
 ANTHROPIC_API_KEY = conf("ANTHROPIC_API_KEY", default="")
 
 TESTING = (
-    any(arg in ("test", "pytest", "py.test") for arg in sys.argv)
+    any(
+        arg in ("test", "pytest", "py.test") or arg.endswith(("/pytest", "/py.test"))
+        for arg in sys.argv
+    )
     or "PYTEST_CURRENT_TEST" in os.environ
 )
 if TESTING:
