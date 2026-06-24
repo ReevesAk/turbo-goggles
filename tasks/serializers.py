@@ -291,7 +291,7 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
 
     task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
-    end_date = serializers.DateField()
+    end_date = serializers.DateTimeField()
 
     class Meta:
         model = StreakChallenge
