@@ -158,44 +158,12 @@ class LogUserLocation(generics.GenericAPIView):
             return UserLocationResponseSerializer
         return CreateUpdateUserLocationSerializer
 
-    def _get_decrypted_data(self, request):
-        """Extract and decrypt data from request."""
-        raw_data = request.body.decode("utf-8")
-
-        try:
-            parsed_data = json.loads(raw_data)
-            if isinstance(parsed_data, dict) and "encrypted_data" in parsed_data:
-                encrypted_string = parsed_data["encrypted_data"]
-            else:
-                encrypted_string = raw_data
-        except json.JSONDecodeError:
-            encrypted_string = raw_data
-
-        if isinstance(encrypted_string, dict):
-            return encrypted_string
-
-        decrypted_data = decrypt(encrypted_string)
-
-        if isinstance(decrypted_data, str):
-            try:
-                return json.loads(decrypted_data)
-            except json.JSONDecodeError:
-                return decrypted_data
-
-        return decrypted_data
-
     def post(self, request):
         """Create user's location. Handles both create and update scenarios."""
         user = request.user
 
         try:
-            decrypted_payload = self._get_decrypted_data(request)
-
-            if isinstance(decrypted_payload, str):
-                try:
-                    decrypted_payload = json.loads(decrypted_payload)
-                except json.JSONDecodeError:
-                    pass
+            decrypted_payload = decrypt(request.data)
 
             if not isinstance(decrypted_payload, dict):
                 return Response(
@@ -231,7 +199,6 @@ class LogUserLocation(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Use update_or_create with atomic transaction
             with transaction.atomic():
                 location, created = UserLocation.objects.update_or_create(
                     user=user,
@@ -340,13 +307,7 @@ class LogUserLocation(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            decrypted_payload = self._get_decrypted_data(request)
-
-            if isinstance(decrypted_payload, str):
-                try:
-                    decrypted_payload = json.loads(decrypted_payload)
-                except json.JSONDecodeError:
-                    pass
+            decrypted_payload = decrypt(request.data)
 
             if not isinstance(decrypted_payload, dict):
                 return Response(
@@ -383,10 +344,10 @@ class LogUserLocation(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Update the location
-            location.latitude = serializer.validated_data["latitude"]
-            location.longitude = serializer.validated_data["longitude"]
-            location.save()
+            with transaction.atomic():
+                location.latitude = serializer.validated_data["latitude"]
+                location.longitude = serializer.validated_data["longitude"]
+                location.save()
 
             logger.info(
                 f"Location replaced for user {user.email}: "
@@ -436,13 +397,7 @@ class LogUserLocation(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            decrypted_payload = self._get_decrypted_data(request)
-
-            if isinstance(decrypted_payload, str):
-                try:
-                    decrypted_payload = json.loads(decrypted_payload)
-                except json.JSONDecodeError:
-                    pass
+            decrypted_payload = decrypt(request.data)
 
             if not isinstance(decrypted_payload, dict):
                 return Response(
@@ -481,12 +436,12 @@ class LogUserLocation(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Update only provided fields
-            for field in ["latitude", "longitude"]:
-                if field in serializer.validated_data:
-                    setattr(location, field, serializer.validated_data[field])
+            with transaction.atomic():
+                for field in ["latitude", "longitude"]:
+                    if field in serializer.validated_data:
+                        setattr(location, field, serializer.validated_data[field])
 
-            location.save()
+                location.save()
 
             logger.info(
                 f"Partial update of location for user {user.email}: "
