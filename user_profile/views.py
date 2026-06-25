@@ -132,6 +132,13 @@ logger = logging.getLogger(__name__)
                 "message": s.CharField(),
             },
         ),
+        409: inline_serializer(
+            name="LocationConflictResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+            },
+        ),
     },
 )
 class LogUserLocation(generics.GenericAPIView):
@@ -178,22 +185,10 @@ class LogUserLocation(generics.GenericAPIView):
         return decrypted_data
 
     def post(self, request):
-        """Create user's location. Returns 409 if location already exists."""
+        """Create user's location. Handles both create and update scenarios."""
         user = request.user
 
         try:
-            # Check if location already exists
-            if UserLocation.objects.filter(user=user).exists():
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Location already exists. Use PUT or PATCH to update.",
-                        }
-                    ),
-                    status=status.HTTP_409_CONFLICT,
-                )
-
             decrypted_payload = self._get_decrypted_data(request)
 
             if isinstance(decrypted_payload, str):
@@ -246,33 +241,34 @@ class LogUserLocation(generics.GenericAPIView):
                     },
                 )
 
+            action = "created" if created else "updated"
             logger.info(
-                f"Location created for user {user.email}: "
+                f"Location {action} for user {user.email}: "
                 f"lat={location.latitude}, lng={location.longitude}"
             )
 
             response_serializer = UserLocationResponseSerializer(location)
             response_data = {
                 "status": "success",
-                "message": "Location created successfully",
+                "message": f"Location {action} successfully",
                 "data": response_serializer.data,
             }
 
             return Response(
                 data=encrypt(response_data),
-                status=status.HTTP_201_CREATED,
+                status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
             )
 
         except Exception as e:
             logger.error(
-                f"Error creating location for user {user.email}: {str(e)}",
+                f"Error creating/updating location for user {user.email}: {str(e)}",
                 exc_info=True,
             )
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
-                        "message": "An error occurred while creating your location.",
+                        "status": "fail",
+                        "message": "An error occurred while processing your location.",
                     }
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -314,7 +310,7 @@ class LogUserLocation(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while retrieving your location.",
                     }
                 ),
@@ -329,9 +325,9 @@ class LogUserLocation(generics.GenericAPIView):
         user = request.user
 
         try:
-            # Check if location exists
+            # Check if location exists with select_related
             try:
-                location = UserLocation.objects.get(user=user)
+                location = UserLocation.objects.select_related("user").get(user=user)
             except UserLocation.DoesNotExist:
                 return Response(
                     data=encrypt(
@@ -413,7 +409,7 @@ class LogUserLocation(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while updating your location.",
                     }
                 ),
@@ -425,9 +421,9 @@ class LogUserLocation(generics.GenericAPIView):
         user = request.user
 
         try:
-            # Check if location exists
+            # Check if location exists with select_related
             try:
-                location = UserLocation.objects.get(user=user)
+                location = UserLocation.objects.select_related("user").get(user=user)
             except UserLocation.DoesNotExist:
                 return Response(
                     data=encrypt(
@@ -513,7 +509,7 @@ class LogUserLocation(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while updating your location.",
                     }
                 ),
@@ -555,7 +551,7 @@ class LogUserLocation(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while deleting your location.",
                     }
                 ),
