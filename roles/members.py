@@ -22,7 +22,7 @@ from user_profile.serializers import (
     ReviewHandleChangeSerializer,
 )
 
-from security import encrypt
+from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,8 @@ class ListHandleChangeRequestsView(generics.ListAPIView):
         qs = self.get_queryset()
         serializer = self.get_serializer(qs, many=True)
         return Response(
-            {"status": "success", "total": qs.count(), "data": serializer.data}
+            data=encrypt({"status": "success", "message": "Change requests retrieved successfully", "total": qs.count(), "data": serializer.data}),
+            status=status.HTTP_200_OK,
         )
 
 
@@ -112,20 +113,23 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
             )
         except HandleChangeRequest.DoesNotExist:
             return Response(
-                {"status": "fail", "message": "Request not found."},
+                data=encrypt({"status": "fail", "message": "Request not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if handle_request.status != "pending":
             return Response(
-                {
-                    "status": "fail",
-                    "message": f"This request has already been {handle_request.status}.",
-                },
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"This request has already been {handle_request.status}.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
         serializer.is_valid(raise_exception=True)
 
         action = serializer.validated_data["action"]
@@ -182,4 +186,7 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
             handle_request.status,
             request.user.email,
         )
-        return Response({"status": "success", "message": message})
+        return Response(
+            data=encrypt({"status": "success", "message": message}),
+            status=status.HTTP_200_OK,
+        )
