@@ -1183,7 +1183,12 @@ class AdCostPreviewView(generics.GenericAPIView):
                 "data": {
                     "id": 12,
                     "is_finished": False,
-                    "ad_media": [{"images": "https://res.cloudinary.com/demo/image/upload/sample.jpg", "videos": "https://res.cloudinary.com/demo/video/upload/sample.mp4"}],
+                    "ad_media": [
+                        {
+                            "images": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+                            "videos": "https://res.cloudinary.com/demo/video/upload/sample.mp4",
+                        }
+                    ],
                     "objective": "Brand Awareness",
                     "task_type": "social_engage",
                     "task_type_display": "Social Engage",
@@ -1227,7 +1232,12 @@ class AdCostPreviewView(generics.GenericAPIView):
                 "data": {
                     "id": 12,
                     "is_finished": True,
-                    "ad_media": [{"images": "https://res.cloudinary.com/demo/image/upload/sample.jpg", "videos": "https://res.cloudinary.com/demo/video/upload/sample.mp4"}],
+                    "ad_media": [
+                        {
+                            "images": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+                            "videos": "https://res.cloudinary.com/demo/video/upload/sample.mp4",
+                        }
+                    ],
                     "objective": "Brand Awareness",
                     "task_type": "social_engage",
                     "task_type_display": "Social Engage",
@@ -1260,8 +1270,22 @@ class AdCostPreviewView(generics.GenericAPIView):
                     },
                     "performance_demographic": {
                         "by_sex": {"Male": 300, "Female": 700},
-                        "by_age_bracket": {"18 - 25": 200, "19 - 25": 100, "20 - 25": 88, "21 - 25": 140, "22 - 25": 80, "23 - 25": 9, "34 - 25": 300, "25+": 83},
-                        "by_state": {"Abia": 400, "Abuja": 200, "Rivers": 300, "Lagos": 100},
+                        "by_age_bracket": {
+                            "18 - 25": 200,
+                            "19 - 25": 100,
+                            "20 - 25": 88,
+                            "21 - 25": 140,
+                            "22 - 25": 80,
+                            "23 - 25": 9,
+                            "34 - 25": 300,
+                            "25+": 83,
+                        },
+                        "by_state": {
+                            "Abia": 400,
+                            "Abuja": 200,
+                            "Rivers": 300,
+                            "Lagos": 100,
+                        },
                     },
                 },
             },

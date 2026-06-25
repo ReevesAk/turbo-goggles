@@ -2535,7 +2535,7 @@ class GetAllAdminUsers(generics.ListAPIView):
         admin_users = (
             User.objects.filter(account_types__user_type__icontains="Admin")
             .distinct()
-            .order_by("account_types__created_at")
+            .order_by("id")
         )
         logger.info("Admin users retrieved successfully.")
         return admin_users

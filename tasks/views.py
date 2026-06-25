@@ -205,7 +205,7 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         # Base queryset
         qs = (
-            CreateAd.objects.filter(is_active=True)
+            CreateAd.objects.filter(is_active=True, expiry_date__gt=timezone.now())
             .exclude(id__in=completed_ad_ids)
             .prefetch_related("ad_media")
             .order_by("-created_at")

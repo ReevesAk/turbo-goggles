@@ -35,12 +35,9 @@ class AllMembersView(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
-        members = (
-            User.objects.filter(
-                account_types__user_type="Member", wallets__isnull=False
-            )
-            .distinct()
-        )
+        members = User.objects.filter(
+            account_types__user_type="Member", wallets__isnull=False
+        ).distinct()
         return members
 
     def list(self, request, *args, **kwargs):
@@ -96,7 +93,14 @@ class ListHandleChangeRequestsView(generics.ListAPIView):
         qs = self.get_queryset()
         serializer = self.get_serializer(qs, many=True)
         return Response(
-            data=encrypt({"status": "success", "message": "Change requests retrieved successfully", "total": qs.count(), "data": serializer.data}),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Change requests retrieved successfully",
+                    "total": qs.count(),
+                    "data": serializer.data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
