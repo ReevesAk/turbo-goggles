@@ -12,7 +12,6 @@ from .views import (
     PasswordResendOTP,
     ResetPassword,
     Logout,
-    LogUserLocation,
 )
 
 app_name = "accounts"
@@ -40,6 +39,4 @@ urlpatterns = [
         "password-resend-otp", PasswordResendOTP.as_view(), name="password_resend_otp"
     ),
     path("password-reset", ResetPassword.as_view(), name="password_reset"),
-    # ===== User Location Monitoring =====
-    path("api/user/location/", LogUserLocation.as_view(), name="user-location"),
 ]
