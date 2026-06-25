@@ -247,6 +247,7 @@ class LogUserLocation(generics.GenericAPIView):
                 f"lat={location.latitude}, lng={location.longitude}"
             )
 
+            location.user = user
             response_serializer = UserLocationResponseSerializer(location)
             response_data = {
                 "status": "success",
