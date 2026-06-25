@@ -106,7 +106,9 @@ def _create_ad(user, **overrides):
     return CreateAd.objects.create(user=user, **defaults)
 
 
-def _create_participant(brand_user, ad, sex="Male", age_bracket="18 - 25", state="Lagos"):
+def _create_participant(
+    brand_user, ad, sex="Male", age_bracket="18 - 25", state="Lagos"
+):
     seed = uuid4().hex[:8]
     participant = User.objects.create(
         phone_number=f"23481{seed[:7]}",
@@ -274,7 +276,9 @@ class BrandAdAnalyticsViewTests(APITestCase):
         self.assertIsNone(decrypt(response.data)["data"]["location_perimeter"])
 
     def test_finished_ad_performance_breakdown_fields(self):
-        ad = _create_ad(self.brand, slots_filled=1000, ads_credit="10000", auto_boost_points=300000)
+        ad = _create_ad(
+            self.brand, slots_filled=1000, ads_credit="10000", auto_boost_points=300000
+        )
         self.client.force_authenticate(user=self.brand)
 
         response = self.client.get(self.url_template.format(ad.id))
@@ -311,7 +315,9 @@ class BrandAdAnalyticsViewTests(APITestCase):
 
         response = self.client.get(self.url_template.format(ad.id))
 
-        by_age = decrypt(response.data)["data"]["performance_demographic"]["by_age_bracket"]
+        by_age = decrypt(response.data)["data"]["performance_demographic"][
+            "by_age_bracket"
+        ]
         self.assertEqual(by_age.get("18 - 25"), 2)
         self.assertEqual(by_age.get("26 - 35"), 1)
 

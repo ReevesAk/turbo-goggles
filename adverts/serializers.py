@@ -339,7 +339,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user
 
-        create_ad = CreateAd.objects.create(user=user, **validated_data)
+        create_ad = CreateAd.objects.create(user=user, is_active=True, **validated_data)
 
         for state, city in zip(states, cities):
             AdLocation.objects.create(brand=create_ad, state=state, city=city)
@@ -430,16 +430,6 @@ class AdSerializers(serializers.ModelSerializer):
             if remaining.total_seconds() > 0:
                 days = remaining.days
                 hours = remaining.seconds // 3600
-
-                if not obj.is_active:
-                    obj.is_active = True
-                    obj.save(update_fields=["is_active"])
-
                 return f"{days} days {hours} hours remaining"
-
             else:
-                if obj.is_active:
-                    obj.is_active = False
-                    obj.save(update_fields=["is_active"])
-
                 return "Expired"
