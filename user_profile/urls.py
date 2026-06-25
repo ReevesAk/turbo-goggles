@@ -22,6 +22,7 @@ from .views import (
     RegisterDeviceTokenView,
     SocialProfileView,
     RequestHandleChangeView,
+    LogUserLocation,
 )
 from .notifications import (
     GetAllNotifications,
@@ -91,4 +92,6 @@ urlpatterns = [
         RequestHandleChangeView.as_view(),
         name="request_handle_change",
     ),
+    # User Location
+    path("location/", LogUserLocation.as_view(), name="user-location"),
 ]

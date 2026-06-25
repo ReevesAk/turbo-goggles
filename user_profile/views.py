@@ -1,3 +1,4 @@
+import json
 import logging
 import base64
 
@@ -9,6 +10,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.template.loader import render_to_string
 from django.db.models import Q
+from django.db import transaction
 
 from rest_framework import generics, exceptions
 from rest_framework.permissions import IsAuthenticated
@@ -45,6 +47,8 @@ from .serializers import (
     SupportTicketSerializer,
     TierListResponseSerializer,
     SetAlertTypeSerializer,
+    CreateUpdateUserLocationSerializer,
+    UserLocationResponseSerializer,
 )
 from support.serializers import AgentRatingSerializers
 from .helpers import MysteryBox, VariationCodes, MemberSurveyService
@@ -65,10 +69,450 @@ from self_service.models import (
 from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
-from .models import DeviceToken, MemberSurvey, HandleChangeRequest
+from .models import DeviceToken, MemberSurvey, HandleChangeRequest, UserLocation
 from .fcm import send_push_to_user, send_push_to_admins
 
 logger = logging.getLogger(__name__)
+
+
+@extend_schema(
+    summary="Log User's Current Location",
+    tags=["Location"],
+    description="""
+    Create or update the current user's location.
+    
+    - **POST**: Creates a new location record if none exists, or updates the existing one.
+    - **GET**: Retrieves the user's current location.
+    - **PUT**: Replaces the user's location (returns 404 if not found).
+    - **PATCH**: Partially updates the user's location.
+    - **DELETE**: Removes the user's location.
+    
+    Each user can only have one location record. The location is stored as 
+    latitude and longitude coordinates.
+    
+    All requests and responses are encrypted.
+    """,
+    request=CreateUpdateUserLocationSerializer,
+    responses={
+        200: inline_serializer(
+            name="LocationUpdateResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        201: inline_serializer(
+            name="LocationCreateResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            name="LocationErrorResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "errors": s.DictField(required=False),
+            },
+        ),
+        401: inline_serializer(
+            name="LocationUnauthorizedResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+            },
+        ),
+        404: inline_serializer(
+            name="LocationNotFoundResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+            },
+        ),
+        409: inline_serializer(
+            name="LocationConflictResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+            },
+        ),
+    },
+)
+class LogUserLocation(generics.GenericAPIView):
+    """
+    Log user's current location.
+
+    Creates a new location record if none exists, or updates the existing one.
+    Each user can only have one location record.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = CreateUpdateUserLocationSerializer
+
+    def get_serializer_class(self):
+        """Return appropriate serializer based on request method."""
+        if self.request.method == "GET":
+            return UserLocationResponseSerializer
+        return CreateUpdateUserLocationSerializer
+
+    def post(self, request):
+        """Create user's location. Handles both create and update scenarios."""
+        user = request.user
+
+        try:
+            decrypted_payload = decrypt(request.data)
+
+            if not isinstance(decrypted_payload, dict):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Invalid data format. Expected JSON object.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            location_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+                if value is not None
+            }
+
+            serializer = self.serializer_class(data=location_data)
+
+            if not serializer.is_valid():
+                logger.warning(
+                    f"Location validation failed for user {user.email}: {serializer.errors}"
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Validation error occurred.",
+                            "errors": serializer.errors,
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            with transaction.atomic():
+                location, created = UserLocation.objects.update_or_create(
+                    user=user,
+                    defaults={
+                        "latitude": serializer.validated_data["latitude"],
+                        "longitude": serializer.validated_data["longitude"],
+                    },
+                )
+
+            action = "created" if created else "updated"
+            logger.info(
+                f"Location {action} for user {user.email}: "
+                f"lat={location.latitude}, lng={location.longitude}"
+            )
+
+            location.user = user
+            response_serializer = UserLocationResponseSerializer(location)
+            response_data = {
+                "status": "success",
+                "message": f"Location {action} successfully",
+                "data": response_serializer.data,
+            }
+
+            return Response(
+                data=encrypt(response_data),
+                status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Error creating/updating location for user {user.email}: {str(e)}",
+                exc_info=True,
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while processing your location.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def get(self, request):
+        """Get user's current location."""
+        user = request.user
+
+        try:
+            # Use select_related to avoid N+1 query
+            location = UserLocation.objects.select_related("user").get(user=user)
+            serializer = UserLocationResponseSerializer(location)
+
+            response_data = {
+                "status": "success",
+                "message": "Location retrieved successfully",
+                "data": serializer.data,
+            }
+
+            return Response(
+                data=encrypt(response_data),
+                status=status.HTTP_200_OK,
+            )
+
+        except UserLocation.DoesNotExist:
+            logger.warning(f"Location not found for user {user.email}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Location not found for this user. Please log your location first.",
+                    }
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving location for user {user.email}: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while retrieving your location.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def put(self, request):
+        """
+        Full replace of user's location.
+        Returns 404 if location doesn't exist.
+        """
+        user = request.user
+
+        try:
+            # Check if location exists with select_related
+            try:
+                location = UserLocation.objects.select_related("user").get(user=user)
+            except UserLocation.DoesNotExist:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Location not found. Use POST to create one.",
+                        }
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            decrypted_payload = decrypt(request.data)
+
+            if not isinstance(decrypted_payload, dict):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Invalid data format. Expected JSON object.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            location_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+                if value is not None
+            }
+
+            # Full replace - all fields required
+            serializer = self.serializer_class(data=location_data)
+
+            if not serializer.is_valid():
+                logger.warning(
+                    f"Location validation failed for user {user.email}: {serializer.errors}"
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Validation error occurred.",
+                            "errors": serializer.errors,
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            with transaction.atomic():
+                location.latitude = serializer.validated_data["latitude"]
+                location.longitude = serializer.validated_data["longitude"]
+                location.save()
+
+            logger.info(
+                f"Location replaced for user {user.email}: "
+                f"lat={location.latitude}, lng={location.longitude}"
+            )
+
+            response_serializer = UserLocationResponseSerializer(location)
+            response_data = {
+                "status": "success",
+                "message": "Location updated successfully",
+                "data": response_serializer.data,
+            }
+
+            return Response(
+                data=encrypt(response_data),
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating location for user {user.email}: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while updating your location.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def patch(self, request):
+        """Partial update of user's location."""
+        user = request.user
+
+        try:
+            # Check if location exists with select_related
+            try:
+                location = UserLocation.objects.select_related("user").get(user=user)
+            except UserLocation.DoesNotExist:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Location not found. Use POST to create one.",
+                        }
+                    ),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            decrypted_payload = decrypt(request.data)
+
+            if not isinstance(decrypted_payload, dict):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Invalid data format. Expected JSON object.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            location_data = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+                if value is not None
+            }
+
+            # Partial update
+            serializer = self.serializer_class(
+                location, data=location_data, partial=True
+            )
+
+            if not serializer.is_valid():
+                logger.warning(
+                    f"Partial location validation failed for user {user.email}: {serializer.errors}"
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Validation error occurred.",
+                            "errors": serializer.errors,
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            with transaction.atomic():
+                for field in ["latitude", "longitude"]:
+                    if field in serializer.validated_data:
+                        setattr(location, field, serializer.validated_data[field])
+
+                location.save()
+
+            logger.info(
+                f"Partial update of location for user {user.email}: "
+                f"lat={location.latitude}, lng={location.longitude}"
+            )
+
+            response_serializer = UserLocationResponseSerializer(location)
+            response_data = {
+                "status": "success",
+                "message": "Location updated successfully",
+                "data": response_serializer.data,
+            }
+
+            return Response(
+                data=encrypt(response_data),
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating location for user {user.email}: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while updating your location.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def delete(self, request):
+        """Delete user's location."""
+        user = request.user
+
+        try:
+            location = UserLocation.objects.get(user=user)
+            location.delete()
+
+            logger.info(f"Location deleted for user {user.email}")
+
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Location deleted successfully",
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+
+        except UserLocation.DoesNotExist:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Location not found for this user.",
+                    }
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Error deleting location for user {user.email}: {str(e)}")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "An error occurred while deleting your location.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 @extend_schema(
