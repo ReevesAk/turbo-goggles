@@ -147,6 +147,9 @@ class PointConfigUpdateSerializer(serializers.ModelSerializer):
 class StreakChallengeSerializer(serializers.ModelSerializer):
     is_ongoing = serializers.BooleanField(read_only=True)
     participant_count = serializers.SerializerMethodField()
+    participant_names = serializers.SerializerMethodField()
+    completed_tasks = serializers.SerializerMethodField()
+    total_points_earned = serializers.SerializerMethodField()
     start_date = serializers.DateTimeField()
     end_date = serializers.DateTimeField()
 
@@ -156,13 +159,29 @@ class StreakChallengeSerializer(serializers.ModelSerializer):
             "id", "name", "description", "streak_type", "duration_days",
             "start_date", "end_date", "reward_points", "reminder_time",
             "is_active", "is_paused", "is_ongoing", "participant_count",
-            "created_at",
+            "participant_names", "completed_tasks", "total_points_earned", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
     @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_participant_names(self, obj):
+        return [
+            us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip()
+            for us in obj.user_streaks.select_related("user").all()
+        ]
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_completed_tasks(self, obj):
+        return obj.user_streaks.filter(completed=True).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_points_earned(self, obj):
+        completed = obj.user_streaks.filter(completed=True).count()
+        return completed * obj.reward_points
 
 
 class StreakChallengeCreateSerializer(serializers.ModelSerializer):
@@ -282,6 +301,9 @@ class InAppTaskSerializer(serializers.ModelSerializer):
     task_status = serializers.CharField(read_only=True)
     is_scheduled = serializers.BooleanField(read_only=True)
     participant_count = serializers.SerializerMethodField()
+    participant_names = serializers.SerializerMethodField()
+    completed_tasks = serializers.SerializerMethodField()
+    total_points_earned = serializers.SerializerMethodField()
     days_remaining = serializers.SerializerMethodField()
 
     class Meta:
@@ -298,6 +320,9 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "reminder_time",
             "participant_cap",
             "participant_count",
+            "participant_names",
+            "completed_tasks",
+            "total_points_earned",
             "days_remaining",
             "schedule_type",
             "scheduled_start_time",
@@ -309,11 +334,27 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "task_status", "is_scheduled", "participant_count", "days_remaining", "created_at", "updated_at"]
+        read_only_fields = ["id", "task_status", "is_scheduled", "participant_count", "participant_names", "completed_tasks", "total_points_earned", "days_remaining", "created_at", "updated_at"]
 
     @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_participant_names(self, obj):
+        return [
+            us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip()
+            for us in obj.user_streaks.select_related("user").all()
+        ]
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_completed_tasks(self, obj):
+        return obj.user_streaks.filter(completed=True).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_points_earned(self, obj):
+        completed = obj.user_streaks.filter(completed=True).count()
+        return completed * obj.reward_points
 
     @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):

@@ -2,7 +2,9 @@ import logging
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Sum, F
+from django.db import models
+from django.db.models import Count, Sum, F, FloatField
+from django.db.models.functions import Cast
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
@@ -40,7 +42,8 @@ from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from banking.serializers import WalletStatusSerializer
-from banking.models import WalletModel
+from banking.models import WalletModel, TransferModel, FundWithCard
+from vas.models import ValueAddedServices
 from .models import ActivityModel, knowledgeBaseModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
@@ -686,13 +689,14 @@ class AddAdmin(generics.CreateAPIView):
             serializer = AddAdminSerializer(data=payload)
             if serializer.is_valid(raise_exception=True):
                 user = serializer.save()
+                cache.delete_many(["all_admin_users", "admin_users_by_role"])
                 user_data = AddAdminSerializer(user).data
                 logger.info(f"Admin user created successfully: {user.email}")
 
                 # Generate signup link
                 signup_link = f"https://admin.picadailys.com/sign-up?user_id={user.id}"
 
-                name = user.full_name.split()[0]
+                name = (user.full_name or "Admin").split()[0]
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
@@ -2395,7 +2399,7 @@ class VerifiedUsersCount(generics.ListAPIView):
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        return User.objects.filter(is_verified=True).order_by("id")
+        return User.objects.filter(is_verified=True, is_member=True).order_by("id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -2568,6 +2572,7 @@ class GetAllAdminUsers(generics.ListAPIView):
                 "num_of_disabled_admin_users": disabled_admin_count,
                 "admin_users": serialized_users.data,
             }
+            cache.set(cache_key, response_data, timeout=900)
             return Response(
                 data=encrypt(response_data),
                 status=status.HTTP_200_OK,
@@ -2582,10 +2587,6 @@ class GetAllAdminUsers(generics.ListAPIView):
                 "num_of_disabled_admin_users": disabled_admin_count,
                 "admin_users": [],
             }
-
-            # Save to cache (short TTL)
-            cache.set(cache_key, response_data, timeout=900)  # 15 minutes
-
             return Response(
                 data=encrypt(response_data),
                 status=status.HTTP_200_OK,
@@ -3493,19 +3494,9 @@ class AdminDashboardDataView(APIView):
         ]
 
         # --- Cashflow (income activity) calculations ---
-        from django.db import models
-        from django.db.models import Sum
-        from django.utils import timezone as dj_timezone
-        from banking.models import TransferModel, FundWithCard
-        from vas.models import ValueAddedServices
-        from django.db.models.functions import Cast
-        from django.db.models import FloatField
-
-        now = dj_timezone.now()
+        now = timezone.now()
         start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_of_week = start_of_today - dj_timezone.timedelta(
-            days=start_of_today.weekday()
-        )
+        start_of_week = start_of_today - timedelta(days=start_of_today.weekday())
         start_of_month = start_of_today.replace(day=1)
         start_of_year = start_of_today.replace(month=1, day=1)
 
@@ -3513,18 +3504,26 @@ class AdminDashboardDataView(APIView):
             qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
             if direction == "inbound":
                 qs = qs.filter(
-                    transaction_type__in=["INBOUND", "CREDIT", "INTRA_BANK_IN"]
+                    Q(transaction_type__in=["INBOUND", "CREDIT"])
+                    | Q(
+                        transaction_type="INTRA_BANK",
+                        beneficiary_account_number__isnull=False,
+                    )
                 )
             elif direction == "outbound":
                 qs = qs.filter(
-                    transaction_type__in=["OUTBOUND", "DEBIT", "INTRA_BANK_OUT"]
+                    Q(transaction_type__in=["OUTBOUND", "DEBIT"])
+                    | Q(
+                        transaction_type="INTRA_BANK",
+                        sender_account_number__isnull=False,
+                    )
                 )
             return qs.aggregate(total=Sum("amount")).get("total") or 0
 
         def get_card_deposit_sum(start, end):
             return (
                 FundWithCard.objects.filter(
-                    created_at__gte=start, created_at__lt=end, is_processed=True
+                    created_at__gte=start, created_at__lt=end, amount__isnull=False
                 )
                 .aggregate(total=Sum("amount"))
                 .get("total")
@@ -3532,11 +3531,10 @@ class AdminDashboardDataView(APIView):
             )
 
         def get_bill_payment_sum(start, end):
-            # Only include successful/paid bills
             bills = ValueAddedServices.objects.filter(
                 created_at__gte=start,
                 created_at__lt=end,
-                status__in=["successful", "paid", "success"],
+                status__in=["successful", "paid", "success", "pending"],
             )
             # Cast amount to float for aggregation
             return (
@@ -3584,7 +3582,9 @@ class AdminDashboardDataView(APIView):
             "total_disabled_admins": User.objects.filter(
                 is_admin_disabled=True
             ).count(),
-            "total_verified_users": User.objects.filter(is_verified=True).count(),
+            "total_verified_users": User.objects.filter(
+                is_verified=True, is_member=True
+            ).count(),
             "total_verified_partners": User.objects.filter(business_verified=True)
             .distinct()
             .count(),

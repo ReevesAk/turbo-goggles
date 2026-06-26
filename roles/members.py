@@ -143,6 +143,11 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
         handle_request.admin_note = admin_note
         handle_request.reviewed_by = request.user
         handle_request.reviewed_at = timezone.now()
+
+        if action == "approve":
+            handle_request.approval_date = timezone.now()
+            handle_request.approved_by = request.user
+
         handle_request.save()
 
         user = handle_request.user
