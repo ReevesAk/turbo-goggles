@@ -411,6 +411,11 @@ class CompleteTicketSerializer(serializers.ModelSerializer):
         ]
 
 
+class ReopenTicketSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255)
+    pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
+
+
 class AgentForgotPinSerializer(serializers.ModelSerializer):
     email = serializers.CharField(max_length=50, write_only=True)
 
