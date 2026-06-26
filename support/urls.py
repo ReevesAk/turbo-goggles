@@ -12,7 +12,7 @@ from .views import (
     DisableAgentrole, EnableAgentrole, DeleteAgent, CompleteTicketAPIView,
     ListUserDetailsAPI, AgentForgotPin, AgentPinVerifyOTP, AgentResetPin,
     SupportForgotPassword, SupportPasswordResendOTP, SupportEmailVerifyOTP,
-    SupportfResetPassword,
+    SupportfResetPassword, ReopenTicketAPIView,
 )
 
 
@@ -43,13 +43,14 @@ urlpatterns = [
     path("get-all", GetAllSupportTickets.as_view(), name="get_all"),
     path("my-assigned-tickets", GetMyAssignedTickets.as_view(), name="my_assigned_tickets"),
     path("delete-ticket/<str:ticket_number>/", DeleteTicket.as_view(), name="delete_ticket"),
-    path("escalate-ticket/<str:ticket_id>/", EscalateTicketAPIView.as_view(), name="escalate_ticket"),
+    path("escalate-ticket/<str:ticket_number>/", EscalateTicketAPIView.as_view(), name="escalate_ticket"),
     path("ticket-rr-trail/<str:ticket_number>/", TicketRRTrailAPIView.as_view(), name="ticket_rr_trail"),
     path("get-all-agents-moderators-and-manager", GetAllAgentModeratorAndSupportManager.as_view(), name="get_all_agents_and_moderators"),
     path("get-single-ticket/<str:ticket_number>/", GetSingleTicket.as_view(), name="get_single_ticket"),
     path('users-with-tickets/', UsersWithTickets.as_view(), name='users-with-tickets'),
     path("rate-support-agent/<uuid:ticket_number>/<uuid:agent_id>/", RateSupportAgent.as_view(), name="rate_agent"),
     path("complete-ticket/<str:ticket_number>/", CompleteTicketAPIView.as_view(), name="complete_ticket"),
+    path("reopen-ticket/<str:ticket_number>/", ReopenTicketAPIView.as_view(), name="reopen_ticket"),
     path("list-user-details/", ListUserDetailsAPI.as_view(), name="list_user_details"),
     path("search-by-channel/<str:search_term>/", GetTicketByChannel.as_view(), name="serach_channel"),
 ]

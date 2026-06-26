@@ -18,7 +18,8 @@ STATUS = (
     ("Awaiting Customer", "Awaiting Customer"),
     ("Escalated", "Escalated"),
     ("Resolved", "Resolved"),
-    ("Closed", "Closed")
+    ("Closed", "Closed"),
+    ("Reopened", "Reopened"),
 )
 
 AGENT_RATING = (
@@ -70,14 +71,16 @@ class Ticket(BaseModel):
         to=User, on_delete=models.SET_NULL,
         null=True, related_name="resolved_tickets"
     )
+    reopened_count = models.PositiveIntegerField(default=0)
 
     @property
     def remaining_time(self):
-        if not self.opened_at:
+        if not self.opened_at or not self.resolution_hours:
             return None
 
         deadline = self.opened_at + timedelta(hours=self.resolution_hours)
-        return max(deadline - timezone.now(), timedelta(seconds=0))
+        delta = max(deadline - timezone.now(), timedelta(seconds=0))
+        return int(delta.total_seconds())
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

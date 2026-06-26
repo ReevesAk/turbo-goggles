@@ -25,8 +25,8 @@ from .serializers import (
     DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer,
     UserProfileSerializer, CompleteTicketSerializer, AgentForgotPinSerializer,
     AgentVerifyOTPSerializer, AgentResetPinSerializer, SupportStaffForgotPasswordSerializer,
-    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer
-    
+    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer,
+    ReopenTicketSerializer,
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -1679,7 +1679,7 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 },
                 "assigned_at": ticket.assigned_at,
                 "resolution_hours": ticket.resolution_hours,
-                "remaining_hours": ticket.remaining_time,
+                "remaining_seconds": ticket.remaining_time,
                 "ticket_channel": ticket.channel,
                 "priority": ticket.priority,
                 "status": ticket.status,
@@ -1747,8 +1747,8 @@ class GetSingleTicket(generics.RetrieveAPIView):
             ).data
 
             if not ticket.opened_at:
-                ticket.opened_at = timezone.now()
-                ticket.save()
+                Ticket.objects.filter(pk=ticket.pk).update(opened_at=timezone.now())
+                ticket.refresh_from_db(fields=["opened_at"])
 
             response = {
                 "status": "success",
@@ -1767,7 +1767,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "customer_phone_number": ticket.customer_phone_number,
                     "customer_name": ticket.customer_name,
                     "resolution_hours": ticket.resolution_hours,
-                    "remaining_hours": ticket.remaining_time,
+                    "remaining_seconds": ticket.remaining_time,
                     "status": ticket.status,
                     "assignment_history": history_data,
                 },
@@ -3058,5 +3058,102 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         return Response(data=response_data, status=status.HTTP_200_OK)
 
 
-# ── Ticket messaging ──────────────────────────────────────────────────────────
+@extend_schema(
+    summary="[Support] Reopen a resolved or closed ticket",
+    tags=["Support"],
+    description="Reopens a ticket that was previously Resolved or Closed. Sets status to 'Reopened', increments the reopen counter, and logs the action in the RR trail.",
+    request=ReopenTicketSerializer,
+    responses={
+        200: inline_serializer("ReopenTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("ReopenTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("ReopenTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
+class ReopenTicketAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
+    throttle_classes = []
 
+    def post(self, request, *args, **kwargs):
+        serializer = ReopenTicketSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        authenticated_user = request.user
+        ticket_number = kwargs.get("ticket_number")
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
+            return Response(
+                {"status": "fail", "message": "Ticket not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if ticket.status not in ("Resolved", "Closed"):
+            return Response(
+                {
+                    "status": "fail",
+                    "message": f"Only Resolved or Closed tickets can be reopened. Current status: '{ticket.status}'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pin = serializer.validated_data["pin"]
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+            return Response(
+                {"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        previous_status = ticket.status
+
+        ticket.status = "Reopened"
+        ticket.reopened_count = (ticket.reopened_count or 0) + 1
+        ticket.save(update_fields=["status", "reopened_count"])
+
+        TicketRRTrail.objects.create(
+            ticket=ticket,
+            action="reassign",
+            from_user=ticket.assigned_to,
+            to_user=ticket.assigned_to,
+            from_role=ticket.agent_role,
+            to_role=ticket.agent_role,
+            reason=serializer.validated_data["reason"],
+        )
+
+        if ticket.user:
+            send_push_to_user(
+                user=ticket.user,
+                title="Support Ticket Reopened",
+                body="Your previously closed ticket has been reopened. An agent will follow up shortly.",
+                data={"type": "ticket_reopened", "ticket_number": str(ticket_number)},
+            )
+
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Reopen Ticket",
+            description=(
+                f"Ticket {ticket_number} reopened by {authenticated_user.full_name} "
+                f"(was '{previous_status}', reopen #{ticket.reopened_count})."
+            ),
+        )
+
+        logger.info(
+            "Ticket %s reopened by %s (reopen count: %d)",
+            ticket_number,
+            authenticated_user.email,
+            ticket.reopened_count,
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} has been reopened.",
+                "data": {
+                    "ticket_number": ticket_number,
+                    "previous_status": previous_status,
+                    "current_status": ticket.status,
+                    "reopened_count": ticket.reopened_count,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
