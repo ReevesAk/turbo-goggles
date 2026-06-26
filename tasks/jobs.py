@@ -2,6 +2,7 @@ import logging
 
 from celery import shared_task
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from accounts.models import User
@@ -229,6 +230,8 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
         submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
 
         ad = submission.ad
+        from adverts.models import CreateAd as _CreateAd
+        _CreateAd.objects.filter(pk=ad.pk).update(slots_filled=F("slots_filled") + 1)
 
         # Credit points using the brand-set reward_points, falling back to BASE_POINTS
         task_type = ad.task_type or ""
