@@ -6,6 +6,23 @@ from django.db import models
 from django.utils import timezone
 
 from accounts.models import User, TxModel
+from banking.encryption import encrypt_field, decrypt_field
+
+
+class EncryptedCharField(models.CharField):
+    """CharField that transparently encrypts/decrypts its value at the DB layer."""
+
+    def from_db_value(self, value, expression, connection):
+        return decrypt_field(value)
+
+    def to_python(self, value):
+        return decrypt_field(value)
+
+    def get_prep_value(self, value):
+        if value is None:
+            return value
+        return encrypt_field(value)
+
 
 ID_TYPE = (("1", "NIN"),)
 
@@ -31,13 +48,13 @@ ADDRESS_VERIFICATION_STATUS = (
 
 class UserKYC(models.Model):
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name="kyc")
-    bvn = models.CharField(max_length=100, null=True, unique=True)
+    bvn = EncryptedCharField(max_length=100, null=True, unique=True)
     is_bvn_img_a_match = models.BooleanField(default=False, null=True)
-    nin = models.CharField(max_length=100, null=True, unique=True)
+    nin = EncryptedCharField(max_length=100, null=True, unique=True)
     is_nin_img_a_match = models.BooleanField(default=False, null=True)
     nin_dob = models.CharField(max_length=40, null=True)
     nin_name = models.CharField(max_length=200, null=True)
-    bvn_phone = models.CharField(max_length=15, null=True)
+    bvn_phone = EncryptedCharField(max_length=100, null=True)
 
 
 class CashbackRule(models.Model):
@@ -129,7 +146,7 @@ class WalletUpgrade(WalletModel):
         WalletModel, on_delete=models.CASCADE, related_name="wallet_upgrade", null=True
     )
 
-    nin = models.CharField(max_length=20, null=True)
+    nin = EncryptedCharField(max_length=100, null=True)
     tier = models.CharField(max_length=5, null=True, default="2")
     userPhoto = models.CharField(max_length=200, null=True)
 

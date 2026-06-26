@@ -387,6 +387,23 @@ CELERY_BEAT_SCHEDULE = {
         "task": "gamification.tasks.send_streak_reminders",
         "schedule": crontab(hour=20, minute=0),  # 8:00 PM
     },
+    # Data retention — NDPR compliance
+    "purge-expired-otps": {
+        "task": "accounts.tasks.purge_expired_otps",
+        "schedule": crontab(minute="*/30"),  # every 30 min
+    },
+    "purge-old-notifications": {
+        "task": "accounts.tasks.purge_old_notifications",
+        "schedule": crontab(hour=2, minute=0),  # 2:00 AM daily
+    },
+    "purge-old-activity-logs": {
+        "task": "accounts.tasks.purge_old_activity_logs",
+        "schedule": crontab(hour=2, minute=30),  # 2:30 AM daily
+    },
+    "purge-stale-devices": {
+        "task": "accounts.tasks.purge_stale_devices",
+        "schedule": crontab(hour=3, minute=0, day_of_week="sunday"),  # weekly Sunday 3 AM
+    },
 }
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))

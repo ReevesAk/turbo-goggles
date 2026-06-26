@@ -1,4 +1,3 @@
-import json
 import logging
 import base64
 
@@ -80,16 +79,16 @@ logger = logging.getLogger(__name__)
     tags=["Location"],
     description="""
     Create or update the current user's location.
-    
+
     - **POST**: Creates a new location record if none exists, or updates the existing one.
     - **GET**: Retrieves the user's current location.
     - **PUT**: Replaces the user's location (returns 404 if not found).
     - **PATCH**: Partially updates the user's location.
     - **DELETE**: Removes the user's location.
-    
-    Each user can only have one location record. The location is stored as 
+
+    Each user can only have one location record. The location is stored as
     latitude and longitude coordinates.
-    
+
     All requests and responses are encrypted.
     """,
     request=CreateUpdateUserLocationSerializer,
@@ -1662,6 +1661,97 @@ class DeleteUser(generics.DestroyAPIView):
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+@extend_schema(
+    summary="Delete own account",
+    tags=["Profile"],
+    description="Allows an authenticated user to permanently delete their own account. Requires password confirmation in the request body.",
+    responses={
+        200: inline_serializer(
+            name="SelfDeleteAccountResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="SelfDeleteAccountBadRequest",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class SelfDeleteAccount(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        decrypted_payload = decrypt(request.data)
+        password = decrypted_payload.get("password")
+        refresh_token = decrypted_payload.get("refresh_token")
+
+        if not password:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Password is required to delete your account.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        if not check_password(password, user.password):
+            return Response(
+                data=encrypt({"status": "fail", "message": "Incorrect password."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Blacklist the refresh token so it cannot be reused after account deletion
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception:
+                pass
+
+        # Send farewell notification before deleting (CASCADE will remove DB records)
+        try:
+            msg = (
+                "Your Picadailys account has been permanently deleted. "
+                "We hope to see you again. If this was not you, contact support@picadailys.com immediately."
+            )
+            if user.alert_type_choice in ("Email", "Both") and user.email:
+                html = render_to_string(
+                    "empty_email.html",
+                    {
+                        "custom_text": f"Dear {user.first_name},<br><br>{msg}",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": "02012271894 02012271895",
+                    },
+                )
+                Messaging.send_email(
+                    sender_email="support@picadailys.com",
+                    body=msg,
+                    email=user.email,
+                    html_content=html,
+                    subject="Account Deleted — Picadailys",
+                )
+            if user.alert_type_choice in ("SMS", "Both") and user.phone_number:
+                Messaging.send_sms(phone_number=user.phone_number[1:], msg=msg)
+        except Exception as e:
+            logger.warning("Could not send account-deletion notification: %s", e)
+
+        logger.info("User id=%s self-deleted their account.", user.id)
+        user.delete()
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Your account has been permanently deleted.",
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(

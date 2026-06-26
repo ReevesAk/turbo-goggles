@@ -9,14 +9,25 @@ from rest_framework.validators import ValidationError
 from rest_framework.response import Response
 from rest_framework import status
 
-app_id = config("APP_ID")
-authorization = config("AUTHORIZATION")
-base_url = config("DOJAH_BBASE_URL")
+
+def mask_email(email: str) -> str:
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    return local[:2] + "***@" + domain
+
+
+def mask_phone(phone: str) -> str:
+    if not phone or len(phone) < 5:
+        return "***"
+    return phone[:3] + "***" + phone[-4:]
 
 
 class Liveness:
     @staticmethod
     def check(image):
+        app_id = config("APP_ID")
+        authorization = config("AUTHORIZATION")
         resource = "https://api.dojah.io/api/v1/ml/liveness/"
         payload = {"image": image}
         headers = {
