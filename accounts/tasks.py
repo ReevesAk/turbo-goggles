@@ -20,18 +20,24 @@ def purge_expired_otps():
 def purge_old_notifications():
     cutoff = timezone.now() - timedelta(days=90)
     deleted, _ = UserNotification.objects.filter(created_at__lt=cutoff).delete()
-    logger.info("purge_old_notifications: removed %d record(s) older than 90 days", deleted)
+    logger.info(
+        "purge_old_notifications: removed %d record(s) older than 90 days", deleted
+    )
 
 
 @shared_task(name="accounts.tasks.purge_old_activity_logs")
 def purge_old_activity_logs():
     cutoff = timezone.now() - timedelta(days=365)
     deleted, _ = ActivityModel.objects.filter(created_at__lt=cutoff).delete()
-    logger.info("purge_old_activity_logs: removed %d record(s) older than 12 months", deleted)
+    logger.info(
+        "purge_old_activity_logs: removed %d record(s) older than 12 months", deleted
+    )
 
 
 @shared_task(name="accounts.tasks.purge_stale_devices")
 def purge_stale_devices():
     cutoff = timezone.now() - timedelta(days=365)
     deleted, _ = DeviceId.objects.filter(created_at__lt=cutoff).delete()
-    logger.info("purge_stale_devices: removed %d device record(s) older than 12 months", deleted)
+    logger.info(
+        "purge_stale_devices: removed %d device record(s) older than 12 months", deleted
+    )

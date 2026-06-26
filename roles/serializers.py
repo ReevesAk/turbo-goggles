@@ -97,7 +97,10 @@ class AddAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "roles", "full_name", "email"]
-        extra_kwargs = {"email": {"required": True}}
+        extra_kwargs = {
+            "email": {"required": True},
+            "full_name": {"required": True, "allow_null": False, "allow_blank": False},
+        }
 
     def validate(self, attrs):
         return super().validate(attrs)
@@ -623,6 +626,8 @@ class MemberSerializer(serializers.ModelSerializer):
         source="walletmodel.status", read_only=True
     )
     name = serializers.SerializerMethodField()
+    completed_tasks = serializers.SerializerMethodField()
+    total_points_earned = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -631,6 +636,8 @@ class MemberSerializer(serializers.ModelSerializer):
             "email",
             "balance",
             "wallet_status",
+            "completed_tasks",
+            "total_points_earned",
         ]
 
     @extend_schema_field(serializers.CharField())
@@ -638,6 +645,14 @@ class MemberSerializer(serializers.ModelSerializer):
         if obj.full_name:
             return obj.full_name
         return f"{obj.first_name or ''} {obj.last_name or ''}".strip()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_completed_tasks(self, obj):
+        return obj.streaks.filter(completed=True).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_points_earned(self, obj):
+        return obj.total_points or 0
 
 
 class KnowledgeBaseSerializer(serializers.ModelSerializer):

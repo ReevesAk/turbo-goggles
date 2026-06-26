@@ -107,6 +107,14 @@ class HandleChangeRequest(models.Model):
     status = models.CharField(
         max_length=10, choices=HANDLE_REQUEST_STATUS, default="pending"
     )
+    approval_date = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_handle_requests",
+    )
     admin_note = models.TextField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
         User,
