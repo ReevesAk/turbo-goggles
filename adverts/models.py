@@ -122,8 +122,18 @@ class CreateAd(models.Model):
 
     @property
     def unused_credit(self) -> Decimal:
-        unused = max(0, (self.slot_cap or 0) - (self.slots_filled or 0))
-        return Decimal(str(unused)) * self.cost_per_engagement
+        slot_cap = self.slot_cap or 0
+        if slot_cap == 0:
+            return Decimal("0")
+        unused = max(0, slot_cap - (self.slots_filled or 0))
+        try:
+            amount = Decimal(str(self.amount or 0))
+        except Exception:
+            return Decimal("0")
+        if amount <= 0:
+            return Decimal("0")
+        # Proportional refund: unused_slots / slot_cap × amount_paid
+        return (Decimal(str(unused)) / Decimal(str(slot_cap))) * amount
 
     # Targeting
     location_type = models.CharField(
