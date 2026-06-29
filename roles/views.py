@@ -1888,60 +1888,49 @@ class RemoveAdminRole(generics.GenericAPIView):
             request.user.save(
                 update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
             )
-            if not account_type_instance:
-                logger.warning(
-                    "Role '%s' not found for user: %s", role_to_remove, email
-                )
-                return Response(
-                    data=encrypt("Role not found for the user."),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Remove the role
-            account_type_instance.delete()
-            logger.info("Role '%s' removed for user: %s", role_to_remove, email)
-
-            UserNotification.objects.create(
-                user=is_user,
-                title="Role Removed",
-                message=f"The role '{role_to_remove}' has been removed from your account.",
-            )
-            logger.info(
-                "User  notification created for user: %s regarding role removal", email
-            )
-
-            ActivityModel.objects.create(
-                user=is_user,
-                title="Role Removed",
-                description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
-            )
-            logger.info(
-                "Activity logged for user: %s with removed role: %s",
-                email,
-                role_to_remove,
-            )
-
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": f"Role '{role_to_remove}' removed successfully.",
-                        "removed_role": role_to_remove,
-                    }
-                ),
-                status=status.HTTP_200_OK,
-            )
-
-        else:
+        if not account_type_instance:
             logger.warning(
-                "Incorrect pin provided for user: %s %s",
-                request.user.first_name,
-                request.user.last_name,
+                "Role '%s' not found for user: %s", role_to_remove, email
             )
             return Response(
-                data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                status=status.HTTP_401_UNAUTHORIZED,
+                data=encrypt("Role not found for the user."),
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Remove the role
+        account_type_instance.delete()
+        logger.info("Role '%s' removed for user: %s", role_to_remove, email)
+
+        UserNotification.objects.create(
+            user=is_user,
+            title="Role Removed",
+            message=f"The role '{role_to_remove}' has been removed from your account.",
+        )
+        logger.info(
+            "User  notification created for user: %s regarding role removal", email
+        )
+
+        ActivityModel.objects.create(
+            user=is_user,
+            title="Role Removed",
+            description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
+        )
+        logger.info(
+            "Activity logged for user: %s with removed role: %s",
+            email,
+            role_to_remove,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": f"Role '{role_to_remove}' removed successfully.",
+                    "removed_role": role_to_remove,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
@@ -2041,40 +2030,30 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 request.user.save(
                     update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                 )
-                user.is_admin_disabled = True
-                user.save()
-                logger.info("Admin account for '%s' has been disabled.", email)
+            user.is_admin_disabled = True
+            user.save()
+            logger.info("Admin account for '%s' has been disabled.", email)
 
-                UserNotification.objects.create(
-                    user=user,
-                    title="Disable Admin.",
-                    message="Your account has been disabled!.",
-                )
-                logger.info("User  notification created for admin '%s'.", email)
+            UserNotification.objects.create(
+                user=user,
+                title="Disable Admin.",
+                message="Your account has been disabled!.",
+            )
+            logger.info("User  notification created for admin '%s'.", email)
 
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Disable Admin.",
-                    description=f"Admin user, {user.full_name} disabled.",
-                )
-                logger.info("Activity logged for disabling admin '%s'.", user.full_name)
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Disable Admin.",
+                description=f"Admin user, {user.full_name} disabled.",
+            )
+            logger.info("Activity logged for disabling admin '%s'.", user.full_name)
 
-                resp = {
-                    "status": "success",
-                    "message": "Admin disabled successfully",
-                    "data": user.is_admin_disabled,
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.warning(
-                    "Incorrect pin provided for user: %s %s",
-                    request.user.first_name,
-                    request.user.last_name,
-                )
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            resp = {
+                "status": "success",
+                "message": "Admin disabled successfully",
+                "data": user.is_admin_disabled,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error("An error occurred while disabling admin: %s", str(e))
@@ -2181,42 +2160,32 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 request.user.save(
                     update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                 )
-                user.is_admin_disabled = False
-                user.save()
-                logger.info("Admin account for '%s' has been re-enabled.", email)
+            user.is_admin_disabled = False
+            user.save()
+            logger.info("Admin account for '%s' has been re-enabled.", email)
 
-                UserNotification.objects.create(
-                    user=user,
-                    title="Re-Enable Admin.",
-                    message="Your account has been re-enabled successfully.",
-                )
-                logger.info("User  notification created for admin '%s'.", email)
+            UserNotification.objects.create(
+                user=user,
+                title="Re-Enable Admin.",
+                message="Your account has been re-enabled successfully.",
+            )
+            logger.info("User  notification created for admin '%s'.", email)
 
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Re-Enable Admin.",
-                    description=f"Admin user, {user.full_name} was re-enabled.",
-                )
-                logger.info(
-                    "Activity logged for re-enabling admin '%s'.", user.full_name
-                )
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Re-Enable Admin.",
+                description=f"Admin user, {user.full_name} was re-enabled.",
+            )
+            logger.info(
+                "Activity logged for re-enabling admin '%s'.", user.full_name
+            )
 
-                resp = {
-                    "status": "success",
-                    "message": "Admin re-enabled successfully",
-                    "data": user.is_admin_disabled,
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.warning(
-                    "Incorrect pin provided for user: %s %s",
-                    request.user.first_name,
-                    request.user.last_name,
-                )
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            resp = {
+                "status": "success",
+                "message": "Admin re-enabled successfully",
+                "data": user.is_admin_disabled,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error("An error occurred while re-enabling admin: %s", str(e))
@@ -2312,62 +2281,52 @@ class DeleteAdmin(generics.GenericAPIView):
                     request.user.save(
                         update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                     )
-                    user.delete()
-                    logger.info("Admin user '%s' deleted successfully.", user.full_name)
+                user.delete()
+                logger.info("Admin user '%s' deleted successfully.", user.full_name)
 
-                    UserNotification.objects.create(
-                        user=request.user,
-                        title="Delete Admin.",
-                        message=f"Admin with '{email}' deleted successfully.",
-                    )
-                    logger.info(
-                        "User  notification created for admin deletion: %s", email
-                    )
+                UserNotification.objects.create(
+                    user=request.user,
+                    title="Delete Admin.",
+                    message=f"Admin with '{email}' deleted successfully.",
+                )
+                logger.info(
+                    "User  notification created for admin deletion: %s", email
+                )
 
-                    # Register Admin activity.
-                    ActivityModel.objects.create(
-                        user=request.user,
-                        title="Delete Admin.",
-                        description=f"Admin user, {user.full_name} deleted successfully.",
-                    )
-                    logger.info(
-                        "Activity logged for deleting admin: %s", user.full_name
-                    )
+                # Register Admin activity.
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Delete Admin.",
+                    description=f"Admin user, {user.full_name} deleted successfully.",
+                )
+                logger.info(
+                    "Activity logged for deleting admin: %s", user.full_name
+                )
 
-                    text_content = render_to_string(
-                        template_name="empty_email.html",
-                        context={
-                            "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
-                            "support_email": "support@picadailys.com",
-                            "picadailys_phone": [
-                                "02012271894",
-                                "02012271895",
-                            ],
-                        },
-                    )
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
+                    },
+                )
 
-                    Messaging.send_email(
-                        email=request.user.email,
-                        sender_email="notifications@picadailys.com",
-                        html_content=text_content,
-                        subject="Admin Deletion",
-                        body="Your admin account has been deleted",
-                    )
+                Messaging.send_email(
+                    email=request.user.email,
+                    sender_email="notifications@picadailys.com",
+                    html_content=text_content,
+                    subject="Admin Deletion",
+                    body="Your admin account has been deleted",
+                )
 
-                    return Response(
-                        data=encrypt(f"Admin with '{email}' deleted successfully."),
-                        status=status.HTTP_204_NO_CONTENT,
-                    )
-                else:
-                    logger.warning(
-                        "Incorrect pin provided for user: %s %s",
-                        request.user.first_name,
-                        request.user.last_name,
-                    )
-                    return Response(
-                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                        status=status.HTTP_401_UNAUTHORIZED,
-                    )
+                return Response(
+                    data=encrypt(f"Admin with '{email}' deleted successfully."),
+                    status=status.HTTP_204_NO_CONTENT,
+                )
             except User.DoesNotExist:
                 logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
