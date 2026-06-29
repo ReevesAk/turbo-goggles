@@ -30,19 +30,24 @@ if ENVIRONMENT == "development":
     ALLOWED_HOSTS = ["*"]
 elif ENVIRONMENT == "production":
     ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "picadailys.app",
-    "www.picadailys.app",
-    "miniature-waddle.onrender.com",
-    "picadailysbackend.onrender.com",
-    "46.101.234.74",
-    "web-y9g2.onrender.com",
-    "support-y8lr.onrender.com",
-    "support.picadailys.com",
-    "admin-dashboard-9juk.onrender.com",
-]
-
+        # Dev Environment
+        "127.0.0.1",
+        "localhost",
+        # API
+        "picadailys.app",
+        "www.picadailys.app",
+        "picadailysbackend.onrender.com",
+        # "miniature-waddle.onrender.com", #SUSPENDED
+        # Web
+        "web-y9g2.onrender.com",
+        # Support
+        "support-y8lr.onrender.com",
+        "support.picadailys.com",
+        # Admin
+        "admin-dashboard-9juk.onrender.com",
+        # Server IP
+        "46.101.234.74",
+    ]
 
 
 # Application definition
@@ -194,11 +199,11 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STORAGES = {
-    'default': {
-        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
@@ -226,20 +231,18 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.ScopedRateThrottle",
     ],
-
     "DEFAULT_THROTTLE_RATES": {
         "user": "700/hour",
         "anon": "700/hour",
         "low_usage": "10/hour",
         "high_usage": "500/hour",
-
         # Custom per-endpoint scopes
         "otp": "5/minute",
         "otp_request": "3/minute",
         "login": "5/minute",
         "wallet_transfer": "10/hour",
         "pin_change": "5/hour",
-        "password_change": "5/hour"
+        "password_change": "5/hour",
     },
 }
 
@@ -292,11 +295,9 @@ CONTENT_SECURITY_POLICY = {
             "https://api.picadailys.com/",
             "https://picadailysbackend.onrender.com",
         ],
-    }
+    },
 }
 CONTENT_SECURITY_POLICY_REPORT_ONLY = False
-
-
 
 
 # Enable HTTP Strict Transport Security (HSTS)
@@ -312,7 +313,7 @@ else:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 CSRF_TRUSTED_ORIGINS = [
     "https://picadailys.app",
@@ -327,13 +328,13 @@ CSRF_TRUSTED_ORIGINS = [
     "https://admin.picadailys.com",
 ]
 
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS = "DENY"
 
 # Prevent browsers from interpreting files as a different MIME type
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # Set Referrer-Policy to control what information is sent in referrer headers
-SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
+SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
 
 SIMPLE_JWT = {
     "ALGORITHM": "HS256",
@@ -348,29 +349,41 @@ SIMPLE_JWT = {
 
 # Spectacular settings for Title and description of api documentation.
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Picadailys API Documentation',
-    'DESCRIPTION': "Picadailys is a digital and multi-faceted app aimed at providing "
+    "TITLE": "Picadailys API Documentation",
+    "DESCRIPTION": "Picadailys is a digital and multi-faceted app aimed at providing "
     "online intermediary services with Value Added Services (VAS) and Self-Service options.",
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'ENABLE_DELETE_REQUEST_BODY': True,
-    'SCHEMA_PATH_PREFIX': r'/v1/',
-    'SORT_OPERATIONS': False,
-    'ENUM_GENERATE_CHOICE_DESCRIPTION': False,
-    'CAMELIZE_NAMES': False,
-    'POSTPROCESSING_HOOKS': [
-        'drf_spectacular.hooks.postprocess_schema_enums',
-        'picadailys.schema_hooks.normalize_tags',
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENABLE_DELETE_REQUEST_BODY": True,
+    "SCHEMA_PATH_PREFIX": r"/v1/",
+    "SORT_OPERATIONS": False,
+    "ENUM_GENERATE_CHOICE_DESCRIPTION": False,
+    "CAMELIZE_NAMES": False,
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "picadailys.schema_hooks.normalize_tags",
     ],
-    'TAGS': [
-        {'name': 'KYC', 'description': 'Know Your Customer verification endpoints'},
-        {'name': 'Wallet', 'description': 'Wallet management and operations'},
-        {'name': 'Banking', 'description': 'All banking-related operations (transfers, cards, transactions)'},
-        {'name': 'VAS', 'description': 'Airtime, Data, TV, Electricity and all value-added services'},
-        {'name': 'Partner Services', 'description': 'Services provided by partner organizations'},
-        {'name': 'Brand Ads', 'description': 'Brand marketing, advertisement and promotions'},
-        {'name': 'Webhooks', 'description': 'Payment gateway webhook endpoints'},
+    "TAGS": [
+        {"name": "KYC", "description": "Know Your Customer verification endpoints"},
+        {"name": "Wallet", "description": "Wallet management and operations"},
+        {
+            "name": "Banking",
+            "description": "All banking-related operations (transfers, cards, transactions)",
+        },
+        {
+            "name": "VAS",
+            "description": "Airtime, Data, TV, Electricity and all value-added services",
+        },
+        {
+            "name": "Partner Services",
+            "description": "Services provided by partner organizations",
+        },
+        {
+            "name": "Brand Ads",
+            "description": "Brand marketing, advertisement and promotions",
+        },
+        {"name": "Webhooks", "description": "Payment gateway webhook endpoints"},
     ],
 }
 
@@ -402,7 +415,9 @@ CELERY_BEAT_SCHEDULE = {
     },
     "purge-stale-devices": {
         "task": "accounts.tasks.purge_stale_devices",
-        "schedule": crontab(hour=3, minute=0, day_of_week="sunday"),  # weekly Sunday 3 AM
+        "schedule": crontab(
+            hour=3, minute=0, day_of_week="sunday"
+        ),  # weekly Sunday 3 AM
     },
 }
 
@@ -429,14 +444,14 @@ TESTING = (
     or "PYTEST_CURRENT_TEST" in os.environ
 )
 if TESTING:
-    print('=========================')
-    print('In TEST Mode - Disabling Migrations')
-    print('=========================')
+    print("=========================")
+    print("In TEST Mode - Disabling Migrations")
+    print("=========================")
 
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',  # Use an in-memory database for tests
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",  # Use an in-memory database for tests
         }
     }
 
@@ -466,15 +481,15 @@ if conf("ENVIRONMENT") == "production":
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"redis://127.0.0.1:6379/1",   # DB 1 for caching
+            "LOCATION": f"redis://127.0.0.1:6379/1",  # DB 1 for caching
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
                 "CONNECTION_POOL_KWARGS": {
                     "max_connections": 200,
-                    "retry_on_timeout": True
+                    "retry_on_timeout": True,
                 },
                 "TIMEOUT": 300,  # 5 mins cache timeout (recommended)
-            }
+            },
         }
     }
     CACHES = {
@@ -483,7 +498,10 @@ if conf("ENVIRONMENT") == "production":
             "LOCATION": REDIS_LOCATION,
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {"max_connections": 200, "retry_on_timeout": True},
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 200,
+                    "retry_on_timeout": True,
+                },
                 # SSL only if your Redis URL is rediss://
                 "SSL": REDIS_LOCATION.startswith("rediss://"),
                 "IGNORE_EXCEPTIONS": True,
@@ -507,67 +525,61 @@ elif conf("ENVIRONMENT") == "development":
     ]
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-
+    "version": 1,
+    "disable_existing_loggers": False,
     # Formatters
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
-        'simple': {
-            'format': '{asctime} {levelname} {message}',
-            'style': '{',
+        "simple": {
+            "format": "{asctime} {levelname} {message}",
+            "style": "{",
         },
     },
-
     # Handlers
-    'handlers': {
-        'console': {
-            'level': 'INFO',   # changed from DEBUG → INFO
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+    "handlers": {
+        "console": {
+            "level": "INFO",  # changed from DEBUG → INFO
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
         },
     },
-
     # Loggers
-    'loggers': {
+    "loggers": {
         # Django core logs (remove DEBUG noise)
-        'django': {
-            'handlers': ['console'],
-            'level': 'WARNING',    # changed from DEBUG → WARNING
-            'propagate': True,
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",  # changed from DEBUG → WARNING
+            "propagate": True,
         },
-
         # Remove SQL debug log noise
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': False,
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
         },
-
         # Suppress runserver & autoreloader debug spam
-        'django.server': {
-            'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': False,
+        "django.server": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
         },
-
         # Your apps (unchanged — keep INFO)
-        'accounts': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'adverts': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'banking': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'fmcg': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'gamification': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'partners': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'roles': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'self_service': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'support': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'tasks': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'user_profile': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'vas': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'waitlist': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
-        'web': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        "accounts": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "adverts": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "banking": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "fmcg": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "gamification": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "partners": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "roles": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "self_service": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "support": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "tasks": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "user_profile": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "vas": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "waitlist": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "web": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
