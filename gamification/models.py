@@ -134,6 +134,7 @@ class StreakChallenge(models.Model):
     description = models.TextField(blank=True)
     streak_type = models.CharField(max_length=50, choices=STREAK_TYPE_CHOICES)
     duration_days = models.PositiveIntegerField()
+    duration_minutes = models.PositiveIntegerField(default=0)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     reward_points = models.PositiveIntegerField()
@@ -154,8 +155,17 @@ class StreakChallenge(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def duration_display(self):
+        parts = []
+        if self.duration_days:
+            parts.append(f"{self.duration_days} day{'s' if self.duration_days != 1 else ''}")
+        if self.duration_minutes:
+            parts.append(f"{self.duration_minutes} minute{'s' if self.duration_minutes != 1 else ''}")
+        return " ".join(parts) if parts else "0 minutes"
+
     def __str__(self):
-        return f"{self.name} ({self.streak_type}, {self.duration_days}d)"
+        return f"{self.name} ({self.streak_type}, {self.duration_days}d {self.duration_minutes}m)"
 
     @property
     def is_ongoing(self):
