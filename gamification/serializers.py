@@ -31,6 +31,7 @@ class SocialEngagementSerializer(serializers.Serializer):
 class StepCampaignSerializer(serializers.ModelSerializer):
     total_steps = serializers.IntegerField(read_only=True)
     is_campaign_active = serializers.BooleanField(read_only=True)
+    status = serializers.CharField(read_only=True)
     time_remaining = serializers.DurationField(read_only=True)
     completed = serializers.BooleanField(read_only=True)
 
@@ -40,27 +41,30 @@ class StepCampaignSerializer(serializers.ModelSerializer):
             'id', "campaign_id", "name", "duration", "step_target", "reward_points",
             "created_by", "created_at", "description",
             "completed", "time_limit",
-            "total_steps", "is_campaign_active", "time_remaining"
+            "total_steps", "is_campaign_active", "status", "time_remaining"
         ]
         read_only_fields = ['created_by', 'created_at']
 
 
 class StepCampaignListSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(read_only=True)
+
     class Meta:
         model = StepCampaignModel
-        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at"]
+        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at", "status"]
 
 
 class StepCampaignDetailSerializer(serializers.ModelSerializer):
     participants = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = StepCampaignModel
         fields = [
             "id", "name", "description", "duration", "step_target",
-            "reward_points", "created_at", "participants"
+            "reward_points", "created_at", "status", "participants"
         ]
 
     def get_duration(self, obj):
@@ -92,6 +96,7 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
 
 class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
     participant_count = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = StepCampaignModel
@@ -103,6 +108,7 @@ class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
             "reward_points",
             "duration",
             "created_at",
+            "status",
             "participant_count",
         ]
 
