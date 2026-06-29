@@ -248,6 +248,12 @@ class StepCampaignModel(models.Model):
     def is_campaign_active(self):
         return timezone.now() < self.campaign_end_time
 
+    @property
+    def status(self):
+        if timezone.now() >= self.campaign_end_time:
+            return "expired"
+        return "active"
+
 
 def get_current_date():
     return timezone.now().date()
