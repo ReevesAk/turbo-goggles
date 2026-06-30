@@ -2032,6 +2032,7 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 )
             user.is_admin_disabled = True
             user.save()
+            cache.delete_many(["all_admin_users", "admin_users_by_role"])
             logger.info("Admin account for '%s' has been disabled.", email)
 
             UserNotification.objects.create(
@@ -2162,6 +2163,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 )
             user.is_admin_disabled = False
             user.save()
+            cache.delete_many(["all_admin_users", "admin_users_by_role"])
             logger.info("Admin account for '%s' has been re-enabled.", email)
 
             UserNotification.objects.create(
@@ -2225,7 +2227,7 @@ class DeleteAdmin(generics.GenericAPIView):
             logger.info("Received request to delete admin for email: %s", email)
 
             try:
-                user = User.objects.get(Q(id=email) | Q(email=email))
+                user = User.objects.get(email=email)
                 logger.info("Admin user found: %s", user.full_name)
 
                 from datetime import timedelta
@@ -2281,32 +2283,26 @@ class DeleteAdmin(generics.GenericAPIView):
                     request.user.save(
                         update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                     )
+
+                # Capture before deletion
+                deleted_name = user.full_name or user.first_name
+                deleted_email = user.email
+
                 user.delete()
-                logger.info("Admin user '%s' deleted successfully.", user.full_name)
+                cache.delete_many(["all_admin_users", "admin_users_by_role"])
+                logger.info("Admin user '%s' deleted successfully.", deleted_name)
 
-                UserNotification.objects.create(
-                    user=request.user,
-                    title="Delete Admin.",
-                    message=f"Admin with '{email}' deleted successfully.",
-                )
-                logger.info(
-                    "User  notification created for admin deletion: %s", email
-                )
-
-                # Register Admin activity.
                 ActivityModel.objects.create(
                     user=request.user,
                     title="Delete Admin.",
-                    description=f"Admin user, {user.full_name} deleted successfully.",
+                    description=f"Admin user, {deleted_name} deleted successfully.",
                 )
-                logger.info(
-                    "Activity logged for deleting admin: %s", user.full_name
-                )
+                logger.info("Activity logged for deleting admin: %s", deleted_name)
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
-                        "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
+                        "custom_text": f"Dear {deleted_name},<br><br>Your admin account has been deleted.",
                         "support_email": "support@picadailys.com",
                         "picadailys_phone": [
                             "02012271894",
@@ -2316,7 +2312,7 @@ class DeleteAdmin(generics.GenericAPIView):
                 )
 
                 Messaging.send_email(
-                    email=request.user.email,
+                    email=deleted_email,
                     sender_email="notifications@picadailys.com",
                     html_content=text_content,
                     subject="Admin Deletion",
@@ -2324,8 +2320,8 @@ class DeleteAdmin(generics.GenericAPIView):
                 )
 
                 return Response(
-                    data=encrypt(f"Admin with '{email}' deleted successfully."),
-                    status=status.HTTP_204_NO_CONTENT,
+                    data=encrypt({"status": "success", "message": f"Admin with '{email}' deleted successfully."}),
+                    status=status.HTTP_200_OK,
                 )
             except User.DoesNotExist:
                 logger.warning("Admin with email '%s' does not exist.", email)
