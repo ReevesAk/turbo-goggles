@@ -31,6 +31,7 @@ class SocialEngagementSerializer(serializers.Serializer):
 class StepCampaignSerializer(serializers.ModelSerializer):
     total_steps = serializers.IntegerField(read_only=True)
     is_campaign_active = serializers.BooleanField(read_only=True)
+    status = serializers.CharField(read_only=True)
     time_remaining = serializers.DurationField(read_only=True)
     completed = serializers.BooleanField(read_only=True)
 
@@ -40,27 +41,30 @@ class StepCampaignSerializer(serializers.ModelSerializer):
             'id', "campaign_id", "name", "duration", "step_target", "reward_points",
             "created_by", "created_at", "description",
             "completed", "time_limit",
-            "total_steps", "is_campaign_active", "time_remaining"
+            "total_steps", "is_campaign_active", "status", "time_remaining"
         ]
         read_only_fields = ['created_by', 'created_at']
 
 
 class StepCampaignListSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(read_only=True)
+
     class Meta:
         model = StepCampaignModel
-        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at"]
+        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at", "status"]
 
 
 class StepCampaignDetailSerializer(serializers.ModelSerializer):
     participants = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = StepCampaignModel
         fields = [
             "id", "name", "description", "duration", "step_target",
-            "reward_points", "created_at", "participants"
+            "reward_points", "created_at", "status", "participants"
         ]
 
     def get_duration(self, obj):
@@ -92,6 +96,7 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
 
 class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
     participant_count = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = StepCampaignModel
@@ -103,6 +108,7 @@ class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
             "reward_points",
             "duration",
             "created_at",
+            "status",
             "participant_count",
         ]
 
@@ -167,10 +173,17 @@ class StreakChallengeSerializer(serializers.ModelSerializer):
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
 
-    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_participant_names(self, obj):
         return [
-            us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip()
+            {
+                "id": str(us.user.id),
+                "name": us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
+                "joined_at": us.joined_at,
+                "current_count": us.current_count,
+                "completed": us.completed,
+                "reward_issued": us.reward_issued,
+            }
             for us in obj.user_streaks.select_related("user").all()
         ]
 
@@ -268,6 +281,7 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             "description",
             "streak_type",
             "duration_days",
+            "duration_minutes",
             "start_date",
             "end_date",
             "reward_points",
@@ -283,10 +297,11 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
         if start and end:
             if end <= start:
                 raise serializers.ValidationError("end_date must be after start_date.")
-            total_days = max(1, (end - start).days)
-            if data.get("duration_days", 0) > total_days:
+            window_minutes = int((end - start).total_seconds() // 60)
+            task_minutes = data.get("duration_days", 0) * 1440 + data.get("duration_minutes", 0)
+            if task_minutes > window_minutes:
                 raise serializers.ValidationError(
-                    "duration_days cannot exceed the duration of the challenge."
+                    "Total duration (days + minutes) cannot exceed the challenge window."
                 )
         if data.get("schedule_type") and not data.get("scheduled_start_time"):
             raise serializers.ValidationError(
@@ -300,6 +315,7 @@ class InAppTaskSerializer(serializers.ModelSerializer):
 
     task_status = serializers.CharField(read_only=True)
     is_scheduled = serializers.BooleanField(read_only=True)
+    duration_display = serializers.CharField(read_only=True)
     participant_count = serializers.SerializerMethodField()
     participant_names = serializers.SerializerMethodField()
     completed_tasks = serializers.SerializerMethodField()
@@ -314,6 +330,8 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "description",
             "streak_type",
             "duration_days",
+            "duration_minutes",
+            "duration_display",
             "start_date",
             "end_date",
             "reward_points",
@@ -334,16 +352,23 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "task_status", "is_scheduled", "participant_count", "participant_names", "completed_tasks", "total_points_earned", "days_remaining", "created_at", "updated_at"]
+        read_only_fields = ["id", "task_status", "is_scheduled", "duration_display", "participant_count", "participant_names", "completed_tasks", "total_points_earned", "days_remaining", "created_at", "updated_at"]
 
     @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
         return obj.user_streaks.count()
 
-    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_participant_names(self, obj):
         return [
-            us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip()
+            {
+                "id": str(us.user.id),
+                "name": us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
+                "joined_at": us.joined_at,
+                "current_count": us.current_count,
+                "completed": us.completed,
+                "reward_issued": us.reward_issued,
+            }
             for us in obj.user_streaks.select_related("user").all()
         ]
 
