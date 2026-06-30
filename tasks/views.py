@@ -84,9 +84,7 @@ class SocialTaskListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        submitted_ids = TaskSubmission.objects.filter(user=user).values_list(
-            "task_id", flat=True
-        )
+        submitted_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list("task_id", flat=True)
         qs = (
             SocialTask.objects.filter(is_active=True)
             .exclude(id__in=submitted_ids)
@@ -319,50 +317,7 @@ class BrandTaskFeedView(generics.ListAPIView):
         # Get base queryset
         queryset = self.get_queryset()
 
-        # Separate store visits from other task types
-        store_visits = queryset.filter(task_type="store_visit")
-        other_brand_tasks = queryset.exclude(task_type="store_visit")
-
-        # Process store visits with location filtering
-        store_data = []
-        if user_lat is not None and user_lon is not None:
-            # Use the location matcher to filter and sort store visits
-            matcher = LocationMatcher(use_optimized=True)
-            matched_store_tasks = matcher.match_tasks_to_user(
-                tasks_queryset=store_visits,
-                user_lat=user_lat,
-                user_lon=user_lon,
-                radius_km=radius_km,
-                max_results=limit_store_visits,
-            )
-
-            # Serialize matched store tasks
-            for item in matched_store_tasks:
-                task = item["task"]
-                task_data = BrandTaskFeedSerializer(task).data
-                task_data["distance_km"] = item["distance_km"]
-                task_data["distance_meters"] = item["distance_meters"]
-                task_data["distance_band"] = get_distance_band(item["distance_km"])
-                store_data.append(task_data)
-
-            logger.info(
-                f"Found {len(store_data)} nearby store visits within {radius_km}km"
-            )
-        else:
-            # No location data - show store visits but without distance info
-            store_data = BrandTaskFeedSerializer(store_visits, many=True).data
-            for task_data in store_data:
-                task_data["distance_km"] = None
-                task_data["distance_band"] = "Location unknown"
-
-        # Process other brand tasks (non-store visits)
-        other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True).data
-        for task_data in other_brand_data:
-            task_data["distance_km"] = None
-            task_data["distance_band"] = "N/A"
-
-        # Get social tasks
-        completed_social_ids = TaskSubmission.objects.filter(user=user).values_list(
+        completed_social_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list(
             "task_id", flat=True
         )
         social_qs = (
