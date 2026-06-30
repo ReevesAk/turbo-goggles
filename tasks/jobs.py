@@ -337,7 +337,10 @@ def run_brand_verification(self, submission_id: str):
         send_push_to_user(
             user=submission.user,
             title="Submission Not Accepted",
-            body=result["reasoning"],
+            body=(
+                f"Your proof for '{submission.ad.campaign_name}' was not accepted. "
+                f"{result['reasoning']}"
+            ),
             data={"type": "brand_task_rejected", "submission_id": submission_id},
         )
         logger.info(
