@@ -162,24 +162,7 @@ class LogUserLocation(generics.GenericAPIView):
         user = request.user
 
         try:
-            decrypted_payload = decrypt(request.data)
-
-            if not isinstance(decrypted_payload, dict):
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "Invalid data format. Expected JSON object.",
-                        }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            location_data = {
-                key: value.strip() if isinstance(value, str) else value
-                for key, value in decrypted_payload.items()
-                if value is not None
-            }
+            location_data = request.data
 
             serializer = self.serializer_class(data=location_data)
 
