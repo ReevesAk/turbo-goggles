@@ -17,7 +17,7 @@ starting from the nearest to the farthest, up to a specified radius.
 """
 
 import math
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -241,9 +241,9 @@ class TaskSortingStrategy:
         3. Overall sorting considers both proximity and task type
 
         Args:
-            brand_tasks: List of brand task data
-            social_tasks: List of social task data
-            inapp_tasks: List of in-app task data
+            brand_tasks: List of brand task data (serialized dicts)
+            social_tasks: List of social task data (serialized dicts)
+            inapp_tasks: List of in-app task data (serialized dicts)
             user_lat: User's latitude (for store visits)
             user_lon: User's longitude (for store visits)
             radius_km: Search radius for store visits
@@ -253,53 +253,33 @@ class TaskSortingStrategy:
         """
         all_tasks = []
 
-        # Process brand tasks with location data
+        # Process brand tasks (these are already serialized dicts)
         for task_data in brand_tasks:
-            task = task_data.get("task") or task_data.get("ad")
-
-            # Check if it's a store visit with location data
-            if (
-                task.task_type == "store_visit"
-                and hasattr(task, "latitude")
-                and task.latitude
-                and hasattr(task, "longitude")
-                and task.longitude
-                and user_lat is not None
-                and user_lon is not None
-            ):
-
-                distance = GeoAlgorithm.calculate_distance_km(
-                    user_lat, user_lon, task.latitude, task.longitude
-                )
-
-                if distance <= radius_km:
-                    task_data["distance_km"] = distance
-                    task_data["distance_meters"] = distance * 1000
-                    task_data["sort_priority"] = 1  # Highest priority for nearby
-                    task_data["distance_band"] = get_distance_band(distance)
-                    all_tasks.append(task_data)
+            # Check if it's a store visit with distance data
+            if task_data.get("distance_km") is not None:
+                # Store visit with distance already calculated
+                task_data["sort_priority"] = 1  # Highest priority for nearby
+                all_tasks.append(task_data)
             else:
-                # Non-store visit tasks
-                task_data["sort_priority"] = TASK_TYPE_PRIORITY.get(
-                    task.task_type if hasattr(task, "task_type") else "other", 10
-                )
-                task_data["distance_km"] = None
+                # Non-store visit or store visit without location
+                task_type = task_data.get("task_type") or task_data.get("type", "other")
+                task_data["sort_priority"] = TASK_TYPE_PRIORITY.get(task_type, 10)
                 all_tasks.append(task_data)
 
-        # Process social tasks
+        # Process social tasks (already serialized)
         for task_data in social_tasks:
-            task = task_data.get("ad") or task_data.get("task")
             task_data["sort_priority"] = TASK_TYPE_PRIORITY.get("social_engage", 3)
             task_data["distance_km"] = None
             all_tasks.append(task_data)
 
-        # Process in-app tasks
+        # Process in-app tasks (already serialized)
         for task_data in inapp_tasks:
             task_data["sort_priority"] = TASK_TYPE_PRIORITY.get("in_app_challenge", 5)
             task_data["distance_km"] = None
             all_tasks.append(task_data)
 
         # Sort by priority, then by distance for store visits
+        # Store visits with distance come first, sorted by proximity
         all_tasks.sort(
             key=lambda x: (
                 x.get("sort_priority", 10),
