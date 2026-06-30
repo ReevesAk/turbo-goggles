@@ -108,6 +108,10 @@ class CreateAd(models.Model):
     auto_boost_points = models.PositiveIntegerField(default=0)
     credit_settled = models.BooleanField(default=False)
 
+    # co-ordinates
+    latitude = models.FloatField(default=0.00)
+    longitude = models.FloatField(default=0.00)
+
     @property
     def cost_per_engagement(self) -> Decimal:
         try:
