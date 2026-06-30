@@ -349,7 +349,7 @@ class BrandTaskFeedView(generics.ListAPIView):
                 f"Found {len(store_data)} nearby store visits within {radius_km}km"
             )
         else:
-            # No location data, fall back to regular ordering
+            # No location data - show store visits but without distance info
             store_data = BrandTaskFeedSerializer(store_visits, many=True).data
             for task_data in store_data:
                 task_data["distance_km"] = None
@@ -401,6 +401,7 @@ class BrandTaskFeedView(generics.ListAPIView):
         )
 
         # Interleave tasks for better variety to ensure that users see a mix of task types
+        # Only interleave if we have both store and other tasks
         store_tasks = [t for t in sorted_tasks if t.get("distance_km") is not None]
         other_tasks = [t for t in sorted_tasks if t.get("distance_km") is None]
 
@@ -416,11 +417,22 @@ class BrandTaskFeedView(generics.ListAPIView):
             # use sorted order if only one type exists
             final_data = sorted_tasks
 
-        # Apply any task_type filter if specified
+        # Properly handle store_visit filter without hiding valid tasks
         task_type_filter = self.request.query_params.get("task_type")
         if task_type_filter:
             if task_type_filter == "store_visit":
-                final_data = [t for t in final_data if t.get("distance_km") is not None]
+                # If location is NOT available, distance_km will be None but they're still valid store visits
+                final_data = [
+                    t
+                    for t in final_data
+                    if t.get("task_type") == "store_visit"
+                    or t.get("type") == "store_visit"
+                ]
+                # Add a note in metadata about location status
+                location_status = "available" if user_lat is not None else "unavailable"
+                logger.info(
+                    f"Filtered to {len(final_data)} store visits (location {location_status})"
+                )
             else:
                 # Filter by task_type field in the data
                 final_data = [
@@ -440,10 +452,15 @@ class BrandTaskFeedView(generics.ListAPIView):
                 "store_visits_found": len(store_tasks),
                 "other_tasks_found": len(other_tasks),
                 "user_location": (
-                    {"latitude": user_lat, "longitude": user_lon} if user_lat else None
+                    {"latitude": user_lat, "longitude": user_lon}
+                    if user_lat is not None
+                    else None
                 ),
                 "search_radius_km": radius_km,
                 "has_user_location": user_lat is not None,
+                "location_filter_applied": (
+                    task_type_filter == "store_visit" if task_type_filter else False
+                ),
             },
         }
 
