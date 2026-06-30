@@ -1889,9 +1889,7 @@ class RemoveAdminRole(generics.GenericAPIView):
                 update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
             )
         if not account_type_instance:
-            logger.warning(
-                "Role '%s' not found for user: %s", role_to_remove, email
-            )
+            logger.warning("Role '%s' not found for user: %s", role_to_remove, email)
             return Response(
                 data=encrypt("Role not found for the user."),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -2178,9 +2176,7 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 title="Re-Enable Admin.",
                 description=f"Admin user, {user.full_name} was re-enabled.",
             )
-            logger.info(
-                "Activity logged for re-enabling admin '%s'.", user.full_name
-            )
+            logger.info("Activity logged for re-enabling admin '%s'.", user.full_name)
 
             resp = {
                 "status": "success",
@@ -2320,7 +2316,12 @@ class DeleteAdmin(generics.GenericAPIView):
                 )
 
                 return Response(
-                    data=encrypt({"status": "success", "message": f"Admin with '{email}' deleted successfully."}),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": f"Admin with '{email}' deleted successfully.",
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             except User.DoesNotExist:

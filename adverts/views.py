@@ -241,6 +241,8 @@ _ERROR_RESP = inline_serializer(
                 "campaign_name": "Visit our Ikeja store",
                 "campaign_duration": "7",
                 "amount": "300000",
+                "longitude": 110.27,
+                "latitude": -27.00,
                 "targeting_type": "city",
                 "location_type": "cities",
                 "state": ["Lagos"],
@@ -284,7 +286,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 
             idempotency_key = request.headers.get(
                 "Idempotency-Key"
-            ) or request.data.get("idempotency_key")
+            ) or decrypted_data.get("idempotency_key")
 
             # Ensure user is a BrandAd (onboarded)
             user = request.user
