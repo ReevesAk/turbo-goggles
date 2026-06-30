@@ -291,11 +291,16 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "targeting_type",
             "countries",
             "auto_boost",
+            # co-ordinates
+            "latitude",
+            "longitude",
         ]
 
     def validate(self, attrs):
         task_type = attrs.get("task_type")
         task_details = attrs.get("task_details", {})
+        latitude = attrs.get("latitude")
+        longitude = attrs.get("longitude")
 
         if task_type:
             validator = TASK_DETAIL_VALIDATORS.get(task_type)
@@ -303,6 +308,18 @@ class CreateAdSerializers(serializers.ModelSerializer):
                 field_errors = validator(task_details)
                 if field_errors:
                     raise serializers.ValidationError({"task_details": field_errors})
+
+        if longitude is not None:
+            if not -180 <= longitude <= 180:
+                raise serializers.ValidationError(
+                    "Longitude must be between -180 and 180 degrees."
+                )
+
+        if longitude is not None:
+            if not -90 <= latitude <= 90:
+                raise serializers.ValidationError(
+                    "Latitude must be between -90 and 90 degrees."
+                )
 
         return attrs
 
