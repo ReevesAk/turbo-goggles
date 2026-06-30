@@ -77,7 +77,7 @@ class SocialTaskListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        submitted_ids = TaskSubmission.objects.filter(user=user).values_list("task_id", flat=True)
+        submitted_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list("task_id", flat=True)
         qs = (
             SocialTask.objects.filter(is_active=True)
             .exclude(id__in=submitted_ids)
@@ -264,7 +264,7 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True).data
 
-        completed_social_ids = TaskSubmission.objects.filter(user=user).values_list(
+        completed_social_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list(
             "task_id", flat=True
         )
         social_qs = (
