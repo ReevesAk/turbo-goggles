@@ -229,6 +229,9 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
 
+        trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+        trust.record_approval()
+
         ad = submission.ad
         from adverts.models import CreateAd as _CreateAd
         _CreateAd.objects.filter(pk=ad.pk).update(slots_filled=F("slots_filled") + 1)
@@ -281,6 +284,8 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
+        trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+        trust.record_rejection()
 
     send_push_to_user(
         user=submission.user,
@@ -327,12 +332,14 @@ def run_brand_verification(self, submission_id: str):
             submission.rejection_reason = f"AI verification failed: {result['reasoning']}"
             submission.reviewed_at = timezone.now()
             submission.save(update_fields=["status", "rejection_reason", "reviewed_at"])
+            trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+            trust.record_rejection()
         send_push_to_user(
             user=submission.user,
             title="Submission Not Accepted",
             body=(
                 f"Your proof for '{submission.ad.campaign_name}' was not accepted. "
-                "Please submit a valid screenshot showing the completed action."
+                f"{result['reasoning']}"
             ),
             data={"type": "brand_task_rejected", "submission_id": submission_id},
         )
