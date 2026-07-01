@@ -32,13 +32,15 @@ class IsGuestWithValidId(permissions.BasePermission):
         if user and user.is_authenticated:
             return False  # Block authenticated users
 
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         if guest_id:
             try:
                 uuid.UUID(guest_id, version=4)  # Validate UUID
                 return True
             except (ValueError, TypeError):
-                raise ValidationError({"guest_id": "Invalid guest_id. Must be a valid UUIDv4."})
+                raise ValidationError(
+                    {"guest_id": "Invalid guest_id. Must be a valid UUIDv4."}
+                )
 
         return False
 
@@ -49,13 +51,14 @@ class IsAuthenticatedOrGuestWithValidId(permissions.BasePermission):
     - Authenticated users (JWT)
     - Guests with valid X-Guest-ID header (UUIDv4)
     """
+
     def has_permission(self, request, view):
         # Authenticated users always have permission
         if request.user and request.user.is_authenticated:
             return True
 
         # Guest users need valid UUID
-        guest_id = request.headers.get('X-Guest-ID')
+        guest_id = request.headers.get("X-Guest-ID")
         if not guest_id:
             return False
 
@@ -73,12 +76,16 @@ class HasCompletedSurvey(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            raise ValidationError(encrypt("Authentication is required to access this resource."))
+            raise ValidationError(
+                encrypt("Authentication is required to access this resource.")
+            )
 
         if request.user.has_done_survey:
             return True
 
-        raise ValidationError(encrypt("You need to complete the survey to access this resource."))
+        raise ValidationError(
+            encrypt("You need to complete the survey to access this resource.")
+        )
 
 
 class VasPermission(permissions.BasePermission):
@@ -92,9 +99,13 @@ class VasPermission(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only Users, Members and Partners can use this service."))
+                raise ValidationError(
+                    encrypt("Only Users, Members and Partners can use this service.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsSuperAdmin(permissions.BasePermission):
@@ -107,9 +118,13 @@ class IsSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only SuperAdmin Users can perform this action."))
+                raise ValidationError(
+                    encrypt("Only SuperAdmin Users can perform this action.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsPartner(permissions.BasePermission):
@@ -124,7 +139,9 @@ class IsPartner(permissions.BasePermission):
             else:
                 raise ValidationError(encrypt("Only Partners can perform this action."))
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsPartnerUserOrMember(permissions.BasePermission):
@@ -137,9 +154,13 @@ class IsPartnerUserOrMember(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only Partners, Users and Members can perform this action."))
+                raise ValidationError(
+                    encrypt("Only Partners, Users and Members can perform this action.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsMember(permissions.BasePermission):
@@ -165,7 +186,9 @@ class IsBrandAd(permissions.BasePermission):
         if request.user.is_authenticated:
             return request.user.active_role in required_user_types
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsBrandAdAdmin(permissions.BasePermission):
@@ -176,7 +199,9 @@ class IsBrandAdAdmin(permissions.BasePermission):
         if request.user.is_authenticated:
             return request.user.active_role in required_user_types
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsPartnerAdmin(permissions.BasePermission):
@@ -189,9 +214,13 @@ class IsPartnerAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only PartnersAdmin can perform this action."))
+                raise ValidationError(
+                    encrypt("Only PartnersAdmin can perform this action.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsWalletAdmin(permissions.BasePermission):
@@ -204,9 +233,13 @@ class IsWalletAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only WalletAdmin can perform this action."))
+                raise ValidationError(
+                    encrypt("Only WalletAdmin can perform this action.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsFmcgAdmin(permissions.BasePermission):
@@ -219,9 +252,13 @@ class IsFmcgAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise PermissionDenied(encrypt(detail="Only FmcgAdmin can perform this action."))
+                raise PermissionDenied(
+                    encrypt(detail="Only FmcgAdmin can perform this action.")
+                )
 
-        raise ValidationError(encrypt(detail="Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt(detail="Authentication is required to access this resource.")
+        )
 
 
 class IsTaskAdminOrSuperAdmin(permissions.BasePermission):
@@ -232,9 +269,13 @@ class IsTaskAdminOrSuperAdmin(permissions.BasePermission):
         if request.user.is_authenticated:
             if request.user.active_role in required_user_types:
                 return True
-            raise ValidationError(encrypt("Only TaskAdmin or SuperAdmin users can perform this action."))
+            raise ValidationError(
+                encrypt("Only TaskAdmin or SuperAdmin users can perform this action.")
+            )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -280,16 +321,30 @@ class IsNotDisabled(permissions.BasePermission):
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         # Define the admin roles you want to allow
-        admin_roles = ["AdAdmin", "SuperAdmin", "TaskAdmin", "MembersAdmin", "UserAdmin", "PartnersAdmin", "ContentAdmin", "IntegrationAdmin", "WalletAdmin"]
+        admin_roles = [
+            "AdAdmin",
+            "SuperAdmin",
+            "TaskAdmin",
+            "MembersAdmin",
+            "UserAdmin",
+            "PartnersAdmin",
+            "ContentAdmin",
+            "IntegrationAdmin",
+            "WalletAdmin",
+        ]
 
         if request.user.is_authenticated:
             # Check if the user's active role is in the list of allowed admin roles
             if request.user.active_role in admin_roles:
                 return True
             else:
-                raise ValidationError(encrypt("Only admin users can perform this action."))
+                raise ValidationError(
+                    encrypt("Only admin users can perform this action.")
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
@@ -304,7 +359,10 @@ class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either FmcgAdmin or SuperAdmin
-        if request.user.active_role == 'FmcgAdmin' or request.user.active_role == 'SuperAdmin':
+        if (
+            request.user.active_role == "FmcgAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
             return True
 
         return False
@@ -322,7 +380,10 @@ class IsPartnerAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either PartnersAdmin or SuperAdmin
-        if request.user.active_role == 'PartnersAdmin' or request.user.active_role == 'SuperAdmin':
+        if (
+            request.user.active_role == "PartnersAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
             return True
 
         return False
@@ -340,10 +401,36 @@ class IsMemberAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either MemberAdmin or SuperAdmin
-        if request.user.active_role == 'MemberAdmin' or request.user.active_role == 'SuperAdmin':
+        if (
+            request.user.active_role == "MemberAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
             return True
 
         return False
+
+
+class IsMemberAdminOrSuperAdminOrTaskAdmin(permissions.BasePermission):
+    """
+    Custom permission that grants access if the user is authenticated and
+    is either an MemberAdmin, TaskAdmin or a SuperAdmin.
+    """
+
+    def has_permission(self, request, view):
+        # First, check if the user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if the user is either MemberAdmin or SuperAdmin
+        if (
+            request.user.active_role == "MemberAdmin"
+            or request.user.active_role == "TaskAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
+            return True
+
+        return False
+
 
 class IsAdAdminOrSuperAdmin(permissions.BasePermission):
     """
@@ -357,7 +444,10 @@ class IsAdAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either AdAdmin or SuperAdmin
-        if request.user.active_role == 'AdAdmin' or request.user.active_role == 'SuperAdmin':
+        if (
+            request.user.active_role == "AdAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
             return True
 
         return False
@@ -375,7 +465,10 @@ class IsWalletAdminOrSuperAdmin(permissions.BasePermission):
             return False
 
         # Check if the user is either IsWalletAdmin or SuperAdmin
-        if request.user.active_role == 'WalletAdmin' or request.user.active_role == 'SuperAdmin':
+        if (
+            request.user.active_role == "WalletAdmin"
+            or request.user.active_role == "SuperAdmin"
+        ):
             return True
 
         return False
@@ -391,9 +484,15 @@ class IsPartnerUserOrMemberBrandAdOrSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError(encrypt("Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action."))
+                raise ValidationError(
+                    encrypt(
+                        "Only the SuperAdmin, BrandAds, Partners, Users and Members can perform this action."
+                    )
+                )
 
-        raise ValidationError(encrypt("Authentication is required to access this resource."))
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
 
 
 class IsManagerOrSuperAdmin(permissions.BasePermission):
@@ -421,7 +520,9 @@ class IsManagerModeratorOrSuperAdmin(permissions.BasePermission):
             if request.user.active_role in required_user_types:
                 return True
             else:
-                raise ValidationError("Only the Manager, Moderator or SuperAdmin can perform this action.")
+                raise ValidationError(
+                    "Only the Manager, Moderator or SuperAdmin can perform this action."
+                )
 
         raise ValidationError("Authentication is required to access this resource.")
 
@@ -448,9 +549,13 @@ class IsMemberOrBrandAd(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            raise ValidationError(encrypt("Authentication is required to access this resource."))
+            raise ValidationError(
+                encrypt("Authentication is required to access this resource.")
+            )
 
         if request.user.active_role in ["Member", "BrandAd"]:
             return True
 
-        raise ValidationError(encrypt("Only Members and BrandAds can perform this action."))
+        raise ValidationError(
+            encrypt("Only Members and BrandAds can perform this action.")
+        )

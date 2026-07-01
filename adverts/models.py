@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
 
 from accounts.models import User
 from .pricing import TARGETING_TYPE_CHOICES, compute_cost_per_engagement
@@ -109,8 +111,15 @@ class CreateAd(models.Model):
     credit_settled = models.BooleanField(default=False)
 
     # co-ordinates
-    latitude = models.FloatField(default=0.00)
-    longitude = models.FloatField(default=0.00)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location = gis_models.PointField(
+        geography=True,
+        null=True,
+        blank=True,
+        spatial_index=True,
+        help_text="Derived automatically from latitude/longitude on save.",
+    )
 
     @property
     def cost_per_engagement(self) -> Decimal:
@@ -157,6 +166,14 @@ class CreateAd(models.Model):
             self.expiry_date = timezone.now() + timedelta(
                 days=int(self.campaign_duration)
             )
+
+        if self.latitude is not None and self.longitude is not None:
+            self.location = Point(
+                float(self.longitude), float(self.latitude), srid=4326
+            )
+        else:
+            self.location = None
+
         super().save(*args, **kwargs)
 
 

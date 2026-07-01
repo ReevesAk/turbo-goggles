@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
     # Third party External Packages.
     "rest_framework",
     "drf_spectacular",
@@ -158,10 +159,12 @@ if ENVIRONMENT == "development":
     DEBUG = True
     database_url = conf("DATABASE_URL")
     DATABASES["default"] = dj_database_url.parse(database_url)
+    DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 elif ENVIRONMENT == "production":
     DEBUG = False
     database_url = conf("DATABASE_URL")
     DATABASES["default"] = dj_database_url.parse(database_url)
+    DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -448,7 +451,7 @@ if TESTING:
 
     DATABASES = {
         "default": {
-            "ENGINE": "django.db.backends.sqlite3",
+            "ENGINE": "django.contrib.gis.db.backends.spatialite",
             "NAME": ":memory:",  # Use an in-memory database for tests
         }
     }
