@@ -364,7 +364,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                         {"task": ["This endpoint is only for social engage tasks."]}
                     )
 
-                if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+                if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
                     raise s.ValidationError(
                         {"task": ["You have already submitted this task."]}
                     )
@@ -740,7 +740,7 @@ class SubmitSurveyTaskView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if BrandTaskSubmission.objects.filter(ad=ad, user=request.user).exists():
+            if BrandTaskSubmission.objects.filter(ad=ad, user=request.user).exclude(status="Rejected").exists():
                 return Response(
                     data=encrypt(
                         {
