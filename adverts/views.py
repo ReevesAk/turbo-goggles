@@ -30,6 +30,7 @@ from .serializers import (
     UpdateBrandAdProfileSerializers,
     CreateAdSerializers,
     AdSerializers,
+    BrandAdListSerializer,
 )
 
 # from mail import send_email
@@ -421,6 +422,14 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                             credit_applied,
                         )
 
+                        # After atomic block — best-effort balance sync
+                        post_debit = Wallet.getWalletDetails(account.account_number)
+                        if post_debit and hasattr(post_debit, "json"):
+                            post_data = post_debit.json()
+                            if post_data.get("status") == "SUCCESS":
+                                account.balance = post_data["data"]["availableBalance"]
+                                account.save(update_fields=["balance"])
+
                         return Response(
                             data=encrypt(
                                 {
@@ -758,12 +767,16 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         )
 
         ongoing_reach = active_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
+        ads_list = BrandAdListSerializer(
+            user_ads.order_by("-created_at"), many=True
+        ).data
 
         response = {
             "status": "success",
             "message": "Ad detail retrieved successfully!",
             "data": {
                 **serializer.data,
+                "ads": ads_list,
                 "ads_dashboard": {
                     "total_ads_placed": total_ads_placed,
                     "active_ads": active_ads,

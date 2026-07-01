@@ -199,9 +199,10 @@ class BrandTaskFeedView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        completed_ad_ids = BrandTaskSubmission.objects.filter(user=user).values_list(
-            "ad_id", flat=True
-        )
+        completed_ad_ids = BrandTaskSubmission.objects.filter(user=user).exclude(
+            status="Rejected"
+        ).values_list("ad_id", flat=True)
+
 
         # Base queryset
         qs = (

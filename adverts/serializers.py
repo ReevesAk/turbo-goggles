@@ -150,7 +150,53 @@ TASK_DETAIL_VALIDATORS = {
 }
 
 
-# ── Serializers ───────────────────────────────────────────────────────────────
+# ── Serializers
+
+
+class BrandAdListSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    time_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CreateAd
+        fields = [
+            "id",
+            "campaign_name",
+            "task_type",
+            "time_left",
+            "task_name",
+            "slot_cap",
+            "slots_filled",
+            "reward_points",
+            "is_active",
+            "expiry_date",
+            "created_at",
+            "status",
+        ]
+
+    def get_time_left(self, obj) -> str | None:
+        if not obj.expiry_date:
+            return None
+        now = timezone.now()
+        delta = obj.expiry_date - now
+        if delta.total_seconds() <= 0:
+            return "Expired"
+        days = delta.days
+        hours, remainder = divmod(delta.seconds, 3600)
+        minutes = remainder // 60
+        if days:
+            return f"{days}d {hours}h {minutes}m"
+        if hours:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
+    def get_status(self, obj) -> str:
+        now = timezone.now()
+        if obj.is_active and obj.expiry_date and obj.expiry_date > now:
+            return "active"
+        if obj.slots_filled >= (obj.slot_cap or 0):
+            return "completed"
+        return "inactive"
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
