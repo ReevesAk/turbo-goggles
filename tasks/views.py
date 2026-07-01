@@ -84,8 +84,10 @@ class SocialTaskListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        submitted_ids = TaskSubmission.objects.filter(user=user).values_list(
-            "task_id", flat=True
+        submitted_ids = (
+            TaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("task_id", flat=True)
         )
         qs = (
             SocialTask.objects.filter(is_active=True)
@@ -172,9 +174,6 @@ class MyTrustScoreView(APIView):
 
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
-
-
-# ── Brand campaign task views ─────────────────────────────────────────────────
 @extend_schema(
     summary="List active brand campaign tasks (gamification feed)",
     tags=["Tasks"],
@@ -220,9 +219,10 @@ class BrandTaskFeedView(generics.ListAPIView):
     Excludes campaigns the user has already submitted, and campaigns that have hit
     their slot cap. Supports ?task_type= filter.
 
-    Store visit tasks are filtered by proximity to user's location using the
-    Haversine algorithm. Tasks are sorted with nearby store visits prioritized,
-    followed by other task types in a balanced interleaved manner.
+    Store visit tasks are filtered by proximity to user's location using PostGIS
+    (ST_DWithin / Distance over a geography-typed location column). Tasks are
+    sorted with nearby store visits prioritized, followed by other task types
+    in a balanced interleaved manner.
     """
 
     serializer_class = BrandTaskFeedSerializer
