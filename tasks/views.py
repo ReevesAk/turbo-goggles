@@ -172,6 +172,9 @@ class MyTrustScoreView(APIView):
 
 
 # ── Brand campaign task views ─────────────────────────────────────────────────
+
+
+# ── Brand campaign task views ─────────────────────────────────────────────────
 @extend_schema(
     summary="List active brand campaign tasks (gamification feed)",
     tags=["Tasks"],
@@ -298,23 +301,24 @@ class BrandTaskFeedView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
 
-        # Get user's location for proximity filtering
-        user_lat, user_lon = self.get_user_location(request.user)
-
         # Get radius parameter from query
         radius_km = float(request.query_params.get("radius_km", DEFAULT_RADIUS_KM))
         radius_km = min(radius_km, 50.0)  # Cap at 50km
 
         # Get limit for store visits
         limit_store_visits = int(request.query_params.get("limit_store_visits", 20))
-
-        # Include location in cache key to respect targeting and proximity
         user = request.user
         location_key = f"{user.city}:{user.state}:{user.country}"
-        cache_key = f"brand_task_feed:{request.user.id}:{location_key}:{radius_km}"
+        cache_key = (
+            f"brand_task_feed:{request.user.id}:{location_key}:"
+            f"{radius_km}:{limit_store_visits}"
+        )
         cached = cache.get(cache_key)
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        # Fetch data from DB if not cached
+        user_lat, user_lon = self.get_user_location(request.user)
 
         # Get base queryset
         queryset = self.get_queryset()
@@ -326,8 +330,8 @@ class BrandTaskFeedView(generics.ListAPIView):
         # Process store visits with location filtering
         store_data = []
         if user_lat is not None and user_lon is not None:
-            # Use the location matcher to filter and sort store visits
-            matcher = LocationMatcher(use_optimized=True)
+            # Use the location matcher (PostGIS-backed) to filter and sort store visits in a single indexed DB query.
+            matcher = LocationMatcher()
             matched_store_tasks = matcher.match_tasks_to_user(
                 tasks_queryset=store_visits,
                 user_lat=user_lat,
@@ -349,13 +353,13 @@ class BrandTaskFeedView(generics.ListAPIView):
                 f"Found {len(store_data)} nearby store visits within {radius_km}km"
             )
         else:
-            # No location data - show store visits but without distance info
+            # Show store visits but without distance info when user location is unavailable
             store_data = BrandTaskFeedSerializer(store_visits, many=True).data
             for task_data in store_data:
                 task_data["distance_km"] = None
                 task_data["distance_band"] = "Location unknown"
 
-        # Process other brand tasks (non-store visits)
+        # Process other brand tasks that are not store visits (no distance filtering)
         other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True).data
         for task_data in other_brand_data:
             task_data["distance_km"] = None
