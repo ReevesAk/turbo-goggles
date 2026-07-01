@@ -252,6 +252,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
     time_remaining = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
     source = serializers.SerializerMethodField()
+    user_status = serializers.SerializerMethodField()
 
     class Meta:
         model = CreateAd
@@ -278,6 +279,11 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "display": obj.get_task_type_display() if obj.task_type else None,
             "details": obj.task_details,
         }
+
+    def get_user_status(self, obj) -> str | None:
+        user = self.context["request"].user
+        submission = BrandTaskSubmission.objects.filter(ad=obj, user=user).order_by("-created_at").first()
+        return submission.status if submission else None
 
     def get_ad_media(self, obj) -> list:
         media = obj.ad_media.all()
@@ -444,7 +450,7 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
                     "This endpoint is only for website visit, video watch, store visit, and survey tasks."
                 )
 
-            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
                 raise serializers.ValidationError(
                     "You have already completed this task."
                 )
