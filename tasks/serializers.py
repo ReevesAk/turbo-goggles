@@ -109,7 +109,7 @@ class SubmitTaskSerializer(serializers.ModelSerializer):
         if not task.is_available:
             raise serializers.ValidationError("This task is not currently available.")
 
-        if TaskSubmission.objects.filter(task=task, user=user).exists():
+        if TaskSubmission.objects.filter(task=task, user=user).exclude(status="Rejected").exists():
             raise serializers.ValidationError("You have already submitted this task.")
 
         if not attrs.get("screenshot_url"):
@@ -125,9 +125,22 @@ class SubmitTaskSerializer(serializers.ModelSerializer):
             alphabet = string.ascii_uppercase + string.digits
             code = "".join(secrets.choice(alphabet) for _ in range(8))
             verification_code = f"PD-{code}"
-        return TaskSubmission.objects.create(
-            user=user, verification_code=verification_code, **validated_data
+        submission, _ = TaskSubmission.objects.update_or_create(
+            user=user,
+            task=task,
+            defaults={
+                "screenshot_url": validated_data.get("screenshot_url"),
+                "post_url": validated_data.get("post_url"),
+                "notes": validated_data.get("notes"),
+                "verification_code": verification_code,
+                "status": "Pending",
+                "reward_issued": False,
+                "rejection_reason": None,
+                "reviewed_by": None,
+                "reviewed_at": None,
+            },
         )
+        return submission
 
 
 class UserTrustScoreSerializer(serializers.ModelSerializer):
