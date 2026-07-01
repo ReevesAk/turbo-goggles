@@ -1947,7 +1947,7 @@ class RemoveAdminRole(generics.GenericAPIView):
         ),
     },
 )
-class DisableAdminrole(generics.RetrieveUpdateAPIView):
+class DisableAdminrole(APIView):
     """
     DisableAdminrole handles the POST request of disabling
     an admin user.
