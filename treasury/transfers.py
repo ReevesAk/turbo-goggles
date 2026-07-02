@@ -69,7 +69,6 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
     """
 
     serializer_class = ValidateTreasuryAccountSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd)]
 
     def post(self, request):
@@ -124,7 +123,6 @@ class ValidateExternalAccount(generics.GenericAPIView):
     """
 
     serializer_class = ValidateExternalAccountSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd)]
 
     def post(self, request):
@@ -196,7 +194,6 @@ class InternalTransfer(generics.CreateAPIView):
     """
 
     serializer_class = TreasuryTransferSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd)]
     throttle_scope = "wallet_transfer"
 
@@ -430,7 +427,6 @@ class ExternalTransfer(generics.CreateAPIView):
     """
 
     serializer_class = TreasuryTransferSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd)]
     throttle_scope = "wallet_transfer"
 
@@ -650,7 +646,6 @@ class InternalTransferFreeCount(APIView):
     Equivalent to IntraBankFreeTransferCount in banking.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -699,7 +694,6 @@ class PayWithCard(generics.CreateAPIView):
     """
 
     serializer_class = CardFundingSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -761,7 +755,6 @@ class FundTreasuryAccount(generics.GenericAPIView):
     Equivalent to FundWallet in banking.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):

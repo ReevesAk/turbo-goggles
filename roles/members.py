@@ -10,7 +10,6 @@ from .serializers import MemberSerializer
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User
 from gamification.points import Points
@@ -36,7 +35,6 @@ class AllMembersView(generics.ListAPIView):
         IsNotDisabled,
         IsMemberAdminOrSuperAdminOrTaskAdmin,
     ]
-    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         members = User.objects.filter(
@@ -83,7 +81,6 @@ class AllMembersView(generics.ListAPIView):
 
 class ListHandleChangeRequestsView(generics.ListAPIView):
     serializer_class = HandleChangeRequestDetailSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def get_queryset(self):
@@ -111,7 +108,6 @@ class ListHandleChangeRequestsView(generics.ListAPIView):
 
 class ReviewHandleChangeRequestView(generics.GenericAPIView):
     serializer_class = ReviewHandleChangeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def patch(self, request, pk):

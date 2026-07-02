@@ -3,7 +3,6 @@ import logging
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from gamification.models import PointConfig, StreakChallenge, UserStreak
 from gamification.serializers import (
@@ -23,7 +22,6 @@ class ListPointConfigsView(generics.GenericAPIView):
     """GET /v1/roles/points/ — list all configurable point values."""
 
     serializer_class = PointConfigSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def get(self, request):
@@ -39,7 +37,6 @@ class UpdatePointConfigView(generics.GenericAPIView):
     """PATCH /v1/roles/points/<key>/ — update a single point value."""
 
     serializer_class = PointConfigUpdateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def patch(self, request, key):
@@ -49,7 +46,7 @@ class UpdatePointConfigView(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": f"No point config found for key '{key}'.",
                     }
                 ),
@@ -60,7 +57,7 @@ class UpdatePointConfigView(generics.GenericAPIView):
         serializer = PointConfigUpdateSerializer(config, data=payload, partial=True)
         if not serializer.is_valid():
             return Response(
-                data=encrypt({"status": "error", "errors": serializer.errors}),
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -88,7 +85,6 @@ class CreateStreakChallengeView(generics.GenericAPIView):
     """POST /v1/roles/streaks/create/ — create a new streak challenge."""
 
     serializer_class = StreakChallengeCreateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def post(self, request):
@@ -96,7 +92,7 @@ class CreateStreakChallengeView(generics.GenericAPIView):
         serializer = StreakChallengeCreateSerializer(data=payload)
         if not serializer.is_valid():
             return Response(
-                data=encrypt({"status": "error", "errors": serializer.errors}),
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -121,7 +117,6 @@ class ListStreakChallengesView(generics.GenericAPIView):
     """GET /v1/roles/streaks/ — list all streak challenges (all statuses)."""
 
     serializer_class = StreakChallengeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def get(self, request):
@@ -139,7 +134,6 @@ class UpdateStreakChallengeView(generics.GenericAPIView):
     """PATCH /v1/roles/streaks/<challenge_id>/update/ — edit, pause, or extend a challenge."""
 
     serializer_class = StreakChallengeUpdateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def patch(self, request, challenge_id):
@@ -148,7 +142,7 @@ class UpdateStreakChallengeView(generics.GenericAPIView):
         except StreakChallenge.DoesNotExist:
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": "Streak challenge not found."}
+                    {"status": "fail", "message": "Streak challenge not found."}
                 ),
                 status=status.HTTP_404_NOT_FOUND,
             )
@@ -159,7 +153,7 @@ class UpdateStreakChallengeView(generics.GenericAPIView):
         )
         if not serializer.is_valid():
             return Response(
-                data=encrypt({"status": "error", "errors": serializer.errors}),
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -184,7 +178,6 @@ class StreakChallengeLeaderboardAdminView(generics.GenericAPIView):
     """GET /v1/roles/streaks/<challenge_id>/leaderboard/ — ranked participants."""
 
     serializer_class = StreakChallengeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def get(self, request, challenge_id):
@@ -193,7 +186,7 @@ class StreakChallengeLeaderboardAdminView(generics.GenericAPIView):
         except StreakChallenge.DoesNotExist:
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": "Streak challenge not found."}
+                    {"status": "fail", "message": "Streak challenge not found."}
                 ),
                 status=status.HTTP_404_NOT_FOUND,
             )

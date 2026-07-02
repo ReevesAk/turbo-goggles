@@ -11,7 +11,6 @@ from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
@@ -276,7 +275,6 @@ _ERROR_RESP = inline_serializer(
 )
 class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     serializer_class = CreateAdSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def create(self, request, *args, **kwargs):
@@ -511,7 +509,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             message = first_validation_error(exc.detail)
             logger.warning("Brand advert validation failed: %s", exc.detail)
             return Response(
-                data=encrypt({"status": "error", "message": message}),
+                data=encrypt({"status": "fail", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -520,7 +518,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             return Response(
                 encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Ad creation failed. Please try again.",
                     }
                 ),
@@ -545,7 +543,6 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
 )
 class ListAllBrandAdsUsers(generics.ListAPIView):
     serializer_class = BrandAdProfileSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsBrandAdAdmin]
     pagination_class = PaginationStyle
 
@@ -606,7 +603,6 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
 )
 class ListAllBrandAds(generics.ListAPIView):
     serializer_class = AdSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -701,7 +697,6 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
     """Returns the profile details of a BrandAd user."""
 
     serializer_class = BrandAdProfileSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
 
     def retrieve(self, request, *args, **kwargs):
@@ -818,7 +813,6 @@ class UpdateBrandAdProfile(generics.UpdateAPIView):
     """Update brand_Ad Profile"""
 
     serializer_class = UpdateBrandAdProfileSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
 
     def get_object(self):
@@ -889,7 +883,6 @@ class SingleAdDetailView(generics.RetrieveAPIView):
     queryset = CreateAd.objects.all()
     serializer_class = AdSerializers
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "ad_id"
 
     def get(self, request, *args, **kwargs):
@@ -1135,7 +1128,6 @@ class AdCostPreviewView(generics.GenericAPIView):
     Frontend uses credit_to_apply to calculate the actual charge on their side.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -1315,7 +1307,6 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
     is_finished = slots exhausted OR ad expired OR is_active==False.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, ad_id):
@@ -1327,13 +1318,13 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
             ).get(id=ad_id)
         except CreateAd.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Ad not found."}),
+                data=encrypt({"status": "fail", "message": "Ad not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if ad.user_id != request.user.id:
             return Response(
-                data=encrypt({"status": "error", "message": "Not your ad."}),
+                data=encrypt({"status": "fail", "message": "Not your ad."}),
                 status=status.HTTP_403_FORBIDDEN,
             )
 

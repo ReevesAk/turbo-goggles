@@ -7,7 +7,6 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
@@ -91,7 +90,6 @@ class PaginationStyle(PageNumberPagination):
 )
 class TableBooking(generics.CreateAPIView):
     serializer_class = RestaurantBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
@@ -291,7 +289,7 @@ class TableBooking(generics.CreateAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -323,7 +321,6 @@ class TableBookingList(generics.ListAPIView):
     """TableBookingList lists all restaurant bookings."""
 
     serializer_class = RestaurantBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -373,7 +370,6 @@ class TableBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = RestaurantBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -427,7 +423,6 @@ class TableBookingDetail(generics.RetrieveAPIView):
 )
 class GymBooking(generics.CreateAPIView):
     serializer_class = GymSubcriptionSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
@@ -620,7 +615,7 @@ class GymBooking(generics.CreateAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -652,7 +647,6 @@ class GymBookingList(generics.ListAPIView):
     """GymBookingList lists all gym bookings."""
 
     serializer_class = GymSubcriptionSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -702,7 +696,6 @@ class GymBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = GymSubcriptionSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -756,7 +749,6 @@ class GymBookingDetail(generics.RetrieveAPIView):
 )
 class CinemaBookingView(generics.CreateAPIView):
     serializer_class = CinemaBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
@@ -949,7 +941,7 @@ class CinemaBookingView(generics.CreateAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -981,7 +973,6 @@ class CinemaBookingList(generics.ListAPIView):
     """CinemaBookingList lists all cinema bookings."""
 
     serializer_class = CinemaBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsMember | IsSuperAdmin]
     pagination_class = PaginationStyle
 
@@ -1031,7 +1022,6 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = CinemaBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -1085,7 +1075,6 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
 )
 class BookCourierSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
@@ -1281,7 +1270,7 @@ class BookCourierSercvice(generics.CreateAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -1313,7 +1302,6 @@ class CourierBookingList(generics.ListAPIView):
     """CourierBookingList lists all courier bookings."""
 
     serializer_class = CourierBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -1362,7 +1350,6 @@ class CourierBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = CourierBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -1416,7 +1403,6 @@ class CourierBookingDetail(generics.RetrieveAPIView):
 )
 class BookConsumableSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     queryset = ConsumableService.objects.all()
 
@@ -1589,7 +1575,6 @@ class ConsumableBookingList(generics.ListAPIView):
     """ConsumableBookingList lists all consumable bookings."""
 
     serializer_class = ConsumableSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -1628,7 +1613,6 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = ConsumableSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -1678,7 +1662,6 @@ class BookLandTrip(generics.GenericAPIView):
     """
 
     serializer_class = LandTravelsSerilaizers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def post(self, request):
@@ -1815,7 +1798,7 @@ class BookLandTrip(generics.GenericAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -1843,7 +1826,6 @@ class LandTripBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = LandTravelsSerilaizers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_object(self):
@@ -1887,7 +1869,6 @@ class LandTripBookingList(generics.ListAPIView):
     """LandTripBookingList lists all land travel bookings."""
 
     serializer_class = LandTravelsSerilaizers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
@@ -1953,7 +1934,6 @@ class BookHotel(generics.GenericAPIView):
     """
 
     serializer_class = HotelSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def post(self, request):
@@ -2119,7 +2099,7 @@ class BookHotel(generics.GenericAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Booking failed. Please try again.",
                         }
                     ),
@@ -2163,7 +2143,6 @@ class ServiceRating(generics.GenericAPIView):
     """
 
     serializer_class = CustomerRatingSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
     lookup_field = "id"
 
@@ -2251,7 +2230,6 @@ class GetTransaction(generics.RetrieveAPIView):
     """
 
     serializer_class = GetTransactionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
 
     def get_queryset(self, request):

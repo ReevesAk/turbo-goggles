@@ -5,7 +5,6 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
@@ -46,7 +45,6 @@ class GetAllNotifications(generics.ListAPIView):
     receive all notifications.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializers
     queryset = UserNotification.objects.all().order_by("-created_at")
@@ -115,7 +113,6 @@ class GetSingleNotification(generics.RetrieveAPIView):
     queryset = UserNotification.objects.all()
     serializer_class = NotificationSerializers
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "id"
 
     def retrieve(self, request, *args, **kwargs):
@@ -190,7 +187,6 @@ class ClearNotifications(generics.DestroyAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = ClearNotificationSerializer
-    authentication_classes = [JWTAuthentication]
 
     def destroy(self, request, *args, **kwargs):
         user = self.request.user
@@ -231,7 +227,6 @@ class MarkNotificationsAsRead(generics.UpdateAPIView):
     """
 
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     serializer_class = NotificationSerializers
 
     def post(self, request):
@@ -284,7 +279,6 @@ class DeleteNotification(generics.DestroyAPIView):
     queryset = UserNotification.objects.all()
     serializer_class = DeleteNotificationStatusSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "id"
 
     def destroy(self, request, *args, **kwargs):

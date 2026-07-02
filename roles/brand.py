@@ -31,7 +31,6 @@ from tasks.jobs import (
 from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
@@ -74,7 +73,6 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
     """
 
     serializer_class = RestrictBrandAdSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -178,7 +176,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "User does not exist.",
                     }
                 ),
@@ -198,7 +196,7 @@ class RestrictBrandAdAccountView(generics.CreateAPIView):
             )
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": f"An unexpected error occurred.{e}"}
+                    {"status": "fail", "message": f"An unexpected error occurred.{e}"}
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -218,7 +216,6 @@ class GetAllBrandAdUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListBrandAdSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -276,7 +273,6 @@ class GetAllBrandAdUsers(generics.ListAPIView):
     },
 )
 class AdStatsView(generics.RetrieveAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, user_id, *args, **kwargs):
@@ -345,7 +341,6 @@ class ListAllCampaignsAdminView(generics.ListAPIView):
     """
 
     serializer_class = AdSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -401,7 +396,6 @@ class ListBrandSubmissionsAdminView(generics.ListAPIView):
     """
 
     serializer_class = BrandTaskSubmissionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -458,7 +452,6 @@ class ListBrandSubmissionsAdminView(generics.ListAPIView):
     },
 )
 class PendingSubmissionsAdminView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def get(self, request, *args, **kwargs):
@@ -510,7 +503,6 @@ class PendingSubmissionsAdminView(generics.GenericAPIView):
     },
 )
 class ReviewTaskSubmissionAdminView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def post(self, request, submission_id, *args, **kwargs):
@@ -614,7 +606,6 @@ class BrandTaskListAdminView(generics.GenericAPIView):
     Supports ?status=active|expired and ?task_type= filters.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -719,7 +710,6 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
     Full task detail: info, performance breakdown, demographic, verification requests.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def get(self, request, ad_id):
@@ -733,7 +723,7 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
             )
         except CreateAd.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Brand task not found."}),
+                data=encrypt({"status": "fail", "message": "Brand task not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -877,7 +867,6 @@ class BoostTaskPointsView(generics.GenericAPIView):
     Increases reward_points for an ad by the given amount and tracks it in auto_boost_points.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdAdminOrSuperAdmin)
 
     def post(self, request, ad_id):
@@ -885,7 +874,7 @@ class BoostTaskPointsView(generics.GenericAPIView):
             ad = CreateAd.objects.get(id=ad_id)
         except CreateAd.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Brand task not found."}),
+                data=encrypt({"status": "fail", "message": "Brand task not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -899,7 +888,7 @@ class BoostTaskPointsView(generics.GenericAPIView):
         except (TypeError, ValueError):
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": "amount must be a positive integer."}
+                    {"status": "fail", "message": "amount must be a positive integer."}
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )

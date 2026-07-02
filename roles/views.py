@@ -56,7 +56,6 @@ from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -427,7 +426,6 @@ class AddProduct(generics.GenericAPIView):
     """
 
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsFmcgAdminOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
@@ -549,7 +547,6 @@ class AddAddress(generics.GenericAPIView):
     """
 
     serializer_class = AddFmcgPickupAddressSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsFmcgAdminOrSuperAdmin)]
 
     def post(self, request):
@@ -643,7 +640,6 @@ class AddAdmin(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = AddAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request):
@@ -878,7 +874,7 @@ class AdAdminContd(generics.UpdateAPIView):
                 serializer.errors,
             )
             return Response(
-                data=encrypt({"status": "error", "message": serializer.errors}),
+                data=encrypt({"status": "fail", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -906,7 +902,6 @@ class SetAdminPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateAdminPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def perform_create(self, serializer, request):
@@ -920,7 +915,7 @@ class SetAdminPin(generics.CreateAPIView):
                 f"No pin provided for user: {user.first_name} {user.last_name}"
             )
             return Response(
-                data=encrypt({"status": "error", "message": "Pin is required."}),
+                data=encrypt({"status": "fail", "message": "Pin is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -970,7 +965,7 @@ class SetAdminPin(generics.CreateAPIView):
         else:
             logger.error("Validation errors occurred: %s", serializer.errors)
             return Response(
-                data=encrypt({"status": "error", "message": serializer.errors}),
+                data=encrypt({"status": "fail", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1666,7 +1661,6 @@ class ResetPin(generics.CreateAPIView):
 )
 class AddRoleToAdmin(generics.GenericAPIView):
     serializer_class = AddRoleToAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request):
@@ -1815,7 +1809,6 @@ class AddRoleToAdmin(generics.GenericAPIView):
 )
 class RemoveAdminRole(generics.GenericAPIView):
     serializer_class = RemoveRoleFromAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request):
@@ -1956,7 +1949,6 @@ class DisableAdminrole(APIView):
     queryset = User.objects.all()
     serializer_class = DisableAdminSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -2087,7 +2079,6 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = EnableAdminSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -2211,7 +2202,6 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
 )
 class DeleteAdmin(generics.GenericAPIView):
     serializer_class = AdminDeletionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -2351,7 +2341,6 @@ class VerifiedUsersCount(generics.ListAPIView):
 
     serializer_class = GetUserSerializer
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -2390,7 +2379,6 @@ class VerifiedPartnersCount(generics.ListAPIView):
 
     serializer_class = PartnerProfileSerializer
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -2429,7 +2417,6 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
 
     serializer_class = BrandAdProfileSerializers
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -2486,7 +2473,6 @@ class GetAllAdminUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2568,7 +2554,6 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2661,7 +2646,6 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2726,7 +2710,6 @@ class SwitchRoles(generics.RetrieveAPIView):
     """
 
     serializer_class = SwitchRolesSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def get_object(self):
@@ -2846,7 +2829,6 @@ class SwitchRoles(generics.RetrieveAPIView):
     },
 )
 class GetProfileImage(generics.RetrieveAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
@@ -2885,7 +2867,6 @@ class GetAllAppActivites(generics.ListAPIView):
     receive all app activity logs.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     serializer_class = GetAllActivityLogsSerializer
     pagination_class = CustomPageNumberPagination
@@ -2981,7 +2962,6 @@ class GetAllAdminActivites(generics.ListAPIView):
     created the activity.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     serializer_class = GetAllActivityLogsSerializer
     pagination_class = CustomPageNumberPagination
@@ -3088,7 +3068,6 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     queryset = ActivityModel.objects.all()
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "activity_id"
 
     def retrieve(self, request, *args, **kwargs):
@@ -3205,7 +3184,6 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
     queryset = ActivityModel.objects.all()
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "email"
 
     def get_queryset(self):
@@ -3318,7 +3296,6 @@ class AdminTypesListView(APIView):
     AdminTypesListView is the GET request handler that returns a list of admin types.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def get(self, request):
@@ -3358,7 +3335,6 @@ class ActivityTitleListView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
         logger.info("Accessing the get method to fetch unique activity titles.")
@@ -3433,7 +3409,6 @@ class ActivityTitleListView(APIView):
 class AdminDashboardDataView(APIView):
     serializer_class = AdminDdashboardDataSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request):
         today = timezone.now().date()
@@ -3579,7 +3554,6 @@ class AdminDashboardDataView(APIView):
 )
 class CreateKnowledgeBaseView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -3615,7 +3589,6 @@ class CreateKnowledgeBaseView(generics.GenericAPIView):
 )
 class ListKnowledgeBaseView(generics.ListAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = PaginationStyle
 
@@ -3674,7 +3647,6 @@ class ListKnowledgeBaseView(generics.ListAPIView):
 )
 class KnowledgeBaseDetailView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -3773,7 +3745,6 @@ class KnowledgeBaseDetailView(generics.GenericAPIView):
     },
 )
 class GamificationDashboardView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def get(self, request):
