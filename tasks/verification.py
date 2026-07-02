@@ -372,11 +372,11 @@ def verify_brand_submission(submission) -> dict:
         "",
         "INSTANT FAIL — return Fail with confidence 100 if ANY of these are true:",
         f"- The screenshot is not from {platform} (wrong app, wrong website, error screen, loading screen, blank screen)",
-        f"- The platform UI signals above match a different platform, not {platform}",
         "- The screenshot shows an error message, crash screen, or video player error",
-        "- The screenshot shows a different social media platform entirely",
         "- The required action is not visibly confirmed in the screenshot",
         f"- The target page or profile ({post_url}) cannot be identified anywhere in the screenshot",
+        "",
+        f"UNCERTAIN (flag for manual review) — return Uncertain if you suspect the platform may not be {platform} but are not fully sure. Do NOT auto-fail on platform suspicion alone.",
         "",
     ]
 
