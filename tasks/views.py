@@ -262,8 +262,8 @@ class BrandTaskFeedView(generics.ListAPIView):
         cached = cache.get(cache_key)
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
-
-        brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True).data
+        
+        brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True, context={"request": request}).data
 
         completed_social_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list(
             "task_id", flat=True
