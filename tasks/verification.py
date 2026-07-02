@@ -21,12 +21,14 @@ _SCHEMA = {
         "action_confirmed": {"type": "boolean"},
         "verification_code_found": {"type": "boolean"},
         "target_matched": {"type": "boolean"},
+        "platform_confirmed": {"type": "boolean"},
         "flags": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
         "verdict", "confidence_score", "reasoning",
         "username_matched", "hashtag_found", "mention_found",
-        "action_confirmed", "verification_code_found", "target_matched", "flags",
+        "action_confirmed", "verification_code_found", "target_matched",
+        "platform_confirmed", "flags",
     ],
 }
 
@@ -182,6 +184,36 @@ _PLATFORM_PROOF_GUIDANCE = {
         "Their @handle must be visible, any required hashtag or mention must be present, "
         "and the post content must match the task description: '{hint}'."
     ),
+    # ── Share (all platforms) ────────────────────────────────────────────────
+    ("TikTok", "Share"): (
+        "PROOF TYPE — TikTok Repost/Share: "
+        "Expected screenshot: their TikTok profile showing the reposted video, OR the 'Repost' confirmation screen. "
+        "Must show (1) their @handle and (2) the target video from @{target} or matching '{hint}' identifiable as reposted. "
+        "A screenshot of the share options sheet alone is NOT valid — the repost must be confirmed."
+    ),
+    ("Instagram", "Share"): (
+        "PROOF TYPE — Instagram Share: "
+        "Expected screenshot: their Instagram Story showing the shared post/Reel, OR their feed showing they reposted the content. "
+        "Must show (1) their @handle or profile context and (2) the target content from @{target} or matching '{hint}' visible in the story or feed. "
+        "A screenshot of the share sheet pop-up alone is NOT valid — the content must be visibly shared/posted."
+    ),
+    ("Facebook", "Share"): (
+        "PROOF TYPE — Facebook Share: "
+        "Expected screenshot: their Facebook timeline or feed showing the shared post from {target}. "
+        "Must show (1) their Facebook name on the share and (2) the original post content from {target} matching '{hint}' visible as a shared post. "
+        "The 'Shared [Name]'s post' label should be visible."
+    ),
+    ("YouTube", "Share"): (
+        "PROOF TYPE — YouTube Share: "
+        "Expected screenshot: confirmation that the video was shared, showing the video title or thumbnail from @{target} matching '{hint}'. "
+        "Must show (1) their account context (avatar or channel name) and (2) evidence the video '{hint}' by @{target} was shared — "
+        "e.g. a social share confirmation, copied link screen, or the video shared to another platform."
+    ),
+    ("X", "Share"): (
+        "PROOF TYPE — X (Twitter) Repost: "
+        "Expected screenshot: their X profile showing the reposted tweet from @{target}, OR the 'You reposted' confirmation screen. "
+        "Must show (1) their @handle and (2) the original post from @{target} matching '{hint}' visible as a repost."
+    ),
 }
 
 # Task types that require a per-submission verification code embedded in the text
@@ -292,7 +324,7 @@ def verify_submission(submission) -> dict:
     try:
         response = client.messages.create(
             model=VERIFICATION_MODEL,
-            max_tokens=512,
+            max_tokens=1536,
             output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             messages=[
                 {
@@ -363,20 +395,30 @@ def verify_brand_submission(submission) -> dict:
         f"Target page/profile URL: {post_url}",
         f"Required action(s): {', '.join(required_actions)}",
         "",
-        "PLATFORM IDENTIFICATION — use these distinctive UI signals to confirm the platform:",
-        "- TikTok ONLY: 'Search · [topic]' pill at the top of the comment section; a horizontal emoji reaction strip (❤️ 🙌 🔥 👏 😢 😍 😮 😂) above the comment input; spinning vinyl disc icon in the right sidebar for the audio track; bottom nav shows 'For You / Following / + / Inbox / Me'",
-        "- Instagram ONLY (including Instagram Reels): 'Add a comment...' input with a paper plane ✈️ send button and NO emoji strip above it; sidebar icons are heart/chat-bubble/paper-plane; bottom nav shows Home/Search/Reels(film-strip)/Shop/Profile icons; 'Reels' label visible at the top for Reels posts. IMPORTANT: Instagram Reels is fullscreen vertical video that looks similar to TikTok — check the comment input and bottom nav to confirm it is Instagram, not TikTok",
-        "- YouTube ONLY: thumbs up/down below the video; horizontal video player; channel name with Subscribe button; circular channel avatars",
-        "- Facebook ONLY: 'Write a comment...' input; reaction picker (Like/Love/Haha/Wow/Sad/Angry); blue Facebook header bar",
-        "- X (Twitter) ONLY: 'Post your reply' input; repost/like/bookmark/view count icons under each post; bird or X logo in header",
+        "STEP 1 — PLATFORM CHECK (complete this before anything else):",
+        "Work through each signal below and mark what you can see in the screenshot:",
+        "  TikTok signals:",
+        "    □ Emoji reaction strip (❤️ 🙌 🔥 👏 😢 😍 😮 😂) above the comment input box",
+        "    □ 'Search · [topic]' pill at the top of the comment section",
+        "    □ Spinning vinyl disc icon in the right sidebar for the audio track",
+        "    □ Bottom nav shows: For You / Following / + / Inbox / Me",
+        "  Instagram signals (including Instagram Reels):",
+        "    □ 'Add a comment...' input with a paper plane ✈️ send button and NO emoji strip above it",
+        "    □ Sidebar icons are heart / chat-bubble / paper-plane",
+        "    □ Bottom nav shows: Home / Search / Reels(film-strip) / Shop / Profile",
+        "    □ 'Reels' label at the top of the screen",
+        f"IMPORTANT: Instagram Reels is fullscreen vertical video that looks nearly identical to TikTok. "
+        f"Do NOT classify a screenshot as TikTok unless you can confirm at least TWO TikTok signals above. "
+        f"If you see zero TikTok signals and at least one Instagram signal, set platform_confirmed = true for {platform}. "
+        f"If you cannot confirm at least two signals for either platform, set platform_confirmed = false.",
         "",
         "INSTANT FAIL — return Fail with confidence 100 if ANY of these are true:",
-        f"- The screenshot is not from {platform} (wrong app, wrong website, error screen, loading screen, blank screen)",
-        "- The screenshot shows an error message, crash screen, or video player error",
+        "- The screenshot is an error message, crash screen, loading screen, or blank screen (not a social media app at all)",
+        "- The screenshot shows a video player error",
         "- The required action is not visibly confirmed in the screenshot",
         f"- The target page or profile ({post_url}) cannot be identified anywhere in the screenshot",
         "",
-        f"UNCERTAIN (flag for manual review) — return Uncertain if you suspect the platform may not be {platform} but are not fully sure. Do NOT auto-fail on platform suspicion alone.",
+        f"UNCERTAIN (flag for manual review) — return Uncertain if you suspect the screenshot may be from a different platform than {platform}, or if you cannot confidently identify the platform. Do NOT auto-fail on platform suspicion alone — Instagram Reels in particular looks very similar to TikTok, so always check the comment input style and bottom nav icons before concluding it is the wrong platform.",
         "",
     ]
 
@@ -406,6 +448,7 @@ def verify_brand_submission(submission) -> dict:
             "verdict": "Pass|Fail|Uncertain",
             "confidence_score": "0-100 integer",
             "reasoning": "one or two sentences explaining the verdict",
+            "platform_confirmed": "true if you confirmed the platform using at least two matching signals from STEP 1, false if uncertain",
             "username_matched": "true if the user's profile or handle is visible",
             "target_matched": "true if the target page/profile at the URL is clearly identifiable",
             "hashtag_found": True,
@@ -422,7 +465,7 @@ def verify_brand_submission(submission) -> dict:
     try:
         response = client.messages.create(
             model=BRAND_VERIFICATION_MODEL,
-            max_tokens=512,
+            max_tokens=1536,
             output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             messages=[
                 {
@@ -447,6 +490,11 @@ def verify_brand_submission(submission) -> dict:
     except json.JSONDecodeError as exc:
         logger.error("Non-JSON response from Claude for brand submission %s: %s", submission.pk, raw)
         raise VerificationError("Invalid JSON from Claude") from exc
+
+    if not data.get("platform_confirmed", True):
+        logger.info("Brand submission %s: platform not confirmed — overriding to Uncertain for manual review", submission.pk)
+        data["verdict"] = "Uncertain"
+        data["confidence_score"] = 65
 
     return {
         "verdict": data.get("verdict", "Uncertain"),

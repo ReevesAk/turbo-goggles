@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounts.models import User
 from gamification.points import Points, BASE_POINTS
 from user_profile.fcm import send_push_to_user, send_push_to_admins
-from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
+from .models import BrandTaskSubmission, BrandVerificationResult, TaskSubmission, VerificationResult, UserTrustScore
 from .verification import verify_submission, verify_brand_submission, VerificationError
 
 logger = logging.getLogger(__name__)
@@ -324,6 +324,20 @@ def run_brand_verification(self, submission_id: str):
     action_confirmed = result["action_confirmed"]
     target_matched = result["target_matched"]
 
+    BrandVerificationResult.objects.update_or_create(
+        submission=submission,
+        defaults={
+            "verdict": verdict,
+            "confidence_score": confidence,
+            "ai_reasoning": result["reasoning"],
+            "flags": result["flags"],
+            "platform_confirmed": result.get("platform_confirmed", True),
+            "username_matched": result["username_matched"],
+            "action_confirmed": action_confirmed,
+            "target_matched": target_matched,
+        },
+    )
+
     if verdict == "Pass" and confidence >= 85 and action_confirmed and target_matched:
         approve_brand_submission_now(submission_id, None)
     elif verdict == "Fail" or (verdict == "Pass" and not (action_confirmed and target_matched)) or confidence < 60:
@@ -355,6 +369,12 @@ def run_brand_verification(self, submission_id: str):
         logger.info(
             "Brand submission %s flagged for manual review (verdict=%s, confidence=%d)",
             submission_id, verdict, confidence,
+        )
+        send_push_to_user(
+            user=submission.user,
+            title="Submission Under Review",
+            body=f"Your proof for '{submission.ad.campaign_name}' is being reviewed by our team. We'll notify you once it's checked.",
+            data={"type": "brand_task_flagged", "submission_id": submission_id},
         )
         send_push_to_admins(
             title="Brand Submission Needs Review",
