@@ -25,6 +25,7 @@ from .jobs import (
     run_brand_verification,
 )
 from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
+from user_profile.models import UserLocation
 from .serializers import (
     BrandTaskFeedSerializer,
     BrandTaskSubmissionSerializer,
@@ -36,6 +37,12 @@ from .serializers import (
     TaskSubmissionSerializer,
     UserTrustScoreSerializer,
 )
+from modules.geo_algorithm import (
+    LocationMatcher,
+    TaskSortingStrategy,
+    DEFAULT_RADIUS_KM,
+    get_distance_band,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +51,25 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
-def invalidate_brand_feed_cache(user):
-    """Invalidate brand feed cache for a user with location-based keys."""
+def _brand_feed_cache_version_key(user_id):
+    return f"brand_task_feed_version:{user_id}"
 
-    location_key = f"{user.city}:{user.state}:{user.country}"
-    cache_key = f"brand_task_feed:{user.id}:{location_key}"
-    cache.delete(cache_key)
+
+def _get_brand_feed_cache_version(user_id):
+    version = cache.get(_brand_feed_cache_version_key(user_id))
+    if version is None:
+        version = 1
+        cache.set(_brand_feed_cache_version_key(user_id), version, timeout=None)
+    return version
+
+
+def invalidate_brand_feed_cache(user):
+    """Invalidate brand feed cache for a user by bumping their cache version."""
+    version_key = _brand_feed_cache_version_key(user.id)
+    try:
+        cache.incr(version_key)
+    except ValueError:
+        cache.set(version_key, 1, timeout=None)
 
 
 @extend_schema(
@@ -77,7 +97,11 @@ class SocialTaskListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        submitted_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list("task_id", flat=True)
+        submitted_ids = (
+            TaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("task_id", flat=True)
+        )
         qs = (
             SocialTask.objects.filter(is_active=True)
             .exclude(id__in=submitted_ids)
@@ -166,12 +190,29 @@ class MyTrustScoreView(APIView):
 @extend_schema(
     summary="List active brand campaign tasks (gamification feed)",
     tags=["Tasks"],
-    description="Returns paginated brand ad campaigns as task cards for the gamification feed. Excludes campaigns the user has already submitted and those that have hit their slot cap.",
+    description=(
+        "Returns paginated brand ad campaigns as task cards for the gamification feed. "
+        "Store visit tasks are filtered by proximity to user's location (closest first). "
+        "Other task types are interleaved with store visits for a balanced feed. "
+        "Excludes campaigns the user has already submitted and those that have hit their slot cap."
+    ),
     parameters=[
         OpenApiParameter(
             name="task_type",
             type=OpenApiTypes.STR,
-            description="Filter by task type (e.g. watch_video, social_engage, app_download)",
+            description="Filter by task type (e.g. watch_video, social_engage, app_download, store_visit)",
+        ),
+        OpenApiParameter(
+            name="radius_km",
+            type=OpenApiTypes.FLOAT,
+            description="Search radius in kilometers for store visit tasks (default: 10.0)",
+            default=10.0,
+        ),
+        OpenApiParameter(
+            name="limit_store_visits",
+            type=OpenApiTypes.INT,
+            description="Maximum number of store visit tasks to show (default: 20)",
+            default=20,
         ),
     ],
     responses={
@@ -190,12 +231,31 @@ class BrandTaskFeedView(generics.ListAPIView):
     Returns all active brand ad campaigns as task cards for the gamification feed.
     Excludes campaigns the user has already submitted, and campaigns that have hit
     their slot cap. Supports ?task_type= filter.
+
+    Store visit tasks are filtered by proximity to user's location using PostGIS
+    (ST_DWithin / Distance over a geography-typed location column). Tasks are
+    sorted with nearby store visits prioritized, followed by other task types
+    in a balanced interleaved manner.
     """
 
     serializer_class = BrandTaskFeedSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
+
+    def get_user_location(self, user):
+        """
+        Get user's current location from UserLocation model.
+
+        Returns:
+            tuple: (latitude, longitude) or (None, None) if not found
+        """
+        try:
+            user_location = UserLocation.objects.get(user=user)
+            return user_location.latitude, user_location.longitude
+        except UserLocation.DoesNotExist:
+            logger.warning(f"No location found for user {user.email}")
+            return None, None
 
     def get_queryset(self):
         user = self.request.user
@@ -255,18 +315,100 @@ class BrandTaskFeedView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
 
-        # Include location in cache key to respect targeting
+        # Get radius parameter from query
+        try:
+            radius_km = float(request.query_params.get("radius_km", DEFAULT_RADIUS_KM))
+        except (TypeError, ValueError):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "radius_km must be a valid number.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        radius_km = min(radius_km, 50.0)  # Cap at 50km
+
+        # Get limit for store visits
+        try:
+            limit_store_visits = int(request.query_params.get("limit_store_visits", 20))
+        except (TypeError, ValueError):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "limit_store_visits must be a valid integer.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user = request.user
         location_key = f"{user.city}:{user.state}:{user.country}"
-        cache_key = f"brand_task_feed:{request.user.id}:{location_key}"
+        cache_version = _get_brand_feed_cache_version(user.id)
+        cache_key = (
+            f"brand_task_feed:{request.user.id}:{location_key}:"
+            f"{radius_km}:{limit_store_visits}:v{cache_version}"
+        )
+
         cached = cache.get(cache_key)
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
-        
-        brand_data = BrandTaskFeedSerializer(self.get_queryset(), many=True, context={"request": request}).data
 
-        completed_social_ids = TaskSubmission.objects.filter(user=user).exclude(status="Rejected").values_list(
-            "task_id", flat=True
+        # Fetch data from DB if not cached
+        user_lat, user_lon = self.get_user_location(request.user)
+
+        # Get base queryset
+        queryset = self.get_queryset()
+
+        # Separate store visits from other task types
+        store_visits = queryset.filter(task_type="store_visit")
+        other_brand_tasks = queryset.exclude(task_type="store_visit")
+
+        # Process store visits with location filtering
+        store_data = []
+        if user_lat is not None and user_lon is not None:
+            # Use the location matcher (PostGIS-backed) to filter and sort store visits in a single indexed DB query.
+            matcher = LocationMatcher()
+            matched_store_tasks = matcher.match_tasks_to_user(
+                tasks_queryset=store_visits,
+                user_lat=user_lat,
+                user_lon=user_lon,
+                radius_km=radius_km,
+                max_results=limit_store_visits,
+            )
+
+            # Serialize matched store tasks
+            for item in matched_store_tasks:
+                task = item["task"]
+                task_data = BrandTaskFeedSerializer(task).data
+                task_data["distance_km"] = item["distance_km"]
+                task_data["distance_meters"] = item["distance_meters"]
+                task_data["distance_band"] = get_distance_band(item["distance_km"])
+                store_data.append(task_data)
+
+            logger.info(
+                f"Found {len(store_data)} nearby store visits within {radius_km}km"
+            )
+        else:
+            # Show store visits but without distance info when user location is unavailable
+            store_data = BrandTaskFeedSerializer(store_visits, many=True).data
+            for task_data in store_data:
+                task_data["distance_km"] = None
+                task_data["distance_band"] = "Location unknown"
+
+        # Process other brand tasks that are not store visits (no distance filtering)
+        other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True).data
+        for task_data in other_brand_data:
+            task_data["distance_km"] = None
+            task_data["distance_band"] = "N/A"
+
+        # Get social tasks
+        completed_social_ids = (
+            TaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("task_id", flat=True)
         )
         social_qs = (
             SocialTask.objects.filter(is_active=True)
@@ -278,18 +420,97 @@ class BrandTaskFeedView(generics.ListAPIView):
         social_data = SocialTaskFeedSerializer(
             [t for t in social_qs if t.is_available], many=True
         ).data
+        for task_data in social_data:
+            task_data["distance_km"] = None
+            task_data["distance_band"] = "N/A"
 
+        # Get in-app tasks
         inapp_qs = StreakChallenge.objects.filter(
             is_active=True,
             is_cancelled=False,
             end_date__gte=timezone.now(),
         ).order_by("-created_at")
         inapp_data = InAppTaskFeedSerializer(inapp_qs, many=True).data
+        for task_data in inapp_data:
+            task_data["distance_km"] = None
+            task_data["distance_band"] = "N/A"
 
+        # Apply sorting strategy to combine all tasks
+        sorted_tasks = TaskSortingStrategy.sort_tasks_by_priority_and_distance(
+            brand_tasks=store_data + other_brand_data,
+            social_tasks=social_data,
+            inapp_tasks=inapp_data,
+            user_lat=user_lat,
+            user_lon=user_lon,
+            radius_km=radius_km,
+        )
+
+        def _is_store_visit(task_data):
+            return (
+                task_data.get("task_type") == "store_visit"
+                or task_data.get("type") == "store_visit"
+            )
+
+        store_tasks = [t for t in sorted_tasks if _is_store_visit(t)]
+        other_tasks = [t for t in sorted_tasks if not _is_store_visit(t)]
+
+        if store_tasks and other_tasks:
+            # Interleave store tasks with other types
+            interleaved = TaskSortingStrategy.interleave_tasks_by_type(
+                store_tasks=store_tasks,
+                other_tasks=other_tasks,
+                max_store_per_cycle=3,
+            )
+            final_data = interleaved
+        else:
+            # use sorted order if only one type exists
+            final_data = sorted_tasks
+
+        # Properly handle store_visit filter without hiding valid tasks
+        task_type_filter = self.request.query_params.get("task_type")
+        if task_type_filter:
+            if task_type_filter == "store_visit":
+                # If location is NOT available, distance_km will be None but they're still valid store visits
+                final_data = [
+                    t
+                    for t in final_data
+                    if t.get("task_type") == "store_visit"
+                    or t.get("type") == "store_visit"
+                ]
+                # Add a note in metadata about location status
+                location_status = "available" if user_lat is not None else "unavailable"
+                logger.info(
+                    f"Filtered to {len(final_data)} store visits (location {location_status})"
+                )
+            else:
+                # Filter by task_type field in the data
+                final_data = [
+                    t
+                    for t in final_data
+                    if t.get("task_type") == task_type_filter
+                    or t.get("type") == task_type_filter
+                ]
+
+        # Prepare response data with metadata
         response_data = {
             "status": "success",
             "message": "Tasks retrieved successfully.",
-            "data": list(brand_data) + list(social_data) + list(inapp_data),
+            "data": final_data,
+            "metadata": {
+                "total_tasks": len(final_data),
+                "store_visits_found": len(store_tasks),
+                "other_tasks_found": len(other_tasks),
+                "user_location": (
+                    {"latitude": user_lat, "longitude": user_lon}
+                    if user_lat is not None
+                    else None
+                ),
+                "search_radius_km": radius_km,
+                "has_user_location": user_lat is not None,
+                "location_filter_applied": (
+                    task_type_filter == "store_visit" if task_type_filter else False
+                ),
+            },
         }
 
         cache.set(cache_key, response_data, timeout=60)
