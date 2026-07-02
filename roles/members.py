@@ -14,7 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User
 from gamification.points import Points
-from permissions import IsNotDisabled, IsMemberAdminOrSuperAdmin
+from permissions import IsNotDisabled, IsMemberAdminOrSuperAdminOrTaskAdmin
 from user_profile.fcm import send_push_to_user
 from user_profile.models import HandleChangeRequest, MemberSurvey
 from user_profile.serializers import (
@@ -31,7 +31,11 @@ HANDLE_CHANGE_COST = 50
 
 class AllMembersView(generics.ListAPIView):
     serializer_class = MemberSerializer
-    permission_classes = [IsAuthenticated, IsNotDisabled, IsMemberAdminOrSuperAdmin]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled,
+        IsMemberAdminOrSuperAdminOrTaskAdmin,
+    ]
     authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
@@ -80,7 +84,7 @@ class AllMembersView(generics.ListAPIView):
 class ListHandleChangeRequestsView(generics.ListAPIView):
     serializer_class = HandleChangeRequestDetailSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def get_queryset(self):
         qs = HandleChangeRequest.objects.select_related("user", "reviewed_by")
@@ -108,7 +112,7 @@ class ListHandleChangeRequestsView(generics.ListAPIView):
 class ReviewHandleChangeRequestView(generics.GenericAPIView):
     serializer_class = ReviewHandleChangeSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def patch(self, request, pk):
         try:
