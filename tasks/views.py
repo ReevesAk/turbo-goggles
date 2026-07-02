@@ -51,12 +51,25 @@ class PaginationStyle(PageNumberPagination):
     page_size = 20
 
 
-def invalidate_brand_feed_cache(user):
-    """Invalidate brand feed cache for a user with location-based keys."""
+def _brand_feed_cache_version_key(user_id):
+    return f"brand_task_feed_version:{user_id}"
 
-    location_key = f"{user.city}:{user.state}:{user.country}"
-    cache_key = f"brand_task_feed:{user.id}:{location_key}"
-    cache.delete(cache_key)
+
+def _get_brand_feed_cache_version(user_id):
+    version = cache.get(_brand_feed_cache_version_key(user_id))
+    if version is None:
+        version = 1
+        cache.set(_brand_feed_cache_version_key(user_id), version, timeout=None)
+    return version
+
+
+def invalidate_brand_feed_cache(user):
+    """Invalidate brand feed cache for a user by bumping their cache version."""
+    version_key = _brand_feed_cache_version_key(user.id)
+    try:
+        cache.incr(version_key)
+    except ValueError:
+        cache.set(version_key, 1, timeout=None)
 
 
 @extend_schema(
@@ -302,17 +315,42 @@ class BrandTaskFeedView(generics.ListAPIView):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
 
         # Get radius parameter from query
-        radius_km = float(request.query_params.get("radius_km", DEFAULT_RADIUS_KM))
+        try:
+            radius_km = float(request.query_params.get("radius_km", DEFAULT_RADIUS_KM))
+        except (TypeError, ValueError):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "radius_km must be a valid number.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         radius_km = min(radius_km, 50.0)  # Cap at 50km
 
         # Get limit for store visits
-        limit_store_visits = int(request.query_params.get("limit_store_visits", 20))
+        try:
+            limit_store_visits = int(request.query_params.get("limit_store_visits", 20))
+        except (TypeError, ValueError):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "limit_store_visits must be a valid integer.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user = request.user
         location_key = f"{user.city}:{user.state}:{user.country}"
+        cache_version = _get_brand_feed_cache_version(user.id)
         cache_key = (
             f"brand_task_feed:{request.user.id}:{location_key}:"
-            f"{radius_km}:{limit_store_visits}"
+            f"{radius_km}:{limit_store_visits}:v{cache_version}"
         )
+
         cached = cache.get(cache_key)
         if cached:
             return Response(data=encrypt(cached), status=status.HTTP_200_OK)
@@ -366,8 +404,10 @@ class BrandTaskFeedView(generics.ListAPIView):
             task_data["distance_band"] = "N/A"
 
         # Get social tasks
-        completed_social_ids = TaskSubmission.objects.filter(user=user).values_list(
-            "task_id", flat=True
+        completed_social_ids = (
+            TaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("task_id", flat=True)
         )
         social_qs = (
             SocialTask.objects.filter(is_active=True)
@@ -404,10 +444,14 @@ class BrandTaskFeedView(generics.ListAPIView):
             radius_km=radius_km,
         )
 
-        # Interleave tasks for better variety to ensure that users see a mix of task types
-        # Only interleave if we have both store and other tasks
-        store_tasks = [t for t in sorted_tasks if t.get("distance_km") is not None]
-        other_tasks = [t for t in sorted_tasks if t.get("distance_km") is None]
+        def _is_store_visit(task_data):
+            return (
+                task_data.get("task_type") == "store_visit"
+                or task_data.get("type") == "store_visit"
+            )
+
+        store_tasks = [t for t in sorted_tasks if _is_store_visit(t)]
+        other_tasks = [t for t in sorted_tasks if not _is_store_visit(t)]
 
         if store_tasks and other_tasks:
             # Interleave store tasks with other types

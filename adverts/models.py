@@ -167,7 +167,7 @@ class CreateAd(models.Model):
                 days=int(self.campaign_duration)
             )
 
-        if self.latitude is not None and self.longitude is not None:
+        if self.latitude and self.longitude:
             self.location = Point(
                 float(self.longitude), float(self.latitude), srid=4326
             )
