@@ -13,7 +13,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from django.db.models import Q, F
-from adverts.models import CreateAd
+from adverts.models import CreateAd, StoreVisitQRCode
 from commons import Messaging, first_validation_error
 from gamification.models import StreakChallenge, UserStreak
 from gamification.points import Points
@@ -24,15 +24,19 @@ from .jobs import (
     run_verification,
     run_brand_verification,
 )
-from .models import BrandTaskSubmission, SocialTask, TaskSubmission, UserTrustScore
+from .models import BrandTaskSubmission, SocialTask, StoreVisitArrival, TaskSubmission, UserTrustScore
 from user_profile.models import UserLocation
 from .serializers import (
     BrandTaskFeedSerializer,
     BrandTaskSubmissionSerializer,
     CompleteWebviewTaskSerializer,
     InAppTaskFeedSerializer,
+    ScanStoreVisitQRSerializer,
     SocialTaskFeedSerializer,
     SocialTaskSerializer,
+    StoreVisitArrivalIdSerializer,
+    StoreVisitArriveSerializer,
+    StoreVisitConfirmOTPSerializer,
     SubmitTaskSerializer,
     TaskSubmissionSerializer,
     UserTrustScoreSerializer,
@@ -92,7 +96,6 @@ def invalidate_brand_feed_cache(user):
 )
 class SocialTaskListView(generics.ListAPIView):
     serializer_class = SocialTaskSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -138,7 +141,6 @@ class SocialTaskListView(generics.ListAPIView):
 )
 class MySubmissionsView(generics.ListAPIView):
     serializer_class = TaskSubmissionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -169,7 +171,6 @@ class MySubmissionsView(generics.ListAPIView):
     responses={200: UserTrustScoreSerializer},
 )
 class MyTrustScoreView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -239,7 +240,6 @@ class BrandTaskFeedView(generics.ListAPIView):
     """
 
     serializer_class = BrandTaskFeedSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
 
@@ -322,7 +322,7 @@ class BrandTaskFeedView(generics.ListAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "radius_km must be a valid number.",
                     }
                 ),
@@ -337,7 +337,7 @@ class BrandTaskFeedView(generics.ListAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "limit_store_visits must be a valid integer.",
                     }
                 ),
@@ -546,7 +546,6 @@ class BrandTaskFeedView(generics.ListAPIView):
 )
 class SubmitBrandTaskView(generics.CreateAPIView):
     serializer_class = SubmitTaskSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
@@ -651,7 +650,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             )
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": first_validation_error(err.detail)}
+                    {"status": "fail", "message": first_validation_error(err.detail)}
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -665,7 +664,7 @@ class SubmitBrandTaskView(generics.CreateAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Submission failed. Please try again.",
                     }
                 ),
@@ -703,7 +702,6 @@ class CompleteWebviewTaskView(APIView):
     in-app StreakChallenge tasks of those types created from the admin (source='inapp').
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -758,7 +756,7 @@ class CompleteWebviewTaskView(APIView):
                     return Response(
                         data=encrypt(
                             {
-                                "status": "error",
+                                "status": "fail",
                                 "message": "Already recorded today's activity for this challenge.",
                             }
                         ),
@@ -815,7 +813,7 @@ class CompleteWebviewTaskView(APIView):
             logger.info("Webview task completion validation failed: %s", err.detail)
             return Response(
                 data=encrypt(
-                    {"status": "error", "message": first_validation_error(err.detail)}
+                    {"status": "fail", "message": first_validation_error(err.detail)}
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -824,7 +822,7 @@ class CompleteWebviewTaskView(APIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Task completion failed. Please try again.",
                     }
                 ),
@@ -915,7 +913,6 @@ class SubmitSurveyTaskView(APIView):
     and immediately awards points (mobile has already verified the responses).
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -930,7 +927,7 @@ class SubmitSurveyTaskView(APIView):
             if not task_id:
                 return Response(
                     data=encrypt(
-                        {"status": "error", "message": "task_id is required."}
+                        {"status": "fail", "message": "task_id is required."}
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -939,7 +936,7 @@ class SubmitSurveyTaskView(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "answers must be a non-empty list.",
                         }
                     ),
@@ -954,7 +951,7 @@ class SubmitSurveyTaskView(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "Survey task not found or inactive.",
                         }
                     ),
@@ -965,7 +962,7 @@ class SubmitSurveyTaskView(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "You have already submitted this survey.",
                         }
                     ),
@@ -1011,7 +1008,7 @@ class SubmitSurveyTaskView(APIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Survey submission failed. Please try again.",
                     }
                 ),
@@ -1036,7 +1033,6 @@ class SubmitSurveyTaskView(APIView):
 )
 class MyBrandSubmissionsView(generics.ListAPIView):
     serializer_class = BrandTaskSubmissionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
 
@@ -1065,3 +1061,404 @@ class MyBrandSubmissionsView(generics.ListAPIView):
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Complete a store-visit via QR scan or visit code",
+    tags=["Tasks"],
+    description=(
+        "Completes a store-visit task and credits points immediately. "
+        "Send either a QR token (scanned from the brand's QR code) or a visit code "
+        "(short alphanumeric code the store owner reads out or shows to the user when they cannot scan). "
+        "Each user can only complete a given campaign once."
+    ),
+    request=inline_serializer(
+        name="ScanStoreVisitQRRequest",
+        fields={"token": s.UUIDField()},
+    ),
+    responses={
+        201: inline_serializer(
+            name="ScanStoreVisitQRResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="ScanStoreVisitQRData",
+                    fields={
+                        "submission_id": s.UUIDField(),
+                        "reward_points": s.IntegerField(),
+                        "reward_issued": s.BooleanField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="ScanStoreVisitQRError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ScanStoreVisitQRView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = ScanStoreVisitQRSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+
+            qr = serializer.qr
+            ad = qr.ad
+
+            submission = BrandTaskSubmission.objects.create(
+                ad=ad,
+                user=request.user,
+                notes="Completed via QR code scan.",
+            )
+            points_awarded = approve_brand_submission_now(str(submission.pk), None)
+
+            StoreVisitQRCode.objects.filter(pk=qr.pk).update(scan_count=F("scan_count") + 1)
+            invalidate_brand_feed_cache(request.user)
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Store visit recorded. Points credited.",
+                    "data": {
+                        "submission_id": str(submission.pk),
+                        "reward_points": points_awarded or 0,
+                        "reward_issued": True,
+                    },
+                }),
+                status=status.HTTP_201_CREATED,
+            )
+
+        except s.ValidationError as err:
+            return Response(
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error(
+                "ScanStoreVisitQRView failed for user %s: %s",
+                request.user.id,
+                str(err),
+                exc_info=True,
+            )
+            return Response(
+                data=encrypt({"status": "error", "message": "QR scan failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Arrive at a store-visit campaign",
+    tags=["Tasks"],
+    description=(
+        "Marks the authenticated user as arrived for a store-visit campaign. "
+        "Identify the campaign by task_id or by the visit code the store owner shows the user. "
+        "Returns an arrival_id used in the OTP and no-show endpoints."
+    ),
+    request=inline_serializer(
+        name="StoreVisitArriveRequest",
+        fields={
+            "task_id": s.IntegerField(required=False),
+            "code": s.CharField(required=False),
+        },
+    ),
+    responses={
+        201: inline_serializer(
+            name="StoreVisitArriveResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="StoreVisitArriveData",
+                    fields={
+                        "arrival_id": s.UUIDField(),
+                        "campaign_name": s.CharField(),
+                        "reward_points": s.IntegerField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
+class StoreVisitArriveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = StoreVisitArriveSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+
+            ad = serializer.ad
+            existing = serializer.existing_arrival
+
+            if existing and existing.status == "arrived":
+                return Response(
+                    data=encrypt({
+                        "status": "success",
+                        "message": "You have already checked in. Proceed with OTP or QR scan.",
+                        "data": {
+                            "arrival_id": str(existing.id),
+                            "campaign_name": ad.campaign_name,
+                            "reward_points": ad.reward_points or 0,
+                        },
+                    }),
+                    status=status.HTTP_200_OK,
+                )
+
+            arrival = StoreVisitArrival.objects.create(ad=ad, user=request.user)
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Arrival recorded. Scan the QR code, ask the store owner for the visit code, or request an OTP.",
+                    "data": {
+                        "arrival_id": str(arrival.id),
+                        "campaign_name": ad.campaign_name,
+                        "reward_points": ad.reward_points or 0,
+                    },
+                }),
+                status=status.HTTP_201_CREATED,
+            )
+
+        except s.ValidationError as err:
+            return Response(
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error("StoreVisitArriveView error for user %s: %s", request.user.id, err, exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Could not record arrival. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Report store not available (no-show)",
+    tags=["Tasks"],
+    description=(
+        "Called by the user when they arrive at the store location but the brand or store owner "
+        "is not present. Marks the arrival as no-show so the system can log the failed visit."
+    ),
+    request=inline_serializer(
+        name="StoreVisitNoShowRequest",
+        fields={"arrival_id": s.UUIDField()},
+    ),
+    responses={
+        200: inline_serializer(
+            name="StoreVisitNoShowResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class StoreVisitNoShowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = StoreVisitArrivalIdSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            arrival = serializer.arrival
+
+            if arrival.status != "arrived":
+                return Response(
+                    data=encrypt({
+                        "status": "error",
+                        "message": "No active arrival to report. Check in first.",
+                    }),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            arrival.status = "no_show"
+            arrival.save(update_fields=["status", "updated_at"])
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Sorry the store was unavailable. Your visit has been logged.",
+                }),
+                status=status.HTTP_200_OK,
+            )
+
+        except s.ValidationError as err:
+            return Response(
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error("StoreVisitNoShowView error for user %s: %s", request.user.id, err, exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Request failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Send OTP for store-visit verification",
+    tags=["Tasks"],
+    description=(
+        "Generates a 6-digit OTP and sends it via SMS to the authenticated user's phone. "
+        "The user must have an active arrival (call /arrive/ first). "
+        "Confirm the OTP with /confirm-otp/ to complete the task and earn points."
+    ),
+    request=inline_serializer(
+        name="StoreVisitSendOTPRequest",
+        fields={"arrival_id": s.UUIDField()},
+    ),
+    responses={
+        200: inline_serializer(
+            name="StoreVisitSendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class StoreVisitSendOTPView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = StoreVisitArrivalIdSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            arrival = serializer.arrival
+
+            if arrival.status != "arrived":
+                return Response(
+                    data=encrypt({
+                        "status": "error",
+                        "message": "No active arrival found. Please check in first.",
+                    }),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            otp = "".join([str(i) for i in [
+                __import__("secrets").randbelow(10) for _ in range(6)
+            ]])
+            arrival.otp = otp
+            arrival.otp_sent_at = timezone.now()
+            arrival.save(update_fields=["otp", "otp_sent_at", "updated_at"])
+
+            user = request.user
+            try:
+                Messaging.send_sms(
+                    phone_number=user.phone_number,
+                    msg=f"Your Picadailys store visit code is: {otp}. Valid for 10 minutes.",
+                )
+            except Exception:
+                logger.exception("Failed to send store visit OTP SMS to user %s", user.id)
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Verification code sent to your registered phone number.",
+                }),
+                status=status.HTTP_200_OK,
+            )
+
+        except s.ValidationError as err:
+            return Response(
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error("StoreVisitSendOTPView error for user %s: %s", request.user.id, err, exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "Could not send OTP. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Confirm store-visit OTP and complete the task",
+    tags=["Tasks"],
+    description=(
+        "Validates the OTP sent to the user's phone. On success the store-visit task is marked "
+        "complete and points are credited immediately."
+    ),
+    request=inline_serializer(
+        name="StoreVisitConfirmOTPRequest",
+        fields={"arrival_id": s.UUIDField(), "otp": s.CharField()},
+    ),
+    responses={
+        201: inline_serializer(
+            name="StoreVisitConfirmOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="StoreVisitConfirmOTPData",
+                    fields={
+                        "submission_id": s.UUIDField(),
+                        "reward_points": s.IntegerField(),
+                        "reward_issued": s.BooleanField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
+class StoreVisitConfirmOTPView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            decrypted_data = decrypt(request.data)
+            serializer = StoreVisitConfirmOTPSerializer(
+                data=decrypted_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            arrival = serializer.arrival
+            ad = arrival.ad
+
+            submission = BrandTaskSubmission.objects.create(
+                ad=ad,
+                user=request.user,
+                notes="Completed via OTP verification.",
+            )
+            points_awarded = approve_brand_submission_now(str(submission.pk), None)
+
+            arrival.otp_verified = True
+            arrival.status = "completed"
+            arrival.completed_at = timezone.now()
+            arrival.save(update_fields=["otp_verified", "status", "completed_at", "updated_at"])
+
+            invalidate_brand_feed_cache(request.user)
+
+            return Response(
+                data=encrypt({
+                    "status": "success",
+                    "message": "Store visit verified. Points credited.",
+                    "data": {
+                        "submission_id": str(submission.pk),
+                        "reward_points": points_awarded or 0,
+                        "reward_issued": True,
+                    },
+                }),
+                status=status.HTTP_201_CREATED,
+            )
+
+        except s.ValidationError as err:
+            return Response(
+                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as err:
+            logger.error("StoreVisitConfirmOTPView error for user %s: %s", request.user.id, err, exc_info=True)
+            return Response(
+                data=encrypt({"status": "error", "message": "OTP confirmation failed. Please try again."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )

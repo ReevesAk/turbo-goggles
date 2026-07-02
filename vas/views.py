@@ -8,7 +8,6 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 
 # from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import (
@@ -77,7 +76,6 @@ class AirTimeTopUp(generics.GenericAPIView):
     """
 
     serializer_class = AirtimeTopupSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     # Private Helper: Success
@@ -729,7 +727,6 @@ class DataSubscriptionView(generics.GenericAPIView):
     """
 
     serializer_class = DataSubscriptionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     # Private Helper: Success
@@ -1581,7 +1578,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Service request failed. Please try again.",
                     }
                 ),
@@ -1618,7 +1615,6 @@ class BillPaymentView(generics.GenericAPIView):
     """
 
     serializer_class = BillPaymentSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def _handle_success(

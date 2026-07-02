@@ -11,7 +11,7 @@ from .models import (
     VerificationResult,
     UserTrustScore,
 )
-from adverts.models import CreateAd
+from adverts.models import CreateAd, StoreVisitQRCode
 from gamification.models import StreakChallenge, UserStreak
 
 
@@ -480,4 +480,149 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
 
             attrs["challenge"] = challenge
 
+        return attrs
+
+
+class ScanStoreVisitQRSerializer(serializers.Serializer):
+    """Accepts either a QR token (UUID from scan) or the visit code the store owner shows the user."""
+
+    token = serializers.UUIDField(required=False)
+    code = serializers.CharField(required=False, max_length=20)
+
+    def validate(self, attrs):
+        token = attrs.get("token")
+        code = attrs.get("code")
+
+        if not token and not code:
+            raise serializers.ValidationError("Provide either a QR token or a visit code.")
+
+        try:
+            if token:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(token=token)
+            else:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(
+                    visit_code=code.strip().upper()
+                )
+        except StoreVisitQRCode.DoesNotExist:
+            raise serializers.ValidationError("Invalid QR code or visit code.")
+
+        ad = qr.ad
+        user = self.context["request"].user
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is no longer active.")
+
+        if ad.expiry_date and ad.expiry_date < timezone.now():
+            raise serializers.ValidationError("This campaign has expired.")
+
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            raise serializers.ValidationError("This campaign's slots are full.")
+
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        attrs["_qr"] = qr
+        return attrs
+
+    @property
+    def qr(self):
+        return self.validated_data["_qr"]
+
+
+# ── Store visit arrival flow serializers ─────────────────────────────────────
+
+class StoreVisitArriveSerializer(serializers.Serializer):
+    """Identify the campaign by ad ID or visit code."""
+
+    task_id = serializers.IntegerField(required=False)
+    code = serializers.CharField(required=False, max_length=20)
+
+    def validate(self, attrs):
+        from .models import StoreVisitArrival
+        task_id = attrs.get("task_id")
+        code = attrs.get("code")
+
+        if not task_id and not code:
+            raise serializers.ValidationError("Provide either task_id or a visit code.")
+
+        try:
+            if task_id:
+                ad = CreateAd.objects.get(pk=task_id, task_type="store_visit")
+            else:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(
+                    visit_code=code.strip().upper()
+                )
+                ad = qr.ad
+        except (CreateAd.DoesNotExist, StoreVisitQRCode.DoesNotExist):
+            raise serializers.ValidationError("Store visit campaign not found.")
+
+        user = self.context["request"].user
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is no longer active.")
+
+        if ad.expiry_date and ad.expiry_date < timezone.now():
+            raise serializers.ValidationError("This campaign has expired.")
+
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            raise serializers.ValidationError("This campaign's slots are full.")
+
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        existing = StoreVisitArrival.objects.filter(ad=ad, user=user).first()
+        if existing and existing.status == "completed":
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        attrs["_ad"] = ad
+        attrs["_existing_arrival"] = existing
+        return attrs
+
+    @property
+    def ad(self):
+        return self.validated_data["_ad"]
+
+    @property
+    def existing_arrival(self):
+        return self.validated_data["_existing_arrival"]
+
+
+class StoreVisitArrivalIdSerializer(serializers.Serializer):
+    """Base serializer for endpoints that operate on an existing arrival."""
+
+    arrival_id = serializers.UUIDField()
+
+    def validate_arrival_id(self, value):
+        from .models import StoreVisitArrival
+        user = self.context["request"].user
+        try:
+            arrival = StoreVisitArrival.objects.select_related("ad").get(
+                id=value, user=user
+            )
+        except StoreVisitArrival.DoesNotExist:
+            raise serializers.ValidationError("Arrival record not found.")
+        self._arrival = arrival
+        return value
+
+    @property
+    def arrival(self):
+        return self._arrival
+
+
+class StoreVisitConfirmOTPSerializer(StoreVisitArrivalIdSerializer):
+    otp = serializers.CharField(min_length=6, max_length=6)
+
+    def validate(self, attrs):
+        arrival = self.arrival
+        if arrival.status != "arrived":
+            raise serializers.ValidationError(
+                "This arrival is no longer active." if arrival.status == "no_show"
+                else "This store visit is already completed."
+            )
+        if not arrival.otp:
+            raise serializers.ValidationError("No OTP has been sent for this arrival yet.")
+        if arrival.otp != attrs["otp"]:
+            raise serializers.ValidationError("Incorrect OTP.")
+        if BrandTaskSubmission.objects.filter(ad=arrival.ad, user=arrival.user).exclude(status="Rejected").exists():
+            raise serializers.ValidationError("You have already completed this store visit.")
         return attrs

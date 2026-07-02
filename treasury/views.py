@@ -60,7 +60,6 @@ class CreateTreasuryAccount(generics.GenericAPIView):
     """
 
     serializer_class = CreateTreasuryAccountSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -207,7 +206,6 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
     """
 
     serializer_class = TreasuryAccountDetailsSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -279,7 +277,6 @@ class SetAccountPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateAccountPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 
     def create(self, request, *args, **kwargs):
@@ -363,7 +360,6 @@ class ForgotAccountPin(generics.GenericAPIView):
     """
 
     serializer_class = TreasuryStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 
     def post(self, request):
@@ -422,7 +418,6 @@ class PinResendOTP(generics.GenericAPIView):
     """
 
     serializer_class = TreasuryStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 
     def post(self, request):
@@ -476,7 +471,6 @@ class PinVerifyOTP(generics.GenericAPIView):
     """
 
     serializer_class = TreasuryVerifyPinOTPSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 
     def post(self, request):
@@ -523,7 +517,6 @@ class ResetAccountPin(generics.CreateAPIView):
     """
 
     serializer_class = ResetAccountPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsPartnerUserOrMember]
 
     def create(self, request):
@@ -592,7 +585,6 @@ class UpgradeTierTwoView(generics.GenericAPIView):
     """
 
     serializer_class = UpgradeTier2Serializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -684,7 +676,6 @@ class UpgradeTierThreeView(generics.GenericAPIView):
     """
 
     serializer_class = UpgradeTier3Serializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -775,7 +766,6 @@ class UpgradeTierThreeView(generics.GenericAPIView):
     },
 )
 class ListBeneficiariesView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -797,7 +787,6 @@ class ListBeneficiariesView(generics.GenericAPIView):
     },
 )
 class DeleteBeneficiaryView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
@@ -832,7 +821,6 @@ class GetTreasuryCashbackBalance(generics.GenericAPIView):
     Equivalent to GetCashbackBalance in banking.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
