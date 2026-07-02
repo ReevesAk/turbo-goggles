@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 
@@ -248,3 +249,19 @@ class AdLocation(models.Model):
             if self.state and self.city
             else "Unknown Location"
         )
+
+
+class StoreVisitQRCode(models.Model):
+    """One QR code per store-visit ad campaign. Scanning it completes the task for that user."""
+
+    ad = models.OneToOneField(
+        CreateAd, on_delete=models.CASCADE, related_name="store_visit_qr"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    visit_code = models.CharField(max_length=20, unique=True, blank=True)
+    qr_image_url = models.CharField(max_length=500, blank=True, null=True)
+    scan_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"QR for {self.ad.campaign_name} ({self.visit_code})"

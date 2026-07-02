@@ -73,5 +73,5 @@ class JoinCampaignEndpointTests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 		body = decrypt(response.data)
-		self.assertEqual(body["status"], "error")
+		self.assertEqual(body["status"], "fail")
 		self.assertIn("Campaign not found", body["message"])

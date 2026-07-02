@@ -232,3 +232,34 @@ class BrandTaskSubmission(BaseModel):
 
     def __str__(self):
         return f"{self.user} → {self.ad.campaign_name} [{self.status}]"
+
+
+ARRIVAL_STATUS = (
+    ("arrived", "Arrived"),
+    ("no_show", "No Show"),
+    ("completed", "Completed"),
+)
+
+
+class StoreVisitArrival(BaseModel):
+    """Tracks a user's in-progress store visit before task completion."""
+
+    ad = models.ForeignKey(
+        CreateAd, on_delete=models.CASCADE, related_name="store_arrivals"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="store_arrivals"
+    )
+    status = models.CharField(
+        choices=ARRIVAL_STATUS, max_length=20, default="arrived"
+    )
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_sent_at = models.DateTimeField(null=True, blank=True)
+    otp_verified = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("ad", "user")
+
+    def __str__(self):
+        return f"{self.user} @ {self.ad.campaign_name} [{self.status}]"

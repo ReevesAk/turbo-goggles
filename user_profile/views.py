@@ -14,7 +14,6 @@ from django.db import transaction
 from rest_framework import generics, exceptions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
@@ -540,7 +539,6 @@ class SwitchToMember(generics.RetrieveAPIView):
     """
 
     serializer_class = SwitchToMemberSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
@@ -645,7 +643,6 @@ class SwitchToPartner(generics.RetrieveAPIView):
     """
 
     serializer_class = SwitchToPartnersSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
@@ -752,7 +749,6 @@ class SwitchToBrandAd(generics.RetrieveAPIView):
     """
 
     serializer_class = SwitchToBrandAdSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
@@ -855,7 +851,6 @@ class ProfileImage(generics.UpdateAPIView):
     """
 
     serializer_class = ProfileImageSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def update(self, request, *args, **kwargs):
@@ -928,7 +923,6 @@ class ChooseAlertTypeView(generics.GenericAPIView):
     """
 
     serializer_class = SetAlertTypeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -971,7 +965,6 @@ class GetUserDetails(generics.RetrieveAPIView):
     """User Detials"""
 
     serializer_class = GetUserSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def retrieve(self, request, *args, **kwargs):
@@ -1000,7 +993,6 @@ class UpdateUserProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
     serializer_class = UpdateUserSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
@@ -1114,7 +1106,6 @@ class UpdateUserProfile(generics.UpdateAPIView):
 )
 class ChangePassword(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
     throttle_scope = "password_change"
 
@@ -1351,7 +1342,6 @@ class PostMemberSurvey(generics.CreateAPIView):
     """
 
     serializer_class = MemberSurveySerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def create(self, request, *args, **kwargs):
@@ -1423,7 +1413,6 @@ HANDLE_FIELDS = {
 )
 class SocialProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = MemberSurveySerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
@@ -1486,7 +1475,6 @@ class SocialProfileView(generics.RetrieveUpdateAPIView):
 )
 class RequestHandleChangeView(generics.CreateAPIView):
     serializer_class = HandleChangeRequestSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
@@ -1561,7 +1549,6 @@ class RequestHandleChangeView(generics.CreateAPIView):
 )
 class DeleteUser(generics.DestroyAPIView):
     serializer_class = DeleteUserSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request, *args, **kwargs):
@@ -1679,7 +1666,6 @@ class DeleteUser(generics.DestroyAPIView):
     },
 )
 class SelfDeleteAccount(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
@@ -1775,7 +1761,6 @@ class OpenRewardBox(generics.GenericAPIView):
     """
 
     serializer_class = OpenRewardBoxSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request):
@@ -1878,7 +1863,6 @@ class ClaimMysteryBoxGift(generics.GenericAPIView):
     """
 
     serializer_class = ClaimRewardSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request):
@@ -2036,7 +2020,6 @@ class AddToFavourite(generics.CreateAPIView):
     """
 
     serializer_class = AddToFavouriteSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
@@ -2156,7 +2139,6 @@ class ListFavourites(generics.ListAPIView):
     """
 
     serializer_class = FavouriteSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -2190,7 +2172,6 @@ class RetrieveFavourite(generics.RetrieveAPIView):
     """
 
     serializer_class = FavouriteSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -2243,7 +2224,6 @@ class CustomerTicketCreation(generics.GenericAPIView):
     """
 
     serializer_class = SupportTicketSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
@@ -2331,7 +2311,6 @@ class CustomerTicketCreation(generics.GenericAPIView):
 )
 class RateAgentViewByCustomer(generics.GenericAPIView):
     serializer_class = AgentRatingSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
@@ -2428,7 +2407,6 @@ example_response = OpenApiExample(
 )
 class TierListView(generics.RetrieveAPIView):
     serializer_class = TierListResponseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
@@ -2479,7 +2457,6 @@ class RegisterDeviceTokenView(generics.GenericAPIView):
     Body: { "token": "<FCM_TOKEN>", "platform": "android" | "ios" | "web" }
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
@@ -2489,7 +2466,7 @@ class RegisterDeviceTokenView(generics.GenericAPIView):
 
         if not token:
             return Response(
-                data=encrypt({"status": "error", "message": "token is required."}),
+                data=encrypt({"status": "fail", "message": "token is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
