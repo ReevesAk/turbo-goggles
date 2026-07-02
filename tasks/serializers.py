@@ -267,6 +267,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "time_remaining",
             "is_active",
             "ad_media",
+            "user_status"
         ]
         read_only_fields = fields
 
