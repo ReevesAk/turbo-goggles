@@ -443,10 +443,11 @@ class IsAdAdminOrSuperAdmin(permissions.BasePermission):
         if not request.user.is_authenticated:
             return False
 
-        # Check if the user is either AdAdmin or SuperAdmin
+        # Check if the user is either AdAdmin or SuperAdmin or TaskAdmin
         if (
             request.user.active_role == "AdAdmin"
             or request.user.active_role == "SuperAdmin"
+            or request.user.active_role == "TaskAdmin"
         ):
             return True
 
