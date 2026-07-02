@@ -382,7 +382,7 @@ class BrandTaskFeedView(generics.ListAPIView):
             # Serialize matched store tasks
             for item in matched_store_tasks:
                 task = item["task"]
-                task_data = BrandTaskFeedSerializer(task).data
+                task_data = BrandTaskFeedSerializer(task, context={"request": request}).data
                 task_data["distance_km"] = item["distance_km"]
                 task_data["distance_meters"] = item["distance_meters"]
                 task_data["distance_band"] = get_distance_band(item["distance_km"])
@@ -393,13 +393,13 @@ class BrandTaskFeedView(generics.ListAPIView):
             )
         else:
             # Show store visits but without distance info when user location is unavailable
-            store_data = BrandTaskFeedSerializer(store_visits, many=True).data
+            store_data = BrandTaskFeedSerializer(store_visits, many=True, context={"request": request}).data
             for task_data in store_data:
                 task_data["distance_km"] = None
                 task_data["distance_band"] = "Location unknown"
 
         # Process other brand tasks that are not store visits (no distance filtering)
-        other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True).data
+        other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True, context={"request": request}).data
         for task_data in other_brand_data:
             task_data["distance_km"] = None
             task_data["distance_band"] = "N/A"
