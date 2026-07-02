@@ -116,7 +116,7 @@ class CreateStepCampaign(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="[Admin] List all step count campaigns",
+    summary="List all step count campaigns",
     tags=["Tasks"],
     description="Returns all step count campaigns ordered by creation date. Results are cached for 10 minutes.",
     responses={
@@ -138,7 +138,7 @@ class GetAllStepCampaigns(generics.ListAPIView):
 
     serializer_class = StepCampaignListSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
     queryset = StepCampaignModel.objects.all().order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
