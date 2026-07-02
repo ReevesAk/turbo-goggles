@@ -1193,6 +1193,13 @@ class GetAccountDetails(generics.GenericAPIView):
 
         if wallet_data and wallet_data.get("status") == "SUCCESS":
             live_data = wallet_data.get("data", {})
+
+            # Keep DB in sync so the fallback is never stale
+            live_balance = live_data.get("availableBalance")
+            if live_balance is not None:
+                acct_details.balance = live_balance
+                acct_details.save(update_fields=["balance"])
+
             serializer = WalletEnquirySerializer(live_data)
             response = {
                 "status": "success",
