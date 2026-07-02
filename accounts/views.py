@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
 import rest_framework.serializers as s
@@ -1249,7 +1248,6 @@ class ResetPassword(generics.CreateAPIView):
 )
 class Logout(APIView):
     serializer_class = LogoutSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
@@ -1294,6 +1292,6 @@ class Logout(APIView):
             return Response(
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 data=encrypt(
-                    {"status": "error", "message": "Logout failed. Please try again."}
+                    {"status": "fail", "message": "Logout failed. Please try again."}
                 ),
             )

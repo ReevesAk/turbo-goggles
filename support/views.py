@@ -795,7 +795,6 @@ class ListUserDetailsAPI(generics.ListAPIView):
     ListUserDetailsAPI handles the GET request to list all agents and moderators.
     """
     serializer_class = UserProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -839,7 +838,6 @@ class CreateTicket(generics.CreateAPIView):
     a customer and generating a ticket.
     """
     serializer_class = CreateTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
@@ -1012,7 +1010,6 @@ class AssignTicket(generics.GenericAPIView):
     """
 
     serializer_class = AssignTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -1163,7 +1160,6 @@ class ReassignTicket(generics.GenericAPIView):
     """
 
     serializer_class = AssignTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -1323,7 +1319,6 @@ class UpdateTicketStatus(generics.GenericAPIView):
     """
 
     serializer_class = UpdateTicketStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1432,7 +1427,6 @@ class UpdateTicketStatus(generics.GenericAPIView):
 )
 class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1506,7 +1500,6 @@ class EscalateTicketAPIView(APIView):
     },
 )
 class TicketRRTrailAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1579,7 +1572,6 @@ class GetAllSupportTickets(generics.ListAPIView):
     retrieve all support tickets created.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -1646,7 +1638,6 @@ class GetMyAssignedTickets(generics.ListAPIView):
     Allows an admin to retrieve tickets assigned to them.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -1717,7 +1708,6 @@ class GetSingleTicket(generics.RetrieveAPIView):
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsAgent]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     lookup_field = "number"
@@ -1805,7 +1795,6 @@ class GetTicketByChannel(generics.ListAPIView):
     """
 
     serializer_class = TicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1844,7 +1833,7 @@ class GetTicketByChannel(generics.ListAPIView):
             logger.exception(f"Error occurred while searching for partners: {e}")
             return Response(
                 {
-                    "status": "error",
+                    "status": "fail",
                     "message": "An error occurred while processing the request.",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1869,7 +1858,6 @@ class DeleteTicket(generics.DestroyAPIView):
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
     lookup_field = "number"
     lookup_url_kwarg = "ticket_number"
@@ -1919,7 +1907,6 @@ class RateSupportAgent(generics.GenericAPIView):
 
     serializer_class = AgentRatingSerializers
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
     lookup_field = "ticket_number"
 
@@ -2012,7 +1999,6 @@ class UsersWithTickets(generics.ListAPIView):
 
     serializer_class = TicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def get(self, request, *args, **kwargs):
@@ -2049,7 +2035,6 @@ class AddAgent(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = AddAgentSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     throttle_classes = []
 
@@ -2150,13 +2135,13 @@ class AddAgent(generics.CreateAPIView):
             message = first_validation_error(e.detail)
             logger.warning(f"Validation error creating agent: {e.detail}")
             return Response(
-                data={"status": "error", "message": message},
+                data={"status": "fail", "message": message},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}", exc_info=True)
             return Response(
-                data={"status": "error", "message": "An unexpected error occurred. Please try again."},
+                data={"status": "fail", "message": "An unexpected error occurred. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2290,7 +2275,6 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = DisableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def post(self, request, *args, **kwargs):
@@ -2374,7 +2358,6 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = EnableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def post(self, request, *args, **kwargs):
@@ -2455,7 +2438,6 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
 )
 class DeleteAgent(generics.GenericAPIView):
     serializer_class = AgentDeletionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsManagerOrSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -2816,7 +2798,6 @@ class SetAgentPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateAgentPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     throttle_classes = []
 
@@ -2898,7 +2879,6 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAgentModeratorAndManagerSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -3003,7 +2983,6 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
 
     queryset = Ticket.objects.all()
     serializer_class = CompleteTicketSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -3070,7 +3049,6 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
     },
 )
 class ReopenTicketAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 

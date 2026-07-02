@@ -7,7 +7,6 @@ from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
@@ -30,7 +29,6 @@ class GetAllTreasuryAccounts(generics.ListAPIView):
     """
 
     serializer_class = ListTreasuryAccountsSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
 
     def get_queryset(self):
@@ -82,7 +80,6 @@ class TreasuryAccountSearch(generics.ListAPIView):
     """
 
     serializer_class = TreasuryAccountStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
 
     def get(self, request, *args, **kwargs):
@@ -119,7 +116,6 @@ class ChangeTreasuryAccountStatusView(generics.RetrieveAPIView):
     """
 
     serializer_class = ChangeTreasuryAccountStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):

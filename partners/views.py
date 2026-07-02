@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 from cloudinary import uploader as cloud
 
@@ -85,7 +84,6 @@ class CreatePartner(generics.GenericAPIView):
     """
 
     serializer_class = BecomePartnerSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
@@ -161,7 +159,7 @@ class CreatePartner(generics.GenericAPIView):
                 return Response(
                     data=encrypt(
                         {
-                            "status": "error",
+                            "status": "fail",
                             "message": "An error occurred during registration.",
                         }
                     ),
@@ -184,7 +182,6 @@ class CreatePartner(generics.GenericAPIView):
 )
 class ListAllPartners(generics.ListAPIView):
     serializer_class = PartnerProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin | IsSuperAdmin)
     ]
@@ -267,7 +264,6 @@ class CreatePartnerService(generics.CreateAPIView):
     """
 
     serializer_class = PartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)
     parser_classes = (
         MultiPartParser,
@@ -469,7 +465,6 @@ class UpdatePartnerService(generics.UpdateAPIView):
     """
 
     serializer_class = UpdatePartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
     parser_classes = (
         MultiPartParser,
@@ -627,7 +622,6 @@ class PartnerServiceList(generics.ListAPIView):
     """
 
     serializer_class = PartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PaginationStyle
 
@@ -695,7 +689,7 @@ class PartnerServiceList(generics.ListAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while fetching services.",
                     }
                 ),
@@ -728,7 +722,6 @@ class PartnerServiceDetailView(views.APIView):
     """
 
     serializer_class = PartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_object(self, service_id):
@@ -788,7 +781,6 @@ class DeletePartnerService(generics.DestroyAPIView):
     queryset = PartnerServices.objects.all()
     serializer_class = PartnerServiceSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
-    authentication_classes = [JWTAuthentication]
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -888,7 +880,6 @@ class DeletePartnerService(generics.DestroyAPIView):
 )
 class AllPartnersServiceList(generics.ListAPIView):
     serializer_class = PartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = permission_classes = [
         IsAuthenticated & (IsPartnerUserOrMember | IsPartnerAdmin)
     ]
@@ -945,7 +936,6 @@ class GetPartnerDetails(generics.RetrieveAPIView):
     """GetPartnerDetails returns the profile details of a partner user."""
 
     serializer_class = PartnerProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)
 
     def retrieve(self, request, *args, **kwargs):
@@ -965,7 +955,6 @@ class UpdatePartnerProfile(generics.UpdateAPIView):
     """Update User Profile"""
 
     serializer_class = UpdateProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def get_object(self):
@@ -993,7 +982,6 @@ class PartnerServicePhotosList(generics.ListAPIView):
     """List view to retrieve all partner service photos."""
 
     serializer_class = PartnerServicePhotosSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def get_queryset(self):
@@ -1016,7 +1004,6 @@ class PartnerServiceGymTrainersPhotosList(generics.ListAPIView):
     """List view to retrieve all partner gym trainer photos."""
 
     serializer_class = PartnerServiceGymPhotosSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsPartner | IsPartnerAdmin)]
 
     def get_queryset(self):
@@ -1065,7 +1052,6 @@ class VerifyPartnerBusinessView(generics.GenericAPIView):
     """
 
     serializer_class = VerifyPartnerSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartner)
 
     def post(self, request):
@@ -1183,7 +1169,7 @@ class VerifyPartnerBusinessView(generics.GenericAPIView):
                 exc.detail,
             )
             return Response(
-                data=encrypt({"status": "error", "message": message}),
+                data=encrypt({"status": "fail", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

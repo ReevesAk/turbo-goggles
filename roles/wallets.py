@@ -20,7 +20,6 @@ from .serializers import (
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from accounts.models import UserNotification, TxModel
@@ -61,7 +60,6 @@ class GetallWalletUsers(generics.ListAPIView):
     """
 
     serializer_class = ListWalletUsersSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
@@ -150,7 +148,6 @@ class WalletSearch(generics.ListAPIView):
     """
 
     serializer_class = WalletStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
@@ -217,7 +214,6 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
     """
 
     serializer_class = ChangeWalletStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
@@ -310,7 +306,6 @@ class ChangeWalletStatusView(generics.RetrieveAPIView):
 )
 class UserKYCListView(generics.ListAPIView):
     serializer_class = WalletKYCSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
@@ -385,7 +380,6 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
     """UpgradeToTier3Wallet Handles the POST request of sending a Tier 3 wallet upgrade."""
 
     serializer_class = Tier3WalletUpgradeSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         IsNotDisabled,
@@ -481,7 +475,7 @@ class UpgradeToTier3Wallet(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Wallet upgrade request failed. Please try again.",
                     }
                 ),
@@ -522,7 +516,6 @@ class RequestCorporateAddressVerification(generics.GenericAPIView):
     distinguish corporate records from individual ones.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
@@ -669,7 +662,6 @@ class SubmitCorporateTo9PSB(generics.GenericAPIView):
     3. Sends the complete multipart package (docs + proof of address) to 9PSB.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsNotDisabled, IsWalletAdminOrSuperAdmin]
     parser_classes = (MultiPartParser, FormParser)
 
