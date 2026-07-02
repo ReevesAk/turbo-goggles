@@ -253,9 +253,6 @@ class StoreVisitArrival(BaseModel):
     status = models.CharField(
         choices=ARRIVAL_STATUS, max_length=20, default="arrived"
     )
-    otp = models.CharField(max_length=6, blank=True, null=True)
-    otp_sent_at = models.DateTimeField(null=True, blank=True)
-    otp_verified = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

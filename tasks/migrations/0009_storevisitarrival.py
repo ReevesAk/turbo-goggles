@@ -32,9 +32,6 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("otp", models.CharField(blank=True, max_length=6, null=True)),
-                ("otp_sent_at", models.DateTimeField(blank=True, null=True)),
-                ("otp_verified", models.BooleanField(default=False)),
                 ("completed_at", models.DateTimeField(blank=True, null=True)),
                 (
                     "ad",

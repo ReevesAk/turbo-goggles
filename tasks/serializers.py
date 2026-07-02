@@ -609,20 +609,3 @@ class StoreVisitArrivalIdSerializer(serializers.Serializer):
         return self._arrival
 
 
-class StoreVisitConfirmOTPSerializer(StoreVisitArrivalIdSerializer):
-    otp = serializers.CharField(min_length=6, max_length=6)
-
-    def validate(self, attrs):
-        arrival = self.arrival
-        if arrival.status != "arrived":
-            raise serializers.ValidationError(
-                "This arrival is no longer active." if arrival.status == "no_show"
-                else "This store visit is already completed."
-            )
-        if not arrival.otp:
-            raise serializers.ValidationError("No OTP has been sent for this arrival yet.")
-        if arrival.otp != attrs["otp"]:
-            raise serializers.ValidationError("Incorrect OTP.")
-        if BrandTaskSubmission.objects.filter(ad=arrival.ad, user=arrival.user).exclude(status="Rejected").exists():
-            raise serializers.ValidationError("You have already completed this store visit.")
-        return attrs
