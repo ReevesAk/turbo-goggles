@@ -285,7 +285,7 @@ def _ad_success_response(ad) -> dict:
             data["store_visit"] = {
                 "visit_code": qr.visit_code,
                 "qr_image_url": qr.qr_image_url,
-                "note": "Your QR code image is being generated and will be emailed to you shortly.",
+                "note": "Your QR code image has been emailed to you. Display it at your store.",
             }
         except Exception:
             pass
