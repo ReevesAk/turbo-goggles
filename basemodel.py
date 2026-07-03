@@ -29,7 +29,8 @@ class ItemPurchaseBaseModel(models.Model):
     use_bonus = models.BooleanField(default=False)
     use_points = models.BooleanField(default=False)
     use_rewards = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True

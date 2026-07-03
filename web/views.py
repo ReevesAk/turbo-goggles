@@ -82,7 +82,11 @@ class CreateJob(generics.CreateAPIView):
         current_user = request.user
         pin = payload.get("pin")
 
-        if not check_password(pin, current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(pin, current_user.admin_pin)
+        ):
             return Response(
                 encrypt({"status": "fail", "message": "Incorrect pin."}),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -211,7 +215,11 @@ class UpdateJob(generics.UpdateAPIView):
         serializer = self.get_serializer(job, data=decrypted_payload, partial=True)
         current_user = request.user
         pin = decrypted_payload.get("pin")
-        if not check_password(password=pin, encoded=current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(password=pin, encoded=current_user.admin_pin)
+        ):
             return Response(
                 data=encrypt(
                     {
@@ -477,8 +485,11 @@ class SingleJobApplicationsList(generics.ListAPIView):
 
         current_user = request.user
 
-        # 🔑 Validate admin PIN
-        if not check_password(pin, current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(pin, current_user.admin_pin)
+        ):
             return Response(
                 encrypt({"status": "fail", "message": "Incorrect PIN."}),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -545,7 +556,11 @@ class DeleteJobApplication(generics.DestroyAPIView):
 
         current_user = request.user
         pin = decrypted_payload.get("pin")
-        if not check_password(password=pin, encoded=current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(password=pin, encoded=current_user.admin_pin)
+        ):
             return Response(
                 data=encrypt(
                     {
