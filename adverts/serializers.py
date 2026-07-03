@@ -411,7 +411,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             AdMedia.objects.create(brand=create_ad, images=image, videos=video)
 
         if task_type == "store_visit":
-            from .tasks import _make_visit_code
+            from .tasks import _make_visit_code, generate_qr_image_and_upload
 
             brand_name = (
                 create_ad.business_or_brand_name or create_ad.campaign_name or ""
@@ -419,7 +419,17 @@ class CreateAdSerializers(serializers.ModelSerializer):
             visit_code = _make_visit_code(brand_name)
             while StoreVisitQRCode.objects.filter(visit_code=visit_code).exists():
                 visit_code = _make_visit_code(brand_name)
-            StoreVisitQRCode.objects.create(ad=create_ad, visit_code=visit_code)
+            qr_record = StoreVisitQRCode.objects.create(
+                ad=create_ad, visit_code=visit_code
+            )
+            # Generate + upload QR image synchronously so the URL is in the response
+            qr_image_url = generate_qr_image_and_upload(str(qr_record.token))
+            if qr_image_url:
+                qr_record.qr_image_url = qr_image_url
+                qr_record.save(update_fields=["qr_image_url"])
+                from .tasks import email_qr_to_brand_task
+
+                email_qr_to_brand_task.delay(create_ad.pk)
 
         return create_ad
 

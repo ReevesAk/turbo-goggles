@@ -21,30 +21,8 @@ def _make_visit_code(brand_name: str) -> str:
     return f"{acronym}-{suffix}"
 
 
-@shared_task
-def generate_store_visit_qr_task(ad_id: int):
-    """Generate a QR code and visit code for a store-visit ad, upload to Cloudinary, and email the brand."""
-    from .models import CreateAd, StoreVisitQRCode
-
-    try:
-        ad = CreateAd.objects.select_related("user").get(pk=ad_id)
-    except CreateAd.DoesNotExist:
-        logger.error("generate_store_visit_qr_task: ad %s not found", ad_id)
-        return
-
-    if StoreVisitQRCode.objects.filter(ad=ad).exists():
-        logger.info("QR code already exists for ad %s — skipping", ad_id)
-        return
-
-    # Generate a unique visit code with brand acronym prefix
-    brand_name = ad.business_or_brand_name or ad.campaign_name or ""
-    visit_code = _make_visit_code(brand_name)
-    while StoreVisitQRCode.objects.filter(visit_code=visit_code).exists():
-        visit_code = _make_visit_code(brand_name)
-
-    qr_obj = StoreVisitQRCode.objects.create(ad=ad, visit_code=visit_code)
-    token = str(qr_obj.token)
-
+def generate_qr_image_and_upload(token: str) -> str:
+    """Generate a QR code PNG for the given token, upload to Cloudinary, and return the secure URL."""
     qr_content = f"picadailys://store-visit?token={token}"
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(qr_content)
@@ -63,14 +41,27 @@ def generate_store_visit_qr_task(ad_id: int):
             resource_type="image",
             overwrite=False,
         )
-        qr_image_url = upload_result.get("secure_url", "")
-        qr_obj.qr_image_url = qr_image_url
-        qr_obj.save(update_fields=["qr_image_url"])
+        return upload_result.get("secure_url", "")
     except Exception:
-        logger.exception("Failed to upload QR code to Cloudinary for ad %s", ad_id)
+        logger.exception("Failed to upload QR code to Cloudinary for token %s", token)
+        return ""
+
+
+@shared_task
+def email_qr_to_brand_task(ad_id: int):
+    """Send the QR code image and visit code to the brand by email."""
+    from .models import CreateAd, StoreVisitQRCode
+
+    try:
+        ad = CreateAd.objects.select_related("user").get(pk=ad_id)
+        qr_obj = StoreVisitQRCode.objects.get(ad=ad)
+    except (CreateAd.DoesNotExist, StoreVisitQRCode.DoesNotExist):
+        logger.error(
+            "email_qr_to_brand_task: ad or QR record not found for ad %s", ad_id
+        )
         return
 
-    _email_qr_to_brand(ad, qr_image_url, visit_code)
+    _email_qr_to_brand(ad, qr_obj.qr_image_url, qr_obj.visit_code)
 
 
 def _email_qr_to_brand(ad, qr_image_url: str, visit_code: str):
