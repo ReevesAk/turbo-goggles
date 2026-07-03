@@ -273,6 +273,25 @@ _ERROR_RESP = inline_serializer(
         ),
     ],
 )
+def _ad_success_response(ad) -> dict:
+    """Build the success payload for ad creation, including QR data for store-visit ads."""
+    data = {
+        "status": "Success!",
+        "message": "Brand advert promoted successfully.",
+    }
+    if ad.task_type == "store_visit":
+        try:
+            qr = ad.store_visit_qr
+            data["store_visit"] = {
+                "visit_code": qr.visit_code,
+                "qr_image_url": qr.qr_image_url,
+                "note": "Your QR code image is being generated and will be emailed to you shortly.",
+            }
+        except Exception:
+            pass
+    return data
+
+
 class CreateAdAndOnboardBrandView(generics.CreateAPIView):
     serializer_class = CreateAdSerializers
     permission_classes = (IsAuthenticated,)
@@ -429,12 +448,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                                 account.save(update_fields=["balance"])
 
                         return Response(
-                            data=encrypt(
-                                {
-                                    "status": "Success!",
-                                    "message": "Brand advert promoted successfully.",
-                                }
-                            ),
+                            data=encrypt(_ad_success_response(new_ad)),
                             status=status.HTTP_200_OK,
                         )
 
@@ -488,12 +502,7 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                         credit_applied,
                     )
                     return Response(
-                        data=encrypt(
-                            {
-                                "status": "Success!",
-                                "message": "Brand advert promoted successfully.",
-                            }
-                        ),
+                        data=encrypt(_ad_success_response(new_ad)),
                         status=status.HTTP_200_OK,
                     )
 

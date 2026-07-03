@@ -8,7 +8,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
 from accounts.models import User
-from .models import CreateAd, AdLocation, AdMedia
+from .models import CreateAd, AdLocation, AdMedia, StoreVisitQRCode
 
 logger = logging.getLogger(__name__)
 
@@ -409,6 +409,17 @@ class CreateAdSerializers(serializers.ModelSerializer):
 
         for image, video in zip_longest(images, videos):
             AdMedia.objects.create(brand=create_ad, images=image, videos=video)
+
+        if task_type == "store_visit":
+            from .tasks import _make_visit_code
+
+            brand_name = (
+                create_ad.business_or_brand_name or create_ad.campaign_name or ""
+            )
+            visit_code = _make_visit_code(brand_name)
+            while StoreVisitQRCode.objects.filter(visit_code=visit_code).exists():
+                visit_code = _make_visit_code(brand_name)
+            StoreVisitQRCode.objects.create(ad=create_ad, visit_code=visit_code)
 
         return create_ad
 
