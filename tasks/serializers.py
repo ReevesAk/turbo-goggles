@@ -487,7 +487,15 @@ class ScanStoreVisitQRSerializer(serializers.Serializer):
     """Accepts either a QR token (UUID from scan) or the visit code the store owner shows the user."""
 
     token = serializers.UUIDField(required=False)
-    code = serializers.CharField(required=False, max_length=20)
+    code = serializers.CharField(required=False, max_length=20, allow_blank=True)
+
+    def to_internal_value(self, data):
+        data = dict(data)
+        if not data.get("token"):
+            data.pop("token", None)
+        if not data.get("code"):
+            data.pop("code", None)
+        return super().to_internal_value(data)
 
     def validate(self, attrs):
         token = attrs.get("token")
@@ -535,7 +543,15 @@ class StoreVisitArriveSerializer(serializers.Serializer):
     """Identify the campaign by ad ID or visit code."""
 
     task_id = serializers.IntegerField(required=False)
-    code = serializers.CharField(required=False, max_length=20)
+    code = serializers.CharField(required=False, max_length=20, allow_blank=True)
+
+    def to_internal_value(self, data):
+        data = dict(data)
+        if not data.get("task_id"):
+            data.pop("task_id", None)
+        if not data.get("code"):
+            data.pop("code", None)
+        return super().to_internal_value(data)
 
     def validate(self, attrs):
         from .models import StoreVisitArrival
@@ -545,16 +561,21 @@ class StoreVisitArriveSerializer(serializers.Serializer):
         if not task_id and not code:
             raise serializers.ValidationError("Provide either task_id or a visit code.")
 
-        try:
-            if task_id:
-                ad = CreateAd.objects.get(pk=task_id, task_type="store_visit")
-            else:
+        if task_id:
+            try:
+                ad = CreateAd.objects.get(pk=task_id)
+            except CreateAd.DoesNotExist:
+                raise serializers.ValidationError("Task not found.")
+            if ad.task_type != "store_visit":
+                raise serializers.ValidationError("This task is not a store-visit campaign.")
+        else:
+            try:
                 qr = StoreVisitQRCode.objects.select_related("ad").get(
                     visit_code=code.strip().upper()
                 )
-                ad = qr.ad
-        except (CreateAd.DoesNotExist, StoreVisitQRCode.DoesNotExist):
-            raise serializers.ValidationError("Store visit campaign not found.")
+            except StoreVisitQRCode.DoesNotExist:
+                raise serializers.ValidationError("Invalid visit code.")
+            ad = qr.ad
 
         user = self.context["request"].user
 

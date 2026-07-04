@@ -1213,7 +1213,13 @@ class StoreVisitArriveView(APIView):
                     status=status.HTTP_200_OK,
                 )
 
-            arrival = StoreVisitArrival.objects.create(ad=ad, user=request.user)
+            if existing:
+                existing.status = "arrived"
+                existing.completed_at = None
+                existing.save(update_fields=["status", "completed_at"])
+                arrival = existing
+            else:
+                arrival = StoreVisitArrival.objects.create(ad=ad, user=request.user)
 
             return Response(
                 data=encrypt({
