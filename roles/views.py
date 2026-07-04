@@ -3439,6 +3439,7 @@ class AdminDashboardDataView(APIView):
                     | Q(
                         transaction_type="INTRA_BANK",
                         beneficiary_account_number__isnull=False,
+                        sender_account_number__isnull=True,
                     )
                 )
             elif direction == "outbound":
