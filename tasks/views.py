@@ -1103,6 +1103,11 @@ class ScanStoreVisitQRView(APIView):
     def post(self, request):
         try:
             decrypted_data = decrypt(request.data)
+            logger.info(
+                "ScanStoreVisitQRView payload for user %s: %r",
+                request.user.id,
+                decrypted_data,
+            )
             serializer = ScanStoreVisitQRSerializer(
                 data=decrypted_data, context={"request": request}
             )
@@ -1135,8 +1140,14 @@ class ScanStoreVisitQRView(APIView):
             )
 
         except s.ValidationError as err:
+            message = first_validation_error(err.detail)
+            logger.warning(
+                "ScanStoreVisitQRView validation failed for user %s: %s",
+                request.user.id,
+                message,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                data=encrypt({"status": "error", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
@@ -1235,8 +1246,14 @@ class StoreVisitArriveView(APIView):
             )
 
         except s.ValidationError as err:
+            message = first_validation_error(err.detail)
+            logger.warning(
+                "StoreVisitArriveView validation failed for user %s: %s",
+                request.user.id,
+                message,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                data=encrypt({"status": "error", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
