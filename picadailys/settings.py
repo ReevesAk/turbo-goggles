@@ -388,7 +388,9 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
-CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_BROKER_URL = REDIS_LOCATION
+if REDIS_LOCATION.startswith("rediss://"):
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": "CERT_NONE"}
 
 from celery.schedules import crontab
 
