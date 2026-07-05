@@ -1,5 +1,6 @@
 import secrets
 import string
+import uuid
 
 from django.utils import timezone
 from rest_framework import serializers
@@ -486,7 +487,7 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
 class ScanStoreVisitQRSerializer(serializers.Serializer):
     """Accepts either a QR token (UUID from scan) or the visit code the store owner shows the user."""
 
-    token = serializers.UUIDField(required=False)
+    token = serializers.CharField(required=False, max_length=64)
     code = serializers.CharField(required=False, max_length=20, allow_blank=True)
 
     def to_internal_value(self, data):
@@ -503,6 +504,15 @@ class ScanStoreVisitQRSerializer(serializers.Serializer):
 
         if not token and not code:
             raise serializers.ValidationError("Provide either a QR token or a visit code.")
+
+        # Clients send both scanned QR tokens (UUIDs) and manually-typed visit
+        # codes (e.g. "PIC-A3X9K2") under the same "token" field, so detect
+        # which one we got rather than trusting the field name.
+        if token:
+            try:
+                uuid.UUID(token)
+            except ValueError:
+                code, token = token, None
 
         try:
             if token:
