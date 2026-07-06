@@ -7,6 +7,7 @@ from rest_framework import serializers
 from accounts.models import User
 from .models import Ticket, AgentRating, TicketAssignmentHistory
 from accounts.models import USER_CATEGORY_CHOICES, AccountType
+from banking.models import WalletModel
 
 logger = logging.getLogger("support")
 
@@ -67,19 +68,40 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serailizers for our Partners' profile."""
 
+    date_of_birth = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id",
+            "full_name",
             "first_name",
             "last_name",
             "profile_img_url",
             "email",
             "active_role",
             "phone_number",
+            "address",
+            "date_of_birth",
             "created_at",
             "welcome_bonus",
         ]
+
+    def get_wallet(self, obj):
+        if not hasattr(self, "_wallet_cache"):
+            self._wallet_cache = {}
+        if obj.id not in self._wallet_cache:
+            self._wallet_cache[obj.id] = WalletModel.objects.filter(user=obj).first()
+        return self._wallet_cache[obj.id]
+
+    def get_date_of_birth(self, obj):
+        wallet = self.get_wallet(obj)
+        return wallet.dateOfBirth if wallet else None
+
+    def get_address(self, obj):
+        wallet = self.get_wallet(obj)
+        return wallet.address if wallet else None
 
 
 class SupportVerifyOTPSerializer(serializers.Serializer):
