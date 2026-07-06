@@ -70,6 +70,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     date_of_birth = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
+    wallet_created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -85,6 +86,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "address",
             "date_of_birth",
             "created_at",
+            "wallet_created_at",
             "welcome_bonus",
         ]
 
@@ -102,6 +104,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_address(self, obj):
         wallet = self.get_wallet(obj)
         return wallet.address if wallet else None
+
+    def get_wallet_created_at(self, obj):
+        wallet = self.get_wallet(obj)
+        return wallet.created_at if wallet else None
 
 
 class SupportVerifyOTPSerializer(serializers.Serializer):
