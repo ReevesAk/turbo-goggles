@@ -261,7 +261,8 @@ class LoginAdmin(APIView):
             return Response(
                 data=encrypt(
                     {
-                        "error": "Account locked due to too many failed login attempts. Try again later."
+                        "status": "fail",
+                        "message": "Account locked due to too many failed login attempts. Try again later.",
                     }
                 ),
                 status=status.HTTP_403_FORBIDDEN,
@@ -269,8 +270,20 @@ class LoginAdmin(APIView):
         if not user_obj:
             logger.warning(f"Login attempt failed: User with email {email} not found.")
             return Response(
-                data=encrypt({"error": "Invalid credentials"}),
+                data=encrypt({"status": "fail", "message": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if user_obj.is_admin_disabled:
+            logger.warning(f"Login attempt blocked: Admin account {email} is disabled.")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "This admin account has been disabled.",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Authenticate using the phone number and password
@@ -290,7 +303,8 @@ class LoginAdmin(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "error": "User cannot login on more than two devices, oldest device ID deleted."
+                            "status": "fail",
+                            "message": "User cannot login on more than two devices, oldest device ID deleted.",
                         }
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
@@ -383,7 +397,8 @@ class LoginAdmin(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "error": "Too many failed login attempts. Account locked for 30 minutes."
+                            "status": "fail",
+                            "message": "Too many failed login attempts. Account locked for 30 minutes.",
                         }
                     ),
                     status=status.HTTP_403_FORBIDDEN,

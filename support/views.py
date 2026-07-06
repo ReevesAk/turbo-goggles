@@ -1087,14 +1087,14 @@ class AssignTicket(generics.GenericAPIView):
             )
 
         if authenticated_user == user:
-            is_manager = AccountType.objects.filter(
+            is_manager_or_moderator = AccountType.objects.filter(
                 user=authenticated_user,
-                user_type="Manager"
+                user_type__in=["Manager", "Moderator"]
             ).exists()
 
-            if not is_manager:
+            if not is_manager_or_moderator:
                 raise PermissionDenied(
-                    "Only a Manager is allowed to assign a ticket to themselves."
+                    "Only a Manager or Moderator is allowed to assign a ticket to themselves."
                 )
 
         allowed_roles = ["Agent", "Manager", "Moderator"]
@@ -1245,16 +1245,16 @@ class ReassignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Make sure only a manager can reassign to themsleves.
+        # Make sure only a manager or moderator can reassign to themselves.
         if authenticated_user == user:
-            is_manager = AccountType.objects.filter(
+            is_manager_or_moderator = AccountType.objects.filter(
                 user=authenticated_user,
-                user_type="Manager"
+                user_type__in=["Manager", "Moderator"]
             ).exists()
 
-            if not is_manager:
+            if not is_manager_or_moderator:
                 raise PermissionDenied(
-                    "Only a Manager is allowed to reassign a ticket to themselves."
+                    "Only a Manager or Moderator is allowed to reassign a ticket to themselves."
                 )
 
         allowed_roles = ["Agent", "Manager", "Moderator"]
@@ -1473,6 +1473,18 @@ class EscalateTicketAPIView(APIView):
             from_role=from_role,
             to_role=to_role,
             reason=serializer.validated_data["reason"],
+        )
+
+        # Also record in TicketAssignmentHistory, since that's what the
+        # ticket-rr-trail endpoint (TicketRRTrailAPIView) reads from.
+        TicketAssignmentHistory.objects.create(
+            ticket=ticket,
+            assigned_by=authenticated_user,
+            previous_agent=from_user,
+            new_agent=to_user,
+            priority=ticket.priority,
+            reason=serializer.validated_data["reason"],
+            action="escalate",
         )
 
         # 2️⃣ Update ticket
