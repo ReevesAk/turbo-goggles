@@ -390,6 +390,19 @@ class AirTimeTopUp(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if airtime_response is None:
+                    status_resp = VAS.confirm_status(
+                        tx_ref=tx_reference, bearer_token=token
+                    )
+                    if status_resp and VAS.is_success(status_resp):
+                        return self._handle_airtime_success(
+                            user=user,
+                            phone=phone,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                            cashback=cashback_used,
+                            account_number=account_number,
+                        )
                     return self._handle_airtime_failure(
                         user=user,
                         phone=phone,
@@ -453,6 +466,19 @@ class AirTimeTopUp(generics.GenericAPIView):
                             tx_ref=tx_reference,
                         )
                         if airtime_response is None:
+                            status_resp = VAS.confirm_status(
+                                tx_ref=tx_reference, bearer_token=token
+                            )
+                            if status_resp and VAS.is_success(status_resp):
+                                return self._handle_airtime_success(
+                                    user=user,
+                                    phone=phone,
+                                    amount=amount,
+                                    network=network,
+                                    tx_reference=tx_reference,
+                                    cashback=cashback_used,
+                                    account_number=account_number,
+                                )
                             return self._handle_airtime_failure(
                                 user=user,
                                 phone=phone,
@@ -515,6 +541,19 @@ class AirTimeTopUp(generics.GenericAPIView):
                         tx_ref=tx_reference,
                     )
                     if airtime_response is None:
+                        status_resp = VAS.confirm_status(
+                            tx_ref=tx_reference, bearer_token=token
+                        )
+                        if status_resp and VAS.is_success(status_resp):
+                            return self._handle_airtime_success(
+                                user=user,
+                                phone=phone,
+                                amount=purchase_amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
+                                account_number=account_number,
+                            )
                         if cashback_used:
                             CashbackService.refund_cashback(
                                 user=user, cashback_amount=cashback_used
@@ -571,6 +610,20 @@ class AirTimeTopUp(generics.GenericAPIView):
                         tx_ref=tx_reference,
                     )
                     if airtime_response is None:
+                        status_resp = VAS.confirm_status(
+                            tx_ref=tx_reference, bearer_token=token
+                        )
+                        if status_resp and VAS.is_success(status_resp):
+                            return self._handle_airtime_success(
+                                user=user,
+                                guest_id=guest_id,
+                                phone=phone,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
+                                account_number=account_number,
+                            )
                         return self._handle_airtime_failure(
                             user=user,
                             guest_id=guest_id,
