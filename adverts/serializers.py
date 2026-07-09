@@ -8,7 +8,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
 from accounts.models import User
-from .models import CreateAd, AdLocation, AdMedia
+from .models import CreateAd, AdLocation, AdMedia, StoreVisitQRCode
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,53 @@ TASK_DETAIL_VALIDATORS = {
 }
 
 
-# ── Serializers ───────────────────────────────────────────────────────────────
+# ── Serializers
+
+
+class BrandAdListSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    time_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CreateAd
+        fields = [
+            "id",
+            "campaign_name",
+            "task_type",
+            "time_left",
+            "task_name",
+            "slot_cap",
+            "slots_filled",
+            "reward_points",
+            "is_active",
+            "expiry_date",
+            "created_at",
+            "status",
+        ]
+
+    def get_time_left(self, obj) -> str | None:
+        if not obj.expiry_date:
+            return None
+        now = timezone.now()
+        delta = obj.expiry_date - now
+        if delta.total_seconds() <= 0:
+            return "Expired"
+        days = delta.days
+        hours, remainder = divmod(delta.seconds, 3600)
+        minutes = remainder // 60
+        if days:
+            return f"{days}d {hours}h {minutes}m"
+        if hours:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
+    def get_status(self, obj) -> str:
+        now = timezone.now()
+        if obj.is_active and obj.expiry_date and obj.expiry_date > now:
+            return "active"
+        if obj.slots_filled >= (obj.slot_cap or 0):
+            return "completed"
+        return "inactive"
 
 
 class BrandAdProfileSerializers(serializers.ModelSerializer):
@@ -291,11 +337,16 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "targeting_type",
             "countries",
             "auto_boost",
+            # co-ordinates
+            "latitude",
+            "longitude",
         ]
 
     def validate(self, attrs):
         task_type = attrs.get("task_type")
         task_details = attrs.get("task_details", {})
+        latitude = attrs.get("latitude")
+        longitude = attrs.get("longitude")
 
         if task_type:
             validator = TASK_DETAIL_VALIDATORS.get(task_type)
@@ -303,6 +354,18 @@ class CreateAdSerializers(serializers.ModelSerializer):
                 field_errors = validator(task_details)
                 if field_errors:
                     raise serializers.ValidationError({"task_details": field_errors})
+
+        if longitude is not None:
+            if not -180 <= longitude <= 180:
+                raise serializers.ValidationError(
+                    "Longitude must be between -180 and 180 degrees."
+                )
+
+        if longitude is not None:
+            if not -90 <= latitude <= 90:
+                raise serializers.ValidationError(
+                    "Latitude must be between -90 and 90 degrees."
+                )
 
         return attrs
 
@@ -339,13 +402,34 @@ class CreateAdSerializers(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user
 
-        create_ad = CreateAd.objects.create(user=user, **validated_data)
+        create_ad = CreateAd.objects.create(user=user, is_active=True, **validated_data)
 
         for state, city in zip(states, cities):
             AdLocation.objects.create(brand=create_ad, state=state, city=city)
 
         for image, video in zip_longest(images, videos):
             AdMedia.objects.create(brand=create_ad, images=image, videos=video)
+
+        if task_type == "store_visit":
+            from .tasks import _make_visit_code, generate_qr_image_and_upload
+
+            brand_name = (
+                create_ad.business_or_brand_name or create_ad.campaign_name or ""
+            )
+            visit_code = _make_visit_code(brand_name)
+            while StoreVisitQRCode.objects.filter(visit_code=visit_code).exists():
+                visit_code = _make_visit_code(brand_name)
+            qr_record = StoreVisitQRCode.objects.create(
+                ad=create_ad, visit_code=visit_code
+            )
+            # Generate + upload QR image synchronously so the URL is in the response
+            qr_image_url = generate_qr_image_and_upload(str(qr_record.token))
+            if qr_image_url:
+                qr_record.qr_image_url = qr_image_url
+                qr_record.save(update_fields=["qr_image_url"])
+                from .tasks import email_qr_to_brand_task
+
+                email_qr_to_brand_task.delay(create_ad.pk)
 
         return create_ad
 
@@ -430,16 +514,6 @@ class AdSerializers(serializers.ModelSerializer):
             if remaining.total_seconds() > 0:
                 days = remaining.days
                 hours = remaining.seconds // 3600
-
-                if not obj.is_active:
-                    obj.is_active = True
-                    obj.save(update_fields=["is_active"])
-
                 return f"{days} days {hours} hours remaining"
-
             else:
-                if obj.is_active:
-                    obj.is_active = False
-                    obj.save(update_fields=["is_active"])
-
                 return "Expired"

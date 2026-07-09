@@ -10,6 +10,7 @@ from .views import (
     ChangePassword,
     ProfileImage,
     DeleteUser,
+    SelfDeleteAccount,
     ClaimMysteryBoxGift,
     OpenRewardBox,
     AddToFavourite,
@@ -22,6 +23,7 @@ from .views import (
     RegisterDeviceTokenView,
     SocialProfileView,
     RequestHandleChangeView,
+    LogUserLocation,
 )
 from .notifications import (
     GetAllNotifications,
@@ -49,6 +51,7 @@ urlpatterns = [
     path("open-box", OpenRewardBox.as_view(), name="open_box"),
     path("claim-gift", ClaimMysteryBoxGift.as_view(), name="claim_gift"),
     path("delete", DeleteUser.as_view(), name="delete"),
+    path("delete-account", SelfDeleteAccount.as_view(), name="self_delete_account"),
     # Notification endpoints.
     path("notification/<int:id>/get", GetSingleNotification.as_view(), name="get_ntfn"),
     path("notification/get-all", GetAllNotifications.as_view(), name="get_ntfns"),
@@ -91,4 +94,6 @@ urlpatterns = [
         RequestHandleChangeView.as_view(),
         name="request_handle_change",
     ),
+    # User Location
+    path("location/", LogUserLocation.as_view(), name="user-location"),
 ]

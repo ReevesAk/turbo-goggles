@@ -69,7 +69,6 @@ class CategoryListView(APIView):
     """
     CategoryListView is the GET request handler that returns a list of product categories.
     """
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
@@ -116,7 +115,6 @@ class CompanyListView(APIView):
     """
     CompanyListView is the GET request handler that returns a list of fmcg companies.
     """
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request):
@@ -173,7 +171,6 @@ class ListAllProducts(generics.ListAPIView):
     of all fmcg products.
     """
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
@@ -262,7 +259,6 @@ class ProductDetails(generics.RetrieveAPIView):
     """
 
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     lookup_field = "id"
 
@@ -300,7 +296,7 @@ class ProductDetails(generics.RetrieveAPIView):
             logger.warning("Product with ID %s not found.", product_id)
             return Response(
                 data=encrypt({
-                    "status": "error",
+                    "status": "fail",
                     "message": "Product not found."
                 }),
                 status=status.HTTP_404_NOT_FOUND
@@ -309,7 +305,7 @@ class ProductDetails(generics.RetrieveAPIView):
             logger.error("Error retrieving product with ID %s: %s", product_id, str(e))
             return Response(
                 data=encrypt({
-                    "status": "error",
+                    "status": "fail",
                     "message": "An error occurred while retrieving the product."
                 }),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -352,7 +348,6 @@ class AddToCart(generics.CreateAPIView):
     If the product is already in the cart, update the quantity.
     """
     serializer_class = AddToCartSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart_id(self, user, guest_id):
@@ -396,7 +391,7 @@ class AddToCart(generics.CreateAPIView):
         except Exception as e:
             logger.error("Decryption failed: %s", str(e))
             return Response(
-                {"status": "error", "message": "Invalid payload format"},
+                {"status": "fail", "message": "Invalid payload format"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -509,7 +504,6 @@ class RetrieveCartProducts(generics.RetrieveAPIView):
     items in the user's or guest's cart.
     """
     serializer_class = RetrieveCartProductsSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart_id(self, user, guest_id):
@@ -614,7 +608,6 @@ class RemoveFromCart(generics.DestroyAPIView):
     RemoveFromCart handles deleting a product from the cart for a user or guest.
     """
     serializer_class = RemoveFromCartSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get_cart(self, user):
@@ -706,7 +699,6 @@ class RemoveFromCart(generics.DestroyAPIView):
 )
 class FmcgCheckout(generics.CreateAPIView):
     serializer_class = FmcgOrderSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -915,7 +907,6 @@ class FmcgRatingView(generics.GenericAPIView):
     """
 
     serializer_class = FmcgRatingSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request, *args, **kwargs):
@@ -997,7 +988,6 @@ class GetFmcgReview(generics.ListAPIView):
     """
 
     serializer_class = FmcgRatingListSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     pagination_class = PaginationStyle
 
@@ -1026,7 +1016,6 @@ class GetFmcgReview(generics.ListAPIView):
 )
 class PickupAddressListView(generics.ListAPIView):
     serializer_class = PickupAddressSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
     queryset = PickupAdress.objects.all()
 

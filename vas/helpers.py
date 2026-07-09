@@ -1,6 +1,7 @@
 import logging
 import random
 import string
+import time
 import requests
 from decouple import config
 from django.core.cache import cache
@@ -115,6 +116,20 @@ class VAS:
             return None
 
     @staticmethod
+    def confirm_status(tx_ref, bearer_token, attempts=3, delay=5):
+        """Resolve an ambiguous outcome (timeout/connection error) by polling
+        the provider's status endpoint before treating a purchase as failed.
+        A request timing out on our end doesn't mean it failed on theirs."""
+        status_resp = None
+        for attempt in range(attempts):
+            status_resp = VAS.status(tx_ref=tx_ref, bearer_token=bearer_token)
+            if status_resp and VAS.is_success(status_resp):
+                return status_resp
+            if attempt < attempts - 1:
+                time.sleep(delay)
+        return status_resp
+
+    @staticmethod
     def airtime_topup(
         network, bearer_token, amount, debitAccount, phone_number, tx_ref
     ):
@@ -134,13 +149,13 @@ class VAS:
         }
         _log_request("airtime_topup", url, payload=payload, headers=headers)
         try:
-            response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            response = requests.post(url=url, json=payload, headers=headers, timeout=30)
             if response.status_code == 401:
                 fresh = VAS.authenticate(force_refresh=True)
                 if fresh:
                     headers["Authorization"] = f"Bearer {fresh}"
                     response = requests.post(
-                        url=url, json=payload, headers=headers, timeout=15
+                        url=url, json=payload, headers=headers, timeout=30
                     )
             _log_response("airtime_topup", response)
             return response

@@ -37,15 +37,16 @@ class OTPManager:
 
         try:
             otp_obj = OTP.objects.get(otp=otp)
-            if timezone.now() >= otp_obj.expires_at:
+            if timezone.now() < otp_obj.expires_at:
                 user_id = otp_obj.user_id
                 otp_obj.delete()
-                logging.info(f"Valid OTP: {otp}, User ID: {user_id}")
+                logging.info("Valid OTP used, user_id=%s", user_id)
                 return user_id
             else:
-                logging.info(f"Expired OTP: {otp}")
+                otp_obj.delete()
+                logging.info("Expired OTP submitted")
         except OTP.DoesNotExist:
-            logging.info(f"Invalid OTP: {otp}")
+            logging.info("Invalid OTP submitted")
             return None
 
     def delete_user_otp(self, otp: str):

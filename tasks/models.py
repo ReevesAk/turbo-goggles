@@ -140,6 +140,25 @@ class VerificationResult(BaseModel):
         return f"{self.verdict} ({self.confidence_score}%) — {self.submission}"
 
 
+class BrandVerificationResult(BaseModel):
+    """AI verdict on a brand task submission."""
+
+    submission = models.OneToOneField("BrandTaskSubmission", on_delete=models.CASCADE, related_name="verification")
+
+    verdict = models.CharField(choices=VERDICT_CHOICES, max_length=20)
+    confidence_score = models.PositiveIntegerField(default=0)
+    ai_reasoning = models.TextField(blank=True, null=True)
+    flags = models.JSONField(default=list, blank=True)
+
+    platform_confirmed = models.BooleanField(default=True)
+    username_matched = models.BooleanField(default=False)
+    action_confirmed = models.BooleanField(default=False)
+    target_matched = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.verdict} ({self.confidence_score}%) — {self.submission}"
+
+
 class UserTrustScore(BaseModel):
     """Tracks a user's submission history and trustworthiness."""
 
@@ -213,3 +232,31 @@ class BrandTaskSubmission(BaseModel):
 
     def __str__(self):
         return f"{self.user} → {self.ad.campaign_name} [{self.status}]"
+
+
+ARRIVAL_STATUS = (
+    ("arrived", "Arrived"),
+    ("no_show", "No Show"),
+    ("completed", "Completed"),
+)
+
+
+class StoreVisitArrival(BaseModel):
+    """Tracks a user's in-progress store visit before task completion."""
+
+    ad = models.ForeignKey(
+        CreateAd, on_delete=models.CASCADE, related_name="store_arrivals"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="store_arrivals"
+    )
+    status = models.CharField(
+        choices=ARRIVAL_STATUS, max_length=20, default="arrived"
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("ad", "user")
+
+    def __str__(self):
+        return f"{self.user} @ {self.ad.campaign_name} [{self.status}]"

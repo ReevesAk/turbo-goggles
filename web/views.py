@@ -27,7 +27,6 @@ from support.utils import generate_ticket_number
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
@@ -71,7 +70,6 @@ logger = logging.getLogger(__name__)
 class CreateJob(generics.CreateAPIView):
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -84,7 +82,11 @@ class CreateJob(generics.CreateAPIView):
         current_user = request.user
         pin = payload.get("pin")
 
-        if not check_password(pin, current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(pin, current_user.admin_pin)
+        ):
             return Response(
                 encrypt({"status": "fail", "message": "Incorrect pin."}),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -213,7 +215,11 @@ class UpdateJob(generics.UpdateAPIView):
         serializer = self.get_serializer(job, data=decrypted_payload, partial=True)
         current_user = request.user
         pin = decrypted_payload.get("pin")
-        if not check_password(password=pin, encoded=current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(password=pin, encoded=current_user.admin_pin)
+        ):
             return Response(
                 data=encrypt(
                     {
@@ -457,7 +463,6 @@ class SingleJobApplicationsList(generics.ListAPIView):
 
     serializer_class = GetApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         job_id = self.kwargs.get("job_id")
@@ -480,8 +485,11 @@ class SingleJobApplicationsList(generics.ListAPIView):
 
         current_user = request.user
 
-        # 🔑 Validate admin PIN
-        if not check_password(pin, current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(pin, current_user.admin_pin)
+        ):
             return Response(
                 encrypt({"status": "fail", "message": "Incorrect PIN."}),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -540,7 +548,6 @@ class DeleteJobApplication(generics.DestroyAPIView):
     queryset = Applications.objects.all()
     serializer_class = ApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def delete(self, request, pk, *args, **kwargs):
         application = get_object_or_404(Applications, pk=pk)
@@ -549,7 +556,11 @@ class DeleteJobApplication(generics.DestroyAPIView):
 
         current_user = request.user
         pin = decrypted_payload.get("pin")
-        if not check_password(password=pin, encoded=current_user.admin_pin):
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(password=pin, encoded=current_user.admin_pin)
+        ):
             return Response(
                 data=encrypt(
                     {
@@ -574,7 +585,7 @@ class DeleteJobApplication(generics.DestroyAPIView):
         except Exception as err:
             return Response(
                 data={
-                    "status": "error",
+                    "status": "fail",
                     "message": f"An error occurred: {err}",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -601,7 +612,6 @@ class DeleteJobApplication(generics.DestroyAPIView):
 class JobApplicationDetail(generics.ListAPIView):
     serializer_class = ApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
         email = kwargs.get("email")
@@ -644,7 +654,6 @@ class JobApplicationList(generics.ListAPIView):
     queryset = Applications.objects.all()
     serializer_class = GetApplicationsSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
         paginator = CustomPageNumberPagination()
@@ -774,7 +783,6 @@ class ListNewsletterSubscribersView(generics.ListAPIView):
     queryset = NewsletterSubscribers.objects.all().order_by("-subscribed_at")
     serializer_class = NewsletterSubscribersSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
     pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
@@ -1024,7 +1032,6 @@ class ListBusinessesAndIndividualsToContact(generics.GenericAPIView):
 
     serializer_class = ContactUsSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
     pagination_class = CustomPageNumberPagination
 
     def get(self, request):
@@ -1148,7 +1155,6 @@ class WaitlistApplicationList(generics.ListAPIView):
     queryset = Applications.objects.all()
     serializer_class = GetApplicationsWaitlistSerializers
     permission_classes = [IsAuthenticated, IsAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
         paginator = CustomPageNumberPagination()

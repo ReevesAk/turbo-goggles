@@ -13,7 +13,6 @@ from django.template.loader import render_to_string
 
 from rest_framework.response import Response
 from rest_framework import generics
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
@@ -671,7 +670,6 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
     status of the transaction.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def get(self, request, *args, **kwargs):

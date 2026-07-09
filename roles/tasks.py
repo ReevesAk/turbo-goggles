@@ -10,7 +10,6 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
@@ -66,7 +65,6 @@ class CreateStepCampaign(generics.GenericAPIView):
     """
 
     serializer_class = StepCampaignSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
@@ -76,7 +74,7 @@ class CreateStepCampaign(generics.GenericAPIView):
         serializer = self.get_serializer(data=decrypted_payload)
         if not serializer.is_valid(raise_exception=True):
             return Response(
-                data=encrypt({"status": "error", "message": serializer.errors}),
+                data=encrypt({"status": "fail", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         logger.info("Serializer validated successfully.")
@@ -116,7 +114,7 @@ class CreateStepCampaign(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="[Admin] List all step count campaigns",
+    summary="List all step count campaigns",
     tags=["Tasks"],
     description="Returns all step count campaigns ordered by creation date. Results are cached for 10 minutes.",
     responses={
@@ -137,7 +135,6 @@ class GetAllStepCampaigns(generics.ListAPIView):
     """
 
     serializer_class = StepCampaignListSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = StepCampaignModel.objects.all().order_by("-created_at")
 
@@ -192,8 +189,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
     """
 
     serializer_class = StepCampaignDetailSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def retrieve(self, request, *args, **kwargs):
         campaign_id = kwargs.get("campaign_id")
@@ -225,6 +221,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
 )
 class CampaignParticipantListView(generics.ListAPIView):
     serializer_class = CampaignWithParticipantsSerializer
+    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def get_queryset(self):
         return StepCampaignModel.objects.prefetch_related(
@@ -288,7 +285,6 @@ class SendNewsLetter(generics.GenericAPIView):
     """
 
     serializer_class = SendNewsletterSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
@@ -366,7 +362,6 @@ class SendNewsLetter(generics.GenericAPIView):
 class CreateInAppTaskView(generics.GenericAPIView):
     """POST /v1/roles/tasks/in-app/create/ — create a new in-app task."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
 
     def post(self, request):
@@ -374,7 +369,7 @@ class CreateInAppTaskView(generics.GenericAPIView):
         serializer = InAppTaskCreateSerializer(data=payload)
         if not serializer.is_valid():
             return Response(
-                data=encrypt({"status": "error", "errors": serializer.errors}),
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -423,7 +418,6 @@ class ListInAppTasksView(generics.GenericAPIView):
     Returns all in-app tasks, optionally filtered by status.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
 
     def get(self, request):
@@ -480,7 +474,6 @@ class ListInAppTasksView(generics.GenericAPIView):
 class InAppTaskDetailView(generics.GenericAPIView):
     """GET /v1/roles/tasks/in-app/<task_id>/ — retrieve a single in-app task with stats."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
 
     def get(self, request, task_id):
@@ -490,7 +483,7 @@ class InAppTaskDetailView(generics.GenericAPIView):
             task = StreakChallenge.objects.get(id=task_id)
         except StreakChallenge.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Task not found."}),
+                data=encrypt({"status": "fail", "message": "Task not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -542,7 +535,6 @@ class InAppTaskDetailView(generics.GenericAPIView):
 class UpdateInAppTaskView(generics.GenericAPIView):
     """PATCH /v1/roles/tasks/in-app/<task_id>/update/ — edit, pause, or cancel a task."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
 
     def patch(self, request, task_id):
@@ -550,7 +542,7 @@ class UpdateInAppTaskView(generics.GenericAPIView):
             task = StreakChallenge.objects.get(id=task_id)
         except StreakChallenge.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Task not found."}),
+                data=encrypt({"status": "fail", "message": "Task not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -558,7 +550,7 @@ class UpdateInAppTaskView(generics.GenericAPIView):
         serializer = InAppTaskUpdateSerializer(task, data=payload, partial=True)
         if not serializer.is_valid():
             return Response(
-                data=encrypt({"status": "error", "errors": serializer.errors}),
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

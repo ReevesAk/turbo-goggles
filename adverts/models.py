@@ -1,8 +1,11 @@
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
 
 from accounts.models import User
 from .pricing import TARGETING_TYPE_CHOICES, compute_cost_per_engagement
@@ -108,6 +111,17 @@ class CreateAd(models.Model):
     auto_boost_points = models.PositiveIntegerField(default=0)
     credit_settled = models.BooleanField(default=False)
 
+    # co-ordinates
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location = gis_models.PointField(
+        geography=True,
+        null=True,
+        blank=True,
+        spatial_index=True,
+        help_text="Derived automatically from latitude/longitude on save.",
+    )
+
     @property
     def cost_per_engagement(self) -> Decimal:
         try:
@@ -122,8 +136,18 @@ class CreateAd(models.Model):
 
     @property
     def unused_credit(self) -> Decimal:
-        unused = max(0, (self.slot_cap or 0) - (self.slots_filled or 0))
-        return Decimal(str(unused)) * self.cost_per_engagement
+        slot_cap = self.slot_cap or 0
+        if slot_cap == 0:
+            return Decimal("0")
+        unused = max(0, slot_cap - (self.slots_filled or 0))
+        try:
+            amount = Decimal(str(self.amount or 0))
+        except Exception:
+            return Decimal("0")
+        if amount <= 0:
+            return Decimal("0")
+        # Proportional refund: unused_slots / slot_cap × amount_paid
+        return (Decimal(str(unused)) / Decimal(str(slot_cap))) * amount
 
     # Targeting
     location_type = models.CharField(
@@ -143,6 +167,14 @@ class CreateAd(models.Model):
             self.expiry_date = timezone.now() + timedelta(
                 days=int(self.campaign_duration)
             )
+
+        if self.latitude and self.longitude:
+            self.location = Point(
+                float(self.longitude), float(self.latitude), srid=4326
+            )
+        else:
+            self.location = None
+
         super().save(*args, **kwargs)
 
 
@@ -217,3 +249,19 @@ class AdLocation(models.Model):
             if self.state and self.city
             else "Unknown Location"
         )
+
+
+class StoreVisitQRCode(models.Model):
+    """One QR code per store-visit ad campaign. Scanning it completes the task for that user."""
+
+    ad = models.OneToOneField(
+        CreateAd, on_delete=models.CASCADE, related_name="store_visit_qr"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    visit_code = models.CharField(max_length=20, unique=True, blank=True)
+    qr_image_url = models.CharField(max_length=500, blank=True, null=True)
+    scan_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"QR for {self.ad.campaign_name} ({self.visit_code})"

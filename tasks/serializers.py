@@ -1,5 +1,6 @@
 import secrets
 import string
+import uuid
 
 from django.utils import timezone
 from rest_framework import serializers
@@ -11,7 +12,7 @@ from .models import (
     VerificationResult,
     UserTrustScore,
 )
-from adverts.models import CreateAd
+from adverts.models import CreateAd, StoreVisitQRCode
 from gamification.models import StreakChallenge, UserStreak
 
 
@@ -109,7 +110,7 @@ class SubmitTaskSerializer(serializers.ModelSerializer):
         if not task.is_available:
             raise serializers.ValidationError("This task is not currently available.")
 
-        if TaskSubmission.objects.filter(task=task, user=user).exists():
+        if TaskSubmission.objects.filter(task=task, user=user).exclude(status="Rejected").exists():
             raise serializers.ValidationError("You have already submitted this task.")
 
         if not attrs.get("screenshot_url"):
@@ -125,9 +126,22 @@ class SubmitTaskSerializer(serializers.ModelSerializer):
             alphabet = string.ascii_uppercase + string.digits
             code = "".join(secrets.choice(alphabet) for _ in range(8))
             verification_code = f"PD-{code}"
-        return TaskSubmission.objects.create(
-            user=user, verification_code=verification_code, **validated_data
+        submission, _ = TaskSubmission.objects.update_or_create(
+            user=user,
+            task=task,
+            defaults={
+                "screenshot_url": validated_data.get("screenshot_url"),
+                "post_url": validated_data.get("post_url"),
+                "notes": validated_data.get("notes"),
+                "verification_code": verification_code,
+                "status": "Pending",
+                "reward_issued": False,
+                "rejection_reason": None,
+                "reviewed_by": None,
+                "reviewed_at": None,
+            },
         )
+        return submission
 
 
 class UserTrustScoreSerializer(serializers.ModelSerializer):
@@ -239,6 +253,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
     time_remaining = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
     source = serializers.SerializerMethodField()
+    user_status = serializers.SerializerMethodField()
 
     class Meta:
         model = CreateAd
@@ -253,6 +268,7 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "time_remaining",
             "is_active",
             "ad_media",
+            "user_status"
         ]
         read_only_fields = fields
 
@@ -265,6 +281,11 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
             "display": obj.get_task_type_display() if obj.task_type else None,
             "details": obj.task_details,
         }
+
+    def get_user_status(self, obj) -> str | None:
+        user = self.context["request"].user
+        submission = BrandTaskSubmission.objects.filter(ad=obj, user=user).order_by("-created_at").first()
+        return submission.status if submission else None
 
     def get_ad_media(self, obj) -> list:
         media = obj.ad_media.all()
@@ -431,7 +452,7 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
                     "This endpoint is only for website visit, video watch, store visit, and survey tasks."
                 )
 
-            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exists():
+            if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
                 raise serializers.ValidationError(
                     "You have already completed this task."
                 )
@@ -461,3 +482,161 @@ class CompleteWebviewTaskSerializer(serializers.Serializer):
             attrs["challenge"] = challenge
 
         return attrs
+
+
+class ScanStoreVisitQRSerializer(serializers.Serializer):
+    """Accepts either a QR token (UUID from scan) or the visit code the store owner shows the user."""
+
+    token = serializers.CharField(required=False, max_length=64)
+    code = serializers.CharField(required=False, max_length=20, allow_blank=True)
+
+    def to_internal_value(self, data):
+        data = dict(data)
+        if not data.get("token"):
+            data.pop("token", None)
+        if not data.get("code"):
+            data.pop("code", None)
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        token = attrs.get("token")
+        code = attrs.get("code")
+
+        if not token and not code:
+            raise serializers.ValidationError("Provide either a QR token or a visit code.")
+
+        # Clients send both scanned QR tokens (UUIDs) and manually-typed visit
+        # codes (e.g. "PIC-A3X9K2") under the same "token" field, so detect
+        # which one we got rather than trusting the field name.
+        if token:
+            try:
+                uuid.UUID(token)
+            except ValueError:
+                code, token = token, None
+
+        try:
+            if token:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(token=token)
+            else:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(
+                    visit_code=code.strip().upper()
+                )
+        except StoreVisitQRCode.DoesNotExist:
+            raise serializers.ValidationError("Invalid QR code or visit code.")
+
+        ad = qr.ad
+        user = self.context["request"].user
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is no longer active.")
+
+        if ad.expiry_date and ad.expiry_date < timezone.now():
+            raise serializers.ValidationError("This campaign has expired.")
+
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            raise serializers.ValidationError("This campaign's slots are full.")
+
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        attrs["_qr"] = qr
+        return attrs
+
+    @property
+    def qr(self):
+        return self.validated_data["_qr"]
+
+
+# ── Store visit arrival flow serializers ─────────────────────────────────────
+
+class StoreVisitArriveSerializer(serializers.Serializer):
+    """Identify the campaign by ad ID or visit code."""
+
+    task_id = serializers.IntegerField(required=False)
+    code = serializers.CharField(required=False, max_length=20, allow_blank=True)
+
+    def to_internal_value(self, data):
+        data = dict(data)
+        if not data.get("task_id"):
+            data.pop("task_id", None)
+        if not data.get("code"):
+            data.pop("code", None)
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        from .models import StoreVisitArrival
+        task_id = attrs.get("task_id")
+        code = attrs.get("code")
+
+        if not task_id and not code:
+            raise serializers.ValidationError("Provide either task_id or a visit code.")
+
+        if task_id:
+            try:
+                ad = CreateAd.objects.get(pk=task_id)
+            except CreateAd.DoesNotExist:
+                raise serializers.ValidationError("Task not found.")
+            if ad.task_type != "store_visit":
+                raise serializers.ValidationError("This task is not a store-visit campaign.")
+        else:
+            try:
+                qr = StoreVisitQRCode.objects.select_related("ad").get(
+                    visit_code=code.strip().upper()
+                )
+            except StoreVisitQRCode.DoesNotExist:
+                raise serializers.ValidationError("Invalid visit code.")
+            ad = qr.ad
+
+        user = self.context["request"].user
+
+        if not ad.is_active:
+            raise serializers.ValidationError("This campaign is no longer active.")
+
+        if ad.expiry_date and ad.expiry_date < timezone.now():
+            raise serializers.ValidationError("This campaign has expired.")
+
+        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+            raise serializers.ValidationError("This campaign's slots are full.")
+
+        if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        existing = StoreVisitArrival.objects.filter(ad=ad, user=user).first()
+        if existing and existing.status == "completed":
+            raise serializers.ValidationError("You have already completed this store visit.")
+
+        attrs["_ad"] = ad
+        attrs["_existing_arrival"] = existing
+        return attrs
+
+    @property
+    def ad(self):
+        return self.validated_data["_ad"]
+
+    @property
+    def existing_arrival(self):
+        return self.validated_data["_existing_arrival"]
+
+
+class StoreVisitArrivalIdSerializer(serializers.Serializer):
+    """Base serializer for endpoints that operate on an existing arrival."""
+
+    arrival_id = serializers.UUIDField()
+
+    def validate_arrival_id(self, value):
+        from .models import StoreVisitArrival
+        user = self.context["request"].user
+        try:
+            arrival = StoreVisitArrival.objects.select_related("ad").get(
+                id=value, user=user
+            )
+        except StoreVisitArrival.DoesNotExist:
+            raise serializers.ValidationError("Arrival record not found.")
+        self._arrival = arrival
+        return value
+
+    @property
+    def arrival(self):
+        return self._arrival
+
+

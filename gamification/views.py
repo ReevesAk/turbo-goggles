@@ -7,7 +7,6 @@ from drf_spectacular.utils import (
     OpenApiExample,
     inline_serializer,
 )
-
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import F
@@ -86,7 +85,6 @@ class NextBeeGamificationLSSOLogin(generics.GenericAPIView):
     """
 
     serializer_class = SSOLoginSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
@@ -173,7 +171,6 @@ class JoinCampaignView(generics.CreateAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
@@ -236,7 +233,7 @@ class JoinCampaignView(generics.CreateAPIView):
 
     def _error_response(self, message, status_code):
         return Response(
-            encrypt({"status": "error", "message": message}), status=status_code
+            encrypt({"status": "fail", "message": message}), status=status_code
         )
 
     def _success_response(self, message, data):
@@ -284,7 +281,6 @@ class AddStepsView(generics.UpdateAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
@@ -442,7 +438,7 @@ class AddStepsView(generics.UpdateAPIView):
 
     def _error_response(self, message, status_code):
         return Response(
-            encrypt({"status": "error", "message": message}), status=status_code
+            encrypt({"status": "fail", "message": message}), status=status_code
         )
 
     def _success_response(self, message, data):
@@ -482,7 +478,6 @@ class CampaignStatusView(generics.RetrieveAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request, *args, **kwargs):
@@ -532,7 +527,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
 
     def _error_response(self, message, status_code):
         return Response(
-            encrypt({"status": "error", "message": message}), status=status_code
+            encrypt({"status": "fail", "message": message}), status=status_code
         )
 
     def _success_response(self, message, data):
@@ -590,7 +585,6 @@ class CampaignStatusView(generics.RetrieveAPIView):
 )
 class SubmitActivityImageView(generics.GenericAPIView):
     serializer_class = SocialEngagementSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def post(self, request, *args, **kwargs):
@@ -665,7 +659,6 @@ class SubmitActivityImageView(generics.GenericAPIView):
 class GetMemberPointsSummary(generics.GenericAPIView):
     """Returns the authenticated user's points balance, tier, and tier rate."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsMember)
 
     def get(self, request, *args, **kwargs):
@@ -715,7 +708,6 @@ class ActiveStreakChallengesView(generics.ListAPIView):
     """Returns all ongoing streak challenges. Used in the tasks/gamification feed."""
 
     serializer_class = StreakChallengeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -769,7 +761,6 @@ class ActiveStreakChallengesView(generics.ListAPIView):
 )
 class JoinStreakChallengeView(generics.GenericAPIView):
     serializer_class = UserStreakSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, challenge_id):
@@ -777,7 +768,7 @@ class JoinStreakChallengeView(generics.GenericAPIView):
             challenge = StreakChallenge.objects.get(id=challenge_id)
         except StreakChallenge.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Challenge not found."}),
+                data=encrypt({"status": "fail", "message": "Challenge not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -785,7 +776,7 @@ class JoinStreakChallengeView(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "This challenge is not currently active.",
                     }
                 ),
@@ -830,7 +821,6 @@ class JoinStreakChallengeView(generics.GenericAPIView):
 )
 class MyStreakProgressView(generics.ListAPIView):
     serializer_class = UserStreakSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -868,7 +858,6 @@ class MyStreakProgressView(generics.ListAPIView):
     },
 )
 class StreakLeaderboardView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, challenge_id):
@@ -876,7 +865,7 @@ class StreakLeaderboardView(generics.GenericAPIView):
             challenge = StreakChallenge.objects.get(id=challenge_id)
         except StreakChallenge.DoesNotExist:
             return Response(
-                data=encrypt({"status": "error", "message": "Challenge not found."}),
+                data=encrypt({"status": "fail", "message": "Challenge not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -930,7 +919,6 @@ class StreakLeaderboardView(generics.GenericAPIView):
 )
 class MyStreakHistoryView(generics.ListAPIView):
     serializer_class = StreakHistorySerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -984,7 +972,6 @@ class MyStreakHistoryView(generics.ListAPIView):
     },
 )
 class PointsLeaderboardView(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):

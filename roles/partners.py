@@ -18,7 +18,6 @@ from partners.models import PartnerServices
 from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -54,7 +53,6 @@ class GetAllPartnersUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListPartnerUsersSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerAdminOrSuperAdmin, IsNotDisabled)
     pagination_class = PaginationStyle
 
@@ -129,7 +127,6 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
     """
 
     serializer_class = RestrictPartnersSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsPartnerAdminOrSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -255,7 +252,7 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "User does not exist.",
                     }
                 ),
@@ -274,7 +271,7 @@ class RestrictPartnerAccountView(generics.CreateAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An unexpected error occurred. Please try again.",
                     }
                 ),
@@ -311,7 +308,6 @@ class AdminViewPartnerServiceList(generics.ListAPIView):
     """
 
     serializer_class = PartnerServiceSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsNotDisabled, IsPartnerAdminOrSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -392,7 +388,6 @@ class PartnerSearch(generics.ListAPIView):
     """
 
     serializer_class = PartnerProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
@@ -439,7 +434,7 @@ class PartnerSearch(generics.ListAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "An error occurred while processing the request.",
                     }
                 ),

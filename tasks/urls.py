@@ -7,6 +7,9 @@ from .views import (
     BrandTaskFeedView,
     CompleteWebviewTaskView,
     MyBrandSubmissionsView,
+    ScanStoreVisitQRView,
+    StoreVisitArriveView,
+    StoreVisitNoShowView,
     SubmitBrandTaskView,
     SubmitSurveyTaskView,
 )
@@ -16,6 +19,10 @@ urlpatterns = [
     path("brand/submit/", SubmitBrandTaskView.as_view(), name="brand-task-submit"),
     path("brand/webview/complete/", CompleteWebviewTaskView.as_view(), name="task-webview-complete"),
     path("brand/survey/submit/", SubmitSurveyTaskView.as_view(), name="brand-survey-submit"),
+    # Store visit flow
+    path("brand/store-visit/arrive/", StoreVisitArriveView.as_view(), name="store-visit-arrive"),
+    path("brand/store-visit/no-show/", StoreVisitNoShowView.as_view(), name="store-visit-no-show"),
+    path("brand/store-visit/scan/", ScanStoreVisitQRView.as_view(), name="store-visit-qr-scan"),
     path("brand/my-submissions/", MyBrandSubmissionsView.as_view(), name="task-my-submissions"),
     path("submissions/", MySubmissionsView.as_view(), name="my-submissions"),
     path("trust-score/", MyTrustScoreView.as_view(), name="trust-score"),
