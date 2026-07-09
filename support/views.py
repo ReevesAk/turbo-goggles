@@ -1604,6 +1604,7 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "authorised_by": "SuperAdmin",
                     "category": ticket.category,
                     "description": ticket.description,
+                    "ai_summary": ticket.ai_summary,
                     "customer_email": ticket.customer_email,
                     "customer_name": ticket.customer_name,
                     "customer_phone_number": ticket.customer_phone_number,
@@ -1670,6 +1671,7 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 "authorised_by": request.user.full_name or request.user.phone_number,
                 "category": ticket.category,
                 "description": ticket.description,
+                "ai_summary": ticket.ai_summary,
                 "created_at": ticket.created_at,
                 "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
                 "customer_info":{
@@ -1758,6 +1760,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "ticket_id": ticket_id,
                     "category": ticket.category,
                     "description": ticket.description,
+                    "ai_summary": ticket.ai_summary,
                     "created_at": ticket.created_at,
                     "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
                     "assigned_at": ticket.assigned_at,
