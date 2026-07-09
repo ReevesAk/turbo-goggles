@@ -66,6 +66,7 @@ urlpatterns = [
     path("v1/treasury/", include("treasury.urls")),
     # Support endpoints.
     path("v1/support/", include("support.urls")),
+    path("v1/ai-support/", include("ai_support.urls")),
     # Waitlist endpoints.
     path("v1/waitlist/", include("waitlist.urls")),
     # Web endpoints.
