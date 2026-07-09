@@ -35,12 +35,9 @@ class AllMembersView(generics.ListAPIView):
     authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
-        members = (
-            User.objects.filter(
-                account_types__user_type="Member", wallets__isnull=False
-            )
-            .distinct()
-        )
+        members = User.objects.filter(
+            account_types__user_type="Member", wallets__isnull=False
+        ).distinct()
         return members
 
     def list(self, request, *args, **kwargs):

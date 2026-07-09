@@ -33,6 +33,7 @@ TICKET_CHANNELS = (
     ("Call", "Call"),
     ("Website", "Website"),
     ("Social Media", "Social Media"),
+    ("AI Assistant", "AI Assistant"),
 )
 
 
@@ -60,6 +61,10 @@ class Ticket(BaseModel):
     )
     agent_role = models.CharField(max_length=150, null=True)
     description = models.TextField(null=True)
+    ai_summary = models.TextField(
+        null=True, blank=True,
+        help_text="Summary of the AI support conversation prior to escalation, for agent context."
+    )
     priority = models.CharField(choices=PRIORITY, max_length=150, null=True)
     status = models.CharField(choices=STATUS, max_length=150, null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
