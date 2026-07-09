@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "waitlist",
     "web",
     "treasury.apps.TreasuryConfig",
+    "ai_support.apps.AiSupportConfig",
     "csp",
     "tasks",
 ]
@@ -570,6 +571,7 @@ LOGGING = {
             "propagate": False,
         },
         # Your apps (unchanged — keep INFO)
+        "ai_support": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "accounts": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "adverts": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "banking": {"handlers": ["console"], "level": "INFO", "propagate": False},
