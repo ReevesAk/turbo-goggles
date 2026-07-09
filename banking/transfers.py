@@ -28,8 +28,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
-from rest_framework_simplejwt.authentication import JWTAuthentication
-
 # In-projects imports.
 from .helpers import Pin
 from .transfer_charge import TransferCharge
@@ -87,7 +85,6 @@ class GetAllBanks(APIView):
     institutions and their banks codes.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def get(self, request):
@@ -158,7 +155,6 @@ class Get9PSBWallet(generics.GenericAPIView):
     """
 
     serializer_class = Get9PSBWalletSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def post(self, request):
@@ -247,7 +243,6 @@ class ValidateAccountOfOtherBank(generics.GenericAPIView):
     """
 
     serializer_class = GetAccountSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def post(self, request):
@@ -360,7 +355,6 @@ class IntraBankTransfer(generics.CreateAPIView):
     """
 
     serializer_class = BankTransfersSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
     throttle_scope = "wallet_transfer"
 
@@ -680,7 +674,6 @@ class IntraBankFreeTransferCount(APIView):
     Each user gets 5 free transfers to the same beneficiary per day.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -783,7 +776,6 @@ class InterBankTransfer(generics.CreateAPIView):
     """
 
     serializer_class = BankTransfersSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
     throttle_scope = "wallet_transfer"
 
@@ -1090,7 +1082,6 @@ class TransactionStatus(generics.GenericAPIView):
     """
 
     serializer_class = GetTransferStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
 
     def get(self, request, *args, **kwargs):
@@ -1193,7 +1184,6 @@ class PayWithCard(generics.CreateAPIView):
     """
 
     serializer_class = PaymentURLSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsGuestWithValidId,)
 
     def post(self, request):

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("support", "0003_alter_ticket_channel"),
+        ("support", "0004_ticket_reopened_status_and_count"),
     ]
 
     operations = [

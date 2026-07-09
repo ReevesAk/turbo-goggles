@@ -2,7 +2,9 @@ import logging
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Sum, F
+from django.db import models
+from django.db.models import Count, Sum, F, FloatField
+from django.db.models.functions import Cast
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
@@ -40,7 +42,8 @@ from partners.serializers import PartnerProfileSerializer
 from adverts.serializers import BrandAdProfileSerializers
 from fmcg.serializers import ProductSerializers, AddFmcgPickupAddressSerializers
 from banking.serializers import WalletStatusSerializer
-from banking.models import WalletModel
+from banking.models import WalletModel, TransferModel, FundWithCard
+from vas.models import ValueAddedServices
 from .models import ActivityModel, knowledgeBaseModel
 from fmcg.models import Product, PickupAdress
 from accounts.models import DeviceId, AccountType
@@ -53,7 +56,6 @@ from rest_framework import generics, status, exceptions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -259,7 +261,8 @@ class LoginAdmin(APIView):
             return Response(
                 data=encrypt(
                     {
-                        "error": "Account locked due to too many failed login attempts. Try again later."
+                        "status": "fail",
+                        "message": "Account locked due to too many failed login attempts. Try again later.",
                     }
                 ),
                 status=status.HTTP_403_FORBIDDEN,
@@ -267,8 +270,20 @@ class LoginAdmin(APIView):
         if not user_obj:
             logger.warning(f"Login attempt failed: User with email {email} not found.")
             return Response(
-                data=encrypt({"error": "Invalid credentials"}),
+                data=encrypt({"status": "fail", "message": "Invalid credentials"}),
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if user_obj.is_admin_disabled:
+            logger.warning(f"Login attempt blocked: Admin account {email} is disabled.")
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "This admin account has been disabled.",
+                    }
+                ),
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Authenticate using the phone number and password
@@ -288,7 +303,8 @@ class LoginAdmin(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "error": "User cannot login on more than two devices, oldest device ID deleted."
+                            "status": "fail",
+                            "message": "User cannot login on more than two devices, oldest device ID deleted.",
                         }
                     ),
                     status=status.HTTP_400_BAD_REQUEST,
@@ -381,7 +397,8 @@ class LoginAdmin(APIView):
                 return Response(
                     data=encrypt(
                         {
-                            "error": "Too many failed login attempts. Account locked for 30 minutes."
+                            "status": "fail",
+                            "message": "Too many failed login attempts. Account locked for 30 minutes.",
                         }
                     ),
                     status=status.HTTP_403_FORBIDDEN,
@@ -424,7 +441,6 @@ class AddProduct(generics.GenericAPIView):
     """
 
     serializer_class = ProductSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsFmcgAdminOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
@@ -546,7 +562,6 @@ class AddAddress(generics.GenericAPIView):
     """
 
     serializer_class = AddFmcgPickupAddressSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated & (IsFmcgAdminOrSuperAdmin)]
 
     def post(self, request):
@@ -640,7 +655,6 @@ class AddAdmin(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = AddAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request):
@@ -686,13 +700,14 @@ class AddAdmin(generics.CreateAPIView):
             serializer = AddAdminSerializer(data=payload)
             if serializer.is_valid(raise_exception=True):
                 user = serializer.save()
+                cache.delete_many(["all_admin_users", "admin_users_by_role"])
                 user_data = AddAdminSerializer(user).data
                 logger.info(f"Admin user created successfully: {user.email}")
 
                 # Generate signup link
                 signup_link = f"https://admin.picadailys.com/sign-up?user_id={user.id}"
 
-                name = user.full_name.split()[0]
+                name = (user.full_name or "Admin").split()[0]
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
@@ -874,7 +889,7 @@ class AdAdminContd(generics.UpdateAPIView):
                 serializer.errors,
             )
             return Response(
-                data=encrypt({"status": "error", "message": serializer.errors}),
+                data=encrypt({"status": "fail", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -902,7 +917,6 @@ class SetAdminPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateAdminPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def perform_create(self, serializer, request):
@@ -916,7 +930,7 @@ class SetAdminPin(generics.CreateAPIView):
                 f"No pin provided for user: {user.first_name} {user.last_name}"
             )
             return Response(
-                data=encrypt({"status": "error", "message": "Pin is required."}),
+                data=encrypt({"status": "fail", "message": "Pin is required."}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -966,7 +980,7 @@ class SetAdminPin(generics.CreateAPIView):
         else:
             logger.error("Validation errors occurred: %s", serializer.errors)
             return Response(
-                data=encrypt({"status": "error", "message": serializer.errors}),
+                data=encrypt({"status": "fail", "message": serializer.errors}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1662,7 +1676,6 @@ class ResetPin(generics.CreateAPIView):
 )
 class AddRoleToAdmin(generics.GenericAPIView):
     serializer_class = AddRoleToAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request):
@@ -1811,7 +1824,6 @@ class AddRoleToAdmin(generics.GenericAPIView):
 )
 class RemoveAdminRole(generics.GenericAPIView):
     serializer_class = RemoveRoleFromAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def delete(self, request):
@@ -1884,60 +1896,47 @@ class RemoveAdminRole(generics.GenericAPIView):
             request.user.save(
                 update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
             )
-            if not account_type_instance:
-                logger.warning(
-                    "Role '%s' not found for user: %s", role_to_remove, email
-                )
-                return Response(
-                    data=encrypt("Role not found for the user."),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Remove the role
-            account_type_instance.delete()
-            logger.info("Role '%s' removed for user: %s", role_to_remove, email)
-
-            UserNotification.objects.create(
-                user=is_user,
-                title="Role Removed",
-                message=f"The role '{role_to_remove}' has been removed from your account.",
-            )
-            logger.info(
-                "User  notification created for user: %s regarding role removal", email
-            )
-
-            ActivityModel.objects.create(
-                user=is_user,
-                title="Role Removed",
-                description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
-            )
-            logger.info(
-                "Activity logged for user: %s with removed role: %s",
-                email,
-                role_to_remove,
-            )
-
+        if not account_type_instance:
+            logger.warning("Role '%s' not found for user: %s", role_to_remove, email)
             return Response(
-                data=encrypt(
-                    {
-                        "status": "success",
-                        "message": f"Role '{role_to_remove}' removed successfully.",
-                        "removed_role": role_to_remove,
-                    }
-                ),
-                status=status.HTTP_200_OK,
+                data=encrypt("Role not found for the user."),
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        else:
-            logger.warning(
-                "Incorrect pin provided for user: %s %s",
-                request.user.first_name,
-                request.user.last_name,
-            )
-            return Response(
-                data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        # Remove the role
+        account_type_instance.delete()
+        logger.info("Role '%s' removed for user: %s", role_to_remove, email)
+
+        UserNotification.objects.create(
+            user=is_user,
+            title="Role Removed",
+            message=f"The role '{role_to_remove}' has been removed from your account.",
+        )
+        logger.info(
+            "User  notification created for user: %s regarding role removal", email
+        )
+
+        ActivityModel.objects.create(
+            user=is_user,
+            title="Role Removed",
+            description=f"'{role_to_remove}' has been removed as part of Admin, {is_user.full_name} roles.",
+        )
+        logger.info(
+            "Activity logged for user: %s with removed role: %s",
+            email,
+            role_to_remove,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": f"Role '{role_to_remove}' removed successfully.",
+                    "removed_role": role_to_remove,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
@@ -1956,7 +1955,7 @@ class RemoveAdminRole(generics.GenericAPIView):
         ),
     },
 )
-class DisableAdminrole(generics.RetrieveUpdateAPIView):
+class DisableAdminrole(APIView):
     """
     DisableAdminrole handles the POST request of disabling
     an admin user.
@@ -1965,7 +1964,6 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = DisableAdminSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -2037,40 +2035,31 @@ class DisableAdminrole(generics.RetrieveUpdateAPIView):
                 request.user.save(
                     update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                 )
-                user.is_admin_disabled = True
-                user.save()
-                logger.info("Admin account for '%s' has been disabled.", email)
+            user.is_admin_disabled = True
+            user.save()
+            cache.delete_many(["all_admin_users", "admin_users_by_role"])
+            logger.info("Admin account for '%s' has been disabled.", email)
 
-                UserNotification.objects.create(
-                    user=user,
-                    title="Disable Admin.",
-                    message="Your account has been disabled!.",
-                )
-                logger.info("User  notification created for admin '%s'.", email)
+            UserNotification.objects.create(
+                user=user,
+                title="Disable Admin.",
+                message="Your account has been disabled!.",
+            )
+            logger.info("User  notification created for admin '%s'.", email)
 
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Disable Admin.",
-                    description=f"Admin user, {user.full_name} disabled.",
-                )
-                logger.info("Activity logged for disabling admin '%s'.", user.full_name)
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Disable Admin.",
+                description=f"Admin user, {user.full_name} disabled.",
+            )
+            logger.info("Activity logged for disabling admin '%s'.", user.full_name)
 
-                resp = {
-                    "status": "success",
-                    "message": "Admin disabled successfully",
-                    "data": user.is_admin_disabled,
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.warning(
-                    "Incorrect pin provided for user: %s %s",
-                    request.user.first_name,
-                    request.user.last_name,
-                )
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            resp = {
+                "status": "success",
+                "message": "Admin disabled successfully",
+                "data": user.is_admin_disabled,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error("An error occurred while disabling admin: %s", str(e))
@@ -2105,7 +2094,6 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = EnableAdminSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -2177,42 +2165,31 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
                 request.user.save(
                     update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                 )
-                user.is_admin_disabled = False
-                user.save()
-                logger.info("Admin account for '%s' has been re-enabled.", email)
+            user.is_admin_disabled = False
+            user.save()
+            cache.delete_many(["all_admin_users", "admin_users_by_role"])
+            logger.info("Admin account for '%s' has been re-enabled.", email)
 
-                UserNotification.objects.create(
-                    user=user,
-                    title="Re-Enable Admin.",
-                    message="Your account has been re-enabled successfully.",
-                )
-                logger.info("User  notification created for admin '%s'.", email)
+            UserNotification.objects.create(
+                user=user,
+                title="Re-Enable Admin.",
+                message="Your account has been re-enabled successfully.",
+            )
+            logger.info("User  notification created for admin '%s'.", email)
 
-                ActivityModel.objects.create(
-                    user=request.user,
-                    title="Re-Enable Admin.",
-                    description=f"Admin user, {user.full_name} was re-enabled.",
-                )
-                logger.info(
-                    "Activity logged for re-enabling admin '%s'.", user.full_name
-                )
+            ActivityModel.objects.create(
+                user=request.user,
+                title="Re-Enable Admin.",
+                description=f"Admin user, {user.full_name} was re-enabled.",
+            )
+            logger.info("Activity logged for re-enabling admin '%s'.", user.full_name)
 
-                resp = {
-                    "status": "success",
-                    "message": "Admin re-enabled successfully",
-                    "data": user.is_admin_disabled,
-                }
-                return Response(data=encrypt(resp), status=status.HTTP_200_OK)
-            else:
-                logger.warning(
-                    "Incorrect pin provided for user: %s %s",
-                    request.user.first_name,
-                    request.user.last_name,
-                )
-                return Response(
-                    data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            resp = {
+                "status": "success",
+                "message": "Admin re-enabled successfully",
+                "data": user.is_admin_disabled,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error("An error occurred while re-enabling admin: %s", str(e))
@@ -2240,7 +2217,6 @@ class EnableAdminrole(generics.RetrieveUpdateAPIView):
 )
 class DeleteAdmin(generics.GenericAPIView):
     serializer_class = AdminDeletionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -2252,7 +2228,7 @@ class DeleteAdmin(generics.GenericAPIView):
             logger.info("Received request to delete admin for email: %s", email)
 
             try:
-                user = User.objects.get(Q(id=email) | Q(email=email))
+                user = User.objects.get(email=email)
                 logger.info("Admin user found: %s", user.full_name)
 
                 from datetime import timedelta
@@ -2308,62 +2284,51 @@ class DeleteAdmin(generics.GenericAPIView):
                     request.user.save(
                         update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
                     )
-                    user.delete()
-                    logger.info("Admin user '%s' deleted successfully.", user.full_name)
 
-                    UserNotification.objects.create(
-                        user=request.user,
-                        title="Delete Admin.",
-                        message=f"Admin with '{email}' deleted successfully.",
-                    )
-                    logger.info(
-                        "User  notification created for admin deletion: %s", email
-                    )
+                # Capture before deletion
+                deleted_name = user.full_name or user.first_name
+                deleted_email = user.email
 
-                    # Register Admin activity.
-                    ActivityModel.objects.create(
-                        user=request.user,
-                        title="Delete Admin.",
-                        description=f"Admin user, {user.full_name} deleted successfully.",
-                    )
-                    logger.info(
-                        "Activity logged for deleting admin: %s", user.full_name
-                    )
+                user.delete()
+                cache.delete_many(["all_admin_users", "admin_users_by_role"])
+                logger.info("Admin user '%s' deleted successfully.", deleted_name)
 
-                    text_content = render_to_string(
-                        template_name="empty_email.html",
-                        context={
-                            "custom_text": f"Dear {request.user.first_name},<br><br>Your admin account has been deleted.",
-                            "support_email": "support@picadailys.com",
-                            "picadailys_phone": [
-                                "02012271894",
-                                "02012271895",
-                            ],
-                        },
-                    )
+                ActivityModel.objects.create(
+                    user=request.user,
+                    title="Delete Admin.",
+                    description=f"Admin user, {deleted_name} deleted successfully.",
+                )
+                logger.info("Activity logged for deleting admin: %s", deleted_name)
 
-                    Messaging.send_email(
-                        email=request.user.email,
-                        sender_email="notifications@picadailys.com",
-                        html_content=text_content,
-                        subject="Admin Deletion",
-                        body="Your admin account has been deleted",
-                    )
+                text_content = render_to_string(
+                    template_name="empty_email.html",
+                    context={
+                        "custom_text": f"Dear {deleted_name},<br><br>Your admin account has been deleted.",
+                        "support_email": "support@picadailys.com",
+                        "picadailys_phone": [
+                            "02012271894",
+                            "02012271895",
+                        ],
+                    },
+                )
 
-                    return Response(
-                        data=encrypt(f"Admin with '{email}' deleted successfully."),
-                        status=status.HTTP_204_NO_CONTENT,
-                    )
-                else:
-                    logger.warning(
-                        "Incorrect pin provided for user: %s %s",
-                        request.user.first_name,
-                        request.user.last_name,
-                    )
-                    return Response(
-                        data=encrypt({"status": "fail", "error": "Incorrect pin"}),
-                        status=status.HTTP_401_UNAUTHORIZED,
-                    )
+                Messaging.send_email(
+                    email=deleted_email,
+                    sender_email="notifications@picadailys.com",
+                    html_content=text_content,
+                    subject="Admin Deletion",
+                    body="Your admin account has been deleted",
+                )
+
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": f"Admin with '{email}' deleted successfully.",
+                        }
+                    ),
+                    status=status.HTTP_200_OK,
+                )
             except User.DoesNotExist:
                 logger.warning("Admin with email '%s' does not exist.", email)
                 return Response(
@@ -2391,11 +2356,10 @@ class VerifiedUsersCount(generics.ListAPIView):
 
     serializer_class = GetUserSerializer
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
-        return User.objects.filter(is_verified=True).order_by("id")
+        return User.objects.filter(is_verified=True, is_member=True).order_by("id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -2430,7 +2394,6 @@ class VerifiedPartnersCount(generics.ListAPIView):
 
     serializer_class = PartnerProfileSerializer
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -2469,7 +2432,6 @@ class VerifiedBrandAdsCount(generics.ListAPIView):
 
     serializer_class = BrandAdProfileSerializers
     permission_classes = (IsAuthenticated, IsSuperAdmin, IsNotDisabled)
-    authentication_classes = [JWTAuthentication]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -2526,7 +2488,6 @@ class GetAllAdminUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2535,7 +2496,7 @@ class GetAllAdminUsers(generics.ListAPIView):
         admin_users = (
             User.objects.filter(account_types__user_type__icontains="Admin")
             .distinct()
-            .order_by("account_types__created_at")
+            .order_by("id")
         )
         logger.info("Admin users retrieved successfully.")
         return admin_users
@@ -2568,6 +2529,7 @@ class GetAllAdminUsers(generics.ListAPIView):
                 "num_of_disabled_admin_users": disabled_admin_count,
                 "admin_users": serialized_users.data,
             }
+            cache.set(cache_key, response_data, timeout=900)
             return Response(
                 data=encrypt(response_data),
                 status=status.HTTP_200_OK,
@@ -2582,10 +2544,6 @@ class GetAllAdminUsers(generics.ListAPIView):
                 "num_of_disabled_admin_users": disabled_admin_count,
                 "admin_users": [],
             }
-
-            # Save to cache (short TTL)
-            cache.set(cache_key, response_data, timeout=900)  # 15 minutes
-
             return Response(
                 data=encrypt(response_data),
                 status=status.HTTP_200_OK,
@@ -2611,7 +2569,6 @@ class GetAllAdminUsersTypes(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2704,7 +2661,6 @@ class GetAllWalletAdminUsers(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAdminSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     pagination_class = PaginationStyle
 
@@ -2769,7 +2725,6 @@ class SwitchRoles(generics.RetrieveAPIView):
     """
 
     serializer_class = SwitchRolesSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def get_object(self):
@@ -2889,7 +2844,6 @@ class SwitchRoles(generics.RetrieveAPIView):
     },
 )
 class GetProfileImage(generics.RetrieveAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
@@ -2928,7 +2882,6 @@ class GetAllAppActivites(generics.ListAPIView):
     receive all app activity logs.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     serializer_class = GetAllActivityLogsSerializer
     pagination_class = CustomPageNumberPagination
@@ -3024,7 +2977,6 @@ class GetAllAdminActivites(generics.ListAPIView):
     created the activity.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
     serializer_class = GetAllActivityLogsSerializer
     pagination_class = CustomPageNumberPagination
@@ -3131,7 +3083,6 @@ class GetSingleAdminActivity(generics.RetrieveAPIView):
     queryset = ActivityModel.objects.all()
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "activity_id"
 
     def retrieve(self, request, *args, **kwargs):
@@ -3248,7 +3199,6 @@ class GetAllSingleAdminUserActivity(generics.ListAPIView):
     queryset = ActivityModel.objects.all()
     serializer_class = GetAllActivityLogsSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     lookup_field = "email"
 
     def get_queryset(self):
@@ -3361,7 +3311,6 @@ class AdminTypesListView(APIView):
     AdminTypesListView is the GET request handler that returns a list of admin types.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsSuperAdmin)
 
     def get(self, request):
@@ -3401,7 +3350,6 @@ class ActivityTitleListView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request, *args, **kwargs):
         logger.info("Accessing the get method to fetch unique activity titles.")
@@ -3476,7 +3424,6 @@ class ActivityTitleListView(APIView):
 class AdminDashboardDataView(APIView):
     serializer_class = AdminDdashboardDataSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request):
         today = timezone.now().date()
@@ -3493,19 +3440,9 @@ class AdminDashboardDataView(APIView):
         ]
 
         # --- Cashflow (income activity) calculations ---
-        from django.db import models
-        from django.db.models import Sum
-        from django.utils import timezone as dj_timezone
-        from banking.models import TransferModel, FundWithCard
-        from vas.models import ValueAddedServices
-        from django.db.models.functions import Cast
-        from django.db.models import FloatField
-
-        now = dj_timezone.now()
+        now = timezone.now()
         start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_of_week = start_of_today - dj_timezone.timedelta(
-            days=start_of_today.weekday()
-        )
+        start_of_week = start_of_today - timedelta(days=start_of_today.weekday())
         start_of_month = start_of_today.replace(day=1)
         start_of_year = start_of_today.replace(month=1, day=1)
 
@@ -3513,18 +3450,27 @@ class AdminDashboardDataView(APIView):
             qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
             if direction == "inbound":
                 qs = qs.filter(
-                    transaction_type__in=["INBOUND", "CREDIT", "INTRA_BANK_IN"]
+                    Q(transaction_type__in=["INBOUND", "CREDIT"])
+                    | Q(
+                        transaction_type="INTRA_BANK",
+                        beneficiary_account_number__isnull=False,
+                        sender_account_number__isnull=True,
+                    )
                 )
             elif direction == "outbound":
                 qs = qs.filter(
-                    transaction_type__in=["OUTBOUND", "DEBIT", "INTRA_BANK_OUT"]
+                    Q(transaction_type__in=["OUTBOUND", "DEBIT"])
+                    | Q(
+                        transaction_type="INTRA_BANK",
+                        sender_account_number__isnull=False,
+                    )
                 )
             return qs.aggregate(total=Sum("amount")).get("total") or 0
 
         def get_card_deposit_sum(start, end):
             return (
                 FundWithCard.objects.filter(
-                    created_at__gte=start, created_at__lt=end, is_processed=True
+                    created_at__gte=start, created_at__lt=end, amount__isnull=False
                 )
                 .aggregate(total=Sum("amount"))
                 .get("total")
@@ -3532,11 +3478,10 @@ class AdminDashboardDataView(APIView):
             )
 
         def get_bill_payment_sum(start, end):
-            # Only include successful/paid bills
             bills = ValueAddedServices.objects.filter(
                 created_at__gte=start,
                 created_at__lt=end,
-                status__in=["successful", "paid", "success"],
+                status__in=["successful", "paid", "success", "pending"],
             )
             # Cast amount to float for aggregation
             return (
@@ -3584,7 +3529,9 @@ class AdminDashboardDataView(APIView):
             "total_disabled_admins": User.objects.filter(
                 is_admin_disabled=True
             ).count(),
-            "total_verified_users": User.objects.filter(is_verified=True).count(),
+            "total_verified_users": User.objects.filter(
+                is_verified=True, is_member=True
+            ).count(),
             "total_verified_partners": User.objects.filter(business_verified=True)
             .distinct()
             .count(),
@@ -3623,7 +3570,6 @@ class AdminDashboardDataView(APIView):
 )
 class CreateKnowledgeBaseView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -3659,7 +3605,6 @@ class CreateKnowledgeBaseView(generics.GenericAPIView):
 )
 class ListKnowledgeBaseView(generics.ListAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = PaginationStyle
 
@@ -3718,7 +3663,6 @@ class ListKnowledgeBaseView(generics.ListAPIView):
 )
 class KnowledgeBaseDetailView(generics.GenericAPIView):
     serializer_class = KnowledgeBaseSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -3817,7 +3761,6 @@ class KnowledgeBaseDetailView(generics.GenericAPIView):
     },
 )
 class GamificationDashboardView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def get(self, request):

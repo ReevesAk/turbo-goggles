@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
 import rest_framework.serializers as s
@@ -41,6 +40,7 @@ from gamification.points import Points
 from gamification.models import StreakChallenge
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
+from .utils import mask_email, mask_phone
 
 logger = logging.getLogger("accounts")
 
@@ -81,9 +81,22 @@ class Register(generics.GenericAPIView):
             for key, value in decrypted_payload.items()
         }
 
+        if not user_data.get("consent_given"):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "You must accept the privacy policy and terms to register.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         email = user_data.get("email")
         if email and User.objects.filter(email=email).exists():
-            logger.warning("Registration attempt with already used email: %s", email)
+            logger.warning(
+                "Registration attempt with already used email: %s", mask_email(email)
+            )
             return Response(
                 data=encrypt(
                     {"status": "fail", "message": "This email is already registered!"}
@@ -94,7 +107,8 @@ class Register(generics.GenericAPIView):
         phone_number = user_data.get("phone_number")
         if phone_number and User.objects.filter(phone_number=phone_number).exists():
             logger.warning(
-                "Registration attempt with already used phone number: %s", phone_number
+                "Registration attempt with already used phone number: %s",
+                mask_phone(phone_number),
             )
             return Response(
                 data=encrypt(
@@ -109,7 +123,9 @@ class Register(generics.GenericAPIView):
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
-                logger.warning("Password mismatch for user: %s", user_data.get("email"))
+                logger.warning(
+                    "Password mismatch for user: %s", mask_email(user_data.get("email"))
+                )
                 return Response(
                     data=encrypt(
                         {"status": "fail", "message": "Passwords do not match!"}
@@ -121,6 +137,9 @@ class Register(generics.GenericAPIView):
             logger.info("Profile image: %s", profile_upload)
 
             user = serializer.save()
+            user.consent_given = True
+            user.consent_given_at = timezone.now()
+            user.save(update_fields=["consent_given", "consent_given_at"])
 
             if user_data.get("referral_code"):
                 logger.info(
@@ -142,17 +161,19 @@ class Register(generics.GenericAPIView):
             user.is_member = True
             user.save()
 
-            logger.info("User created: %s", user.email)
+            logger.info("User created: %s", mask_email(user.email))
 
             if profile_upload:
                 try:
                     user.profile_img_url = profile_upload
                     user.save()
-                    logger.info("Profile image uploaded for user: %s", user.email)
+                    logger.info(
+                        "Profile image uploaded for user: %s", mask_email(user.email)
+                    )
                 except Exception as e:
                     logger.error(
                         "Error uploading profile image for user %s: %s",
-                        user.email,
+                        mask_email(user.email),
                         str(e),
                     )
 
@@ -199,12 +220,12 @@ class Register(generics.GenericAPIView):
                 "image": user.profile_img_url,
                 "data": serializer.data,
             }
-            logger.info("Registration successful for user: %s", user.email)
+            logger.info("Registration successful for user: %s", mask_email(user.email))
             return Response(data=encrypt(response), status=status.HTTP_201_CREATED)
         else:
             logger.error(
                 "Registration failed for user: %s, errors: %s",
-                user_data.get("email"),
+                mask_email(user_data.get("email")),
                 serializer.errors,
             )
             return Response(
@@ -1227,7 +1248,6 @@ class ResetPassword(generics.CreateAPIView):
 )
 class Logout(APIView):
     serializer_class = LogoutSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
@@ -1272,6 +1292,6 @@ class Logout(APIView):
             return Response(
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 data=encrypt(
-                    {"status": "error", "message": "Logout failed. Please try again."}
+                    {"status": "fail", "message": "Logout failed. Please try again."}
                 ),
             )

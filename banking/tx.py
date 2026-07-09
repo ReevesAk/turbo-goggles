@@ -3,7 +3,6 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 # In-projects imports.
@@ -22,7 +21,6 @@ class PaginationStyle(PageNumberPagination):
 class AllTransactions(generics.ListAPIView):
     queryset = TxModel.objects.all()
     serializer_class = TxModelSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -45,7 +43,6 @@ class AllTransactions(generics.ListAPIView):
 
 class RetrieveTransaction(generics.GenericAPIView):
     serializer_class = TxModelSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, tx_reference):

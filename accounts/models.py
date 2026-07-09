@@ -120,6 +120,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     last_login = models.DateTimeField(null=True, blank=True)
 
+    consent_given = models.BooleanField(default=False)
+    consent_given_at = models.DateTimeField(null=True, blank=True)
+
     USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = []
 
@@ -170,7 +173,7 @@ class DeviceId(models.Model):
 class OTP(models.Model):
     otp = models.CharField(max_length=6, null=True)
     user_id = models.IntegerField()
-    expires_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
 
 
 class TxModel(models.Model):

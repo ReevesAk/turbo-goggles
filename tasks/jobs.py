@@ -2,12 +2,13 @@ import logging
 
 from celery import shared_task
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from accounts.models import User
 from gamification.points import Points, BASE_POINTS
 from user_profile.fcm import send_push_to_user, send_push_to_admins
-from .models import BrandTaskSubmission, TaskSubmission, VerificationResult, UserTrustScore
+from .models import BrandTaskSubmission, BrandVerificationResult, TaskSubmission, VerificationResult, UserTrustScore
 from .verification import verify_submission, verify_brand_submission, VerificationError
 
 logger = logging.getLogger(__name__)
@@ -228,7 +229,12 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
 
+        trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+        trust.record_approval()
+
         ad = submission.ad
+        from adverts.models import CreateAd as _CreateAd
+        _CreateAd.objects.filter(pk=ad.pk).update(slots_filled=F("slots_filled") + 1)
 
         # Credit points using the brand-set reward_points, falling back to BASE_POINTS
         task_type = ad.task_type or ""
@@ -278,6 +284,8 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
+        trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+        trust.record_rejection()
 
     send_push_to_user(
         user=submission.user,
@@ -316,6 +324,20 @@ def run_brand_verification(self, submission_id: str):
     action_confirmed = result["action_confirmed"]
     target_matched = result["target_matched"]
 
+    BrandVerificationResult.objects.update_or_create(
+        submission=submission,
+        defaults={
+            "verdict": verdict,
+            "confidence_score": confidence,
+            "ai_reasoning": result["reasoning"],
+            "flags": result["flags"],
+            "platform_confirmed": result.get("platform_confirmed", True),
+            "username_matched": result["username_matched"],
+            "action_confirmed": action_confirmed,
+            "target_matched": target_matched,
+        },
+    )
+
     if verdict == "Pass" and confidence >= 85 and action_confirmed and target_matched:
         approve_brand_submission_now(submission_id, None)
     elif verdict == "Fail" or (verdict == "Pass" and not (action_confirmed and target_matched)) or confidence < 60:
@@ -324,12 +346,14 @@ def run_brand_verification(self, submission_id: str):
             submission.rejection_reason = f"AI verification failed: {result['reasoning']}"
             submission.reviewed_at = timezone.now()
             submission.save(update_fields=["status", "rejection_reason", "reviewed_at"])
+            trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
+            trust.record_rejection()
         send_push_to_user(
             user=submission.user,
             title="Submission Not Accepted",
             body=(
                 f"Your proof for '{submission.ad.campaign_name}' was not accepted. "
-                "Please submit a valid screenshot showing the completed action."
+                f"{result['reasoning']}"
             ),
             data={"type": "brand_task_rejected", "submission_id": submission_id},
         )
@@ -345,6 +369,12 @@ def run_brand_verification(self, submission_id: str):
         logger.info(
             "Brand submission %s flagged for manual review (verdict=%s, confidence=%d)",
             submission_id, verdict, confidence,
+        )
+        send_push_to_user(
+            user=submission.user,
+            title="Submission Under Review",
+            body=f"Your proof for '{submission.ad.campaign_name}' is being reviewed by our team. We'll notify you once it's checked.",
+            data={"type": "brand_task_flagged", "submission_id": submission_id},
         )
         send_push_to_admins(
             title="Brand Submission Needs Review",

@@ -10,11 +10,10 @@ from .serializers import MemberSerializer
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User
 from gamification.points import Points
-from permissions import IsNotDisabled, IsMemberAdminOrSuperAdmin
+from permissions import IsNotDisabled, IsMemberAdminOrSuperAdminOrTaskAdmin
 from user_profile.fcm import send_push_to_user
 from user_profile.models import HandleChangeRequest, MemberSurvey
 from user_profile.serializers import (
@@ -22,7 +21,7 @@ from user_profile.serializers import (
     ReviewHandleChangeSerializer,
 )
 
-from security import encrypt
+from security import encrypt, decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +30,11 @@ HANDLE_CHANGE_COST = 50
 
 class AllMembersView(generics.ListAPIView):
     serializer_class = MemberSerializer
-    permission_classes = [IsAuthenticated, IsNotDisabled, IsMemberAdminOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotDisabled,
+        IsMemberAdminOrSuperAdminOrTaskAdmin,
+    ]
 
     def get_queryset(self):
         members = User.objects.filter(
@@ -79,8 +81,7 @@ class AllMembersView(generics.ListAPIView):
 
 class ListHandleChangeRequestsView(generics.ListAPIView):
     serializer_class = HandleChangeRequestDetailSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def get_queryset(self):
         qs = HandleChangeRequest.objects.select_related("user", "reviewed_by")
@@ -93,14 +94,21 @@ class ListHandleChangeRequestsView(generics.ListAPIView):
         qs = self.get_queryset()
         serializer = self.get_serializer(qs, many=True)
         return Response(
-            {"status": "success", "total": qs.count(), "data": serializer.data}
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Change requests retrieved successfully",
+                    "total": qs.count(),
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
         )
 
 
 class ReviewHandleChangeRequestView(generics.GenericAPIView):
     serializer_class = ReviewHandleChangeSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated, IsMemberAdminOrSuperAdminOrTaskAdmin]
 
     def patch(self, request, pk):
         try:
@@ -109,20 +117,23 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
             )
         except HandleChangeRequest.DoesNotExist:
             return Response(
-                {"status": "fail", "message": "Request not found."},
+                data=encrypt({"status": "fail", "message": "Request not found."}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if handle_request.status != "pending":
             return Response(
-                {
-                    "status": "fail",
-                    "message": f"This request has already been {handle_request.status}.",
-                },
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"This request has already been {handle_request.status}.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
         serializer.is_valid(raise_exception=True)
 
         action = serializer.validated_data["action"]
@@ -132,14 +143,21 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
         handle_request.admin_note = admin_note
         handle_request.reviewed_by = request.user
         handle_request.reviewed_at = timezone.now()
+
+        if action == "approve":
+            handle_request.approval_date = timezone.now()
+            handle_request.approved_by = request.user
+
         handle_request.save()
 
         user = handle_request.user
 
         if action == "approve":
             survey, _ = MemberSurvey.objects.get_or_create(user=user)
-            survey.allow_handle_change = True
-            survey.save(update_fields=["allow_handle_change"])
+            platform_field = f"{handle_request.platform}_handle"
+            setattr(survey, platform_field, handle_request.new_handle)
+            survey.allow_handle_change = False
+            survey.save(update_fields=[platform_field, "allow_handle_change"])
 
             # Deduct 50 pts for the handle change
             Points.deduct(
@@ -154,13 +172,14 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
             send_push_to_user(
                 user=user,
                 title="Handle Change Approved ✅",
-                body=f"Your request to change your {handle_request.get_platform_display()} handle has been approved. {HANDLE_CHANGE_COST} pts have been deducted. You can now update it.",
+                body=f"Your {handle_request.get_platform_display()} handle has been updated to '{handle_request.new_handle}'. {HANDLE_CHANGE_COST} pts have been deducted.",
                 data={
                     "type": "handle_change_approved",
                     "platform": handle_request.platform,
+                    "new_handle": handle_request.new_handle,
                 },
             )
-            message = "Request approved. 50 pts deducted from user."
+            message = "Request approved. Handle updated and 50 pts deducted from user."
         else:
             send_push_to_user(
                 user=user,
@@ -179,4 +198,7 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
             handle_request.status,
             request.user.email,
         )
-        return Response({"status": "success", "message": message})
+        return Response(
+            data=encrypt({"status": "success", "message": message}),
+            status=status.HTTP_200_OK,
+        )

@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
@@ -455,7 +454,6 @@ class PublicWaitlistListView(generics.ListAPIView):
 class AdminWaitlistListView(generics.ListAPIView):
     """Admin list of all waitlist users with full details. TaskAdmin & SuperAdmin only."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
     pagination_class = WaitlistPagination
 
@@ -516,7 +514,6 @@ class AdminWaitlistDeleteDuplicatesView(generics.GenericAPIView):
     TaskAdmin & SuperAdmin only.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def delete(self, request, *args, **kwargs):
@@ -637,7 +634,6 @@ class WeeklyTopReferrersView(APIView):
     },
 )
 class BulkDeleteWaitlistUsers(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
 
     def post(self, request):
@@ -658,7 +654,7 @@ class BulkDeleteWaitlistUsers(APIView):
             logger.exception("BulkDeleteWaitlistUsers failed: %s", e)
             return Response(
                 {
-                    "status": "error",
+                    "status": "fail",
                     "message": "An error occurred while deleting users.",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

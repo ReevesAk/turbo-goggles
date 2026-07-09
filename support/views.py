@@ -25,8 +25,8 @@ from .serializers import (
     DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer,
     UserProfileSerializer, CompleteTicketSerializer, AgentForgotPinSerializer,
     AgentVerifyOTPSerializer, AgentResetPinSerializer, SupportStaffForgotPasswordSerializer,
-    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer
-    
+    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer,
+    ReopenTicketSerializer,
 )
 from .utils import generate_ticket_number
 from .models import Ticket, AgentRating, TicketAssignmentHistory, TicketRRTrail
@@ -795,7 +795,6 @@ class ListUserDetailsAPI(generics.ListAPIView):
     ListUserDetailsAPI handles the GET request to list all agents and moderators.
     """
     serializer_class = UserProfileSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -839,7 +838,6 @@ class CreateTicket(generics.CreateAPIView):
     a customer and generating a ticket.
     """
     serializer_class = CreateTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     parser_classes = (
         MultiPartParser,
@@ -1012,7 +1010,6 @@ class AssignTicket(generics.GenericAPIView):
     """
 
     serializer_class = AssignTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -1090,14 +1087,14 @@ class AssignTicket(generics.GenericAPIView):
             )
 
         if authenticated_user == user:
-            is_manager = AccountType.objects.filter(
+            is_manager_or_moderator = AccountType.objects.filter(
                 user=authenticated_user,
-                user_type="Manager"
+                user_type__in=["Manager", "Moderator"]
             ).exists()
 
-            if not is_manager:
+            if not is_manager_or_moderator:
                 raise PermissionDenied(
-                    "Only a Manager is allowed to assign a ticket to themselves."
+                    "Only a Manager or Moderator is allowed to assign a ticket to themselves."
                 )
 
         allowed_roles = ["Agent", "Manager", "Moderator"]
@@ -1163,7 +1160,6 @@ class ReassignTicket(generics.GenericAPIView):
     """
 
     serializer_class = AssignTicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
 
@@ -1249,16 +1245,16 @@ class ReassignTicket(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Make sure only a manager can reassign to themsleves.
+        # Make sure only a manager or moderator can reassign to themselves.
         if authenticated_user == user:
-            is_manager = AccountType.objects.filter(
+            is_manager_or_moderator = AccountType.objects.filter(
                 user=authenticated_user,
-                user_type="Manager"
+                user_type__in=["Manager", "Moderator"]
             ).exists()
 
-            if not is_manager:
+            if not is_manager_or_moderator:
                 raise PermissionDenied(
-                    "Only a Manager is allowed to reassign a ticket to themselves."
+                    "Only a Manager or Moderator is allowed to reassign a ticket to themselves."
                 )
 
         allowed_roles = ["Agent", "Manager", "Moderator"]
@@ -1323,7 +1319,6 @@ class UpdateTicketStatus(generics.GenericAPIView):
     """
 
     serializer_class = UpdateTicketStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1432,7 +1427,6 @@ class UpdateTicketStatus(generics.GenericAPIView):
 )
 class EscalateTicketAPIView(APIView):
     serializer_class = TicketEscalateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1481,6 +1475,18 @@ class EscalateTicketAPIView(APIView):
             reason=serializer.validated_data["reason"],
         )
 
+        # Also record in TicketAssignmentHistory, since that's what the
+        # ticket-rr-trail endpoint (TicketRRTrailAPIView) reads from.
+        TicketAssignmentHistory.objects.create(
+            ticket=ticket,
+            assigned_by=authenticated_user,
+            previous_agent=from_user,
+            new_agent=to_user,
+            priority=ticket.priority,
+            reason=serializer.validated_data["reason"],
+            action="escalate",
+        )
+
         # 2️⃣ Update ticket
         ticket.assigned_to = to_user
         ticket.agent_role = to_role
@@ -1506,7 +1512,6 @@ class EscalateTicketAPIView(APIView):
     },
 )
 class TicketRRTrailAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1579,7 +1584,6 @@ class GetAllSupportTickets(generics.ListAPIView):
     retrieve all support tickets created.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -1647,7 +1651,6 @@ class GetMyAssignedTickets(generics.ListAPIView):
     Allows an admin to retrieve tickets assigned to them.
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -1681,7 +1684,7 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 },
                 "assigned_at": ticket.assigned_at,
                 "resolution_hours": ticket.resolution_hours,
-                "remaining_hours": ticket.remaining_time,
+                "remaining_seconds": ticket.remaining_time,
                 "ticket_channel": ticket.channel,
                 "priority": ticket.priority,
                 "status": ticket.status,
@@ -1719,7 +1722,6 @@ class GetSingleTicket(generics.RetrieveAPIView):
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsAgent]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     lookup_field = "number"
@@ -1749,8 +1751,8 @@ class GetSingleTicket(generics.RetrieveAPIView):
             ).data
 
             if not ticket.opened_at:
-                ticket.opened_at = timezone.now()
-                ticket.save()
+                Ticket.objects.filter(pk=ticket.pk).update(opened_at=timezone.now())
+                ticket.refresh_from_db(fields=["opened_at"])
 
             response = {
                 "status": "success",
@@ -1770,7 +1772,7 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "customer_phone_number": ticket.customer_phone_number,
                     "customer_name": ticket.customer_name,
                     "resolution_hours": ticket.resolution_hours,
-                    "remaining_hours": ticket.remaining_time,
+                    "remaining_seconds": ticket.remaining_time,
                     "status": ticket.status,
                     "assignment_history": history_data,
                 },
@@ -1808,7 +1810,6 @@ class GetTicketByChannel(generics.ListAPIView):
     """
 
     serializer_class = TicketSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -1847,7 +1848,7 @@ class GetTicketByChannel(generics.ListAPIView):
             logger.exception(f"Error occurred while searching for partners: {e}")
             return Response(
                 {
-                    "status": "error",
+                    "status": "fail",
                     "message": "An error occurred while processing the request.",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1872,7 +1873,6 @@ class DeleteTicket(generics.DestroyAPIView):
     queryset = Ticket.objects.all()
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
     lookup_field = "number"
     lookup_url_kwarg = "ticket_number"
@@ -1922,7 +1922,6 @@ class RateSupportAgent(generics.GenericAPIView):
 
     serializer_class = AgentRatingSerializers
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
     lookup_field = "ticket_number"
 
@@ -2015,7 +2014,6 @@ class UsersWithTickets(generics.ListAPIView):
 
     serializer_class = TicketSerializers
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def get(self, request, *args, **kwargs):
@@ -2052,7 +2050,6 @@ class AddAgent(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = AddAgentSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
     throttle_classes = []
 
@@ -2153,13 +2150,13 @@ class AddAgent(generics.CreateAPIView):
             message = first_validation_error(e.detail)
             logger.warning(f"Validation error creating agent: {e.detail}")
             return Response(
-                data={"status": "error", "message": message},
+                data={"status": "fail", "message": message},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}", exc_info=True)
             return Response(
-                data={"status": "error", "message": "An unexpected error occurred. Please try again."},
+                data={"status": "fail", "message": "An unexpected error occurred. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2293,7 +2290,6 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = DisableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def post(self, request, *args, **kwargs):
@@ -2377,7 +2373,6 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = EnableAgentSerializer
     permission_classes = [IsAuthenticated, IsManagerOrSuperAdmin]
-    authentication_classes = [JWTAuthentication]
     throttle_classes = []
 
     def post(self, request, *args, **kwargs):
@@ -2458,7 +2453,6 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
 )
 class DeleteAgent(generics.GenericAPIView):
     serializer_class = AgentDeletionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsManagerOrSuperAdmin)
 
     def post(self, request, *args, **kwargs):
@@ -2819,7 +2813,6 @@ class SetAgentPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateAgentPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     throttle_classes = []
 
@@ -2901,7 +2894,6 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
 
     queryset = User.objects.all()
     serializer_class = ListAgentModeratorAndManagerSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsAgent)
     pagination_class = CustomPageNumberPagination
     throttle_classes = []
@@ -3006,7 +2998,6 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
 
     queryset = Ticket.objects.all()
     serializer_class = CompleteTicketSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
     throttle_classes = []
 
@@ -3061,5 +3052,101 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         return Response(data=response_data, status=status.HTTP_200_OK)
 
 
-# ── Ticket messaging ──────────────────────────────────────────────────────────
+@extend_schema(
+    summary="[Support] Reopen a resolved or closed ticket",
+    tags=["Support"],
+    description="Reopens a ticket that was previously Resolved or Closed. Sets status to 'Reopened', increments the reopen counter, and logs the action in the RR trail.",
+    request=ReopenTicketSerializer,
+    responses={
+        200: inline_serializer("ReopenTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("ReopenTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("ReopenTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
+class ReopenTicketAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
+    throttle_classes = []
 
+    def post(self, request, *args, **kwargs):
+        serializer = ReopenTicketSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        authenticated_user = request.user
+        ticket_number = kwargs.get("ticket_number")
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
+            return Response(
+                {"status": "fail", "message": "Ticket not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if ticket.status not in ("Resolved", "Closed"):
+            return Response(
+                {
+                    "status": "fail",
+                    "message": f"Only Resolved or Closed tickets can be reopened. Current status: '{ticket.status}'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pin = serializer.validated_data["pin"]
+        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+            return Response(
+                {"status": "fail", "error": "Incorrect pin"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        previous_status = ticket.status
+
+        ticket.status = "Reopened"
+        ticket.reopened_count = (ticket.reopened_count or 0) + 1
+        ticket.save(update_fields=["status", "reopened_count"])
+
+        TicketRRTrail.objects.create(
+            ticket=ticket,
+            action="reassign",
+            from_user=ticket.assigned_to,
+            to_user=ticket.assigned_to,
+            from_role=ticket.agent_role,
+            to_role=ticket.agent_role,
+            reason=serializer.validated_data["reason"],
+        )
+
+        if ticket.user:
+            send_push_to_user(
+                user=ticket.user,
+                title="Support Ticket Reopened",
+                body="Your previously closed ticket has been reopened. An agent will follow up shortly.",
+                data={"type": "ticket_reopened", "ticket_number": str(ticket_number)},
+            )
+
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Reopen Ticket",
+            description=(
+                f"Ticket {ticket_number} reopened by {authenticated_user.full_name} "
+                f"(was '{previous_status}', reopen #{ticket.reopened_count})."
+            ),
+        )
+
+        logger.info(
+            "Ticket %s reopened by %s (reopen count: %d)",
+            ticket_number,
+            authenticated_user.email,
+            ticket.reopened_count,
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} has been reopened.",
+                "data": {
+                    "ticket_number": ticket_number,
+                    "previous_status": previous_status,
+                    "current_status": ticket.status,
+                    "reopened_count": ticket.reopened_count,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )

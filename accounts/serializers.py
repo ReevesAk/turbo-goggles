@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 # In project imports.
 from .models import User
+from .utils import mask_email, mask_phone
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     referral_code = serializers.CharField(
         max_length=50, min_length=3, write_only=True, required=False, allow_blank=True
     )
+    consent_given = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = User
@@ -40,6 +42,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password2",
             "referral_code",
             "profile_img_url",
+            "consent_given",
         ]
         extra_kwargs = {
             "password": {"write_only": True},
@@ -50,6 +53,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("profile_img_url", None)
+        validated_data.pop("consent_given", None)  # stamped by the view after save
 
         user = User.objects.create(
             email=validated_data["email"],
@@ -61,7 +65,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.save()
 
-        logger.info("New user registered with email: %s", user.email)
+        logger.info("New user registered: %s", mask_email(user.email))
         return user
 
 
@@ -120,7 +124,7 @@ class LoginSerializers(serializers.ModelSerializer):
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")
-        logger.info("Login attempt with phone number: %s", phone_number)
+        logger.info("Login attempt with phone number: %s", mask_phone(phone_number))
         return super().validate(attrs)
 
 
@@ -128,8 +132,7 @@ class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField()
 
     def validate(self, attrs):
-        otp = attrs.get("otp")
-        logger.info("OTP verification attempt for OTP: %s", otp)
+        logger.info("OTP verification attempt received")
         return attrs
 
 
@@ -140,8 +143,7 @@ class NewDeviceOTPVerifyOTPSerializer(serializers.Serializer):
     device_os = serializers.CharField(max_length=50, write_only=True, required=True)
 
     def validate(self, attrs):
-        otp = attrs.get("otp")
-        logger.info("OTP verification attempt for OTP: %s", otp)
+        logger.info("OTP verification attempt received")
         return attrs
 
 
@@ -157,7 +159,7 @@ class ResendOTPSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         phone_number = attrs.get("phone_number")
-        logger.info("OTP resend request for phone number: %s", phone_number)
+        logger.info("OTP resend request for phone number: %s", mask_phone(phone_number))
         return attrs
 
 

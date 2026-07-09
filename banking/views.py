@@ -23,7 +23,6 @@ from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 
 # from rest_framework.exceptions import NotFound
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 import rest_framework.serializers as s
@@ -111,7 +110,6 @@ class VerifYBVN(generics.GenericAPIView):
     """
 
     serializer_class = BVNSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
@@ -294,7 +292,6 @@ class VerifYNIN(generics.GenericAPIView):
     """
 
     serializer_class = NINSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
@@ -473,7 +470,6 @@ class CreateUserWallet(generics.GenericAPIView):
     """
 
     serializer_class = WalletCreationSerializers
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -659,7 +655,7 @@ class CreateUserWallet(generics.GenericAPIView):
             return Response(
                 encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Wallet creation failed. Please try again.",
                     }
                 ),
@@ -691,7 +687,6 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
     """UpgradeToTier2Wallet Handles the POST request upgrade of a wallet to Tier 2."""
 
     serializer_class = Tier2WalletUpgradeSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -835,7 +830,7 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Wallet upgrade request failed. Please try again.",
                     }
                 ),
@@ -866,7 +861,6 @@ class UpgradeToTier2Wallet(generics.GenericAPIView):
 class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
     """RequestToUpgradeToTier3Wallet Handles the POST request to request upgrade of a wallet to Tier 3."""
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -963,7 +957,7 @@ class RequestToUpgradeToTier3Wallet(generics.GenericAPIView):
             return Response(
                 data=encrypt(
                     {
-                        "status": "error",
+                        "status": "fail",
                         "message": "Wallet upgrade request failed. Please try again.",
                     }
                 ),
@@ -1165,7 +1159,6 @@ class GetAccountDetails(generics.GenericAPIView):
     """
 
     serializer_class = WalletEnquirySerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
@@ -1193,6 +1186,13 @@ class GetAccountDetails(generics.GenericAPIView):
 
         if wallet_data and wallet_data.get("status") == "SUCCESS":
             live_data = wallet_data.get("data", {})
+
+            # Keep DB in sync so the fallback is never stale
+            live_balance = live_data.get("availableBalance")
+            if live_balance is not None:
+                acct_details.balance = live_balance
+                acct_details.save(update_fields=["balance"])
+
             serializer = WalletEnquirySerializer(live_data)
             response = {
                 "status": "success",
@@ -1247,7 +1247,6 @@ class SetWalletPin(generics.CreateAPIView):
     """
 
     serializer_class = CreateWalletPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request, *args, **kwargs):
@@ -1347,7 +1346,6 @@ class ForgotWalletPin(generics.GenericAPIView):
     """
 
     serializer_class = BankingStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
@@ -1417,7 +1415,6 @@ class PinResendOTP(generics.GenericAPIView):
     """
 
     serializer_class = BankingStatusSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
@@ -1487,7 +1484,6 @@ class PinVerifyOTP(generics.GenericAPIView):
     """
 
     serializer_class = VerifyPinOTPSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def post(self, request):
@@ -1546,7 +1542,6 @@ class PinVerifyOTP(generics.GenericAPIView):
 )
 class ResetPin(generics.CreateAPIView):
     serializer_class = ResetPinSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
 
     def create(self, request):
@@ -1714,7 +1709,6 @@ class RefundFailedCardTransaction(generics.GenericAPIView):
 )
 class GetCashbackBalance(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
 
     def get(self, request):
         user = request.user
@@ -1765,7 +1759,6 @@ _CORPORATE_REQUIRED_FILES = [
 )
 class CreateCorporateWallet(generics.GenericAPIView):
     serializer_class = SubmitCorporateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -1927,7 +1920,6 @@ class CreateCorporateWallet(generics.GenericAPIView):
 )
 class UpdateCorporateWallet(generics.GenericAPIView):
     serializer_class = SubmitCorporateSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -2029,7 +2021,6 @@ class UpdateCorporateWallet(generics.GenericAPIView):
     },
 )
 class GetCorporateWalletStatus(generics.GenericAPIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -2137,7 +2128,6 @@ class GenerateAccountStatement(generics.GenericAPIView):
     """
 
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
     serializer_class = AccountStatementSerializer
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
