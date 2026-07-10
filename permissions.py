@@ -127,6 +127,25 @@ class IsSuperAdmin(permissions.BasePermission):
         )
 
 
+class IsContentAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["ContentAdmin"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise ValidationError(
+                    encrypt("Only ContentAdmin Users can perform this action.")
+                )
+
+        raise ValidationError(
+            encrypt("Authentication is required to access this resource.")
+        )
+
+
 class IsPartner(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.
