@@ -4,7 +4,17 @@ from drf_spectacular.utils import extend_schema_field
 
 # In project imports.
 from accounts.models import User
-from .models import PointConfig, StepCampaignModel, StepSessionModel, StreakChallenge, StreakHistory, UserStreak, SCHEDULE_TYPE_CHOICES
+from .models import (
+    PointConfig,
+    RewardRule,
+    RewardTier,
+    StepCampaignModel,
+    StepSessionModel,
+    StreakChallenge,
+    StreakHistory,
+    UserStreak,
+    SCHEDULE_TYPE_CHOICES,
+)
 
 
 class SSOLoginSerializer(serializers.Serializer):
@@ -404,3 +414,102 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
             "is_paused",
             "is_cancelled",
         ]
+
+
+class RewardTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RewardTier
+        fields = ["id", "label", "min_value", "max_value", "points"]
+        read_only_fields = ["id"]
+
+
+class RewardRuleSerializer(serializers.ModelSerializer):
+    """Full read serializer — includes the value-banded tiers for this rule."""
+
+    tiers = RewardTierSerializer(many=True, read_only=True)
+    source_display = serializers.CharField(source="get_source_display", read_only=True)
+
+    class Meta:
+        model = RewardRule
+        fields = [
+            "id",
+            "source",
+            "source_display",
+            "label",
+            "description",
+            "is_active",
+            "one_time_only",
+            "monthly_cap_points",
+            "monthly_cap_count",
+            "tiers",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "source_display", "tiers", "created_at", "updated_at"]
+
+
+class RewardRuleCreateSerializer(serializers.ModelSerializer):
+    """Used by admin to create a new PicaPoints reward rule (tiers added separately)."""
+
+    class Meta:
+        model = RewardRule
+        fields = [
+            "source",
+            "label",
+            "description",
+            "is_active",
+            "one_time_only",
+            "monthly_cap_points",
+            "monthly_cap_count",
+        ]
+
+    def validate_source(self, value):
+        if RewardRule.objects.filter(source=value).exists():
+            raise serializers.ValidationError(
+                f"A reward rule for source '{value}' already exists."
+            )
+        return value
+
+
+class RewardRuleUpdateSerializer(serializers.ModelSerializer):
+    """Admin PATCH — edit or activate/deactivate a reward rule."""
+
+    class Meta:
+        model = RewardRule
+        fields = [
+            "label",
+            "description",
+            "is_active",
+            "one_time_only",
+            "monthly_cap_points",
+            "monthly_cap_count",
+        ]
+
+
+class RewardTierCreateSerializer(serializers.ModelSerializer):
+    """Used by admin to add a value band to an existing reward rule."""
+
+    class Meta:
+        model = RewardTier
+        fields = ["label", "min_value", "max_value", "points"]
+
+    def validate(self, data):
+        max_value = data.get("max_value")
+        if max_value is not None and max_value < data["min_value"]:
+            raise serializers.ValidationError("max_value cannot be less than min_value.")
+        return data
+
+
+class RewardTierUpdateSerializer(serializers.ModelSerializer):
+    """Admin PATCH — edit a single value band."""
+
+    class Meta:
+        model = RewardTier
+        fields = ["label", "min_value", "max_value", "points"]
+
+    def validate(self, data):
+        min_value = data.get("min_value", getattr(self.instance, "min_value", None))
+        max_value = data.get("max_value", getattr(self.instance, "max_value", None))
+        if max_value is not None and min_value is not None and max_value < min_value:
+            raise serializers.ValidationError("max_value cannot be less than min_value.")
+        return data

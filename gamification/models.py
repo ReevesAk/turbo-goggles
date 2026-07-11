@@ -61,6 +61,13 @@ TRANSACTION_SOURCE_CHOICES = (
     ("survey_completion", "Survey Completion"),
     ("app_download", "App Download"),
     ("brand_task", "Brand Task"),
+    # PicaPoints mission categories
+    ("kyc_upgrade", "KYC Tier Upgrade"),
+    ("wallet_funding", "Wallet Funding"),
+    ("airtime_purchase", "Airtime Purchase"),
+    ("data_purchase", "Data Purchase"),
+    ("bills_payment", "Bills Payment"),
+    ("marketplace_usage", "Marketplace Usage"),
 )
 
 
@@ -85,6 +92,9 @@ class PointTransaction(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "source", "created_at"], name="pointtx_user_source_date_idx"),
+        ]
 
     def __str__(self):
         return f"{self.transaction_type} {self.amount}pts → {self.user} [{self.source}]"
@@ -303,3 +313,62 @@ class StepSessionModel(models.Model):
             self.completed = True
             self.save()
         return self.completed
+
+
+class RewardRule(models.Model):
+    """
+    Admin-configurable rule for a PicaPoints mission category (e.g. airtime
+    purchase, wallet funding, KYC upgrade). One rule per `source`; the actual
+    point amounts live on child `RewardTier` rows so a single rule can pay out
+    different points for different value bands (e.g. ₦500-999 vs ₦5000+).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source = models.CharField(max_length=30, choices=TRANSACTION_SOURCE_CHOICES, unique=True)
+    label = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    # If True, this rule can only ever pay out once per user (e.g. KYC tier upgrade).
+    one_time_only = models.BooleanField(default=False)
+    # Ceilings enforced against the PointTransaction ledger for the current
+    # calendar month. Leave both null for an uncapped rule.
+    monthly_cap_points = models.PositiveIntegerField(null=True, blank=True)
+    monthly_cap_count = models.PositiveIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reward_rules_created"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.label} ({self.source})"
+
+
+class RewardTier(models.Model):
+    """
+    A value band within a RewardRule, e.g. "min_value=500, max_value=999,
+    points=5" for airtime purchases. `max_value` null means unbounded (the
+    top tier, e.g. "₦5000+"). For non-monetary rules (KYC tier, streak week
+    number) `min_value`/`max_value` hold the tier/week number instead of naira.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rule = models.ForeignKey(RewardRule, on_delete=models.CASCADE, related_name="tiers")
+    label = models.CharField(max_length=100, blank=True)
+    min_value = models.DecimalField(max_digits=12, decimal_places=2)
+    max_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    points = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["min_value"]
+
+    def __str__(self):
+        upper = str(self.max_value) if self.max_value is not None else "+"
+        return f"{self.rule.source}: {self.min_value}-{upper} → {self.points}pts"
+
+    def matches(self, value: Decimal) -> bool:
+        if value < self.min_value:
+            return False
+        if self.max_value is not None and value > self.max_value:
+            return False
+        return True

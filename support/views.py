@@ -1620,6 +1620,7 @@ class GetAllSupportTickets(generics.ListAPIView):
                     },
                     "assigned_at": ticket.assigned_at,
                     "resolution_hours": ticket.resolution_hours,
+                    "remaining_seconds": ticket.remaining_time,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
                     "status": ticket.status
