@@ -52,6 +52,12 @@ from .tasks import (
     ListInAppTasksView,
     InAppTaskDetailView,
     UpdateInAppTaskView,
+    CreateRewardRuleView,
+    ListRewardRulesView,
+    RewardRuleDetailView,
+    UpdateRewardRuleView,
+    CreateRewardTierView,
+    UpdateRewardTierView,
 )
 from .wallets import (
     GetallWalletUsers,
@@ -236,6 +242,37 @@ urlpatterns = [
         "tasks/in-app/<uuid:task_id>/update/",
         UpdateInAppTaskView.as_view(),
         name="in_app_task_update",
+    ),
+    # PicaPoints reward rule admin endpoints
+    path(
+        "tasks/in-app/rewards/",
+        ListRewardRulesView.as_view(),
+        name="reward_rule_list",
+    ),
+    path(
+        "tasks/in-app/rewards/create/",
+        CreateRewardRuleView.as_view(),
+        name="reward_rule_create",
+    ),
+    path(
+        "tasks/in-app/rewards/<uuid:rule_id>/",
+        RewardRuleDetailView.as_view(),
+        name="reward_rule_detail",
+    ),
+    path(
+        "tasks/in-app/rewards/<uuid:rule_id>/update/",
+        UpdateRewardRuleView.as_view(),
+        name="reward_rule_update",
+    ),
+    path(
+        "tasks/in-app/rewards/<uuid:rule_id>/tiers/create/",
+        CreateRewardTierView.as_view(),
+        name="reward_tier_create",
+    ),
+    path(
+        "tasks/in-app/rewards/tiers/<uuid:tier_id>/update/",
+        UpdateRewardTierView.as_view(),
+        name="reward_tier_update",
     ),
     path("switch-roles", SwitchRoles.as_view(), name="switch_roles"),
     # Partner endpoints.

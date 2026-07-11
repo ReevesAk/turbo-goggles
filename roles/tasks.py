@@ -28,9 +28,20 @@ from gamification.serializers import (
     InAppTaskCreateSerializer,
     InAppTaskSerializer,
     InAppTaskUpdateSerializer,
+    RewardRuleSerializer,
+    RewardRuleCreateSerializer,
+    RewardRuleUpdateSerializer,
+    RewardTierCreateSerializer,
+    RewardTierUpdateSerializer,
 )
 from accounts.models import User, UserNotification
-from gamification.models import StepCampaignModel, StepSessionModel, StreakChallenge
+from gamification.models import (
+    StepCampaignModel,
+    StepSessionModel,
+    StreakChallenge,
+    RewardRule,
+    RewardTier,
+)
 from permissions import IsTaskAdminOrSuperAdmin, IsAdAdminOrSuperAdmin
 from security import encrypt, decrypt
 from commons import Messaging
@@ -563,6 +574,336 @@ class UpdateInAppTaskView(generics.GenericAPIView):
                     "status": "success",
                     "message": "Task updated successfully.",
                     "data": InAppTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Create a PicaPoints reward rule",
+    tags=["Tasks"],
+    description="Creates a new reward rule for a PicaPoints mission category (e.g. airtime purchase, KYC upgrade). Value bands are added separately via the tier endpoints.",
+    request=RewardRuleCreateSerializer,
+    responses={
+        201: inline_serializer(
+            "CreateRewardRuleResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateRewardRuleError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+    },
+)
+class CreateRewardRuleView(generics.GenericAPIView):
+    """POST /v1/roles/tasks/in-app/rewards/create/ — create a new PicaPoints reward rule."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def post(self, request):
+        payload = decrypt(request.data)
+        serializer = RewardRuleCreateSerializer(data=payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rule = serializer.save(created_by=request.user)
+        logger.info("RewardRule '%s' created by %s", rule.source, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Reward rule created successfully.",
+                    "data": RewardRuleSerializer(rule).data,
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="List all PicaPoints reward rules",
+    tags=["Tasks"],
+    description="Returns all PicaPoints reward rules with their value-banded tiers.",
+    responses={
+        200: inline_serializer(
+            "ListRewardRulesResponse",
+            fields={
+                "status": s.CharField(),
+                "total": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
+    },
+)
+class ListRewardRulesView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/in-app/rewards/ — list all reward rules."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request):
+        rules = RewardRule.objects.all().prefetch_related("tiers").order_by("source")
+        data = RewardRuleSerializer(rules, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "total": rules.count(), "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Get a single PicaPoints reward rule",
+    tags=["Tasks"],
+    description="Retrieves a single PicaPoints reward rule with its value-banded tiers.",
+    responses={
+        200: inline_serializer(
+            "RewardRuleDetailResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        404: inline_serializer(
+            "RewardRuleDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class RewardRuleDetailView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/in-app/rewards/<rule_id>/ — retrieve a single reward rule."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request, rule_id):
+        try:
+            rule = RewardRule.objects.prefetch_related("tiers").get(id=rule_id)
+        except RewardRule.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Reward rule not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            data=encrypt(
+                {"status": "success", "data": RewardRuleSerializer(rule).data}
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Update a PicaPoints reward rule",
+    tags=["Tasks"],
+    description="Partially updates a PicaPoints reward rule — edit caps, toggle active state, or mark one-time-only.",
+    request=RewardRuleUpdateSerializer,
+    responses={
+        200: inline_serializer(
+            "UpdateRewardRuleResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateRewardRuleError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "UpdateRewardRuleNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class UpdateRewardRuleView(generics.GenericAPIView):
+    """PATCH /v1/roles/tasks/in-app/rewards/<rule_id>/update/ — edit a reward rule."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def patch(self, request, rule_id):
+        try:
+            rule = RewardRule.objects.get(id=rule_id)
+        except RewardRule.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Reward rule not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = RewardRuleUpdateSerializer(rule, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.save()
+        logger.info("RewardRule '%s' updated by %s", rule.source, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Reward rule updated successfully.",
+                    "data": RewardRuleSerializer(rule).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Add a value-band tier to a reward rule",
+    tags=["Tasks"],
+    description="Adds a new value band (e.g. ₦500-999 → 5 points) to an existing PicaPoints reward rule.",
+    request=RewardTierCreateSerializer,
+    responses={
+        201: inline_serializer(
+            "CreateRewardTierResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateRewardTierError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "CreateRewardTierNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class CreateRewardTierView(generics.GenericAPIView):
+    """POST /v1/roles/tasks/in-app/rewards/<rule_id>/tiers/create/ — add a value band."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def post(self, request, rule_id):
+        try:
+            rule = RewardRule.objects.get(id=rule_id)
+        except RewardRule.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Reward rule not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = RewardTierCreateSerializer(data=payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tier = serializer.save(rule=rule)
+        logger.info(
+            "RewardTier added to '%s' (%s-%s → %spts) by %s",
+            rule.source,
+            tier.min_value,
+            tier.max_value,
+            tier.points,
+            request.user.email,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Reward tier added successfully.",
+                    "data": RewardRuleSerializer(rule).data,
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Update or delete a reward tier",
+    tags=["Tasks"],
+    description="Partially updates a value band on a PicaPoints reward rule.",
+    request=RewardTierUpdateSerializer,
+    responses={
+        200: inline_serializer(
+            "UpdateRewardTierResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateRewardTierError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "UpdateRewardTierNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class UpdateRewardTierView(generics.GenericAPIView):
+    """PATCH /v1/roles/tasks/in-app/rewards/tiers/<tier_id>/update/ — edit a value band.
+    DELETE on the same route removes the tier entirely."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def patch(self, request, tier_id):
+        try:
+            tier = RewardTier.objects.select_related("rule").get(id=tier_id)
+        except RewardTier.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Reward tier not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = RewardTierUpdateSerializer(tier, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.save()
+        logger.info("RewardTier %s updated by %s", tier_id, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Reward tier updated successfully.",
+                    "data": RewardRuleSerializer(tier.rule).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, tier_id):
+        try:
+            tier = RewardTier.objects.select_related("rule").get(id=tier_id)
+        except RewardTier.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Reward tier not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        rule = tier.rule
+        tier.delete()
+        logger.info("RewardTier %s deleted by %s", tier_id, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Reward tier deleted successfully.",
+                    "data": RewardRuleSerializer(rule).data,
                 }
             ),
             status=status.HTTP_200_OK,
