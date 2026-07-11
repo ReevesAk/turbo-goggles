@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include, reverse_lazy
 from django.views.generic import TemplateView
@@ -23,7 +24,6 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -39,9 +39,15 @@ urlpatterns = [
         name="scalar-ui",
     ),
     # Swagger UI
-    path("v1/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path(
+        "v1/swagger/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
     # ReDoc fallback
     path("v1/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    # Blog endpoints.
+    path("v1/blog/", include("blog.urls")),
     # Account creation endpoint.
     path("v1/accounts/", include("accounts.urls")),
     # Partners endpoints.
