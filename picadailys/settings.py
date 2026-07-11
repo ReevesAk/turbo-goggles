@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "adverts.apps.AdvertsConfig",
     "roles.apps.RolesConfig",
     "partners",
+    "blog",
     "vas",
     "fmcg.apps.FmcgConfig",
     "user_profile",
