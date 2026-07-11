@@ -5,11 +5,12 @@ Data model for the Blog module.
 """
 
 import uuid
-from django.db import models, transaction, IntegrityError
+
+from django.db import IntegrityError, models, transaction
+from django.db.models import F
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
-from django.db.models import F
 
 
 class Blog(models.Model):
@@ -30,7 +31,7 @@ class Blog(models.Model):
     content = models.TextField()
     tags = models.JSONField(default=list, null=True, blank=True)
 
-    # views
+    # Views
     view_count = models.PositiveIntegerField(default=0)
 
     # Images
@@ -41,7 +42,7 @@ class Blog(models.Model):
     meta_title = models.CharField(max_length=70, blank=True)
     meta_description = models.CharField(max_length=160, blank=True)
 
-    # Status and Timestamp
+    # Status and timestamps
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True
     )
@@ -58,28 +59,35 @@ class Blog(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.title)
-            self.slug = base_slug
+            self.slug = slugify(self.title)
 
-        # Handle published_at
         if self.status == self.Status.PUBLISHED and self.published_at is None:
             self.published_at = timezone.now()
 
-        # Used atomic transaction to prevent race conditions
-        with transaction.atomic():
-            if not self.pk and self.slug:
-                try:
+        if self._state.adding:
+            self._save_new_with_unique_slug(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
+
+    def _save_new_with_unique_slug(self, *args, **kwargs):
+
+        base_slug = self.slug
+        counter = 1
+        max_attempts = 100
+
+        for _ in range(max_attempts):
+            try:
+                with transaction.atomic():
                     super().save(*args, **kwargs)
-                except IntegrityError:
-                    base_slug = slugify(self.title)
-                    counter = 1
-                    while Blog.objects.filter(slug=f"{base_slug}-{counter}").exists():
-                        counter += 1
-                    self.slug = f"{base_slug}-{counter}"
-                    super().save(*args, **kwargs)
-            else:
-                super().save(*args, **kwargs)
-        super().save(*args, **kwargs)
+                return
+            except IntegrityError:
+                counter += 1
+                self.slug = f"{base_slug}-{counter}"
+
+        raise IntegrityError(
+            f"Could not generate a unique slug for '{self.title}' after "
+            f"{max_attempts} attempts."
+        )
 
     def get_absolute_url(self):
         return reverse("blog:detail", kwargs={"slug": self.slug})

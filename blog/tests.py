@@ -9,6 +9,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from .models import Blog
 from accounts.models import AccountType
@@ -1017,3 +1019,70 @@ class BlogEdgeCasesTest(TestCase):
         if isinstance(decrypted, dict) and "data" in decrypted:
             results = decrypted["data"].get("results", [])
             self.assertLessEqual(len(results), 50)
+
+
+class BlogSlugAndSaveRegressionTests(TestCase):
+
+    def _insert_count(self, ctx):
+        return sum(
+            1
+            for q in ctx.captured_queries
+            if q["sql"].strip().upper().startswith("INSERT")
+        )
+
+    def _update_count(self, ctx):
+        return sum(
+            1
+            for q in ctx.captured_queries
+            if q["sql"].strip().upper().startswith("UPDATE")
+        )
+
+    def test_create_issues_exactly_one_insert(self):
+        with CaptureQueriesContext(connection) as ctx:
+            Blog.objects.create(title="Single Insert Only", content="Body")
+        self.assertEqual(self._insert_count(ctx), 1)
+
+    def test_update_issues_exactly_one_update(self):
+        blog = Blog.objects.create(title="Editable Post", content="Body")
+        with CaptureQueriesContext(connection) as ctx:
+            blog.title = "Edited Post"
+            blog.save()
+        self.assertEqual(self._update_count(ctx), 1)
+
+    def test_slug_uniqueness_appends_counter(self):
+        first = Blog.objects.create(title="Duplicate Title", content="Body 1")
+        second = Blog.objects.create(title="Duplicate Title", content="Body 2")
+        third = Blog.objects.create(title="Duplicate Title", content="Body 3")
+
+        self.assertEqual(first.slug, "duplicate-title")
+        self.assertEqual(second.slug, "duplicate-title-2")
+        self.assertEqual(third.slug, "duplicate-title-3")
+
+    def test_slug_uniqueness_skips_past_multiple_existing_collisions(self):
+        Blog.objects.create(title="placeholder", slug="popular-topic", content="x")
+        for i in range(2, 5):
+            Blog.objects.create(
+                title="placeholder", slug=f"popular-topic-{i}", content="x"
+            )
+
+        newest = Blog.objects.create(title="Popular Topic", content="new")
+        self.assertEqual(newest.slug, "popular-topic-5")
+
+    def test_publish_transition_still_single_write_and_stamps_published_at(self):
+        blog = Blog.objects.create(title="About To Publish", content="Body")
+        self.assertIsNone(blog.published_at)
+
+        with CaptureQueriesContext(connection) as ctx:
+            blog.status = Blog.Status.PUBLISHED
+            blog.save()
+
+        self.assertEqual(self._update_count(ctx), 1)
+        self.assertIsNotNone(blog.published_at)
+
+    def test_existing_row_slug_is_never_regenerated(self):
+        blog = Blog.objects.create(title="Original Title", content="Body")
+        original_slug = blog.slug
+        blog.title = "Completely Different Title"
+        blog.save()
+        blog.refresh_from_db()
+        self.assertEqual(blog.slug, original_slug)
