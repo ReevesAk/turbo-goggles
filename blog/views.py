@@ -156,7 +156,7 @@ class BlogListView(StandardResponseMixin, generics.ListAPIView):
 
         tag = self.request.query_params.get("tag")
         if tag:
-            qs = qs.filter(tags__icontains=[tag])
+            qs = qs.filter(tags__contains=[tag])
 
         search = self.request.query_params.get("search")
         if search:
@@ -382,7 +382,7 @@ class BlogAdminListView(StandardResponseMixin, generics.ListAPIView):
 
         tag = self.request.query_params.get("tag")
         if tag:
-            qs = qs.filter(tags__icontains=[tag])
+            qs = qs.filter(tags__contains=[tag])
 
         return qs
 
