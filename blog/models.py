@@ -5,7 +5,7 @@ Data model for the Blog module.
 """
 
 import uuid
-from django.db import models
+from django.db import models, transaction, IntegrityError
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -59,16 +59,26 @@ class Blog(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.title)
-            slug = base_slug
-            counter = 1
-            while Blog.objects.filter(slug=slug).exclude(pk=self.pk).exists():
-                counter += 1
-                slug = f"{base_slug}-{counter}"
-            self.slug = slug
+            self.slug = base_slug
 
+        # Handle published_at
         if self.status == self.Status.PUBLISHED and self.published_at is None:
             self.published_at = timezone.now()
 
+        # Used atomic transaction to prevent race conditions
+        with transaction.atomic():
+            if not self.pk and self.slug:
+                try:
+                    super().save(*args, **kwargs)
+                except IntegrityError:
+                    base_slug = slugify(self.title)
+                    counter = 1
+                    while Blog.objects.filter(slug=f"{base_slug}-{counter}").exists():
+                        counter += 1
+                    self.slug = f"{base_slug}-{counter}"
+                    super().save(*args, **kwargs)
+            else:
+                super().save(*args, **kwargs)
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):

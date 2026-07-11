@@ -354,27 +354,27 @@ class BlogAdminCreateViewTest(TestCase):
 
     # blog/tests.py - Update non-admin create test
 
+    def test_create_blog_post_non_admin(self):
+        """Test that non-admin users cannot create blog posts."""
+        regular_user = User.objects.create_user(
+            email="user@example.com",
+            phone_number="9876543210",
+            password="userpass123",
+            is_verified=True,
+        )
+        self.client.force_authenticate(user=regular_user)
 
-def test_create_blog_post_non_admin(self):
-    """Test that non-admin users cannot create blog posts."""
-    regular_user = User.objects.create_user(
-        email="user@example.com",
-        phone_number="9876543210",
-        password="userpass123",
-        is_verified=True,
-    )
-    self.client.force_authenticate(user=regular_user)
+        data = {
+            "title": "New Blog Post",
+            "content": "Content",
+            "status": "draft",
+        }
 
-    data = {
-        "title": "New Blog Post",
-        "content": "Content",
-        "status": "draft",
-    }
-
-    response = self.client.post(self.url, data, format="json")
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST]
-    )
+        response = self.client.post(self.url, data, format="json")
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],
+        )
 
     def test_create_blog_post_validation_errors(self):
         """Test validation errors when creating a blog post."""
@@ -792,79 +792,119 @@ class BlogPermissionTest(TestCase):
         response = self.client.delete(self.detail_url)
         self.assertNotEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_fmcg_admin_no_access(self):
+        """Test that FmcgAdmin does not have access to blog admin endpoints."""
+        self.client.force_authenticate(user=self.fmcg_admin)
 
-def test_fmcg_admin_no_access(self):
-    """Test that FmcgAdmin does not have access to blog admin endpoints."""
-    self.client.force_authenticate(user=self.fmcg_admin)
+        # Cannot create
+        response = self.client.post(
+            self.create_url, {"title": "New", "content": "Content"}, format="json"
+        )
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],
+        )
 
-    # Cannot create
-    response = self.client.post(
-        self.create_url, {"title": "New", "content": "Content"}, format="json"
-    )
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST]
-    )
+        # Cannot list
+        response = self.client.get(self.list_url)
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],
+        )
 
-    # Cannot list
-    response = self.client.get(self.list_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+        # Cannot retrieve
+        response = self.client.get(self.detail_url)
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot retrieve
-    response = self.client.get(self.detail_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+        # Cannot update
+        response = self.client.patch(
+            self.detail_url, {"title": "Updated"}, format="json"
+        )
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot update
-    response = self.client.patch(self.detail_url, {"title": "Updated"}, format="json")
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+        # Cannot delete
+        response = self.client.delete(self.detail_url)
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot delete
-    response = self.client.delete(self.detail_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+    def test_regular_user_no_access(self):
+        """Test that regular users do not have access to admin endpoints."""
+        self.client.force_authenticate(user=self.regular_user)
 
+        # Cannot create
+        response = self.client.post(
+            self.create_url, {"title": "New", "content": "Content"}, format="json"
+        )
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],
+        )
 
-def test_regular_user_no_access(self):
-    """Test that regular users do not have access to admin endpoints."""
-    self.client.force_authenticate(user=self.regular_user)
+        # Cannot list
+        response = self.client.get(self.list_url)
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot create
-    response = self.client.post(
-        self.create_url, {"title": "New", "content": "Content"}, format="json"
-    )
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST]
-    )
+        # Cannot retrieve
+        response = self.client.get(self.detail_url)
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot list
-    response = self.client.get(self.list_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+        # Cannot update
+        response = self.client.patch(
+            self.detail_url, {"title": "Updated"}, format="json"
+        )
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
-    # Cannot retrieve
-    response = self.client.get(self.detail_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
-
-    # Cannot update
-    response = self.client.patch(self.detail_url, {"title": "Updated"}, format="json")
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
-
-    # Cannot delete
-    response = self.client.delete(self.detail_url)
-    self.assertIn(
-        response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
-    )
+        # Cannot delete
+        response = self.client.delete(self.detail_url)
+        self.assertIn(
+            response.status_code,
+            [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_400_BAD_REQUEST,
+            ],
+        )
 
 
 class BlogEdgeCasesTest(TestCase):
