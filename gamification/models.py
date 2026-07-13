@@ -315,28 +315,6 @@ class StepSessionModel(models.Model):
         return self.completed
 
 
-class StepBatchLog(models.Model):
-    """
-    Records each processed add-steps request by its client-supplied
-    Idempotency-Key, so a retried/duplicate request can be detected and
-    replayed with the original result instead of re-applying the step count.
-    """
-
-    session = models.ForeignKey(StepSessionModel, on_delete=models.CASCADE, related_name="batch_logs")
-    idempotency_key = models.CharField(max_length=255)
-    steps_requested = models.PositiveIntegerField()
-    steps_accepted = models.PositiveIntegerField()
-    steps_trimmed = models.PositiveIntegerField(default=0)
-    message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("session", "idempotency_key")
-
-    def __str__(self):
-        return f"{self.session} | {self.idempotency_key}"
-
-
 class RewardRule(models.Model):
     """
     Admin-configurable rule for a PicaPoints mission category (e.g. airtime
