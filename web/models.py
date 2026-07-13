@@ -16,6 +16,12 @@ INTEREST = (
     ("Partners", "Parnters"),
 )
 
+APPLICATION_STATUS = (
+    ("pending", "Pending"),
+    ("accepted", "Accepted"),
+    ("rejected", "Rejected"),
+)
+
 
 class JobModel(models.Model):
     title = models.CharField(max_length=255)
@@ -65,6 +71,9 @@ class Applications(models.Model):
     portfolio = models.TextField(null=True, help_text="Portfolio URL or description")
     cover_letter = models.URLField(max_length=255, null=True)
     waitlist = models.BooleanField(default=False, null=True)
+    status = models.CharField(
+        max_length=20, choices=APPLICATION_STATUS, default="pending"
+    )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
 

@@ -150,16 +150,6 @@ class GetAllStepCampaigns(generics.ListAPIView):
     queryset = StepCampaignModel.objects.all().order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
-        cache_key = "all_step_campaigns"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            logger.info(
-                "Returning cached step campaigns for user %s", request.user.email
-            )
-            encrypted_response = encrypt(cached_data)
-            return Response(data=encrypted_response, status=status.HTTP_200_OK)
-
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
 
@@ -168,9 +158,6 @@ class GetAllStepCampaigns(generics.ListAPIView):
             "message": "Step campaigns retrieved successfully.",
             "data": serializer.data,
         }
-
-        # Save to cache (short TTL)
-        cache.set(cache_key, response_data, timeout=600)  # 10 minutes
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 

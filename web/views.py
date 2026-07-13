@@ -593,6 +593,122 @@ class DeleteJobApplication(generics.DestroyAPIView):
 
 
 @extend_schema(
+    summary="Accept or reject a job application",
+    tags=["Web"],
+    description="Records a hiring decision (accepted/rejected) for a job application and emails the applicant accordingly. Requires admin role and a valid admin PIN in the request body.",
+    responses={
+        200: inline_serializer(
+            name="JobApplicationDecisionResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="JobApplicationDecisionError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class JobApplicationDecision(generics.UpdateAPIView):
+    """
+    Accepts or rejects a job application and notifies the applicant by email.
+    """
+
+    queryset = Applications.objects.all()
+    serializer_class = ApplicationsSerializers
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def patch(self, request, pk, *args, **kwargs):
+        application = get_object_or_404(Applications, pk=pk)
+
+        decrypted_payload = decrypt(request.data)
+
+        current_user = request.user
+        pin = decrypted_payload.get("pin")
+        if (
+            not pin
+            or not current_user.admin_pin
+            or not check_password(password=pin, encoded=current_user.admin_pin)
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Incorrect pin.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        decision = decrypted_payload.get("status")
+        if decision not in ("accepted", "rejected"):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Status must be 'accepted' or 'rejected'.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        application.status = decision
+        application.save()
+
+        job_title = application.job_title
+
+        if decision == "accepted":
+            custom_text = f"""
+                Dear {application.first_name},<br><br>
+                We are pleased to inform you that you have been selected to proceed in the hiring process
+                for the position of <strong>{job_title}</strong>. Congratulations!<br><br>
+                Our team will contact you shortly with additional information regarding the next steps.<br><br>
+                Thank you for your interest in joining us.<br><br>
+                Best regards,<br>
+                Picadailys HR
+            """
+        else:
+            custom_text = f"""
+                Dear {application.first_name},<br><br>
+                Thank you for your interest in the position of <strong>{job_title}</strong> and for taking
+                the time to apply.<br><br>
+                After careful consideration, we regret to inform you that we will not be moving forward
+                with your application at this time. We appreciate your interest and wish you every success
+                in your future endeavors.<br><br>
+                Best regards,<br>
+                Picadailys HR
+            """
+
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": custom_text,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": [
+                    "02012271894",
+                    "02012271895",
+                ],
+            },
+        )
+
+        Messaging.send_email(
+            sender_email="Info@picadailys.com",
+            body=f"Your application for {job_title} has been {decision}.",
+            email=application.email,
+            html_content=text_content,
+            subject=f"Update on your application for {job_title}",
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": f"Application {decision} and applicant notified.",
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
     summary="Get all job applications by email",
     tags=["Web"],
     description="Returns all job applications submitted by a given email address. Admin-only endpoint.",
