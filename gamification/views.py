@@ -33,6 +33,7 @@ from .serializers import (
 from .models import (
     StepCampaignModel,
     StepSessionModel,
+    StepBatchLog,
     StreakChallenge,
     UserStreak,
     StreakHistory,
@@ -290,6 +291,13 @@ class AddStepsView(generics.UpdateAPIView):
 
         campaign_id = kwargs.get("campaign_id")
         steps_to_add = decrypted_payload.get("step_count")
+        idempotency_key = request.headers.get("Idempotency-Key")
+
+        if not idempotency_key:
+            return self._error_response(
+                message="Idempotency-Key header is required.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not campaign_id:
             return self._error_response(
@@ -326,9 +334,10 @@ class AddStepsView(generics.UpdateAPIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        # Merge sessions into one if multiple exist
         with transaction.atomic():
-            main_session = sessions.first()
+            # Lock the session row so a concurrent retry with the same
+            # Idempotency-Key can't slip past the duplicate check below.
+            main_session = sessions.select_for_update().first()
 
             # If there are multiple sessions, merge them
             if sessions.count() > 1:
@@ -348,43 +357,68 @@ class AddStepsView(generics.UpdateAPIView):
 
             step_session = main_session
 
-        # Check if campaign is already completed
-        if step_session.completed:
-            return self._error_response(
-                message="You have already completed this campaign. No more steps can be added.",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+            existing_log = StepBatchLog.objects.filter(
+                session=step_session, idempotency_key=idempotency_key
+            ).first()
+            if existing_log:
+                logger.info(
+                    f"Duplicate add-steps request for session {step_session.session_id} "
+                    f"(key={idempotency_key}) - returning original result."
+                )
+                serializer = self.get_serializer(step_session)
+                return self._success_response(
+                    message=existing_log.message,
+                    data={
+                        **serializer.data,
+                        "total_steps": step_session.step_count,
+                        "completed": step_session.completed,
+                        "steps_requested": existing_log.steps_requested,
+                        "steps_accepted": existing_log.steps_accepted,
+                        "steps_trimmed": existing_log.steps_trimmed,
+                        "remaining_steps": max(
+                            step_session.campaign.step_target - step_session.step_count, 0
+                        ),
+                        "time_limit": str(step_session.campaign.time_limit),
+                        "campaign_end_time": str(step_session.campaign.campaign_end_time),
+                    },
+                )
 
-        # Check if user can still accumulate steps
-        if not step_session.can_still_accumulate:
-            return self._error_response(
-                message="Your personal time limit has expired.",
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
+            # Check if campaign is already completed
+            if step_session.completed:
+                return self._error_response(
+                    message="You have already completed this campaign. No more steps can be added.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Check current progress
-        current_total = step_session.step_count
-        step_target = step_session.campaign.step_target
+            # Check if user can still accumulate steps
+            if not step_session.can_still_accumulate:
+                return self._error_response(
+                    message="Your personal time limit has expired.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
-        if current_total >= step_target:
-            return self._error_response(
-                message="You have already reached the step target for this campaign.",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+            # Check current progress
+            current_total = step_session.step_count
+            step_target = step_session.campaign.step_target
 
-        # Trim steps if it would exceed target, but still accept the request
-        steps_accepted = steps_to_add
-        steps_trimmed = 0
+            if current_total >= step_target:
+                return self._error_response(
+                    message="You have already reached the step target for this campaign.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if current_total + steps_to_add > step_target:
-            steps_accepted = step_target - current_total
-            steps_trimmed = steps_to_add - steps_accepted
-            logger.info(
-                f"Trimmed {steps_trimmed} excess steps. Accepting {steps_accepted} steps."
-            )
+            # Trim steps if it would exceed target, but still accept the request
+            steps_accepted = steps_to_add
+            steps_trimmed = 0
 
-        # Add steps atomically to prevent race conditions
-        with transaction.atomic():
+            if current_total + steps_to_add > step_target:
+                steps_accepted = step_target - current_total
+                steps_trimmed = steps_to_add - steps_accepted
+                logger.info(
+                    f"Trimmed {steps_trimmed} excess steps. Accepting {steps_accepted} steps."
+                )
+
+            # Add steps atomically to prevent race conditions
             StepSessionModel.objects.filter(id=step_session.id).update(
                 step_count=F("step_count") + steps_accepted
             )
@@ -393,21 +427,30 @@ class AddStepsView(generics.UpdateAPIView):
             step_session.refresh_from_db()
             completed = step_session.check_completion()
 
+            # Prepare response message
+            if steps_trimmed > 0:
+                message = f"Added {steps_accepted} steps and trimmed {steps_trimmed} excess steps. Campaign completed!"
+            else:
+                just_completed = completed and step_session.step_count == step_target
+                completion_message = (
+                    " Congratulations! You've completed the campaign!"
+                    if just_completed
+                    else ""
+                )
+                message = f"Successfully added {steps_accepted} steps!{completion_message}"
+
+            StepBatchLog.objects.create(
+                session=step_session,
+                idempotency_key=idempotency_key,
+                steps_requested=steps_to_add,
+                steps_accepted=steps_accepted,
+                steps_trimmed=steps_trimmed,
+                message=message,
+            )
+
         logger.info(
             f"Added {steps_accepted} steps to session {step_session.session_id}"
         )
-
-        # Prepare response message
-        if steps_trimmed > 0:
-            message = f"Added {steps_accepted} steps and trimmed {steps_trimmed} excess steps. Campaign completed!"
-        else:
-            just_completed = completed and step_session.step_count == step_target
-            completion_message = (
-                " Congratulations! You've completed the campaign!"
-                if just_completed
-                else ""
-            )
-            message = f"Successfully added {steps_accepted} steps!{completion_message}"
 
         if user.has_done_survey:
             points = Points.determine(
