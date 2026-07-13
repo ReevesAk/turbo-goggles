@@ -200,7 +200,7 @@ class GetSingleStepCampaign(generics.RetrieveAPIView):
     """
 
     serializer_class = StepCampaignDetailSerializer
-    permission_classes = [IsAuthenticated, IsTaskAdminOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
         campaign_id = kwargs.get("campaign_id")
