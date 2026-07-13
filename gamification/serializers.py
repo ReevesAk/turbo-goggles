@@ -56,19 +56,34 @@ class StepCampaignSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by', 'created_at']
 
 
+def _user_campaign_status(campaign, request):
+    """
+    "completed" if the requesting user has finished their own step target
+    on this campaign, else the campaign's own active/expired state.
+    """
+    if request and request.user.is_authenticated:
+        session = StepSessionModel.objects.filter(user=request.user, campaign=campaign).first()
+        if session and session.completed:
+            return "completed"
+    return campaign.status
+
+
 class StepCampaignListSerializer(serializers.ModelSerializer):
-    status = serializers.CharField(read_only=True)
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = StepCampaignModel
         fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at", "status"]
+
+    def get_status(self, obj):
+        return _user_campaign_status(obj, self.context.get("request"))
 
 
 class StepCampaignDetailSerializer(serializers.ModelSerializer):
     participants = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
-    status = serializers.CharField(read_only=True)
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = StepCampaignModel
@@ -76,6 +91,9 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
             "id", "name", "description", "duration", "step_target",
             "reward_points", "created_at", "status", "participants"
         ]
+
+    def get_status(self, obj):
+        return _user_campaign_status(obj, self.context.get("request"))
 
     def get_duration(self, obj):
         if obj.duration:

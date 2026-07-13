@@ -140,6 +140,7 @@ class GetApplicationsSerializers(serializers.ModelSerializer):
             "cv",
             "portfolio",
             "cover_letter",
+            "status",
         ]
 
 
