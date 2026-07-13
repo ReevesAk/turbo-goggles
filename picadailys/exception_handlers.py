@@ -13,5 +13,7 @@ def custom_exception_handler(exc, context):
     # so unwrap that single-item-list case back to match.
     if isinstance(response.data, list) and len(response.data) == 1:
         response.data = response.data[0]
+    elif isinstance(response.data, dict) and list(response.data.keys()) == ["detail"]:
+        response.data = response.data["detail"]
 
     return response
