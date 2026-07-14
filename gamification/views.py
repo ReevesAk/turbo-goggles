@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from decouple import config as conf
 import rest_framework.serializers as s
 from drf_spectacular.utils import (
@@ -12,7 +13,7 @@ from django.db.models import F
 from django.db.models.functions import Greatest, Least
 from django.core.cache import cache
 
-from accounts.models import User
+from accounts.models import User, TxModel, UserNotification
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -20,6 +21,9 @@ from rest_framework import generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 
+from banking.models import WalletModel
+from banking.controllers import Wallet
+from banking.helpers import verify_wallet_auth
 
 from .serializers import (
     SSOLoginSerializer,
@@ -29,6 +33,7 @@ from .serializers import (
     UserStreakSerializer,
     StreakHistorySerializer,
     StreakLeaderboardEntrySerializer,
+    RedeemPointsToWalletSerializer,
 )
 from .models import (
     StepCampaignModel,
@@ -42,10 +47,12 @@ from .models import (
 
 from gamification.utils import NextBee
 from gamification.points import Points
+from commons import generate_txId
 from security import encrypt, decrypt
 from permissions import IsMember, HasCompletedSurvey
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
+REDEEM_CHARGE = Decimal("20.00")
 
 SOCIAL_ACTIVITY_IDS = {
     "facebook": "48624",
@@ -710,9 +717,187 @@ class GetMemberPointsSummary(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="Redeem points for wallet credit",
+    tags=["Gamification"],
+    description=(
+        "Converts the authenticated member's redeemable points into naira and credits "
+        "their wallet from the collection account, minus a flat ₦20 redemption charge. "
+        "Requires PIN or biometric verification."
+    ),
+    request=RedeemPointsToWalletSerializer,
+    responses={
+        200: inline_serializer(
+            name="RedeemPointsToWalletSuccessResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="RedeemPointsToWalletData",
+                    fields={
+                        "points_redeemed": s.IntegerField(),
+                        "naira_value": s.CharField(),
+                        "redeem_charge": s.CharField(),
+                        "amount_credited": s.CharField(),
+                        "transaction_reference": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="RedeemPointsToWalletErrorResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class RedeemPointsToWallet(generics.GenericAPIView):
+    """
+    Redeems the authenticated member's redeemable points for wallet credit.
+
+    Flow:
+      1. Verify PIN/biometrics.
+      2. Lock the user's Points row, compute the redeemable amount, and deduct the
+         points (only the usable `balance` is touched — lifetime points, used for
+         tier, are untouched). The lock is released once the atomic block exits.
+      3. Credit the user's wallet via 9PSB (Wallet.Credit) for
+         (naira_value - REDEEM_CHARGE). On failure, refund the points.
+      4. Record a TxModel entry with the charge stored in `transfer_fee`.
+    """
+
+    serializer_class = RedeemPointsToWalletSerializer
+    permission_classes = (IsAuthenticated, IsMember)
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        decrypted_payload = decrypt(request.data)
+
+        serializer = self.get_serializer(data=decrypted_payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pin = serializer.validated_data.get("pin")
+        use_biometrics = serializer.validated_data.get("use_biometrics", False)
+
+        try:
+            wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
+        except WalletModel.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Wallet not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_verified, error_response = verify_wallet_auth(
+            user=user, payment_option="WALLET", pin=pin, use_biometrics=use_biometrics
+        )
+        if not is_verified:
+            return error_response
+
+        # Lock the points row, compute what's redeemable, and deduct it — all
+        # inside one atomic block so the lock is released before we call out to 9PSB.
+        with transaction.atomic():
+            pts_obj, _ = PointsModel.objects.select_for_update().get_or_create(user=user)
+            points_used, naira_value, _ = Points.calculate_redeemable(
+                pts_obj.balance, user.total_points or 0
+            )
+
+            if points_used == 0:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "You have not reached the points redemption threshold.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            amount_to_credit = naira_value - REDEEM_CHARGE
+            if amount_to_credit <= Decimal("0"):
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Redeemable amount is too low to cover the redemption charge.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            deducted, msg = Points.deduct(
+                user=user,
+                amount=points_used,
+                reason=f"Redeemed {points_used} points for ₦{amount_to_credit} wallet credit",
+                source="points_redemption",
+            )
+            if not deducted:
+                logger.error("Points deduction failed for %s: %s", user.email, msg)
+                return Response(
+                    data=encrypt({"status": "fail", "message": "Could not deduct points."}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Credit the user's wallet — this is the call used to credit a user.
+        credit_resp = Wallet.Credit(
+            acct_no=wallet.account_number,
+            amount=float(amount_to_credit),
+            reason=f"Points redemption: {points_used} points redeemed",
+        )
+        if credit_resp is None or credit_resp.status_code != 200:
+            Points.award(
+                user=user,
+                amount=points_used,
+                reason="Refund: points redemption credit failed",
+                source="admin_adjustment",
+                bypass_credibility=True,
+            )
+            logger.error("Redeem credit failed for %s", user.email)
+            return Response(
+                data=encrypt({"status": "fail", "message": "Redemption failed. Please try again."}),
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        tx = TxModel.objects.create(
+            user=user,
+            tx_reference=generate_txId(),
+            tx_type="Points Redemption to Wallet",
+            amount=float(amount_to_credit),
+            transfer_fee=float(REDEEM_CHARGE),
+            description=f"Redeemed {points_used} points for ₦{amount_to_credit} wallet credit",
+            status="SUCCESS",
+        )
+
+        UserNotification.objects.create(
+            user=user,
+            title="Points Redeemed",
+            message=f"You redeemed {points_used} points for ₦{amount_to_credit} (₦{REDEEM_CHARGE} charge applied).",
+        )
+
+        logger.info(
+            "User %s redeemed %d points for ₦%s (charge ₦%s)",
+            user.email, points_used, amount_to_credit, REDEEM_CHARGE,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Points redeemed successfully.",
+                    "data": {
+                        "points_redeemed": points_used,
+                        "naira_value": str(naira_value),
+                        "redeem_charge": str(REDEEM_CHARGE),
+                        "amount_credited": str(amount_to_credit),
+                        "transaction_reference": str(tx.tx_reference),
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
 # ── Streak Challenge views (user-facing) ─────────────────────────────────────
-
-
 @extend_schema(
     summary="List active streak challenges",
     tags=["Gamification"],

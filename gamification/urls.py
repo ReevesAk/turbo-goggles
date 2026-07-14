@@ -11,6 +11,7 @@ from .views import (
     MyStreakHistoryView,
     GetMemberPointsSummary,
     PointsLeaderboardView,
+    RedeemPointsToWallet,
     # SubmitActivityImageView,
 )
 from roles.tasks import (
@@ -48,5 +49,6 @@ urlpatterns = [
     path("streaks/history/", MyStreakHistoryView.as_view(), name="streak-history"),
     path("get-member-points-summary", GetMemberPointsSummary.as_view(), name="get_member_points_summary"),
     path("leaderboard/", PointsLeaderboardView.as_view(), name="points-leaderboard"),
+    path("redeem-points/", RedeemPointsToWallet.as_view(), name="redeem-points-to-wallet"),
     # path("submit-activity-image", SubmitActivityImageView.as_view(), name="submit_activity_image"),
 ]

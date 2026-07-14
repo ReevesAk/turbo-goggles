@@ -35,6 +35,7 @@ BRAND_TYPE = (
 TRANSACTION_TYPE = (
     ("Transfer to Picadailys Account", "Transfer to Picadailys Account"),
     ("Transfer to Bank Account", "Transfer to Bank Account"),
+    ("Points Redemption to Wallet", "Points Redemption to Wallet"),
     ("Brand Promostion", "Brand Promostion"),
     ("Data", "Data"),
     ("Airtime", "Airtime"),

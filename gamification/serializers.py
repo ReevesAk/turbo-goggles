@@ -27,6 +27,16 @@ class SSOLoginSerializer(serializers.Serializer):
         ]
 
 
+class RedeemPointsToWalletSerializer(serializers.Serializer):
+    pin = serializers.CharField(max_length=4, write_only=True, required=False)
+    use_biometrics = serializers.BooleanField(required=False, default=False)
+
+    def validate(self, data):
+        if not data.get("use_biometrics") and not data.get("pin"):
+            raise serializers.ValidationError("Either pin or use_biometrics is required.")
+        return data
+
+
 class SocialEngagementSerializer(serializers.Serializer):
     platform = serializers.ChoiceField(
         choices=["facebook", "instagram", "twitter", "tiktok"],
