@@ -55,6 +55,7 @@ TRANSACTION_SOURCE_CHOICES = (
     ("social_engagement", "Social Engagement"),
     ("admin_adjustment", "Admin Adjustment"),
     ("penalty", "Penalty"),
+    ("points_redemption", "Points Redemption"),
     # Brand campaign task types
     ("watch_video", "Watch Video"),
     ("website_visit", "Website Visit"),
