@@ -1,5 +1,4 @@
 import logging
-import json
 from decouple import config as conf
 import rest_framework.serializers as s
 from drf_spectacular.utils import (
@@ -44,7 +43,7 @@ from .models import (
 from gamification.utils import NextBee
 from gamification.points import Points
 from security import encrypt, decrypt
-from permissions import IsMember
+from permissions import IsMember, HasCompletedSurvey
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
 
@@ -172,7 +171,7 @@ class JoinCampaignView(generics.CreateAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
@@ -288,7 +287,7 @@ class AddStepsView(generics.UpdateAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to add steps.")
@@ -422,16 +421,30 @@ class AddStepsView(generics.UpdateAPIView):
             )
             message = f"Successfully recorded {steps_accepted} new steps!{completion_message}"
 
-        if user.has_done_survey:
-            points = Points.determine(
-                activity_type="special_campaign", level=user.level
+        # Award points exactly once, at the moment the session transitions to
+        # completed (see the early "already completed" guard above - a
+        # resent/duplicate sync can never reach this a second time).
+        if completed:
+            walk_points = Points.determine(activity_type="walk_to_earn", level=user.level)
+            Points.award(
+                user=user,
+                amount=walk_points,
+                reason=f"Completed walk-to-earn campaign '{step_session.campaign.name}'",
+                source="walk_to_earn",
+                reference_id=str(step_session.campaign.campaign_id),
             )
-            NextBee.member_activity(
-                member_email=user.email, activityId="8474", numericValue=str(points)
-            )
-            Points.refresh_user_points(user)
-        else:
-            pass
+
+            if user.has_done_survey:
+                special_points = Points.determine(
+                    activity_type="special_campaign", level=user.level
+                )
+                Points.award(
+                    user=user,
+                    amount=special_points,
+                    reason=f"Special campaign bonus for completing '{step_session.campaign.name}'",
+                    source="special_campaign",
+                    reference_id=str(step_session.campaign.campaign_id),
+                )
 
         serializer = self.get_serializer(step_session)
         return self._success_response(
@@ -491,7 +504,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} checking campaign status.")
@@ -598,7 +611,7 @@ class CampaignStatusView(generics.RetrieveAPIView):
 )
 class SubmitActivityImageView(generics.GenericAPIView):
     serializer_class = SocialEngagementSerializer
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
     def post(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
@@ -625,16 +638,13 @@ class SubmitActivityImageView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        activity_details = json.dumps({"imageUrl": image_url})
-
         points = Points.determine(activity_type="social_engagement", level=user.level)
-        NextBee.member_activity(
-            member_email=user.email,
-            activityId=activity_id,
-            numericValue=str(points),
-            activityDetailsJsonString=activity_details,
+        Points.award(
+            user=user,
+            amount=points,
+            reason=f"Social engagement post on {platform}",
+            source="social_engagement",
         )
-        Points.refresh_user_points(user)
 
         return Response(
             data=encrypt(
@@ -672,7 +682,7 @@ class SubmitActivityImageView(generics.GenericAPIView):
 class GetMemberPointsSummary(generics.GenericAPIView):
     """Returns the authenticated user's points balance, tier, and tier rate."""
 
-    permission_classes = (IsAuthenticated, IsMember)
+    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
     def get(self, request, *args, **kwargs):
         user = request.user

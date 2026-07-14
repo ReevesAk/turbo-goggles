@@ -185,14 +185,23 @@ class AirTimeTopUp(generics.GenericAPIView):
         else:
             logger.warning("Airtime failure: No response body from provider.")
 
+        if airtime_response is not None:
+            if hasattr(airtime_response, "text"):
+                try:
+                    error_detail = airtime_response.json().get(
+                        "message", airtime_response.text
+                    )
+                except ValueError:
+                    error_detail = airtime_response.text
+            else:
+                error_detail = str(airtime_response)
+        else:
+            error_detail = {}
+
         response_data = {
             "status": "fail",
             "message": f"Airtime purchase failed. {reason}",
-            "error": (
-                airtime_response.json()
-                if hasattr(airtime_response, "json")
-                else str(airtime_response) if airtime_response else {}
-            ),
+            "error": error_detail,
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)
@@ -884,7 +893,12 @@ class DataSubscriptionView(generics.GenericAPIView):
             if hasattr(data_response, "data"):
                 error_detail = data_response.data
             elif hasattr(data_response, "text"):
-                error_detail = data_response.text
+                try:
+                    error_detail = data_response.json().get(
+                        "message", data_response.text
+                    )
+                except ValueError:
+                    error_detail = data_response.text
             else:
                 error_detail = str(data_response)
         else:
@@ -1827,13 +1841,16 @@ class BillPaymentView(generics.GenericAPIView):
         reason="",
     ):
         """Central failure handler for both Electricity and Cable payment failures."""
-        vas_json = None
-        try:
-            vas_json = (
-                vas_response.json() if hasattr(vas_response, "json") else vas_response
-            )
-        except Exception:
-            vas_json = vas_response
+        if vas_response is not None:
+            if hasattr(vas_response, "text"):
+                try:
+                    error_detail = vas_response.json().get("message", vas_response.text)
+                except ValueError:
+                    error_detail = vas_response.text
+            else:
+                error_detail = vas_response
+        else:
+            error_detail = {}
 
         title = "Failed Bill Payment"
         message = f"Bill payment of {amount} on {phone_number} failed."
@@ -1853,7 +1870,7 @@ class BillPaymentView(generics.GenericAPIView):
         response_data = {
             "status": "fail",
             "message": f"Bill payment failed. {reason}",
-            "error": vas_json or {},
+            "error": error_detail or {},
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_400_BAD_REQUEST)

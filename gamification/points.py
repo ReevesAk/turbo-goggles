@@ -34,6 +34,7 @@ BASE_POINTS = {
     "survey_completion": 75,
     "app_download": 100,
     "brand_task": 50,
+    "walk_to_earn": 100,
 }
 
 # New tier → naira-per-point mapping
@@ -222,7 +223,11 @@ class Points:
                 new_lifetime = (user.total_points or 0) + amount
                 new_tier = Points.get_user_tier(new_lifetime)
                 rate = TIER_VALUES.get(new_tier, Decimal("0"))
-                new_naira = Decimal(new_balance) * rate
+                new_naira = (
+                    Decimal(new_balance) * rate
+                    if new_balance >= MIN_POINTS_REQUIRED
+                    else Decimal("0")
+                )
 
                 points_obj.balance = new_balance
                 points_obj.tier = new_tier
@@ -316,7 +321,9 @@ class Points:
 
         tier = Points.get_user_tier(lifetime)
         rate = TIER_VALUES.get(tier, Decimal("0"))
-        naira_value = Decimal(balance) * rate
+        naira_value = (
+            Decimal(balance) * rate if balance >= MIN_POINTS_REQUIRED else Decimal("0")
+        )
 
         points_obj, _ = PointsModel.objects.get_or_create(user=user)
         with transaction.atomic():

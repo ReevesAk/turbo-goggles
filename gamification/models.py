@@ -52,6 +52,7 @@ TRANSACTION_SOURCE_CHOICES = (
     ("financial_task", "Financial Task"),
     ("streak_bonus", "Streak Bonus"),
     ("special_campaign", "Special Campaign"),
+    ("social_engagement", "Social Engagement"),
     ("admin_adjustment", "Admin Adjustment"),
     ("penalty", "Penalty"),
     # Brand campaign task types
@@ -68,6 +69,7 @@ TRANSACTION_SOURCE_CHOICES = (
     ("data_purchase", "Data Purchase"),
     ("bills_payment", "Bills Payment"),
     ("marketplace_usage", "Marketplace Usage"),
+    ("walk_to_earn", "Walk To Earn"),
 )
 
 
