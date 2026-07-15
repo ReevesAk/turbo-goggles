@@ -37,17 +37,19 @@ BASE_POINTS = {
     "walk_to_earn": 100,
 }
 
-# New tier → naira-per-point mapping
+# Tier → naira-per-point mapping. Used both for RedeemPointsToWallet and for
+# paying directly for a purchase (airtime/data/bills) with points - a user
+# converts points at their own tier's rate either way.
 TIER_VALUES = {
-    "Explorer": Decimal("0.50"),
-    "Challenger": Decimal("1.00"),
-    "Influencer": Decimal("1.50"),
-    "Champion": Decimal("2.00"),
-    "Elite": Decimal("2.50"),
-    "Legend": Decimal("3.00"),
+    "Explorer": Decimal("0.40"),
+    "Challenger": Decimal("0.70"),
+    "Influencer": Decimal("1.00"),
+    "Champion": Decimal("1.30"),
+    "Elite": Decimal("1.60"),
+    "Legend": Decimal("2.00"),
 }
 
-MIN_POINTS_REQUIRED = 400
+MIN_POINTS_REQUIRED = 700
 
 
 def get_point_value(key: str) -> int:
@@ -68,17 +70,17 @@ class Points:
         """
         Determine tier based on lifetime points.
         """
-        if total_points >= 6000:
+        if total_points >= 18000:
             return "Legend"
-        elif total_points >= 4000:
+        elif total_points >= 10000:
             return "Elite"
-        elif total_points >= 2500:
+        elif total_points >= 6000:
             return "Champion"
-        elif total_points >= 1500:
+        elif total_points >= 3000:
             return "Influencer"
-        elif total_points >= 800:
+        elif total_points >= 1500:
             return "Challenger"
-        elif total_points >= 400:
+        elif total_points >= 700:
             return "Explorer"
         return "Starter"
 

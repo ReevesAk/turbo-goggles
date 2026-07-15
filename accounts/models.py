@@ -133,14 +133,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.phone_number
 
     def update_level(self):
+        # Kept in sync with Points.get_user_tier() in gamification/points.py by
+        # hand - that module imports from here, so it can't be imported back.
         LEVELS = [
             {"title": "Starter", "min_points": 0},
-            {"title": "Explorer", "min_points": 400},
-            {"title": "Challenger", "min_points": 800},
-            {"title": "Influencer", "min_points": 1500},
-            {"title": "Champion", "min_points": 2500},
-            {"title": "Elite", "min_points": 4000},
-            {"title": "Legend", "min_points": 6000},
+            {"title": "Explorer", "min_points": 700},
+            {"title": "Challenger", "min_points": 1500},
+            {"title": "Influencer", "min_points": 3000},
+            {"title": "Champion", "min_points": 6000},
+            {"title": "Elite", "min_points": 10000},
+            {"title": "Legend", "min_points": 18000},
         ]
 
         for level in reversed(LEVELS):
