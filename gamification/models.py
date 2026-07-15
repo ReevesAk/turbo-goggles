@@ -9,13 +9,15 @@ import uuid
 from accounts.models import User
 
 
+# Kept in sync with TIER_VALUES in gamification/points.py by hand - points.py
+# imports from this module, so it can't be imported back from here.
 TIER_TO_RATE = {
-    "Explorer": Decimal("0.50"),
-    "Challenger": Decimal("1.00"),
-    "Influencer": Decimal("1.50"),
-    "Champion": Decimal("2.00"),
-    "Elite": Decimal("2.50"),
-    "Legend": Decimal("3.00"),
+    "Explorer": Decimal("0.40"),
+    "Challenger": Decimal("0.70"),
+    "Influencer": Decimal("1.00"),
+    "Champion": Decimal("1.30"),
+    "Elite": Decimal("1.60"),
+    "Legend": Decimal("2.00"),
 }
 
 
