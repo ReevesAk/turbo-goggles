@@ -1,3 +1,6 @@
+import logging
+from decimal import Decimal, InvalidOperation
+
 # Third party imports.
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
@@ -6,15 +9,18 @@ from drf_spectacular.utils import extend_schema_field
 from accounts.models import User
 from .models import (
     PointConfig,
-    RewardRule,
-    RewardTier,
     StepCampaignModel,
     StepSessionModel,
     StreakChallenge,
     StreakHistory,
     UserStreak,
+    RewardRule,
+    RewardTier,
+    UserGeneratedContent,
     SCHEDULE_TYPE_CHOICES,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SSOLoginSerializer(serializers.Serializer):
@@ -33,7 +39,9 @@ class RedeemPointsToWalletSerializer(serializers.Serializer):
 
     def validate(self, data):
         if not data.get("use_biometrics") and not data.get("pin"):
-            raise serializers.ValidationError("Either pin or use_biometrics is required.")
+            raise serializers.ValidationError(
+                "Either pin or use_biometrics is required."
+            )
         return data
 
 
@@ -48,6 +56,7 @@ class SocialEngagementSerializer(serializers.Serializer):
         help_text="Cloudinary URL of the uploaded post image.",
     )
 
+
 class StepCampaignSerializer(serializers.ModelSerializer):
     total_steps = serializers.IntegerField(read_only=True)
     is_campaign_active = serializers.BooleanField(read_only=True)
@@ -58,12 +67,23 @@ class StepCampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = StepCampaignModel
         fields = [
-            'id', "campaign_id", "name", "duration", "step_target", "reward_points",
-            "created_by", "created_at", "description",
-            "completed", "time_limit",
-            "total_steps", "is_campaign_active", "status", "time_remaining"
+            "id",
+            "campaign_id",
+            "name",
+            "duration",
+            "step_target",
+            "reward_points",
+            "created_by",
+            "created_at",
+            "description",
+            "completed",
+            "time_limit",
+            "total_steps",
+            "is_campaign_active",
+            "status",
+            "time_remaining",
         ]
-        read_only_fields = ['created_by', 'created_at']
+        read_only_fields = ["created_by", "created_at"]
 
 
 def _user_campaign_status(campaign, request):
@@ -72,7 +92,9 @@ def _user_campaign_status(campaign, request):
     on this campaign, else the campaign's own active/expired state.
     """
     if request and request.user.is_authenticated:
-        session = StepSessionModel.objects.filter(user=request.user, campaign=campaign).first()
+        session = StepSessionModel.objects.filter(
+            user=request.user, campaign=campaign
+        ).first()
         if session and session.completed:
             return "completed"
     return campaign.status
@@ -83,7 +105,17 @@ class StepCampaignListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StepCampaignModel
-        fields = ["id", "campaign_id", "name", "description", "duration", "step_target", "reward_points", "created_at", "status"]
+        fields = [
+            "id",
+            "campaign_id",
+            "name",
+            "description",
+            "duration",
+            "step_target",
+            "reward_points",
+            "created_at",
+            "status",
+        ]
 
     def get_status(self, obj):
         return _user_campaign_status(obj, self.context.get("request"))
@@ -98,8 +130,15 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = StepCampaignModel
         fields = [
-            "id", "name", "description", "duration", "step_target",
-            "reward_points", "created_at", "status", "participants"
+            "id",
+            "name",
+            "description",
+            "duration",
+            "step_target",
+            "reward_points",
+            "created_at",
+            "status",
+            "participants",
         ]
 
     def get_status(self, obj):
@@ -117,17 +156,19 @@ class StepCampaignDetailSerializer(serializers.ModelSerializer):
 
     def get_participants(self, obj):
         # Get sessions with user info
-        sessions = StepSessionModel.objects.filter(campaign=obj).select_related('user')
+        sessions = StepSessionModel.objects.filter(campaign=obj).select_related("user")
 
         participants = []
         for session in sessions:
-            participants.append({
-                "user_id": session.user.id,
-                "full_name": session.user.full_name,
-                "step_count": session.step_count,
-                "completed": session.completed,
-                "started_at": str(session.started_at)
-            })
+            participants.append(
+                {
+                    "user_id": session.user.id,
+                    "full_name": session.user.full_name,
+                    "step_count": session.step_count,
+                    "completed": session.completed,
+                    "started_at": str(session.started_at),
+                }
+            )
 
         return participants
 
@@ -158,19 +199,34 @@ class CampaignWithParticipantsSerializer(serializers.ModelSerializer):
 # Main output serializer - enhanced version of your original
 class StepCountSessionSerializer(serializers.ModelSerializer):
     """Enhanced serializer for step session responses"""
+
     campaign_name = serializers.CharField(source="campaign.name", read_only=True)
-    step_target = serializers.IntegerField(source="campaign.step_target", read_only=True)
-    reward_points = serializers.IntegerField(source="campaign.reward_points", read_only=True)
-    campaign_end_time = serializers.DateTimeField(source="campaign.campaign_end_time", read_only=True)
+    step_target = serializers.IntegerField(
+        source="campaign.step_target", read_only=True
+    )
+    reward_points = serializers.IntegerField(
+        source="campaign.reward_points", read_only=True
+    )
+    campaign_end_time = serializers.DateTimeField(
+        source="campaign.campaign_end_time", read_only=True
+    )
     time_limit = serializers.DurationField(source="campaign.time_limit", read_only=True)
 
     class Meta:
         model = StepSessionModel
         fields = [
-            "session_id", "campaign", "campaign_name",
-            "session_date", "step_count", "completed",
-            "step_target", "reward_points", "started_at", "last_updated",
-            "campaign_end_time", "time_limit"
+            "session_id",
+            "campaign",
+            "campaign_name",
+            "session_date",
+            "step_count",
+            "completed",
+            "step_target",
+            "reward_points",
+            "started_at",
+            "last_updated",
+            "campaign_end_time",
+            "time_limit",
         ]
         read_only_fields = ["session_id", "completed", "started_at", "last_updated"]
 
@@ -200,10 +256,23 @@ class StreakChallengeSerializer(serializers.ModelSerializer):
     class Meta:
         model = StreakChallenge
         fields = [
-            "id", "name", "description", "streak_type", "duration_days",
-            "start_date", "end_date", "reward_points", "reminder_time",
-            "is_active", "is_paused", "is_ongoing", "participant_count",
-            "participant_names", "completed_tasks", "total_points_earned", "created_at",
+            "id",
+            "name",
+            "description",
+            "streak_type",
+            "duration_days",
+            "start_date",
+            "end_date",
+            "reward_points",
+            "reminder_time",
+            "is_active",
+            "is_paused",
+            "is_ongoing",
+            "participant_count",
+            "participant_names",
+            "completed_tasks",
+            "total_points_earned",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -216,7 +285,8 @@ class StreakChallengeSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": str(us.user.id),
-                "name": us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
+                "name": us.user.full_name
+                or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
                 "joined_at": us.joined_at,
                 "current_count": us.current_count,
                 "completed": us.completed,
@@ -239,8 +309,14 @@ class StreakChallengeCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = StreakChallenge
         fields = [
-            "name", "description", "streak_type", "duration_days",
-            "start_date", "end_date", "reward_points", "reminder_time",
+            "name",
+            "description",
+            "streak_type",
+            "duration_days",
+            "start_date",
+            "end_date",
+            "reward_points",
+            "reminder_time",
         ]
 
     def validate(self, data):
@@ -258,24 +334,47 @@ class StreakChallengeCreateSerializer(serializers.ModelSerializer):
 class StreakChallengeUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = StreakChallenge
-        fields = ["name", "description", "end_date", "reward_points", "reminder_time", "is_active", "is_paused"]
+        fields = [
+            "name",
+            "description",
+            "end_date",
+            "reward_points",
+            "reminder_time",
+            "is_active",
+            "is_paused",
+        ]
 
 
 class UserStreakSerializer(serializers.ModelSerializer):
     challenge_name = serializers.CharField(source="challenge.name", read_only=True)
-    challenge_type = serializers.CharField(source="challenge.streak_type", read_only=True)
-    duration_days = serializers.IntegerField(source="challenge.duration_days", read_only=True)
-    reward_points = serializers.IntegerField(source="challenge.reward_points", read_only=True)
+    challenge_type = serializers.CharField(
+        source="challenge.streak_type", read_only=True
+    )
+    duration_days = serializers.IntegerField(
+        source="challenge.duration_days", read_only=True
+    )
+    reward_points = serializers.IntegerField(
+        source="challenge.reward_points", read_only=True
+    )
     days_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = UserStreak
         fields = [
-            "id", "challenge", "challenge_name", "challenge_type",
-            "duration_days", "reward_points",
-            "current_count", "longest_count", "last_activity_date",
-            "completed", "completed_at", "reward_issued",
-            "days_remaining", "joined_at",
+            "id",
+            "challenge",
+            "challenge_name",
+            "challenge_type",
+            "duration_days",
+            "reward_points",
+            "current_count",
+            "longest_count",
+            "last_activity_date",
+            "completed",
+            "completed_at",
+            "reward_issued",
+            "days_remaining",
+            "joined_at",
         ]
         read_only_fields = fields
 
@@ -290,8 +389,14 @@ class StreakHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = StreakHistory
         fields = [
-            "id", "challenge", "challenge_name",
-            "streak_count_reached", "broken_at", "completed", "reward_issued", "recorded_at",
+            "id",
+            "challenge",
+            "challenge_name",
+            "streak_count_reached",
+            "broken_at",
+            "completed",
+            "reward_issued",
+            "recorded_at",
         ]
         read_only_fields = fields
 
@@ -336,7 +441,9 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             if end <= start:
                 raise serializers.ValidationError("end_date must be after start_date.")
             window_minutes = int((end - start).total_seconds() // 60)
-            task_minutes = data.get("duration_days", 0) * 1440 + data.get("duration_minutes", 0)
+            task_minutes = data.get("duration_days", 0) * 1440 + data.get(
+                "duration_minutes", 0
+            )
             if task_minutes > window_minutes:
                 raise serializers.ValidationError(
                     "Total duration (days + minutes) cannot exceed the challenge window."
@@ -390,7 +497,19 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "task_status", "is_scheduled", "duration_display", "participant_count", "participant_names", "completed_tasks", "total_points_earned", "days_remaining", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "task_status",
+            "is_scheduled",
+            "duration_display",
+            "participant_count",
+            "participant_names",
+            "completed_tasks",
+            "total_points_earned",
+            "days_remaining",
+            "created_at",
+            "updated_at",
+        ]
 
     @extend_schema_field(serializers.IntegerField())
     def get_participant_count(self, obj):
@@ -401,7 +520,8 @@ class InAppTaskSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": str(us.user.id),
-                "name": us.user.full_name or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
+                "name": us.user.full_name
+                or f"{us.user.first_name or ''} {us.user.last_name or ''}".strip(),
                 "joined_at": us.joined_at,
                 "current_count": us.current_count,
                 "completed": us.completed,
@@ -422,6 +542,7 @@ class InAppTaskSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):
         from django.utils import timezone
+
         remaining = obj.end_date - timezone.now()
         return max(0, remaining.days)
 
@@ -524,7 +645,9 @@ class RewardTierCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         max_value = data.get("max_value")
         if max_value is not None and max_value < data["min_value"]:
-            raise serializers.ValidationError("max_value cannot be less than min_value.")
+            raise serializers.ValidationError(
+                "max_value cannot be less than min_value."
+            )
         return data
 
 
@@ -539,5 +662,884 @@ class RewardTierUpdateSerializer(serializers.ModelSerializer):
         min_value = data.get("min_value", getattr(self.instance, "min_value", None))
         max_value = data.get("max_value", getattr(self.instance, "max_value", None))
         if max_value is not None and min_value is not None and max_value < min_value:
-            raise serializers.ValidationError("max_value cannot be less than min_value.")
+            raise serializers.ValidationError(
+                "max_value cannot be less than min_value."
+            )
         return data
+
+
+# ==========================================
+# Public / User-facing Serializers
+# ==========================================
+
+
+class UserGeneratedContentListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for public UGC task listing endpoint.
+
+    Excludes sensitive and detailed fields to keep the listing payload light.
+    Use UserGeneratedContentDetailSerializer for full details.
+    """
+
+    available_slots = serializers.SerializerMethodField()
+    is_fully_booked = serializers.SerializerMethodField()
+    task_type_display = serializers.SerializerMethodField()
+    gender_display = serializers.SerializerMethodField()
+    demography_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserGeneratedContent
+        fields = [
+            "id",
+            "business_or_brand_name",
+            "task_name",
+            "task_type",
+            "task_type_display",
+            "description",
+            "thumbnail_url",
+            "slot_cap",
+            "slots_filled",
+            "available_slots",
+            "is_fully_booked",
+            "reward_points",
+            "gender",
+            "gender_display",
+            "demography",
+            "demography_display",
+            "location_perimeter",
+            "task_duration",
+            "campaign_duration",
+            "created_at",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_available_slots(self, obj):
+        """Get the number of available slots for the task."""
+        return obj.available_slots
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_fully_booked(self, obj):
+        """Check if the task is fully booked."""
+        return obj.is_fully_booked
+
+    @extend_schema_field(serializers.CharField())
+    def get_task_type_display(self, obj):
+        """Get the display name for the task type."""
+        return dict(UserGeneratedContent.TaskType.choices).get(
+            obj.task_type, obj.task_type
+        )
+
+    @extend_schema_field(serializers.CharField())
+    def get_gender_display(self, obj):
+        """Get the display name for gender."""
+        return obj.get_gender_display() if obj.gender else None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_demography_display(self, obj):
+        """Get the display name for demography."""
+        return obj.get_demography_display() if obj.demography else None
+
+
+class UserGeneratedContentDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the public single-task endpoint.
+
+    Includes full task details, financial information, and computed properties
+    that are safe to expose to end users.
+    """
+
+    available_slots = serializers.SerializerMethodField()
+    is_fully_booked = serializers.SerializerMethodField()
+    unused_credit = serializers.SerializerMethodField()
+    cost_per_engagement = serializers.SerializerMethodField()
+    task_type_display = serializers.SerializerMethodField()
+    gender_display = serializers.SerializerMethodField()
+    demography_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserGeneratedContent
+        fields = [
+            "id",
+            "business_or_brand_name",
+            "type_of_business",
+            "task_name",
+            "task_type",
+            "task_type_display",
+            "description",
+            "unique_identifiers",
+            "use_brand_slogan",
+            "brand_slogan",
+            "thumbnail_url",
+            "sample_url",
+            "slot_cap",
+            "slots_filled",
+            "available_slots",
+            "is_fully_booked",
+            "unlimited_slots",
+            "reward_points",
+            "auto_boost",
+            "auto_boost_points",
+            "unused_credit",
+            "cost_per_engagement",
+            "gender",
+            "gender_display",
+            "demography",
+            "demography_display",
+            "location_perimeter",
+            "countries",
+            "states",
+            "cities",
+            "task_duration",
+            "campaign_duration",
+            "created_at",
+            "updated_at",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_available_slots(self, obj):
+        """Get the number of available slots for the task."""
+        return obj.available_slots
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_fully_booked(self, obj):
+        """Check if the task is fully booked."""
+        return obj.is_fully_booked
+
+    @extend_schema_field(serializers.CharField())
+    def get_unused_credit(self, obj):
+        """Get unused credit as a string representation."""
+        return str(obj.unused_credit)
+
+    @extend_schema_field(serializers.CharField())
+    def get_cost_per_engagement(self, obj):
+        """Get cost per engagement as a string representation."""
+        return str(obj.cost_per_engagement)
+
+    @extend_schema_field(serializers.CharField())
+    def get_task_type_display(self, obj):
+        """Get the display name for the task type."""
+        return dict(UserGeneratedContent.TaskType.choices).get(
+            obj.task_type, obj.task_type
+        )
+
+    @extend_schema_field(serializers.CharField())
+    def get_gender_display(self, obj):
+        """Get the display name for gender."""
+        return obj.get_gender_display() if obj.gender else None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_demography_display(self, obj):
+        """Get the display name for demography."""
+        return obj.get_demography_display() if obj.demography else None
+
+
+# ==========================================
+# Brand-facing Serializer
+# ==========================================
+
+
+class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for brand users to create, list, update, and manage their UGC tasks.
+
+    Brands can create and manage their own content tasks with appropriate
+    validations and business logic.
+
+    Payment fields (`pin`, `payment_option`, `biometrics`) are write-only and
+    are consumed by the view's payment flow (CreateAdAndOnboardBrandView-style
+    wallet debit / credit application) rather than by this serializer directly.
+    `user` is never accepted as input — it is injected by the view from
+    `request.user` after payment succeeds.
+    """
+
+    amount = serializers.CharField(
+        max_length=155,
+        required=True,
+        allow_blank=False,
+        allow_null=False,
+        help_text="Monetary amount for the task",
+    )
+    targeting_type = serializers.ChoiceField(
+        choices=["broad", "city"],
+        default="broad",
+        help_text="Pricing multiplier: broad/city/niche/influencer",
+    )
+    pin = serializers.CharField(max_length=6, write_only=True, required=False)
+    payment_option = serializers.CharField(
+        max_length=20, write_only=True, required=True
+    )
+    biometrics = serializers.BooleanField(write_only=True, required=False)
+
+    # Owner (read-only — set by the view, never accepted from the client)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    # Computed fields (read-only)
+    available_slots = serializers.SerializerMethodField()
+    is_fully_booked = serializers.SerializerMethodField()
+    unused_credit = serializers.SerializerMethodField()
+    cost_per_engagement = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserGeneratedContent
+        fields = [
+            "id",
+            "user",
+            "pin",
+            "payment_option",
+            "biometrics",
+            "business_or_brand_name",
+            "type_of_business",
+            "task_name",
+            "task_type",
+            "description",
+            "unique_identifiers",
+            "use_brand_slogan",
+            "brand_slogan",
+            "thumbnail_url",
+            "sample_url",
+            "slot_cap",
+            "slots_filled",
+            "available_slots",
+            "is_fully_booked",
+            "unlimited_slots",
+            "reward_points",
+            "auto_boost",
+            "auto_boost_points",
+            "amount",
+            "credit_settled",
+            "is_active",
+            "gender",
+            "demography",
+            "location_perimeter",
+            "targeting_type",
+            "countries",
+            "states",
+            "cities",
+            "task_duration",
+            "campaign_duration",
+            "unused_credit",
+            "cost_per_engagement",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "slots_filled",
+            "created_at",
+            "updated_at",
+            "credit_settled",
+            "unused_credit",
+            "cost_per_engagement",
+            "available_slots",
+            "is_fully_booked",
+        ]
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_available_slots(self, obj):
+        """Get the number of available slots for the task."""
+        return obj.available_slots
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_fully_booked(self, obj):
+        """Check if the task is fully booked."""
+        return obj.is_fully_booked
+
+    @extend_schema_field(serializers.CharField())
+    def get_unused_credit(self, obj):
+        """Get unused credit as a string representation."""
+        return str(obj.unused_credit) if obj.unused_credit else "0.00"
+
+    @extend_schema_field(serializers.CharField())
+    def get_cost_per_engagement(self, obj):
+        """Get cost per engagement as a string representation."""
+        return str(obj.cost_per_engagement) if obj.cost_per_engagement else "0.00"
+
+    def validate_amount(self, value):
+        """
+        Validate the amount field.
+
+        Args:
+            value (str): Amount string to validate
+
+        Returns:
+            str: Validated amount string
+
+        Raises:
+            serializers.ValidationError: If amount is invalid
+        """
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Amount is required for the task.")
+
+        try:
+            amount_decimal = Decimal(value)
+            if amount_decimal <= 0:
+                raise serializers.ValidationError("Amount must be greater than 0.")
+            if amount_decimal > 9999999.99:
+                raise serializers.ValidationError(
+                    "Amount exceeds maximum allowed value of 9,999,999.99."
+                )
+            if amount_decimal.as_tuple().exponent < -2:
+                raise serializers.ValidationError(
+                    "Amount cannot have more than 2 decimal places."
+                )
+        except (ValueError, TypeError, InvalidOperation):
+            raise serializers.ValidationError(
+                "Amount must be a valid decimal number (e.g., '1000.00')."
+            )
+
+        return f"{amount_decimal:.2f}"
+
+    def validate_task_name(self, value):
+        """
+        Validate task name length and content.
+
+        Args:
+            value (str): Task name to validate
+
+        Returns:
+            str: Stripped and validated task name
+
+        Raises:
+            serializers.ValidationError: If task name is too short or invalid
+        """
+        value = value.strip()
+        if len(value) < 5:
+            raise serializers.ValidationError(
+                "Task name must be at least 5 characters long."
+            )
+        if len(value) > 255:
+            raise serializers.ValidationError("Task name cannot exceed 255 characters.")
+        return value
+
+    def validate_description(self, value):
+        """
+        Validate task description length.
+
+        Args:
+            value (str): Description to validate
+
+        Returns:
+            str: Stripped and validated description
+
+        Raises:
+            serializers.ValidationError: If description is too short or invalid
+        """
+        value = value.strip()
+        if len(value) < 20:
+            raise serializers.ValidationError(
+                "Description must be at least 20 characters long."
+            )
+        if len(value) > 1000:
+            raise serializers.ValidationError(
+                "Description cannot exceed 1000 characters."
+            )
+        return value
+
+    def validate_slot_cap(self, value):
+        """
+        Validate slot cap value.
+
+        Args:
+            value (int): Slot cap to validate
+
+        Returns:
+            int: Validated slot cap
+
+        Raises:
+            serializers.ValidationError: If slot cap is negative or invalid
+        """
+        if value < 0:
+            raise serializers.ValidationError("Slot cap cannot be negative.")
+        if value > 100000:
+            raise serializers.ValidationError("Slot cap cannot exceed 100,000 slots.")
+        return value
+
+    def validate(self, attrs):
+        """
+        Perform cross-field validation.
+
+        Validates:
+        - Location perimeter requires appropriate location data
+        - Brand slogan is provided if use_brand_slogan is True
+        - Campaign duration is valid
+        - Task type is valid
+        - Amount is sufficient for slot count
+
+        Args:
+            attrs (dict): Dictionary of validated attributes
+
+        Returns:
+            dict: Validated attributes
+
+        Raises:
+            serializers.ValidationError: If any validation fails
+        """
+        location_perimeter = attrs.get("location_perimeter")
+        states = attrs.get("states", [])
+        cities = attrs.get("cities", [])
+
+        if location_perimeter == UserGeneratedContent.LocationPerimeter.STATE:
+            if not states:
+                raise serializers.ValidationError(
+                    {
+                        "states": "States must be provided when location_perimeter is 'State'."
+                    }
+                )
+            if any(not state.strip() for state in states):
+                raise serializers.ValidationError(
+                    {"states": "State names cannot be empty."}
+                )
+
+        if location_perimeter == UserGeneratedContent.LocationPerimeter.CITIES:
+            if not cities:
+                raise serializers.ValidationError(
+                    {
+                        "cities": "Cities must be provided when location_perimeter is 'Cities'."
+                    }
+                )
+            if any(not city.strip() for city in cities):
+                raise serializers.ValidationError(
+                    {"cities": "City names cannot be empty."}
+                )
+
+        if attrs.get("use_brand_slogan") and not attrs.get("brand_slogan"):
+            raise serializers.ValidationError(
+                {
+                    "brand_slogan": "Brand slogan is required when use_brand_slogan is True."
+                }
+            )
+
+        task_duration = attrs.get("task_duration")
+        if task_duration and task_duration.total_seconds() <= 0:
+            raise serializers.ValidationError(
+                {"task_duration": "Task duration must be positive."}
+            )
+
+        campaign_duration = attrs.get("campaign_duration")
+        if campaign_duration and campaign_duration.total_seconds() <= 0:
+            raise serializers.ValidationError(
+                {"campaign_duration": "Campaign duration must be positive."}
+            )
+
+        task_type = attrs.get("task_type")
+        if task_type and task_type not in dict(UserGeneratedContent.TaskType.choices):
+            raise serializers.ValidationError(
+                {
+                    "task_type": f"Invalid task type. Must be one of: {', '.join(dict(UserGeneratedContent.TaskType.choices).keys())}."
+                }
+            )
+
+        countries = attrs.get("countries", [])
+        if countries and not isinstance(countries, list):
+            raise serializers.ValidationError(
+                {"countries": "Countries must be a list of country names."}
+            )
+
+        if states and not isinstance(states, list):
+            raise serializers.ValidationError(
+                {"states": "States must be a list of state names."}
+            )
+
+        if cities and not isinstance(cities, list):
+            raise serializers.ValidationError(
+                {"cities": "Cities must be a list of city names."}
+            )
+
+        logger.info(
+            "Brand UGC task validation successful: task_name=%r task_type=%r amount=%r",
+            attrs.get("task_name", "")[:80],
+            task_type,
+            attrs.get("amount", "0"),
+        )
+
+        return attrs
+
+    def create(self, validated_data):
+        """
+        Create a new UGC task for the brand.
+
+        The owning brand is taken from the serializer context (set by the
+        view as `request.user`) rather than from client input, so a brand
+        can never create a task on behalf of another user.
+
+        Args:
+            validated_data (dict): Validated data for task creation
+
+        Returns:
+            UserGeneratedContent: Created task instance
+
+        Raises:
+            serializers.ValidationError: If slot_cap is missing/invalid, or
+                if no authenticated user is available in context.
+
+        Note:
+            - Reward points are auto-calculated based on task type
+            - This method does NOT charge the brand's wallet. Payment
+              (wallet debit + BrandAdCreditWallet credit application) is
+              handled by the view *before* calling serializer.save().
+        """
+        validated_data.pop("pin", None)
+        validated_data.pop("payment_option", None)
+        validated_data.pop("biometrics", None)
+
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            raise serializers.ValidationError(
+                {"user": "Authentication required to create a task."}
+            )
+        validated_data["user"] = request.user
+
+        if "slot_cap" not in validated_data:
+            raise serializers.ValidationError(
+                {"slot_cap": "Slot cap is required for the task."}
+            )
+
+        slot_cap = validated_data.get("slot_cap", 0)
+        if slot_cap <= 0 and not validated_data.get("unlimited_slots", False):
+            raise serializers.ValidationError(
+                {
+                    "slot_cap": "Either slot_cap must be greater than 0 or unlimited_slots must be True."
+                }
+            )
+
+        if not validated_data.get("reward_points"):
+            task_type = validated_data.get("task_type")
+            if task_type:
+                try:
+                    TASK_TYPE_TO_KEY = {
+                        "make_a_video": "Make a video",
+                        "take_a_picture": "Take a picture",
+                    }
+                    key = TASK_TYPE_TO_KEY.get(task_type)
+                    if key:
+                        config = PointConfig.objects.filter(key=key).first()
+                        if config:
+                            validated_data["reward_points"] = config.value
+                except Exception as e:
+                    logger.warning(f"Error storing points: {e}")
+
+        task = UserGeneratedContent.objects.create(**validated_data)
+
+        logger.info(
+            "Brand UGC task created: id=%s task_name=%r amount=%r brand=%s",
+            task.id,
+            task.task_name,
+            task.amount,
+            task.user_id,
+        )
+
+        return task
+
+    def update(self, instance, validated_data):
+        """
+        Update an existing UGC task.
+
+        Args:
+            instance (UserGeneratedContent): Existing task instance
+            validated_data (dict): Validated update data
+
+        Returns:
+            UserGeneratedContent: Updated task instance
+
+        Note:
+            - Certain fields cannot be updated once set (e.g., id, created_at)
+            - Slot cap can only be increased, not decreased
+            - `user` can never be reassigned via update
+        """
+        if "slot_cap" in validated_data:
+            new_slot_cap = validated_data["slot_cap"]
+            if new_slot_cap < instance.slot_cap:
+                logger.warning(
+                    "Attempted to decrease slot cap: task_id=%s from=%s to=%s",
+                    instance.id,
+                    instance.slot_cap,
+                    new_slot_cap,
+                )
+                raise serializers.ValidationError(
+                    {"slot_cap": "Slot cap can only be increased, not decreased."}
+                )
+
+        disallowed_fields = ["created_at", "id", "user"]
+        for field in disallowed_fields:
+            if field in validated_data:
+                validated_data.pop(field)
+
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.save()
+
+        logger.info(
+            "Brand UGC task updated: id=%s task_name=%r amount=%r",
+            instance.id,
+            instance.task_name,
+            instance.amount,
+        )
+
+        return instance
+
+
+# ==========================================
+# Admin-facing Serializer
+# ==========================================
+
+
+class AdminUserGeneratedContentSerializer(serializers.ModelSerializer):
+    """
+    Full administrator serializer for managing UGC tasks.
+
+    Admins have full CRUD operations and can view all fields including
+    sensitive data and administrative fields. Unlike the brand serializer,
+    `user` is writable here so admins can create or reassign a task on
+    behalf of any brand.
+    """
+
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+
+    available_slots = serializers.SerializerMethodField()
+    is_fully_booked = serializers.SerializerMethodField()
+    unused_credit = serializers.SerializerMethodField()
+    cost_per_engagement = serializers.SerializerMethodField()
+    task_type_display = serializers.SerializerMethodField()
+    gender_display = serializers.SerializerMethodField()
+    demography_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserGeneratedContent
+        fields = [
+            "id",
+            "user",
+            "business_or_brand_name",
+            "type_of_business",
+            "task_name",
+            "task_type",
+            "task_type_display",
+            "description",
+            "unique_identifiers",
+            "use_brand_slogan",
+            "brand_slogan",
+            "sample_url",
+            "thumbnail_url",
+            "slot_cap",
+            "slots_filled",
+            "available_slots",
+            "is_fully_booked",
+            "unlimited_slots",
+            "reward_points",
+            "auto_boost",
+            "auto_boost_points",
+            "amount",
+            "credit_settled",
+            "is_active",
+            "gender",
+            "gender_display",
+            "demography",
+            "demography_display",
+            "location_perimeter",
+            "targeting_type",
+            "countries",
+            "states",
+            "cities",
+            "task_duration",
+            "campaign_duration",
+            "unused_credit",
+            "cost_per_engagement",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "slots_filled"]
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_available_slots(self, obj):
+        """Get the number of available slots for the task."""
+        return obj.available_slots
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_fully_booked(self, obj):
+        """Check if the task is fully booked."""
+        return obj.is_fully_booked
+
+    @extend_schema_field(serializers.CharField())
+    def get_unused_credit(self, obj):
+        """Get unused credit as a string representation."""
+        return str(obj.unused_credit)
+
+    @extend_schema_field(serializers.CharField())
+    def get_cost_per_engagement(self, obj):
+        """Get cost per engagement as a string representation."""
+        return str(obj.cost_per_engagement)
+
+    @extend_schema_field(serializers.CharField())
+    def get_task_type_display(self, obj):
+        """Get the display name for the task type."""
+        return dict(UserGeneratedContent.TaskType.choices).get(
+            obj.task_type, obj.task_type
+        )
+
+    @extend_schema_field(serializers.CharField())
+    def get_gender_display(self, obj):
+        """Get the display name for gender."""
+        return obj.get_gender_display() if obj.gender else None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_demography_display(self, obj):
+        """Get the display name for demography."""
+        return obj.get_demography_display() if obj.demography else None
+
+    def validate_task_name(self, value):
+        """
+        Validate task name length and content.
+
+        Args:
+            value (str): Task name to validate
+
+        Returns:
+            str: Stripped and validated task name
+        """
+        value = value.strip()
+        if len(value) < 5:
+            raise serializers.ValidationError(
+                "Task name must be at least 5 characters long."
+            )
+        return value
+
+    def validate(self, attrs):
+        """
+        Perform cross-field validation for admin operations.
+
+        Args:
+            attrs (dict): Dictionary of validated attributes
+
+        Returns:
+            dict: Validated attributes
+
+        Raises:
+            serializers.ValidationError: If any validation fails
+        """
+        location_perimeter = attrs.get("location_perimeter")
+        states = attrs.get("states", [])
+        cities = attrs.get("cities", [])
+
+        if location_perimeter == UserGeneratedContent.LocationPerimeter.STATE:
+            if not states:
+                raise serializers.ValidationError(
+                    {
+                        "states": "States must be provided when location_perimeter is 'State'."
+                    }
+                )
+
+        if location_perimeter == UserGeneratedContent.LocationPerimeter.CITIES:
+            if not cities:
+                raise serializers.ValidationError(
+                    {
+                        "cities": "Cities must be provided when location_perimeter is 'Cities'."
+                    }
+                )
+
+        if attrs.get("use_brand_slogan") and not attrs.get("brand_slogan"):
+            raise serializers.ValidationError(
+                {
+                    "brand_slogan": "Brand slogan is required when use_brand_slogan is True."
+                }
+            )
+
+        task_duration = attrs.get("task_duration")
+        if task_duration and task_duration.total_seconds() <= 0:
+            raise serializers.ValidationError(
+                {"task_duration": "Task duration must be positive."}
+            )
+
+        campaign_duration = attrs.get("campaign_duration")
+        if campaign_duration and campaign_duration.total_seconds() <= 0:
+            raise serializers.ValidationError(
+                {"campaign_duration": "Campaign duration must be positive."}
+            )
+
+        logger.info(
+            "Admin UGC task validation successful: task_name=%r",
+            attrs.get("task_name", "")[:80],
+        )
+
+        return attrs
+
+    def create(self, validated_data):
+        """
+        Create a new UGC task as an administrator.
+
+        Args:
+            validated_data (dict): Validated data for task creation. Must
+                include `user` (the brand the task is created for).
+
+        Returns:
+            UserGeneratedContent: Created task instance
+        """
+        validated_data.setdefault("slot_cap", 0)
+        validated_data.setdefault("auto_boost_points", 0)
+        validated_data.setdefault("amount", "0.00")
+        validated_data.setdefault("slots_filled", 0)
+
+        task = UserGeneratedContent.objects.create(**validated_data)
+
+        logger.info(
+            "Admin UGC task created: id=%s task_name=%r for_user=%s",
+            task.id,
+            task.task_name,
+            task.user_id,
+        )
+
+        return task
+
+    def update(self, instance, validated_data):
+        """
+        Update an existing UGC task as an administrator.
+
+        Args:
+            instance (UserGeneratedContent): Existing task instance
+            validated_data (dict): Validated update data
+
+        Returns:
+            UserGeneratedContent: Updated task instance
+        """
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.save()
+
+        logger.info(
+            "Admin UGC task updated: id=%s task_name=%r",
+            instance.id,
+            instance.task_name,
+        )
+
+        return instance
+
+    def delete(self, instance):
+        """
+        Delete a UGC task as an administrator.
+
+        Args:
+            instance (UserGeneratedContent): Task instance to delete
+
+        Returns:
+            bool: True if deletion was successful
+
+        Raises:
+            serializers.ValidationError: If the task still has filled slots.
+        """
+        task_id = instance.id
+        task_name = instance.task_name
+
+        if instance.slots_filled > 0:
+            raise serializers.ValidationError("Cannot delete a task with filled slots.")
+
+        instance.delete()
+
+        logger.info("Admin UGC task deleted: id=%s task_name=%r", task_id, task_name)
+
+        return True
