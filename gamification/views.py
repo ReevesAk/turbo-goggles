@@ -1,40 +1,41 @@
 import logging
 from decimal import Decimal
+
 from decouple import config as conf
-import rest_framework.serializers as s
-from drf_spectacular.utils import (
-    extend_schema,
-    OpenApiExample,
-    inline_serializer,
-)
-from django.utils import timezone
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Greatest, Least
 from django.core.cache import cache
-
-from accounts.models import User, TxModel, UserNotification
+from django.utils import timezone
 
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from rest_framework import generics
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework import status, generics
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.pagination import PageNumberPagination
 
+import rest_framework.serializers as s
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiParameter,
+    OpenApiExample,
+    inline_serializer,
+)
+from drf_spectacular.types import OpenApiTypes
+
+from accounts.models import User, TxModel, UserNotification, AccountType
 from banking.models import WalletModel
 from banking.controllers import Wallet
 from banking.helpers import verify_wallet_auth
-
-from .serializers import (
-    SSOLoginSerializer,
-    StepCountSessionSerializer,
-    SocialEngagementSerializer,
-    StreakChallengeSerializer,
-    UserStreakSerializer,
-    StreakHistorySerializer,
-    StreakLeaderboardEntrySerializer,
-    RedeemPointsToWalletSerializer,
+from roles.models import ActivityModel
+from permissions import (
+    IsMember,
+    HasCompletedSurvey,
+    IsBrandAd,
+    IsBrandAdAdmin,
+    IsSuperAdmin,
 )
+
 from .models import (
     StepCampaignModel,
     StepSessionModel,
@@ -43,13 +44,33 @@ from .models import (
     StreakHistory,
     Points as PointsModel,
     TIER_TO_RATE,
+    UserGeneratedContent,
+)
+from .serializers import (
+    SSOLoginSerializer,
+    StepCountSessionSerializer,
+    SocialEngagementSerializer,
+    StreakChallengeSerializer,
+    UserStreakSerializer,
+    StreakHistorySerializer,
+    RedeemPointsToWalletSerializer,
+    StreakLeaderboardEntrySerializer,
+    UserGeneratedContentListSerializer,
+    UserGeneratedContentDetailSerializer,
+    BrandUserGeneratedContentSerializer,
+    AdminUserGeneratedContentSerializer,
 )
 
-from gamification.utils import NextBee
-from gamification.points import Points
-from commons import generate_txId
+from .utils import NextBee
+from .points import Points
 from security import encrypt, decrypt
-from permissions import IsMember, HasCompletedSurvey
+from commons import generate_txId, first_validation_error
+
+# Shared credit ledger with Brand Ads
+from adverts.models import BrandAdCreditWallet
+from adverts.credit import apply_credit, reconcile_credit
+
+logger = logging.getLogger(__name__)
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
 REDEEM_CHARGE = Decimal("20.00")
@@ -60,8 +81,6 @@ SOCIAL_ACTIVITY_IDS = {
     "X": "48623",
     "tiktok": "48625",
 }
-
-logger = logging.getLogger(__name__)
 
 
 # Create your views here.
@@ -426,13 +445,17 @@ class AddStepsView(generics.UpdateAPIView):
                 if just_completed
                 else ""
             )
-            message = f"Successfully recorded {steps_accepted} new steps!{completion_message}"
+            message = (
+                f"Successfully recorded {steps_accepted} new steps!{completion_message}"
+            )
 
         # Award points exactly once, at the moment the session transitions to
         # completed (see the early "already completed" guard above - a
         # resent/duplicate sync can never reach this a second time).
         if completed:
-            walk_points = Points.determine(activity_type="walk_to_earn", level=user.level)
+            walk_points = Points.determine(
+                activity_type="walk_to_earn", level=user.level
+            )
             Points.award(
                 user=user,
                 amount=walk_points,
@@ -797,7 +820,9 @@ class RedeemPointsToWallet(generics.GenericAPIView):
         # Lock the points row, compute what's redeemable, and deduct it — all
         # inside one atomic block so the lock is released before we call out to 9PSB.
         with transaction.atomic():
-            pts_obj, _ = PointsModel.objects.select_for_update().get_or_create(user=user)
+            pts_obj, _ = PointsModel.objects.select_for_update().get_or_create(
+                user=user
+            )
             points_used, naira_value, _ = Points.calculate_redeemable(
                 pts_obj.balance, user.total_points or 0
             )
@@ -834,7 +859,9 @@ class RedeemPointsToWallet(generics.GenericAPIView):
             if not deducted:
                 logger.error("Points deduction failed for %s: %s", user.email, msg)
                 return Response(
-                    data=encrypt({"status": "fail", "message": "Could not deduct points."}),
+                    data=encrypt(
+                        {"status": "fail", "message": "Could not deduct points."}
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -854,7 +881,12 @@ class RedeemPointsToWallet(generics.GenericAPIView):
             )
             logger.error("Redeem credit failed for %s", user.email)
             return Response(
-                data=encrypt({"status": "fail", "message": "Redemption failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Redemption failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -876,7 +908,10 @@ class RedeemPointsToWallet(generics.GenericAPIView):
 
         logger.info(
             "User %s redeemed %d points for ₦%s (charge ₦%s)",
-            user.email, points_used, amount_to_credit, REDEEM_CHARGE,
+            user.email,
+            points_used,
+            amount_to_credit,
+            REDEEM_CHARGE,
         )
 
         return Response(
@@ -1228,6 +1263,877 @@ class PointsLeaderboardView(generics.GenericAPIView):
                     "leaderboard": leaderboard,
                     "my_rank": my_entry,
                 }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+"""
+User Generated Content (UGC) API views
+
+API views for the UserGeneratedContent (UGC) module, structured to mirror
+the Brand Ads views (ads/views.py) for consistency across the codebase:
+
+- Public: browse/read UGC tasks (any authenticated user)
+- Brand: create/manage owned tasks.
+- Admin: full CRUD across all tasks.
+"""
+
+
+class UGCPagination(PageNumberPagination):
+    page_size = 20
+
+
+# ==========================================
+# Public / User-facing views
+# ==========================================
+
+
+@extend_schema(
+    summary="List available UGC tasks",
+    tags=["User Generated Content [Users]"],
+    description=(
+        "Public listing of active UGC tasks available for users to complete. "
+        "Lightweight payload — use the detail endpoint for full task info. "
+        "Cached for **60 seconds** per (task_type, page)."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "task_type",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Filter by task type (e.g. 'make_a_video').",
+            required=False,
+        ),
+        OpenApiParameter(
+            "page",
+            OpenApiTypes.INT,
+            OpenApiParameter.QUERY,
+            description="Page number (default: 1)",
+            required=False,
+        ),
+    ],
+    responses={200: UserGeneratedContentListSerializer(many=True)},
+)
+class UGCListView(generics.ListAPIView):
+    """
+    GET /v1/ugc/tasks/
+
+    Public browse endpoint. Only shows tasks that are active — inactive
+    (paused/deactivated) tasks are hidden from end users but remain visible
+    to their owning brand and to admins.
+    """
+
+    serializer_class = UserGeneratedContentListSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = UGCPagination
+
+    def get_queryset(self):
+        qs = UserGeneratedContent.objects.filter(is_active=True).order_by("-created_at")
+
+        task_type = self.request.query_params.get("task_type")
+        if task_type:
+            qs = qs.filter(task_type=task_type)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        task_type = request.query_params.get("task_type", "all")
+        page_number = request.query_params.get("page", "1")
+        cache_key = f"ugc_list:{task_type}:{page_number}"
+
+        cached = cache.get(cache_key)
+        if cached:
+            logger.info("Returning cached UGC list (key=%s)", cache_key)
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        serializer = (
+            self.get_serializer(page, many=True)
+            if page is not None
+            else self.get_serializer(queryset, many=True)
+        )
+        payload = (
+            self.get_paginated_response(serializer.data).data
+            if page is not None
+            else {"results": serializer.data}
+        )
+        response_data = {
+            "status": "success",
+            "message": "UGC tasks retrieved successfully.",
+            "data": payload,
+        }
+
+        cache.set(cache_key, response_data, timeout=60)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Get details of a single UGC task",
+    tags=["User Generated Content [Users]"],
+    description="Fetch one UGC task by its UUID. Cached for **5 minutes**.",
+    responses={
+        200: UserGeneratedContentDetailSerializer,
+        404: inline_serializer(
+            name="UGCDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Not found",
+            response_only=True,
+            status_codes=["404"],
+            value={"status": "fail", "message": "Task not found."},
+        ),
+    ],
+)
+class UGCDetailView(generics.RetrieveAPIView):
+    """
+    GET /v1/ugc/tasks/<id>/
+
+    Public single-task view. Full detail payload including financial
+    computed fields (unused_credit, cost_per_engagement) that are safe
+    to expose publicly.
+    """
+
+    queryset = UserGeneratedContent.objects.all()
+    serializer_class = UserGeneratedContentDetailSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = "id"
+
+    def get(self, request, *args, **kwargs):
+        task_id = kwargs.get("id")
+        cache_key = f"ugc_detail:{task_id}"
+
+        cached = cache.get(cache_key)
+        if cached:
+            logger.info("Returning cached UGC detail for id=%s", task_id)
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        try:
+            task = self.get_queryset().get(id=task_id)
+        except UserGeneratedContent.DoesNotExist:
+            logger.warning("UGC task not found: id=%s", task_id)
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(task)
+        response_data = {
+            "status": "success",
+            "message": "Task retrieved successfully.",
+            "data": serializer.data,
+        }
+
+        cache.set(cache_key, response_data, timeout=300)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+# ==========================================
+# Brand-facing views
+# ==========================================
+
+_UGC_SUCCESS_RESP = inline_serializer(
+    name="UGCSuccessResponse",
+    fields={"status": s.CharField(), "message": s.CharField()},
+)
+
+_UGC_ERROR_RESP = inline_serializer(
+    name="UGCErrorResponse",
+    fields={"status": s.CharField(), "message": s.CharField()},
+)
+
+_UGC_CREATE_DESCRIPTION = """
+Creates a new UGC task funded by the brand's wallet.
+
+**Idempotency:** Send `Idempotency-Key: <uuid>` header to safely retry on
+network failure without double-charging.
+"""
+
+
+@extend_schema(
+    summary="List / create UGC tasks owned by the authenticated brand",
+    tags=["User Generated Content [Brand]"],
+    description=_UGC_CREATE_DESCRIPTION,
+    request=BrandUserGeneratedContentSerializer,
+    responses={
+        200: _UGC_SUCCESS_RESP,
+        400: _UGC_ERROR_RESP,
+        500: _UGC_ERROR_RESP,
+    },
+    examples=[
+        OpenApiExample(
+            "Create task — Wallet payment",
+            summary="Make-a-video task funded via wallet",
+            request_only=True,
+            value={
+                "payment_option": "WALLET",
+                "pin": "123456",
+                "business_or_brand_name": "Acme Co",
+                "type_of_business": "online",
+                "task_name": "Unbox our new product",
+                "task_type": "make_a_video",
+                "description": "Record a 30-second unboxing video of the Acme Starter Kit.",
+                "thumbnail_url": "https://cdn.acme.com/ugc/thumb.jpg",
+                "sample_url": "https://cdn.acme.com/ugc/sample.mp4",
+                "slot_cap": 200,
+                "amount": "20000.00",
+                "targeting_type": "broad",
+                "location_perimeter": "nation_wide",
+                "gender": "all",
+            },
+        ),
+        OpenApiExample(
+            "Insufficient Balance",
+            response_only=True,
+            status_codes=["400"],
+            value={"status": "fail", "message": "Insufficient balance."},
+        ),
+    ],
+)
+class BrandUGCListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /v1/ugc/brand/tasks/   — list tasks owned by the authenticated brand
+    POST /v1/ugc/brand/tasks/   — create + fund a new UGC task
+    """
+
+    serializer_class = BrandUserGeneratedContentSerializer
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    pagination_class = UGCPagination
+
+    def get_queryset(self):
+        return UserGeneratedContent.objects.filter(user=self.request.user).order_by(
+            "-created_at"
+        )
+
+    def list(self, request, *args, **kwargs):
+        cache_key = f"user_ugc_tasks:{request.user.id}"
+        cached = cache.get(cache_key)
+        if cached:
+            logger.info("Returning cached UGC tasks for user %s", request.user.email)
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        serializer = (
+            self.get_serializer(page, many=True)
+            if page is not None
+            else self.get_serializer(queryset, many=True)
+        )
+        payload = (
+            self.get_paginated_response(serializer.data).data
+            if page is not None
+            else {"results": serializer.data}
+        )
+        response_data = {
+            "status": "success",
+            "message": "Your UGC tasks retrieved successfully.",
+            "data": payload,
+        }
+
+        cache.set(cache_key, response_data, timeout=120)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        try:
+
+            decrypted_payload = decrypt(request.data)
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(data=payload)
+            serializer.is_valid(raise_exception=True)
+
+            idempotency_key = request.headers.get(
+                "Idempotency-Key"
+            ) or decrypted_payload.get("idempotency_key")
+
+            if idempotency_key:
+                # Check if transaction with this idempotency key already exists
+                existing_tx = TxModel.objects.filter(
+                    tx_reference=idempotency_key, tx_type="UGC Task Funding"
+                ).first()
+                if existing_tx:
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "success",
+                                "message": "Task already processed.",
+                            }
+                        ),
+                        status=status.HTTP_200_OK,
+                    )
+
+            # fetch user
+            user = request.user
+
+            if not AccountType.objects.filter(user=user, user_type="BrandAd").exists():
+                AccountType.objects.create(user=user, user_type="BrandAd")
+                user.active_role = "BrandAd"
+                user.save()
+
+            pin = decrypted_payload.get("pin")
+            amount = serializer.validated_data.get("amount")
+            payment_option = decrypted_payload.get("payment_option")
+            biometrics = decrypted_payload.get("use_biometrics")
+
+            full_charge = Decimal(str(amount))
+
+            tx_reference = (
+                idempotency_key
+                if idempotency_key
+                else f"ugc_task_{user.id}_{UserGeneratedContent.objects.count() + 1}"
+            )
+
+            is_verified, error_response = verify_wallet_auth(
+                user=user,
+                payment_option=payment_option,
+                pin=pin,
+                use_biometrics=biometrics,
+            )
+
+            if not is_verified:
+                return error_response
+
+            match payment_option:
+                case "WALLET":
+                    try:
+                        with transaction.atomic():
+                            reconcile_credit(user)
+
+                        credit_wallet, _ = BrandAdCreditWallet.objects.get_or_create(
+                            user=user
+                        )
+                        credit_available = credit_wallet.balance
+                        net_charge = max(full_charge - credit_available, Decimal("0"))
+
+                        account = WalletModel.objects.get(user=user)
+                        enquiry = Wallet.getWalletDetails(account.account_number)
+                        if enquiry and hasattr(enquiry, "json"):
+                            enquiry_data = enquiry.json()
+                            live_balance = Decimal(
+                                str(
+                                    enquiry_data.get("data", {}).get(
+                                        "availableBalance", 0
+                                    )
+                                )
+                            )
+                        else:
+                            live_balance = account.balance
+
+                        if live_balance < net_charge:
+                            return Response(
+                                data=encrypt(
+                                    {
+                                        "status": "fail",
+                                        "message": "Insufficient balance.",
+                                    }
+                                ),
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+
+                        if net_charge > 0:
+                            debit_response = Wallet.Debit(
+                                debitAccount=account.account_number,
+                                amount=int(net_charge),
+                                reason="Debit for UGC task funding.",
+                                merchantFeeAmount="0.00",
+                            )
+                            if (
+                                debit_response is None
+                                or debit_response.status_code != 200
+                            ):
+                                return Response(
+                                    data=encrypt(
+                                        {
+                                            "status": "fail",
+                                            "message": "Debit failed. Please try again.",
+                                        }
+                                    ),
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+
+                        with transaction.atomic():
+                            task = serializer.save()
+                            credit_applied, _ = apply_credit(user, task, full_charge)
+
+                            credit_msg = (
+                                f" (₦{credit_applied} credit applied)"
+                                if credit_applied > 0
+                                else ""
+                            )
+
+                            TxModel.objects.create(
+                                user=user,
+                                tx_reference=tx_reference,
+                                tx_type="UGC Task Funding",
+                                amount=int(net_charge),
+                                description=f"UGC task funding payment{credit_msg}",
+                                status="SUCCESS",
+                            )
+
+                            UserNotification.objects.create(
+                                user=user,
+                                title="UGC Task Created",
+                                message=(
+                                    f"Your payment of ₦{int(net_charge)} for task "
+                                    f"funding was successful.{credit_msg}"
+                                ),
+                            )
+
+                            ActivityModel.objects.create(
+                                user=user,
+                                title="UGC Task Created",
+                                description=f"{user} created a UGC task successfully.{credit_msg}",
+                            )
+
+                        logger.info(
+                            "UGC task funding successful for user %s "
+                            "(charged: %s, credit applied: %s)",
+                            user.email,
+                            int(net_charge),
+                            credit_applied,
+                        )
+
+                        # Best-effort balance sync after debit
+                        post_debit = Wallet.getWalletDetails(account.account_number)
+                        if post_debit and hasattr(post_debit, "json"):
+                            post_data = post_debit.json()
+                            if post_data.get("status") == "SUCCESS":
+                                account.balance = post_data["data"]["availableBalance"]
+                                account.save(update_fields=["balance"])
+
+                        cache.delete(f"user_ugc_tasks:{user.id}")
+
+                        return Response(
+                            data=encrypt(
+                                {
+                                    "status": "success",
+                                    "message": "UGC task created successfully.",
+                                    "data": self.get_serializer(task).data,
+                                }
+                            ),
+                            status=status.HTTP_201_CREATED,
+                        )
+
+                    except Exception as e:
+                        logger.exception(
+                            f"Transaction error during UGC wallet payment: {e}"
+                        )
+                        return Response(
+                            data=encrypt(
+                                {"status": "fail", "message": "Transaction failed"}
+                            ),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
+
+                case "CARD":
+                    with transaction.atomic():
+                        reconcile_credit(user)
+                        task = serializer.save()
+                        credit_applied, effective_charge = apply_credit(
+                            user, task, full_charge
+                        )
+                        effective_debit = int(effective_charge)
+                    credit_msg = (
+                        f" (₦{credit_applied} credit applied)"
+                        if credit_applied > 0
+                        else ""
+                    )
+                    TxModel.objects.create(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="UGC Task Funding",
+                        amount=effective_debit,
+                        description=f"UGC task funding payment{credit_msg}",
+                        status="SUCCESS",
+                    )
+                    UserNotification.objects.create(
+                        user=user,
+                        title="UGC Task Created",
+                        message=(
+                            f"Your payment of ₦{effective_debit} for task funding "
+                            f"was successful.{credit_msg}"
+                        ),
+                    )
+                    ActivityModel.objects.create(
+                        user=user,
+                        title="UGC Task Created",
+                        description=f"{user} created a UGC task successfully.{credit_msg}",
+                    )
+                    logger.info(
+                        "UGC task funding successful for user %s "
+                        "(charged: %s, credit applied: %s)",
+                        user.email,
+                        effective_debit,
+                        credit_applied,
+                    )
+
+                    cache.delete(f"user_ugc_tasks:{user.id}")
+
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "success",
+                                "message": "UGC task created successfully.",
+                                "data": self.get_serializer(task).data,
+                            }
+                        ),
+                        status=status.HTTP_201_CREATED,
+                    )
+
+                case _:
+                    return Response(
+                        data=encrypt(
+                            {"status": "fail", "message": "Invalid payment option"}
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning("UGC task validation failed: %s", exc.detail)
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as err:
+            logger.error(f"UGC task creation failed: {str(err)}", exc_info=True)
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Task creation failed. Please try again.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+@extend_schema(
+    summary="Retrieve / update / delete a UGC task owned by the brand",
+    tags=["User Generated Content [Brand]"],
+    request=BrandUserGeneratedContentSerializer,
+    responses={
+        200: BrandUserGeneratedContentSerializer,
+        403: inline_serializer(
+            name="BrandUGCForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="BrandUGCNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class BrandUGCDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /v1/ugc/brand/tasks/<id>/
+    PATCH  /v1/ugc/brand/tasks/<id>/
+    DELETE /v1/ugc/brand/tasks/<id>/
+
+    Brands may only view/update/delete tasks they own. Ownership is
+    enforced in get_queryset() so a mismatched ID returns 404 rather
+    than 403, avoiding leaking existence of other brands' tasks.
+
+    Update does NOT re-run the payment flow, increasing slot_cap or
+    amount after creation does not currently trigger an additional debit.
+    """
+
+    serializer_class = BrandUserGeneratedContentSerializer
+    permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin)]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return UserGeneratedContent.objects.filter(user=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task retrieved successfully.",
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", True)
+        instance = self.get_object()
+        try:
+
+            decrypted_payload = decrypt(request.data)
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(instance, data=payload, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            task = serializer.save()
+
+            cache.delete(f"ugc_detail:{task.id}")
+            cache.delete(f"user_ugc_tasks:{request.user.id}")
+
+            logger.info(
+                "Brand UGC task updated: id=%s by user=%s", task.id, request.user.id
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Task updated successfully.",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning("Brand UGC task update validation failed: %s", exc.detail)
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.slots_filled > 0:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Cannot delete a task with filled slots.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        task_id = instance.id
+        instance.delete()
+        cache.delete(f"ugc_detail:{task_id}")
+        cache.delete(f"user_ugc_tasks:{request.user.id}")
+        logger.info(
+            "Brand UGC task deleted: id=%s by user=%s", task_id, request.user.id
+        )
+        return Response(
+            data=encrypt(
+                {"status": "success", "message": "Task deleted successfully."}
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+# ==========================================
+# Admin-facing views
+# ==========================================
+
+
+@extend_schema(
+    summary="List / create UGC tasks (admin)",
+    tags=["User Generated Content [Admin]"],
+    request=AdminUserGeneratedContentSerializer,
+    responses={
+        200: AdminUserGeneratedContentSerializer(many=True),
+        201: AdminUserGeneratedContentSerializer,
+    },
+)
+class AdminUGCListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /v1/ugc/admin/tasks/   — list all UGC tasks across all brands
+    POST /v1/ugc/admin/tasks/   — create a task on behalf of a brand
+
+    Admin creation does not go through the wallet payment flow — admins
+    can create tasks with credit_settled left False/True at their
+    discretion, e.g. for goodwill/promo tasks that were never charged.
+    """
+
+    queryset = UserGeneratedContent.objects.all().order_by("-created_at")
+    serializer_class = AdminUserGeneratedContentSerializer
+    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    pagination_class = UGCPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        serializer = (
+            self.get_serializer(page, many=True)
+            if page is not None
+            else self.get_serializer(queryset, many=True)
+        )
+        payload = (
+            self.get_paginated_response(serializer.data).data
+            if page is not None
+            else {"results": serializer.data}
+        )
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "All UGC tasks retrieved successfully.",
+                    "data": payload,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+    def create(self, request, *args, **kwargs):
+        try:
+
+            decrypted_payload = decrypt(request.data)
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(data=payload)
+            serializer.is_valid(raise_exception=True)
+            task = serializer.save()
+
+            logger.info(
+                "Admin UGC task created: id=%s by admin=%s", task.id, request.user.id
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Task created successfully.",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_201_CREATED,
+            )
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning("Admin UGC task validation failed: %s", exc.detail)
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(
+    summary="Retrieve / update / delete any UGC task (admin)",
+    tags=["User Generated Content [Admin]"],
+    request=AdminUserGeneratedContentSerializer,
+    responses={
+        200: AdminUserGeneratedContentSerializer,
+        400: inline_serializer(
+            name="AdminUGCDeleteError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="AdminUGCNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class AdminUGCDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /v1/ugc/admin/tasks/<id>/
+    PATCH  /v1/ugc/admin/tasks/<id>/
+    DELETE /v1/ugc/admin/tasks/<id>/
+    """
+
+    queryset = UserGeneratedContent.objects.all()
+    serializer_class = AdminUserGeneratedContentSerializer
+    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task retrieved successfully.",
+                    "data": serializer.data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", True)
+        instance = self.get_object()
+        try:
+            # request.body.decode("utf-8")
+            decrypted_payload = decrypt(request.data)
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+            serializer = self.get_serializer(instance, data=payload, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            task = serializer.save()
+
+            cache.delete(f"ugc_detail:{task.id}")
+            cache.delete(f"user_ugc_tasks:{task.user_id}")
+
+            logger.info(
+                "Admin UGC task updated: id=%s by admin=%s", task.id, request.user.id
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Task updated successfully.",
+                        "data": serializer.data,
+                    }
+                ),
+                status=status.HTTP_200_OK,
+            )
+        except DRFValidationError as exc:
+            message = first_validation_error(exc.detail)
+            logger.warning("Admin UGC task update validation failed: %s", exc.detail)
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def perform_destroy(self, instance):
+        """
+        Route deletion through the serializer's delete() so the
+        slots_filled guard is enforced (see class docstring).
+        """
+        serializer = self.get_serializer(instance)
+        serializer.delete(instance)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        task_id = instance.id
+        owner_id = instance.user_id
+        try:
+            self.perform_destroy(instance)
+        except s.ValidationError as exc:
+            message = (
+                first_validation_error(exc.detail)
+                if hasattr(exc, "detail")
+                else str(exc)
+            )
+            logger.warning(
+                "Admin UGC task delete blocked: id=%s reason=%s", task_id, message
+            )
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache.delete(f"ugc_detail:{task_id}")
+        cache.delete(f"user_ugc_tasks:{owner_id}")
+        logger.info(
+            "Admin UGC task deleted: id=%s by admin=%s", task_id, request.user.id
+        )
+        return Response(
+            data=encrypt(
+                {"status": "success", "message": "Task deleted successfully."}
             ),
             status=status.HTTP_200_OK,
         )
