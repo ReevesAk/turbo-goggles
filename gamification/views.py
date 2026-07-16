@@ -1549,17 +1549,6 @@ class BrandUGCListCreateView(BrandChargeMixin, generics.ListCreateAPIView):
             idempotency_key = request.headers.get(
                 "Idempotency-Key"
             ) or decrypted_payload.get("idempotency_key")
-            if idempotency_key:
-                existing_tx = TxModel.objects.filter(
-                    tx_reference=idempotency_key, tx_type="UGC Task Funding"
-                ).first()
-                if existing_tx:
-                    return Response(
-                        data=encrypt(
-                            {"status": "success", "message": "Task already processed."}
-                        ),
-                        status=status.HTTP_200_OK,
-                    )
 
             user = request.user
             if not AccountType.objects.filter(user=user, user_type="BrandAd").exists():

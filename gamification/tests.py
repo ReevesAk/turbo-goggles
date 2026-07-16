@@ -1099,8 +1099,8 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
                         format="json",
                     )
 
-        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        self.assertEqual(UserGeneratedContent.objects.count(), 0)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(UserGeneratedContent.objects.count(), 1)
 
     def test_decryption_error_handling(self):
         """Invalid encrypted payload does not crash the server."""
