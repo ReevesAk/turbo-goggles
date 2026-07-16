@@ -199,6 +199,16 @@ class AssignTicketSerializers(serializers.ModelSerializer):
         ]
 
 
+class UpdateTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = [
+            "id", "number", "user", "created_at", "updated_at",
+            "deleted", "resolved_by",
+        ]
+
+
 class UpdateTicketStatusSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(max_length=10, min_length=4, write_only=True)
 

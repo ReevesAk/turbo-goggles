@@ -168,7 +168,9 @@ class VAS:
             return polled, "success"
         if polled and VAS.is_pending(polled):
             return polled, "pending"
-        return (polled or response), "failed"
+        if not polled or polled.status_code != 200:
+            return (polled or response), "pending"
+        return polled, "failed"
 
     @staticmethod
     def airtime_topup(
