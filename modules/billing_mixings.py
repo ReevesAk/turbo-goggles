@@ -1,7 +1,7 @@
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
 from adverts.credit import (
@@ -56,20 +56,34 @@ class BrandChargeMixin:
     UGC task funding, and anything else that debits a BrandAd wallet or
     card).
 
-    Ordering is deliberate and load-bearing:
-      1. reconcile_credit()     —   sweep expired credit (cheap no-op if nothing pending)
-      2. reserve_credit()       —   lock + deduct BEFORE any external call, closes the
+    Idempotency is owned here, not by individual views, so both callers get
+    identical behavior:
+      - existing TxModel row with status SUCCESS -> short-circuit success
+      - existing row with status PENDING         -> reject, still processing
+      - existing row with status FAILED          -> reuse that row, retry
+      - no existing row                          -> proceed normally
+
+    Ordering for a fresh charge is deliberate and load-bearing:
+      1. reconcile_credit()     -   sweep expired credit (cheap no-op if nothing pending)
+      2. reserve_credit()       -   lock + deduct BEFORE any external call, closes the
                                     read/compute/debit race
       3. live balance check
-      4. write PENDING TxModel  —   BEFORE the external debit, so a crash after a
-                                    successful debit leaves a retry-detectable record
-      5. Wallet.Debit()         —   the real, irreversible external call
-      6. save_fn() + notifications, inside one atomic block
-      7. success > finalize_credit(), TxModel > SUCCESS
+      4. write/reuse PENDING TxModel  -     BEFORE the external debit, so a crash after a
+                                            successful debit leaves a retry-detectable record.
+                                            Wrapped against IntegrityError in case a concurrent
+                                            request won the same tx_reference between our
+                                            idempotency check and this write.
+      5. Wallet.Debit()         -   the real, irreversible external call
+      6. save_fn() + finalize_credit(), inside one atomic block. Only THIS
+                                    step (and its immediate contents) is
+                                    wrapped in the compensating try/except —
+                                    once it commits, the charge is real and
+                                    nothing after it should trigger a refund.
+      7. success -> TxModel -> SUCCESS (best-effort, not compensated)
 
-    failure after step 5 compensates Wallet.Credit refund + release_credit(),
-    logs FAILED status to the TxModel. If the refund itself fails,
-    this logs CRITICAL for manual reconciliation as that failure mode can't be fully automated away.
+    failure inside step 6 compensates with a Wallet.Credit refund + release_credit(),
+    and marks the TxModel FAILED. If the refund itself fails, this logs CRITICAL
+    for manual reconciliation, since that failure mode can't be fully automated away.
     """
 
     def charge_and_create(
@@ -87,7 +101,6 @@ class BrandChargeMixin:
         debit_reason,
         save_fn,
     ):
-        full_charge = _round_money(Decimal(str(amount)))
         copy = _ChargeCopy(
             tx_type,
             tx_description,
@@ -96,21 +109,83 @@ class BrandChargeMixin:
             activity_description,
         )
 
+        existing_tx, guard_response = self._check_idempotency(tx_reference, tx_type)
+        if guard_response is not None:
+            return None, guard_response
+
+        full_charge = _round_money(Decimal(str(amount)))
+
         if payment_option == "WALLET":
             return self._charge_wallet(
-                user, full_charge, tx_reference, copy, debit_reason, save_fn
+                user,
+                full_charge,
+                tx_reference,
+                copy,
+                debit_reason,
+                save_fn,
+                existing_tx,
             )
         if payment_option == "CARD":
-            return self._charge_card(user, full_charge, tx_reference, copy, save_fn)
+            return self._charge_card(
+                user, full_charge, tx_reference, copy, save_fn, existing_tx
+            )
 
         return None, self._fail("Invalid payment option")
 
-    # =================
+    # ====================
+    # Idempotency
+    # ====================
+
+    @staticmethod
+    def _check_idempotency(tx_reference, tx_type):
+        """
+        Returns (existing_tx_or_None, short_circuit_response_or_None).
+
+        A short_circuit_response means the caller should return immediately
+        without charging anything. existing_tx being non-None with no
+        short_circuit_response means "reuse this FAILED row, don't insert
+        a new one" — handled by the WALLET/CARD paths.
+        """
+        if not tx_reference:
+            return None, None
+
+        existing_tx = TxModel.objects.filter(
+            tx_reference=tx_reference, tx_type=tx_type
+        ).first()
+        if existing_tx is None:
+            return None, None
+
+        if existing_tx.status == "SUCCESS":
+            return existing_tx, Response(
+                data=encrypt(
+                    {"status": "success", "message": "Task already processed."}
+                ),
+                status=status.HTTP_200_OK,
+            )
+
+        if existing_tx.status == "PENDING":
+            # Returns a response asking the client wait for some time
+            # till the transaction status leaves pending state, in order to avoid double charges.
+            return existing_tx, Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "A previous request for this payment is still processing. Please try again shortly.",
+                    }
+                ),
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # FAILED: safe to retry. Caller reuses this row instead of
+        # inserting a new one, since tx_reference is unique.
+        return existing_tx, None
+
+    # ====================
     # WALLET
-    # =================
+    # ====================
 
     def _charge_wallet(
-        self, user, full_charge, tx_reference, copy, debit_reason, save_fn
+        self, user, full_charge, tx_reference, copy, debit_reason, save_fn, existing_tx
     ):
         with transaction.atomic():
             reconcile_credit(user)
@@ -126,17 +201,11 @@ class BrandChargeMixin:
             release_credit(user, credit_reserved)
             return None, self._fail("Insufficient balance.")
 
-        # Idempotency marker BEFORE the irreversible external call. If the
-        # process dies after Wallet.Debit succeeds, a retry with the same
-        # tx_reference finds this row instead of re-running the whole flow.
-        tx = TxModel.objects.create(
-            user=user,
-            tx_reference=tx_reference,
-            tx_type=copy.tx_type,
-            amount=float(net_charge),
-            description=copy.tx_description,
-            status="PENDING",
+        tx, guard_response = self._get_or_init_pending_tx(
+            user, tx_reference, copy, net_charge, existing_tx, credit_reserved
         )
+        if guard_response is not None:
+            return None, guard_response
 
         if net_charge > 0:
             try:
@@ -158,33 +227,14 @@ class BrandChargeMixin:
                 tx.save(update_fields=["status"])
                 return None, self._fail("Debit failed. Please try again.")
 
-        # Debit is now real and irreversible. Anything past this point that
-        # fails must be compensated, not just logged and swallowed.
+        # Debit is now real and irreversible. ONLY this block — persisting
+        # the item and finalizing credit — is compensated on failure.
+        # Anything after it succeeding is best-effort bookkeeping and must
+        # never trigger a refund of an already-successful charge.
         try:
             with transaction.atomic():
                 obj = save_fn()
                 finalize_credit(user, obj, credit_reserved)
-                self._log_notification_and_activity(
-                    user, copy, int(net_charge), credit_reserved
-                )
-
-            tx.status = "SUCCESS"
-            tx.save(update_fields=["status"])
-
-            logger.info(
-                "%s payment successful for user %s (charged: %s, credit applied: %s)",
-                copy.tx_type,
-                user.email,
-                net_charge,
-                credit_reserved,
-            )
-
-            # Best-effort refresh. A stale cached balance isn't worth
-            # failing an already-successful debit over.
-            self._resync_balance(account)
-
-            return obj, None
-
         except Exception:
             logger.exception(
                 "%s: debit succeeded but item creation failed — issuing compensating "
@@ -226,11 +276,98 @@ class BrandChargeMixin:
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # ==========
-    # CARD
-    # ==========
+        # Past this point the task genuinely exists and credit is finalized.
+        # Nothing below should ever trigger a refund or credit release —
+        # these are best-effort steps on an already-successful charge.
+        try:
+            self._log_notification_and_activity(user, copy, net_charge, credit_reserved)
+        except Exception:
+            logger.exception(
+                "%s: item created successfully but notification/activity logging "
+                "failed for tx_reference=%s — non-critical, not compensated.",
+                copy.tx_type,
+                tx_reference,
+            )
 
-    def _charge_card(self, user, full_charge, tx_reference, copy, save_fn):
+        try:
+            tx.status = "SUCCESS"
+            tx.save(update_fields=["status"])
+        except Exception:
+            logger.exception(
+                "%s: item created successfully but TxModel status update to SUCCESS "
+                "failed for tx_reference=%s — needs manual correction, not a refund.",
+                copy.tx_type,
+                tx_reference,
+            )
+
+        logger.info(
+            "%s payment successful for user %s (charged: %s, credit applied: %s)",
+            copy.tx_type,
+            user.email,
+            net_charge,
+            credit_reserved,
+        )
+
+        self._resync_balance(account)
+
+        return obj, None
+
+    def _get_or_init_pending_tx(
+        self, user, tx_reference, copy, net_charge, existing_tx, credit_reserved
+    ):
+        """
+        Writes the PENDING marker before the external debit call. Reuses a
+        FAILED row from a prior attempt rather than inserting a duplicate
+        (tx_reference is unique). Guards against a concurrent request
+        winning the same tx_reference between our idempotency pre-check
+        and this write.
+
+        Returns (tx, None) on success, or (None, response) if this attempt
+        should not proceed.
+        """
+        try:
+            if existing_tx is not None:
+                existing_tx.amount = float(net_charge)
+                existing_tx.status = "PENDING"
+                existing_tx.save(update_fields=["amount", "status"])
+                return existing_tx, None
+
+            tx = TxModel.objects.create(
+                user=user,
+                tx_reference=tx_reference,
+                tx_type=copy.tx_type,
+                amount=float(net_charge),
+                description=copy.tx_description,
+                status="PENDING",
+            )
+            return tx, None
+
+        except IntegrityError:
+            # A concurrent request created this row between our idempotency
+            # pre-check and this write. The credit we reserved in this call
+            # was never consumed by anything — release it rather than
+            # leaking it, then defer to whichever request actually won.
+            release_credit(user, credit_reserved)
+            winner = TxModel.objects.filter(
+                tx_reference=tx_reference, tx_type=copy.tx_type
+            ).first()
+            if winner is not None and winner.status == "SUCCESS":
+                return None, Response(
+                    data=encrypt(
+                        {"status": "success", "message": "Task already processed."}
+                    ),
+                    status=status.HTTP_200_OK,
+                )
+            return None, self._fail(
+                "A payment for this request is already being processed. Please try again shortly.",
+                code=status.HTTP_409_CONFLICT,
+            )
+
+    # ====================
+    # CARD
+    # ====================
+
+    def _charge_card(self, user, full_charge, tx_reference, copy, save_fn, existing_tx):
         with transaction.atomic():
             reconcile_credit(user)
 
@@ -238,37 +375,15 @@ class BrandChargeMixin:
             credit_reserved, effective_charge = reserve_credit(user, full_charge)
             effective_charge = _round_money(effective_charge)
 
+        # ONLY this block — persisting the item and finalizing credit — is
+        # compensated on failure. Bookkeeping after it succeeds (TxModel
+        # write, notifications, logging) must never trigger a credit release
+        # for an already-successful charge.
         try:
             with transaction.atomic():
                 obj = save_fn()
                 finalize_credit(user, obj, credit_reserved)
-                self._log_notification_and_activity(
-                    user, copy, int(effective_charge), credit_reserved
-                )
-
-            TxModel.objects.create(
-                user=user,
-                tx_reference=tx_reference,
-                tx_type=copy.tx_type,
-                amount=float(effective_charge),
-                description=copy.tx_description,
-                status="SUCCESS",
-            )
-
-            logger.info(
-                "%s payment successful for user %s (charged: %s, credit applied: %s)",
-                copy.tx_type,
-                user.email,
-                effective_charge,
-                credit_reserved,
-            )
-            return obj, None
-
         except Exception:
-            # Card charge itself is assumed to happen via the card processor
-            # at serializer/save_fn time in this branch's current design;
-            # if item creation fails here, no card debit has actually
-            # settled yet, so only the reserved credit needs releasing.
             logger.exception(
                 "%s: item creation failed on CARD path for tx_reference=%s",
                 copy.tx_type,
@@ -280,9 +395,62 @@ class BrandChargeMixin:
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # ==============
+        try:
+            self._log_notification_and_activity(
+                user, copy, effective_charge, credit_reserved
+            )
+        except Exception:
+            logger.exception(
+                "%s: item created successfully but notification/activity logging "
+                "failed for tx_reference=%s — non-critical, not compensated.",
+                copy.tx_type,
+                tx_reference,
+            )
+
+        try:
+            if existing_tx is not None:
+                existing_tx.amount = float(effective_charge)
+                existing_tx.status = "SUCCESS"
+                existing_tx.save(update_fields=["amount", "status"])
+            else:
+                TxModel.objects.create(
+                    user=user,
+                    tx_reference=tx_reference,
+                    tx_type=copy.tx_type,
+                    amount=float(effective_charge),
+                    description=copy.tx_description,
+                    status="SUCCESS",
+                )
+        except IntegrityError:
+            # The item and card charge already succeeded by this point.
+            # A colliding tx_reference here means the bookkeeping row
+            # lost a race, not that this request's charge should fail —
+            # log it for investigation but still return success.
+            logger.warning(
+                "TxModel IntegrityError after successful CARD charge for "
+                "tx_reference=%s — item was created, bookkeeping row skipped.",
+                tx_reference,
+            )
+        except Exception:
+            logger.exception(
+                "%s: item created successfully but TxModel write failed for "
+                "tx_reference=%s — needs manual correction, not a refund.",
+                copy.tx_type,
+                tx_reference,
+            )
+
+        logger.info(
+            "%s payment successful for user %s (charged: %s, credit applied: %s)",
+            copy.tx_type,
+            user.email,
+            effective_charge,
+            credit_reserved,
+        )
+        return obj, None
+
+    # ====================
     # Shared helpers
-    # ==============
+    # ====================
 
     @staticmethod
     def _live_balance(account):
