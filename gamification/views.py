@@ -27,7 +27,7 @@ from accounts.models import User, TxModel, UserNotification, AccountType
 from banking.models import WalletModel
 from banking.controllers import Wallet
 from banking.helpers import verify_wallet_auth
-from roles.models import ActivityModel
+
 from permissions import (
     IsMember,
     HasCompletedSurvey,
@@ -66,9 +66,8 @@ from .points import Points
 from security import encrypt, decrypt
 from commons import generate_txId, first_validation_error
 
-# Shared credit ledger with Brand Ads
-from adverts.models import BrandAdCreditWallet
-from adverts.credit import apply_credit, reconcile_credit
+# Shared mixincs with Brand Ads
+from modules.billing_mixings import BrandChargeMixin
 
 logger = logging.getLogger(__name__)
 
@@ -1494,7 +1493,7 @@ network failure without double-charging.
         ),
     ],
 )
-class BrandUGCListCreateView(generics.ListCreateAPIView):
+class BrandUGCListCreateView(BrandChargeMixin, generics.ListCreateAPIView):
     """
     GET  /v1/ugc/brand/tasks/   — list tasks owned by the authenticated brand
     POST /v1/ugc/brand/tasks/   — create + fund a new UGC task
@@ -1539,7 +1538,6 @@ class BrandUGCListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         try:
-
             decrypted_payload = decrypt(request.data)
             payload = {
                 key: value.strip() if isinstance(value, str) else value
@@ -1551,248 +1549,67 @@ class BrandUGCListCreateView(generics.ListCreateAPIView):
             idempotency_key = request.headers.get(
                 "Idempotency-Key"
             ) or decrypted_payload.get("idempotency_key")
-
             if idempotency_key:
-                # Check if transaction with this idempotency key already exists
                 existing_tx = TxModel.objects.filter(
                     tx_reference=idempotency_key, tx_type="UGC Task Funding"
                 ).first()
                 if existing_tx:
                     return Response(
                         data=encrypt(
-                            {
-                                "status": "success",
-                                "message": "Task already processed.",
-                            }
+                            {"status": "success", "message": "Task already processed."}
                         ),
                         status=status.HTTP_200_OK,
                     )
 
-            # fetch user
             user = request.user
-
             if not AccountType.objects.filter(user=user, user_type="BrandAd").exists():
                 AccountType.objects.create(user=user, user_type="BrandAd")
                 user.active_role = "BrandAd"
                 user.save()
 
-            pin = decrypted_payload.get("pin")
             amount = serializer.validated_data.get("amount")
-            payment_option = decrypted_payload.get("payment_option")
-            biometrics = decrypted_payload.get("use_biometrics")
-
-            full_charge = Decimal(str(amount))
-
             tx_reference = (
                 idempotency_key
-                if idempotency_key
-                else f"ugc_task_{user.id}_{UserGeneratedContent.objects.count() + 1}"
+                or f"ugc_task_{user.id}_{UserGeneratedContent.objects.count() + 1}"
             )
 
             is_verified, error_response = verify_wallet_auth(
                 user=user,
-                payment_option=payment_option,
-                pin=pin,
-                use_biometrics=biometrics,
+                payment_option=decrypted_payload.get("payment_option"),
+                pin=decrypted_payload.get("pin"),
+                use_biometrics=decrypted_payload.get("use_biometrics"),
             )
-
             if not is_verified:
                 return error_response
 
-            match payment_option:
-                case "WALLET":
-                    try:
-                        with transaction.atomic():
-                            reconcile_credit(user)
+            task, error_response = self.charge_and_create(
+                user=user,
+                payment_option=decrypted_payload.get("payment_option"),
+                amount=amount,
+                tx_reference=tx_reference,
+                tx_type="UGC Task Funding",
+                tx_description="UGC task funding payment",
+                notification_title="UGC Task Created",
+                notification_phrase="task funding",
+                activity_description="created a UGC task successfully",
+                debit_reason="Debit for UGC task funding.",
+                save_fn=serializer.save,
+            )
+            if error_response is not None:
+                return error_response
 
-                        credit_wallet, _ = BrandAdCreditWallet.objects.get_or_create(
-                            user=user
-                        )
-                        credit_available = credit_wallet.balance
-                        net_charge = max(full_charge - credit_available, Decimal("0"))
+            cache.delete(f"user_ugc_tasks:{user.id}")
 
-                        account = WalletModel.objects.get(user=user)
-                        enquiry = Wallet.getWalletDetails(account.account_number)
-                        if enquiry and hasattr(enquiry, "json"):
-                            enquiry_data = enquiry.json()
-                            live_balance = Decimal(
-                                str(
-                                    enquiry_data.get("data", {}).get(
-                                        "availableBalance", 0
-                                    )
-                                )
-                            )
-                        else:
-                            live_balance = account.balance
-
-                        if live_balance < net_charge:
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "fail",
-                                        "message": "Insufficient balance.",
-                                    }
-                                ),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-
-                        if net_charge > 0:
-                            debit_response = Wallet.Debit(
-                                debitAccount=account.account_number,
-                                amount=int(net_charge),
-                                reason="Debit for UGC task funding.",
-                                merchantFeeAmount="0.00",
-                            )
-                            if (
-                                debit_response is None
-                                or debit_response.status_code != 200
-                            ):
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "fail",
-                                            "message": "Debit failed. Please try again.",
-                                        }
-                                    ),
-                                    status=status.HTTP_400_BAD_REQUEST,
-                                )
-
-                        with transaction.atomic():
-                            task = serializer.save()
-                            credit_applied, _ = apply_credit(user, task, full_charge)
-
-                            credit_msg = (
-                                f" (₦{credit_applied} credit applied)"
-                                if credit_applied > 0
-                                else ""
-                            )
-
-                            TxModel.objects.create(
-                                user=user,
-                                tx_reference=tx_reference,
-                                tx_type="UGC Task Funding",
-                                amount=int(net_charge),
-                                description=f"UGC task funding payment{credit_msg}",
-                                status="SUCCESS",
-                            )
-
-                            UserNotification.objects.create(
-                                user=user,
-                                title="UGC Task Created",
-                                message=(
-                                    f"Your payment of ₦{int(net_charge)} for task "
-                                    f"funding was successful.{credit_msg}"
-                                ),
-                            )
-
-                            ActivityModel.objects.create(
-                                user=user,
-                                title="UGC Task Created",
-                                description=f"{user} created a UGC task successfully.{credit_msg}",
-                            )
-
-                        logger.info(
-                            "UGC task funding successful for user %s "
-                            "(charged: %s, credit applied: %s)",
-                            user.email,
-                            int(net_charge),
-                            credit_applied,
-                        )
-
-                        # Best-effort balance sync after debit
-                        post_debit = Wallet.getWalletDetails(account.account_number)
-                        if post_debit and hasattr(post_debit, "json"):
-                            post_data = post_debit.json()
-                            if post_data.get("status") == "SUCCESS":
-                                account.balance = post_data["data"]["availableBalance"]
-                                account.save(update_fields=["balance"])
-
-                        cache.delete(f"user_ugc_tasks:{user.id}")
-
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "success",
-                                    "message": "UGC task created successfully.",
-                                    "data": self.get_serializer(task).data,
-                                }
-                            ),
-                            status=status.HTTP_201_CREATED,
-                        )
-
-                    except Exception as e:
-                        logger.exception(
-                            f"Transaction error during UGC wallet payment: {e}"
-                        )
-                        return Response(
-                            data=encrypt(
-                                {"status": "fail", "message": "Transaction failed"}
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
-
-                case "CARD":
-                    with transaction.atomic():
-                        reconcile_credit(user)
-                        task = serializer.save()
-                        credit_applied, effective_charge = apply_credit(
-                            user, task, full_charge
-                        )
-                        effective_debit = int(effective_charge)
-                    credit_msg = (
-                        f" (₦{credit_applied} credit applied)"
-                        if credit_applied > 0
-                        else ""
-                    )
-                    TxModel.objects.create(
-                        user=user,
-                        tx_reference=tx_reference,
-                        tx_type="UGC Task Funding",
-                        amount=effective_debit,
-                        description=f"UGC task funding payment{credit_msg}",
-                        status="SUCCESS",
-                    )
-                    UserNotification.objects.create(
-                        user=user,
-                        title="UGC Task Created",
-                        message=(
-                            f"Your payment of ₦{effective_debit} for task funding "
-                            f"was successful.{credit_msg}"
-                        ),
-                    )
-                    ActivityModel.objects.create(
-                        user=user,
-                        title="UGC Task Created",
-                        description=f"{user} created a UGC task successfully.{credit_msg}",
-                    )
-                    logger.info(
-                        "UGC task funding successful for user %s "
-                        "(charged: %s, credit applied: %s)",
-                        user.email,
-                        effective_debit,
-                        credit_applied,
-                    )
-
-                    cache.delete(f"user_ugc_tasks:{user.id}")
-
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "success",
-                                "message": "UGC task created successfully.",
-                                "data": self.get_serializer(task).data,
-                            }
-                        ),
-                        status=status.HTTP_201_CREATED,
-                    )
-
-                case _:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "message": "Invalid payment option"}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "UGC task created successfully.",
+                        "data": self.get_serializer(task).data,
+                    }
+                ),
+                status=status.HTTP_201_CREATED,
+            )
 
         except DRFValidationError as exc:
             message = first_validation_error(exc.detail)
@@ -1801,7 +1618,6 @@ class BrandUGCListCreateView(generics.ListCreateAPIView):
                 data=encrypt({"status": "fail", "message": message}),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         except Exception as err:
             logger.error(f"UGC task creation failed: {str(err)}", exc_info=True)
             return Response(
