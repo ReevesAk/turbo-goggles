@@ -8,6 +8,7 @@ from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import Point
 
 from accounts.models import User
+from gamification.models import UserGeneratedContent
 from .pricing import TARGETING_TYPE_CHOICES, compute_cost_per_engagement
 
 DEMOGRAPHY = (
@@ -206,6 +207,13 @@ class BrandAdCreditLedger(models.Model):
     balance_after = models.DecimalField(max_digits=14, decimal_places=2)
     source_ad = models.ForeignKey(
         CreateAd,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="credit_entries",
+    )
+    source_ugc_task = models.ForeignKey(
+        UserGeneratedContent,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

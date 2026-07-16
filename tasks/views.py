@@ -9,7 +9,6 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.pagination import PageNumberPagination
 
 from django.db.models import Q, F
@@ -24,7 +23,13 @@ from .jobs import (
     run_verification,
     run_brand_verification,
 )
-from .models import BrandTaskSubmission, SocialTask, StoreVisitArrival, TaskSubmission, UserTrustScore
+from .models import (
+    BrandTaskSubmission,
+    SocialTask,
+    StoreVisitArrival,
+    TaskSubmission,
+    UserTrustScore,
+)
 from user_profile.models import UserLocation
 from .serializers import (
     BrandTaskFeedSerializer,
@@ -258,10 +263,11 @@ class BrandTaskFeedView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        completed_ad_ids = BrandTaskSubmission.objects.filter(user=user).exclude(
-            status="Rejected"
-        ).values_list("ad_id", flat=True)
-
+        completed_ad_ids = (
+            BrandTaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("ad_id", flat=True)
+        )
 
         # Base queryset
         qs = (
@@ -381,7 +387,9 @@ class BrandTaskFeedView(generics.ListAPIView):
             # Serialize matched store tasks
             for item in matched_store_tasks:
                 task = item["task"]
-                task_data = BrandTaskFeedSerializer(task, context={"request": request}).data
+                task_data = BrandTaskFeedSerializer(
+                    task, context={"request": request}
+                ).data
                 task_data["distance_km"] = item["distance_km"]
                 task_data["distance_meters"] = item["distance_meters"]
                 task_data["distance_band"] = get_distance_band(item["distance_km"])
@@ -392,13 +400,17 @@ class BrandTaskFeedView(generics.ListAPIView):
             )
         else:
             # Show store visits but without distance info when user location is unavailable
-            store_data = BrandTaskFeedSerializer(store_visits, many=True, context={"request": request}).data
+            store_data = BrandTaskFeedSerializer(
+                store_visits, many=True, context={"request": request}
+            ).data
             for task_data in store_data:
                 task_data["distance_km"] = None
                 task_data["distance_band"] = "Location unknown"
 
         # Process other brand tasks that are not store visits (no distance filtering)
-        other_brand_data = BrandTaskFeedSerializer(other_brand_tasks, many=True, context={"request": request}).data
+        other_brand_data = BrandTaskFeedSerializer(
+            other_brand_tasks, many=True, context={"request": request}
+        ).data
         for task_data in other_brand_data:
             task_data["distance_km"] = None
             task_data["distance_band"] = "N/A"
@@ -583,7 +595,11 @@ class SubmitBrandTaskView(generics.CreateAPIView):
                         {"task": ["This endpoint is only for social engage tasks."]}
                     )
 
-                if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
+                if (
+                    BrandTaskSubmission.objects.filter(ad=ad, user=user)
+                    .exclude(status="Rejected")
+                    .exists()
+                ):
                     raise s.ValidationError(
                         {"task": ["You have already submitted this task."]}
                     )
@@ -925,9 +941,7 @@ class SubmitSurveyTaskView(APIView):
 
             if not task_id:
                 return Response(
-                    data=encrypt(
-                        {"status": "fail", "message": "task_id is required."}
-                    ),
+                    data=encrypt({"status": "fail", "message": "task_id is required."}),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -957,7 +971,11 @@ class SubmitSurveyTaskView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if BrandTaskSubmission.objects.filter(ad=ad, user=request.user).exclude(status="Rejected").exists():
+            if (
+                BrandTaskSubmission.objects.filter(ad=ad, user=request.user)
+                .exclude(status="Rejected")
+                .exists()
+            ):
                 return Response(
                     data=encrypt(
                         {
@@ -1123,19 +1141,23 @@ class ScanStoreVisitQRView(APIView):
             )
             points_awarded = approve_brand_submission_now(str(submission.pk), None)
 
-            StoreVisitQRCode.objects.filter(pk=qr.pk).update(scan_count=F("scan_count") + 1)
+            StoreVisitQRCode.objects.filter(pk=qr.pk).update(
+                scan_count=F("scan_count") + 1
+            )
             invalidate_brand_feed_cache(request.user)
 
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Store visit recorded. Points credited.",
-                    "data": {
-                        "submission_id": str(submission.pk),
-                        "reward_points": points_awarded or 0,
-                        "reward_issued": True,
-                    },
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Store visit recorded. Points credited.",
+                        "data": {
+                            "submission_id": str(submission.pk),
+                            "reward_points": points_awarded or 0,
+                            "reward_issued": True,
+                        },
+                    }
+                ),
                 status=status.HTTP_201_CREATED,
             )
 
@@ -1158,7 +1180,9 @@ class ScanStoreVisitQRView(APIView):
                 exc_info=True,
             )
             return Response(
-                data=encrypt({"status": "error", "message": "QR scan failed. Please try again."}),
+                data=encrypt(
+                    {"status": "error", "message": "QR scan failed. Please try again."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1212,15 +1236,17 @@ class StoreVisitArriveView(APIView):
 
             if existing and existing.status == "arrived":
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "You have already checked in. Proceed with OTP or QR scan.",
-                        "data": {
-                            "arrival_id": str(existing.id),
-                            "campaign_name": ad.campaign_name,
-                            "reward_points": ad.reward_points or 0,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "You have already checked in. Proceed with OTP or QR scan.",
+                            "data": {
+                                "arrival_id": str(existing.id),
+                                "campaign_name": ad.campaign_name,
+                                "reward_points": ad.reward_points or 0,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
 
@@ -1233,15 +1259,17 @@ class StoreVisitArriveView(APIView):
                 arrival = StoreVisitArrival.objects.create(ad=ad, user=request.user)
 
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Arrival recorded. Scan the QR code, ask the store owner for the visit code, or request an OTP.",
-                    "data": {
-                        "arrival_id": str(arrival.id),
-                        "campaign_name": ad.campaign_name,
-                        "reward_points": ad.reward_points or 0,
-                    },
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Arrival recorded. Scan the QR code, ask the store owner for the visit code, or request an OTP.",
+                        "data": {
+                            "arrival_id": str(arrival.id),
+                            "campaign_name": ad.campaign_name,
+                            "reward_points": ad.reward_points or 0,
+                        },
+                    }
+                ),
                 status=status.HTTP_201_CREATED,
             )
 
@@ -1257,9 +1285,19 @@ class StoreVisitArriveView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
-            logger.error("StoreVisitArriveView error for user %s: %s", request.user.id, err, exc_info=True)
+            logger.error(
+                "StoreVisitArriveView error for user %s: %s",
+                request.user.id,
+                err,
+                exc_info=True,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Could not record arrival. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "error",
+                        "message": "Could not record arrival. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1296,10 +1334,12 @@ class StoreVisitNoShowView(APIView):
 
             if arrival.status != "arrived":
                 return Response(
-                    data=encrypt({
-                        "status": "error",
-                        "message": "No active arrival to report. Check in first.",
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "error",
+                            "message": "No active arrival to report. Check in first.",
+                        }
+                    ),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1307,23 +1347,32 @@ class StoreVisitNoShowView(APIView):
             arrival.save(update_fields=["status", "updated_at"])
 
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Sorry the store was unavailable. Your visit has been logged.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Sorry the store was unavailable. Your visit has been logged.",
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )
 
         except s.ValidationError as err:
             return Response(
-                data=encrypt({"status": "error", "message": first_validation_error(err.detail)}),
+                data=encrypt(
+                    {"status": "error", "message": first_validation_error(err.detail)}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as err:
-            logger.error("StoreVisitNoShowView error for user %s: %s", request.user.id, err, exc_info=True)
+            logger.error(
+                "StoreVisitNoShowView error for user %s: %s",
+                request.user.id,
+                err,
+                exc_info=True,
+            )
             return Response(
-                data=encrypt({"status": "error", "message": "Request failed. Please try again."}),
+                data=encrypt(
+                    {"status": "error", "message": "Request failed. Please try again."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-
