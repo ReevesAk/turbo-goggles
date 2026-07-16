@@ -12,22 +12,31 @@ from .views import (
     GetMemberPointsSummary,
     PointsLeaderboardView,
     RedeemPointsToWallet,
+    UGCListView,
+    UGCDetailView,
+    BrandUGCListCreateView,
+    BrandUGCDetailView,
+    AdminUGCListCreateView,
+    AdminUGCDetailView,
     # SubmitActivityImageView,
 )
-from roles.tasks import (
-    GetAllStepCampaigns,
-    GetSingleStepCampaign
-)
 
+from roles.tasks import GetAllStepCampaigns, GetSingleStepCampaign
 
 app_name = "gamification"
 
 urlpatterns = [
+    # ==========================================
+    # NextBee Gamification SSO
+    # ==========================================
     path(
         "nextbee-gamification-sso-login",
         NextBeeGamificationLSSOLogin.as_view(),
         name="nextbee_gamification_sso_login",
     ),
+    # ==========================================
+    # Step Campaign Endpoints
+    # ==========================================
     path(
         "campaigns/all",
         GetAllStepCampaigns.as_view(),
@@ -38,17 +47,92 @@ urlpatterns = [
         GetSingleStepCampaign.as_view(),
         name="get-single-step-campaign",
     ),
-    path("campaigns/<uuid:campaign_id>/join/", JoinCampaignView.as_view(), name="join-campaign"),
-    path("campaigns/<uuid:campaign_id>/add-steps/", AddStepsView.as_view(), name="add-steps"),
-    path("campaigns/<uuid:campaign_id>/status/", CampaignStatusView.as_view(), name="campaign-status"),
-    # Streak challenge endpoints
+    path(
+        "campaigns/<uuid:campaign_id>/join/",
+        JoinCampaignView.as_view(),
+        name="join-campaign",
+    ),
+    path(
+        "campaigns/<uuid:campaign_id>/add-steps/",
+        AddStepsView.as_view(),
+        name="add-steps",
+    ),
+    path(
+        "campaigns/<uuid:campaign_id>/status/",
+        CampaignStatusView.as_view(),
+        name="campaign-status",
+    ),
+    # ==========================================
+    # Streak Challenge Endpoints
+    # ==========================================
     path("streaks/", ActiveStreakChallengesView.as_view(), name="streak-list"),
-    path("streaks/<uuid:challenge_id>/join/", JoinStreakChallengeView.as_view(), name="streak-join"),
-    path("streaks/my-progress/", MyStreakProgressView.as_view(), name="streak-my-progress"),
-    path("streaks/<uuid:challenge_id>/leaderboard/", StreakLeaderboardView.as_view(), name="streak-leaderboard"),
+    path(
+        "streaks/<uuid:challenge_id>/join/",
+        JoinStreakChallengeView.as_view(),
+        name="streak-join",
+    ),
+    path(
+        "streaks/my-progress/",
+        MyStreakProgressView.as_view(),
+        name="streak-my-progress",
+    ),
+    path(
+        "streaks/<uuid:challenge_id>/leaderboard/",
+        StreakLeaderboardView.as_view(),
+        name="streak-leaderboard",
+    ),
     path("streaks/history/", MyStreakHistoryView.as_view(), name="streak-history"),
-    path("get-member-points-summary", GetMemberPointsSummary.as_view(), name="get_member_points_summary"),
+    # ==========================================
+    # Points & Leaderboard Endpoints
+    # ==========================================
+    path(
+        "get-member-points-summary",
+        GetMemberPointsSummary.as_view(),
+        name="get_member_points_summary",
+    ),
     path("leaderboard/", PointsLeaderboardView.as_view(), name="points-leaderboard"),
-    path("redeem-points/", RedeemPointsToWallet.as_view(), name="redeem-points-to-wallet"),
+    path(
+        "redeem-points/", RedeemPointsToWallet.as_view(), name="redeem-points-to-wallet"
+    ),
+    # ==========================================
+    # User Generated Content (UGC) Endpoints
+    # ==========================================
+    # Public endpoints - accessible to any authenticated user
+    # GET /v1/ugc/tasks/ - List available UGC tasks (cached for 60s)
+    # GET /v1/ugc/tasks/<id>/ - Get detailed view of a specific task (cached for 5min)
+    path("ugc/tasks/", UGCListView.as_view(), name="ugc-list"),
+    path("ugc/tasks/<uuid:id>/", UGCDetailView.as_view(), name="ugc-detail"),
+    # Brand endpoints - accessible to BrandAd and BrandAdAdmin roles
+    # GET /v1/ugc/brand/tasks/ - List tasks owned by the authenticated brand
+    # POST /v1/ugc/brand/tasks/ - Create a new UGC task (requires wallet/card payment)
+    # GET /v1/ugc/brand/tasks/<id>/ - Retrieve a specific task owned by the brand
+    # PATCH /v1/ugc/brand/tasks/<id>/ - Update a task owned by the brand
+    # DELETE /v1/ugc/brand/tasks/<id>/ - Delete a task owned by the brand (only if slots_filled = 0)
+    path(
+        "ugc/brand/tasks/",
+        BrandUGCListCreateView.as_view(),
+        name="brand-ugc-list-create",
+    ),
+    path(
+        "ugc/brand/tasks/<uuid:id>/",
+        BrandUGCDetailView.as_view(),
+        name="brand-ugc-detail",
+    ),
+    # Admin endpoints - accessible only to SuperAdmin users
+    # GET /v1/ugc/admin/tasks/ - List all UGC tasks across all brands
+    # POST /v1/ugc/admin/tasks/ - Create a task on behalf of a brand (no payment required)
+    # GET /v1/ugc/admin/tasks/<id>/ - Retrieve any task by ID
+    # PATCH /v1/ugc/admin/tasks/<id>/ - Update any task by ID
+    # DELETE /v1/ugc/admin/tasks/<id>/ - Delete any task by ID (only if slots_filled = 0)
+    path(
+        "ugc/admin/tasks/",
+        AdminUGCListCreateView.as_view(),
+        name="admin-ugc-list-create",
+    ),
+    path(
+        "ugc/admin/tasks/<uuid:id>/",
+        AdminUGCDetailView.as_view(),
+        name="admin-ugc-detail",
+    ),
     # path("submit-activity-image", SubmitActivityImageView.as_view(), name="submit_activity_image"),
 ]
