@@ -33,16 +33,17 @@ from .serializers import (
 )
 
 # from mail import send_email
-from accounts.models import User, UserNotification, AccountType, TxModel
+from accounts.models import User, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
 from .models import BrandAdCreditWallet, CreateAd
-from .credit import apply_credit, reconcile_credit
+from .credit import reconcile_credit
 from banking.helpers import verify_wallet_auth
-from banking.controllers import Wallet
-from banking.models import WalletModel
-from roles.models import ActivityModel
+
 from security import encrypt, decrypt
 from commons import first_validation_error
+
+# Shared mixins with UGC
+from modules.billing_mixings import BrandChargeMixin
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +293,7 @@ def _ad_success_response(ad) -> dict:
     return data
 
 
-class CreateAdAndOnboardBrandView(generics.CreateAPIView):
+class CreateAdAndOnboardBrandView(BrandChargeMixin, generics.CreateAPIView):
     serializer_class = CreateAdSerializers
     permission_classes = (IsAuthenticated,)
 
@@ -318,201 +319,41 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             payment_option = decrypted_data.get("payment_option")
             biometrics = decrypted_data.get("use_biometrics")
 
-            full_charge = Decimal(str(amount))
-
-            # Generate transaction reference.
             tx_reference = (
                 idempotency_key
                 if idempotency_key
                 else f"brand_promotion_{user.id}_{CreateAd.objects.count() + 1}"
             )
 
-            # Authentication
             is_verified, error_response = verify_wallet_auth(
                 user=user,
                 payment_option=payment_option,
                 pin=pin,
                 use_biometrics=biometrics,
             )
-
             if not is_verified:
                 return error_response
 
-            match payment_option:
-                case "WALLET":
-                    try:
-                        # 1. Sweep expired-ad credit before checking balance.
-                        with transaction.atomic():
-                            reconcile_credit(user)
+            new_ad, error_response = self.charge_and_create(
+                user=user,
+                payment_option=payment_option,
+                amount=amount,
+                tx_reference=tx_reference,
+                tx_type="Brand Promotion",
+                tx_description="Brand promotion payment",
+                notification_title="Brand Promotion",
+                notification_phrase="brand promotion",
+                activity_description="promoted their brand successfully",
+                debit_reason="Debit for brand promotion.",
+                save_fn=serializer.save,
+            )
+            if error_response is not None:
+                return error_response
 
-                        credit_wallet, _ = BrandAdCreditWallet.objects.get_or_create(
-                            user=user
-                        )
-                        credit_available = credit_wallet.balance
-                        net_charge = max(full_charge - credit_available, Decimal("0"))
-
-                        # 2. Check live wallet balance against the net (post-credit) amount.
-                        account = WalletModel.objects.get(user=user)
-                        enquiry = Wallet.getWalletDetails(account.account_number)
-                        if enquiry and hasattr(enquiry, "json"):
-                            enquiry_data = enquiry.json()
-                            live_balance = Decimal(
-                                str(
-                                    enquiry_data.get("data", {}).get(
-                                        "availableBalance", 0
-                                    )
-                                )
-                            )
-                        else:
-                            live_balance = account.balance
-
-                        if live_balance < net_charge:
-                            return Response(
-                                data=encrypt(
-                                    {
-                                        "status": "fail",
-                                        "message": "Insufficient balance.",
-                                    }
-                                ),
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-
-                        # 3. Debit only the net amount (full charge minus credit).
-                        if net_charge > 0:
-                            debit_response = Wallet.Debit(
-                                debitAccount=account.account_number,
-                                amount=int(net_charge),
-                                reason="Debit for brand promotion.",
-                                merchantFeeAmount="0.00",
-                            )
-                            if (
-                                debit_response is None
-                                or debit_response.status_code != 200
-                            ):
-                                return Response(
-                                    data=encrypt(
-                                        {
-                                            "status": "fail",
-                                            "message": "Debit failed. Please try again.",
-                                        }
-                                    ),
-                                    status=status.HTTP_400_BAD_REQUEST,
-                                )
-
-                        # 4. Debit succeeded — persist the ad and consume credit atomically.
-                        with transaction.atomic():
-                            new_ad = serializer.save()
-                            credit_applied, _ = apply_credit(user, new_ad, full_charge)
-
-                            credit_msg = (
-                                f" (₦{credit_applied} credit applied)"
-                                if credit_applied > 0
-                                else ""
-                            )
-
-                            TxModel.objects.create(
-                                user=user,
-                                tx_reference=tx_reference,
-                                tx_type="Brand Promotion",
-                                amount=int(net_charge),
-                                description=f"Brand promotion payment{credit_msg}",
-                                status="SUCCESS",
-                            )
-
-                            UserNotification.objects.create(
-                                user=user,
-                                title="Brand Promotion",
-                                message=f"Your payment of ₦{int(net_charge)} for brand promotion was successful.{credit_msg}",
-                            )
-
-                            ActivityModel.objects.create(
-                                user=user,
-                                title="Brand Promotion",
-                                description=f"{user} promoted their brand successfully.{credit_msg}",
-                            )
-
-                        logger.info(
-                            "Brand promotion payment successful for user %s "
-                            "(charged: %s, credit applied: %s)",
-                            user.email,
-                            int(net_charge),
-                            credit_applied,
-                        )
-
-                        # After atomic block — best-effort balance sync
-                        post_debit = Wallet.getWalletDetails(account.account_number)
-                        if post_debit and hasattr(post_debit, "json"):
-                            post_data = post_debit.json()
-                            if post_data.get("status") == "SUCCESS":
-                                account.balance = post_data["data"]["availableBalance"]
-                                account.save(update_fields=["balance"])
-
-                        return Response(
-                            data=encrypt(_ad_success_response(new_ad)),
-                            status=status.HTTP_200_OK,
-                        )
-
-                    except Exception as e:
-                        logger.exception(
-                            f"Transaction error during wallet payment: {e}"
-                        )
-                        return Response(
-                            data=encrypt(
-                                {"status": "fail", "message": "Transaction failed"}
-                            ),
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        )
-
-                case "CARD":
-                    with transaction.atomic():
-                        reconcile_credit(user)
-                        new_ad = serializer.save()
-                        credit_applied, effective_charge = apply_credit(
-                            user, new_ad, full_charge
-                        )
-                        effective_debit = int(effective_charge)
-                    credit_msg = (
-                        f" (₦{credit_applied} credit applied)"
-                        if credit_applied > 0
-                        else ""
-                    )
-                    TxModel.objects.create(
-                        user=user,
-                        tx_reference=tx_reference,
-                        tx_type="Brand Promotion",
-                        amount=effective_debit,
-                        description=f"Brand promotion payment{credit_msg}",
-                        status="SUCCESS",
-                    )
-                    UserNotification.objects.create(
-                        user=user,
-                        title="Brand Promotion",
-                        message=f"Your payment of ₦{effective_debit} for brand promotion was successful.{credit_msg}",
-                    )
-                    ActivityModel.objects.create(
-                        user=user,
-                        title="Brand Promotion",
-                        description=f"{user} promoted their brand successfully.{credit_msg}",
-                    )
-                    logger.info(
-                        "Brand promotion payment successful for user %s "
-                        "(charged: %s, credit applied: %s)",
-                        user.email,
-                        effective_debit,
-                        credit_applied,
-                    )
-                    return Response(
-                        data=encrypt(_ad_success_response(new_ad)),
-                        status=status.HTTP_200_OK,
-                    )
-
-                case _:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "message": "Invalid payment option"}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            return Response(
+                data=encrypt(_ad_success_response(new_ad)),
+                status=status.HTTP_200_OK,
+            )
 
         except DRFValidationError as exc:
             message = first_validation_error(exc.detail)

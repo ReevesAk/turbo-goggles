@@ -864,7 +864,7 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
         help_text="Monetary amount for the task",
     )
     targeting_type = serializers.ChoiceField(
-        choices=["broad", "city"],
+        choices=["broad", "city", "niche", "influencer"],
         default="broad",
         help_text="Pricing multiplier: broad/city/niche/influencer",
     )

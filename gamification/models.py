@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
@@ -716,7 +716,7 @@ class UserGeneratedContent(models.Model):
         # Parse amount safely
         try:
             amount = Decimal(str(self.amount or "0"))
-        except (ValueError, TypeError, InvalidOperation):
+        except Exception:
             return Decimal("0")
 
         # If amount is zero or negative, return 0
