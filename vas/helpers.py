@@ -50,6 +50,23 @@ class VAS:
             return False
 
     @staticmethod
+    def is_pending(response):
+        """
+        True if the provider explicitly said it's still processing this
+        transaction (e.g. responseCode 202) rather than confirming success
+        or failure - distinct from is_success() being False, which alone
+        doesn't mean the transaction failed.
+        """
+        if not response:
+            return False
+        try:
+            body = response.json()
+            status = (body.get("status") or "").lower()
+            return status == "pending" or str(body.get("responseCode")) == "202"
+        except Exception:
+            return False
+
+    @staticmethod
     def generate_unique_code(prefix="Pica"):
         min_length = 18
         max_length = 25
@@ -128,6 +145,30 @@ class VAS:
             if attempt < attempts - 1:
                 time.sleep(delay)
         return status_resp
+
+    @staticmethod
+    def resolve_outcome(response, tx_ref, bearer_token):
+        """
+        Decide the final outcome of a purchase whose initial response wasn't
+        an immediate success. If the provider explicitly flagged it as still
+        processing (is_pending), poll patiently via confirm_status - a bare
+        "not success" on a pending response doesn't mean it failed, just that
+        it hasn't resolved yet. Otherwise (no response, or an explicit
+        non-pending failure), fall back to a single status check.
+
+        Returns (final_response, outcome) where outcome is one of
+        "success", "pending", "failed".
+        """
+        if VAS.is_pending(response):
+            polled = VAS.confirm_status(tx_ref=tx_ref, bearer_token=bearer_token)
+        else:
+            polled = VAS.status(tx_ref=tx_ref, bearer_token=bearer_token)
+
+        if polled and VAS.is_success(polled):
+            return polled, "success"
+        if polled and VAS.is_pending(polled):
+            return polled, "pending"
+        return (polled or response), "failed"
 
     @staticmethod
     def airtime_topup(
