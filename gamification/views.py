@@ -46,10 +46,11 @@ from .models import (
 )
 
 from gamification.utils import NextBee
-from gamification.points import Points
+from gamification.points import Points, TIER_VALUES, MIN_POINTS_REQUIRED
 from commons import generate_txId
 from security import encrypt, decrypt
 from permissions import IsMember, HasCompletedSurvey
+from user_profile.choices import LEVELS
 
 GAMIFICATION_BASE_URL = conf("NEXTBEE_GAMIFICATION_BASE_URL")
 REDEEM_CHARGE = Decimal("20.00")
@@ -664,7 +665,7 @@ class SubmitActivityImageView(generics.GenericAPIView):
 @extend_schema(
     summary="Get member points summary",
     tags=["Gamification"],
-    description="Returns the authenticated member's current points balance, tier, conversion rate, lifetime points, and total streaks joined.",
+    description="Returns the authenticated member's current points balance, tier, conversion rate, lifetime points, total streaks joined, and a full breakdown of every tier's threshold/rate plus the flat redemption charge and minimum.",
     responses={
         200: inline_serializer(
             name="MemberPointsSummaryResponse",
@@ -680,6 +681,17 @@ class SubmitActivityImageView(generics.GenericAPIView):
                         "naira_value": s.CharField(),
                         "lifetime_points": s.IntegerField(),
                         "streaks_joined": s.IntegerField(),
+                        "tiers": inline_serializer(
+                            name="MemberPointsSummaryTier",
+                            fields={
+                                "tier": s.CharField(),
+                                "min_lifetime_points": s.IntegerField(),
+                                "rate_per_point": s.CharField(),
+                            },
+                            many=True,
+                        ),
+                        "min_points_to_redeem": s.IntegerField(),
+                        "redeem_charge": s.CharField(),
                     },
                 ),
             },
@@ -687,7 +699,11 @@ class SubmitActivityImageView(generics.GenericAPIView):
     },
 )
 class GetMemberPointsSummary(generics.GenericAPIView):
-    """Returns the authenticated user's points balance, tier, and tier rate."""
+    """
+    Returns the authenticated user's points balance, tier, and tier rate,
+    plus a full breakdown of every tier's threshold, rate, and the flat
+    redemption charge/minimum - for use outside the app (mapping, display, etc).
+    """
 
     permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
 
@@ -697,6 +713,15 @@ class GetMemberPointsSummary(generics.GenericAPIView):
         tier = points_obj.tier
         rate = TIER_TO_RATE.get(tier)
         streaks_joined = UserStreak.objects.filter(user=user).count()
+
+        tiers_breakdown = [
+            {
+                "tier": level["title"],
+                "min_lifetime_points": level["min_points"],
+                "rate_per_point": str(TIER_VALUES.get(level["title"], Decimal("0"))),
+            }
+            for level in LEVELS
+        ]
 
         return Response(
             data=encrypt(
@@ -710,6 +735,9 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                         "naira_value": str(points_obj.naira_value),
                         "lifetime_points": user.total_points or 0,
                         "streaks_joined": streaks_joined,
+                        "tiers": tiers_breakdown,
+                        "min_points_to_redeem": MIN_POINTS_REQUIRED,
+                        "redeem_charge": str(REDEEM_CHARGE),
                     },
                 }
             ),
