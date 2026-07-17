@@ -698,6 +698,7 @@ class SubmitActivityImageView(generics.GenericAPIView):
                     name="MemberPointsSummaryData",
                     fields={
                         "points_balance": s.IntegerField(),
+                        "redeemable": s.IntegerField(),
                         "tier": s.CharField(),
                         "tier_rate": s.CharField(allow_null=True),
                         "naira_value": s.CharField(),
@@ -752,6 +753,7 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                     "message": "Points summary retrieved successfully.",
                     "data": {
                         "points_balance": points_obj.balance,
+                        "redeemable": points_obj.redeemable,
                         "tier": tier,
                         "tier_rate": str(rate) if rate is not None else None,
                         "naira_value": str(points_obj.naira_value),

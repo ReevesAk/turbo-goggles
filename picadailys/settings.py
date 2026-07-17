@@ -477,7 +477,9 @@ if TESTING:
 
 
 CRONJOBS = [
-    ("*/5 * * * *", "gamification.jobs.refresh_all_users_points"),
+    # refresh_all_users_points removed - it overwrote every user's internal
+    # points balance with NextBee's external number every 5 minutes, which
+    # is now stale/wrong and was clobbering the internal Points engine.
     ("*/30 * * * *", "banking.tasks.reconcile_pending_transfers"),
     ("0 0 * * *", "waitlist.jobs.remove_unverified_waitlist_users"),
 ]
