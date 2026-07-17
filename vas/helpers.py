@@ -112,7 +112,7 @@ class VAS:
 
     @staticmethod
     def status(tx_ref, bearer_token):
-        resource = f"identity/api/v1/topup/status?transReference={tx_ref}"
+        resource = f"vas/api/v1/topup/status?transReference={tx_ref}"
         url = _build_vas_url(resource)
         headers = {
             "Authorization": f"Bearer {bearer_token}",
@@ -133,16 +133,19 @@ class VAS:
             return None
 
     @staticmethod
-    def confirm_status(tx_ref, bearer_token, attempts=3, delay=5):
-        """Resolve an ambiguous outcome (timeout/connection error) by polling
-        the provider's status endpoint before treating a purchase as failed.
-        A request timing out on our end doesn't mean it failed on theirs."""
+    def confirm_status(tx_ref, bearer_token, delays=(10, 15, 20)):
+        """Poll for a final status with backoff before calling a purchase failed -
+        9PSB says settlement can lag, so a quick miss isn't a real failure.
+
+        ~85s worst case (45s sleep + 4 requests @ 10s timeout), under gunicorn's
+        120s --timeout with room to spare - a killed worker is worse than a
+        premature pending."""
         status_resp = None
-        for attempt in range(attempts):
+        for attempt, delay in enumerate(delays):
             status_resp = VAS.status(tx_ref=tx_ref, bearer_token=bearer_token)
             if status_resp and VAS.is_success(status_resp):
                 return status_resp
-            if attempt < attempts - 1:
+            if attempt < len(delays) - 1:
                 time.sleep(delay)
         return status_resp
 
