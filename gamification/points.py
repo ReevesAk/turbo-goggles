@@ -4,7 +4,6 @@ from decimal import Decimal
 from django.db import models, transaction
 
 from .models import PointTransaction, Points as PointsModel
-from .utils import NextBee
 from user_profile.fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
@@ -101,37 +100,6 @@ class Points:
         points_used = MIN_POINTS_REQUIRED
 
         return points_used, naira_value, tier
-
-    @staticmethod
-    def refresh_user_points(user):
-        """
-        Fetch points from NextBee API and update Points model.
-        Also updates tier name and naira value.
-        """
-        response = NextBee.points_summary(member_email=user.email)
-        if response.status_code == 200:
-            data = response.json()
-
-            latest_balance = int(data.get("total_points", 0))        # lifetime points
-            available_points = int(data.get("available_points", 0))  # usable points
-
-            redeemable_points, naira_value, tier_name = Points.calculate_redeemable(
-                available_points, latest_balance
-            )
-
-            points_obj, _ = PointsModel.objects.get_or_create(user=user)
-
-            # Update naira value of points.
-            user.points_naira_value = naira_value
-            user.save(update_fields=["points_naira_value"])
-
-            with transaction.atomic():
-                points_obj.balance = available_points
-                points_obj.tier = tier_name
-                points_obj.naira_value = naira_value
-                points_obj.save(update_fields=["balance", "tier", "naira_value"])
-        else:
-            logging.warning(f"Could not refresh points for {user.email}: {response.text}")
 
     @staticmethod
     def determine(activity_type: str, level: str) -> int:
@@ -254,6 +222,14 @@ class Points:
             return False, str(exc)
 
         logger.info("Awarded %d pts to %s (balance: %d, tier: %s)", amount, user.email, new_balance, new_tier)
+
+        send_push_to_user(
+            user=user,
+            title="Points Awarded",
+            body=f"You earned {amount} pts! {reason}",
+            data={"type": "points_awarded", "amount": str(amount), "reference_id": str(reference_id) if reference_id else ""},
+        )
+
         return True, f"{amount} points awarded. New balance: {new_balance}, tier: {new_tier}"
 
     @staticmethod
@@ -307,8 +283,6 @@ class Points:
     @staticmethod
     def refresh(user):
         """
-        Internal equivalent of refresh_user_points (no NextBee API call).
-
         Recomputes the user's current balance and tier by replaying the full
         PointTransaction ledger: sum all awards minus all deductions.
         Use this to self-heal after manual DB edits or to sync a user on login.

@@ -189,7 +189,6 @@ def post_vas_update(
     from banking.models import WalletModel
     from banking.controllers import Wallet
     from gamification.points import Points
-    from gamification.utils import NextBee
 
     try:
         user = User.objects.get(id=user_id)
@@ -215,10 +214,13 @@ def post_vas_update(
                 points = Points.determine(
                     activity_type="service_purchase", level=user.level
                 )
-                NextBee.member_activity(
-                    member_email=user.email, activityId="8474", numericValue=str(points)
+                Points.award(
+                    user=user,
+                    amount=points,
+                    reason="Service purchase completed",
+                    source="service_purchase",
+                    reference_id=tx_reference,
                 )
-                Points.refresh_user_points(user)
             except Exception as e:
                 logging.warning(f"post_vas_update: points update failed: {e}")
 

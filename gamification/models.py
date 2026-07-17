@@ -10,8 +10,8 @@ from accounts.models import User
 from django.utils.translation import gettext_lazy as _
 from adverts.pricing import compute_cost_per_engagement
 
-# Kept in sync with TIER_VALUES in gamification/points.py by hand - points.py
-# imports from this module, so it can't be imported back from here.
+# Kept in sync with TIER_VALUES/MIN_POINTS_REQUIRED in gamification/points.py
+# by hand - points.py imports from this module, so it can't be imported back.
 TIER_TO_RATE = {
     "Explorer": Decimal("0.40"),
     "Challenger": Decimal("0.70"),
@@ -20,6 +20,7 @@ TIER_TO_RATE = {
     "Elite": Decimal("1.60"),
     "Legend": Decimal("2.00"),
 }
+MIN_POINTS_REQUIRED = 700
 
 
 # Create your models here.
@@ -42,9 +43,11 @@ class Points(models.Model):
 
     @property
     def redeemable(self):
-        tier = getattr(self.user, "tier", None)
-        rate = TIER_TO_RATE.get(tier, Decimal("0"))
-        return int((self.balance or 0) * rate)
+        """Available balance, once it meets the minimum needed to redeem to
+        wallet - the full balance, not capped at the minimum."""
+        if self.tier == "Starter" or self.balance < MIN_POINTS_REQUIRED:
+            return 0
+        return self.balance
 
 
 TRANSACTION_SOURCE_CHOICES = (
