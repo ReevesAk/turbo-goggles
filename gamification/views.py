@@ -779,18 +779,6 @@ class GetMemberPointsSummary(generics.GenericAPIView):
         "sending 'use_biometrics': false with no pin is rejected."
     ),
     request=RedeemPointsToWalletSerializer,
-    examples=[
-        OpenApiExample(
-            "Authorize with PIN",
-            value={"pin": "1234"},
-            request_only=True,
-        ),
-        OpenApiExample(
-            "Authorize with biometrics",
-            value={"use_biometrics": True},
-            request_only=True,
-        ),
-    ],
     responses={
         200: inline_serializer(
             name="RedeemPointsToWalletSuccessResponse",
