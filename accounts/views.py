@@ -35,7 +35,6 @@ from .models import User, DeviceId, AccountType, UserNotification
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
-from gamification.utils import NextBee
 from gamification.points import Points
 from gamification.models import StreakChallenge
 from commons import Biometrics, Messaging
@@ -148,10 +147,12 @@ class Register(generics.GenericAPIView):
                 )
 
                 points = Points.determine(activity_type="referral", level=user.level)
-                NextBee.member_activity(
-                    member_email=user.email, activityId="8474", numericValue=str(points)
+                Points.award(
+                    user=user,
+                    amount=points,
+                    reason="Referral code used at registration",
+                    source="referral",
                 )
-                Points.refresh_user_points(user)
 
             AccountType.objects.create(
                 user=user,

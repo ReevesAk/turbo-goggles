@@ -50,6 +50,23 @@ class VAS:
             return False
 
     @staticmethod
+    def is_pending(response):
+        """
+        True if the provider explicitly said it's still processing this
+        transaction (e.g. responseCode 202) rather than confirming success
+        or failure - distinct from is_success() being False, which alone
+        doesn't mean the transaction failed.
+        """
+        if not response:
+            return False
+        try:
+            body = response.json()
+            status = (body.get("status") or "").lower()
+            return status == "pending" or str(body.get("responseCode")) == "202"
+        except Exception:
+            return False
+
+    @staticmethod
     def generate_unique_code(prefix="Pica"):
         min_length = 18
         max_length = 25
@@ -95,7 +112,7 @@ class VAS:
 
     @staticmethod
     def status(tx_ref, bearer_token):
-        resource = f"identity/api/v1/topup/status?transReference={tx_ref}"
+        resource = f"vas/api/v1/topup/status?transReference={tx_ref}"
         url = _build_vas_url(resource)
         headers = {
             "Authorization": f"Bearer {bearer_token}",
@@ -116,18 +133,47 @@ class VAS:
             return None
 
     @staticmethod
-    def confirm_status(tx_ref, bearer_token, attempts=3, delay=5):
-        """Resolve an ambiguous outcome (timeout/connection error) by polling
-        the provider's status endpoint before treating a purchase as failed.
-        A request timing out on our end doesn't mean it failed on theirs."""
+    def confirm_status(tx_ref, bearer_token, delays=(10, 15, 20)):
+        """Poll for a final status with backoff before calling a purchase failed -
+        9PSB says settlement can lag, so a quick miss isn't a real failure.
+
+        ~85s worst case (45s sleep + 4 requests @ 10s timeout), under gunicorn's
+        120s --timeout with room to spare - a killed worker is worse than a
+        premature pending."""
         status_resp = None
-        for attempt in range(attempts):
+        for attempt, delay in enumerate(delays):
             status_resp = VAS.status(tx_ref=tx_ref, bearer_token=bearer_token)
             if status_resp and VAS.is_success(status_resp):
                 return status_resp
-            if attempt < attempts - 1:
+            if attempt < len(delays) - 1:
                 time.sleep(delay)
         return status_resp
+
+    @staticmethod
+    def resolve_outcome(response, tx_ref, bearer_token):
+        """
+        Decide the final outcome of a purchase whose initial response wasn't
+        an immediate success. If the provider explicitly flagged it as still
+        processing (is_pending), poll patiently via confirm_status - a bare
+        "not success" on a pending response doesn't mean it failed, just that
+        it hasn't resolved yet. Otherwise (no response, or an explicit
+        non-pending failure), fall back to a single status check.
+
+        Returns (final_response, outcome) where outcome is one of
+        "success", "pending", "failed".
+        """
+        if VAS.is_pending(response):
+            polled = VAS.confirm_status(tx_ref=tx_ref, bearer_token=bearer_token)
+        else:
+            polled = VAS.status(tx_ref=tx_ref, bearer_token=bearer_token)
+
+        if polled and VAS.is_success(polled):
+            return polled, "success"
+        if polled and VAS.is_pending(polled):
+            return polled, "pending"
+        if not polled or polled.status_code != 200:
+            return (polled or response), "pending"
+        return polled, "failed"
 
     @staticmethod
     def airtime_topup(
