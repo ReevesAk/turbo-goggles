@@ -895,13 +895,56 @@ class RedeemPointsToWallet(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Snapshot the pre-credit balance — 9PSB can return HTTP 200 "accepted"
+        # without the funds ever actually landing, so status_code alone can't
+        # be trusted as proof of settlement (confirmed against real redemptions
+        # that logged success but never moved the wallet balance).
+        pre_credit_balance = None
+        pre_enquiry = Wallet.getWalletDetails(wallet.account_number)
+        if pre_enquiry and hasattr(pre_enquiry, "json"):
+            try:
+                pre_data = pre_enquiry.json()
+            except ValueError:
+                pre_data = {}
+            if pre_data.get("status") == "SUCCESS":
+                pre_credit_balance = pre_data.get("data", {}).get("availableBalance")
+
         # Credit the user's wallet — this is the call used to credit a user.
         credit_resp = Wallet.Credit(
             acct_no=wallet.account_number,
             amount=float(amount_to_credit),
             reason=f"Points redemption: {points_used} points redeemed",
         )
-        if credit_resp is None or credit_resp.status_code != 200:
+
+        credit_ok = credit_resp is not None and credit_resp.status_code == 200
+        credit_body = {}
+        if credit_ok:
+            try:
+                credit_body = credit_resp.json()
+            except ValueError:
+                credit_body = {}
+            credit_ok = str(credit_body.get("status", "")).lower() == "success"
+
+        settled_balance = None
+        if credit_ok:
+            post_enquiry = Wallet.getWalletDetails(wallet.account_number)
+            if post_enquiry and hasattr(post_enquiry, "json"):
+                try:
+                    post_data = post_enquiry.json()
+                except ValueError:
+                    post_data = {}
+                if post_data.get("status") == "SUCCESS":
+                    settled_balance = post_data.get("data", {}).get("availableBalance")
+
+            # Can't confirm the balance actually moved -> don't trust it.
+            if (
+                pre_credit_balance is None
+                or settled_balance is None
+                or settled_balance <= pre_credit_balance
+            ):
+                credit_ok = False
+
+        if not credit_ok:
             Points.award(
                 user=user,
                 amount=points_used,
@@ -909,7 +952,12 @@ class RedeemPointsToWallet(generics.GenericAPIView):
                 source="admin_adjustment",
                 bypass_credibility=True,
             )
-            logger.error("Redeem credit failed for %s", user.email)
+            logger.error(
+                "Redeem credit failed for %s (pre_balance=%s, provider response=%s)",
+                user.email,
+                pre_credit_balance,
+                credit_body,
+            )
             return Response(
                 data=encrypt(
                     {
@@ -920,19 +968,10 @@ class RedeemPointsToWallet(generics.GenericAPIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Re-query 9PSB for the settled balance so the local cache doesn't
-        # go stale — mirrors the resync done after other wallet credits.
-        balance_enquiry = Wallet.getWalletDetails(wallet.account_number)
-        if balance_enquiry and hasattr(balance_enquiry, "json"):
-            try:
-                enquiry_data = balance_enquiry.json()
-            except ValueError:
-                enquiry_data = {}
-            if enquiry_data.get("status") == "SUCCESS":
-                live_balance = enquiry_data.get("data", {}).get("availableBalance")
-                if live_balance is not None:
-                    wallet.balance = live_balance
-                    wallet.save(update_fields=["balance"])
+        wallet.balance = settled_balance
+        wallet.save(update_fields=["balance"])
+
+        provider_reference = credit_body.get("data", {}).get("reference", "")
 
         tx = TxModel.objects.create(
             user=user,
@@ -940,7 +979,10 @@ class RedeemPointsToWallet(generics.GenericAPIView):
             tx_type="Points Redemption to Wallet",
             amount=float(amount_to_credit),
             transfer_fee=float(REDEEM_CHARGE),
-            description=f"Redeemed {points_used} points for ₦{amount_to_credit} wallet credit",
+            description=(
+                f"Redeemed {points_used} points for ₦{amount_to_credit} wallet credit"
+                f" (9PSB ref: {provider_reference})"
+            ),
             status="SUCCESS",
         )
 
@@ -951,11 +993,12 @@ class RedeemPointsToWallet(generics.GenericAPIView):
         )
 
         logger.info(
-            "User %s redeemed %d points for ₦%s (charge ₦%s)",
+            "User %s redeemed %d points for ₦%s (charge ₦%s, 9PSB ref: %s)",
             user.email,
             points_used,
             amount_to_credit,
             REDEEM_CHARGE,
+            provider_reference,
         )
 
         return Response(
