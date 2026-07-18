@@ -45,19 +45,35 @@ class StandardResponseMixin:
     used throughout the codebase.
     """
 
-    def success_response(self, message, data=None, status_code=status.HTTP_200_OK):
+    def success_response(
+        self, message, data=None, status_code=status.HTTP_200_OK, should_encrypt=True
+    ):
         body = {"status": "success", "message": message}
         if data is not None:
             body["data"] = data
-        return Response(data=encrypt(body), status=status_code)
+
+        # Response for encrypted requests
+        if should_encrypt:
+            return Response(data=encrypt(body), status=status_code)
+
+        return Response(data=body, status=status_code)
 
     def error_response(
-        self, message, status_code=status.HTTP_400_BAD_REQUEST, errors=None
+        self,
+        message,
+        status_code=status.HTTP_400_BAD_REQUEST,
+        errors=None,
+        should_encrypt=True,
     ):
         body = {"status": "fail", "message": message}
         if errors is not None:
             body["errors"] = errors
-        return Response(data=encrypt(body), status=status_code)
+
+        # Response for encrypted requests
+        if should_encrypt:
+            return Response(data=encrypt(body), status=status_code)
+
+        return Response(data=body, status=status_code)
 
     def paginated_response(self, queryset, serializer_class, request, message):
         paginator = BlogPagination()
@@ -71,6 +87,7 @@ class StandardResponseMixin:
                 "next": paginator.get_next_link(),
                 "previous": paginator.get_previous_link(),
             },
+            should_encrypt=False,
         )
 
 
@@ -230,11 +247,13 @@ class BlogDetailView(StandardResponseMixin, generics.RetrieveAPIView):
         except Blog.DoesNotExist:
             logger.info("Blog not found or not published: slug=%s", kwargs["slug"])
             return self.error_response(
-                "Blog post not found.", status.HTTP_404_NOT_FOUND
+                message="Blog post not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
         data = BlogDetailSerializer(blog).data
-        return self.success_response("Blog post retrieved successfully.", data)
+        return self.success_response(
+            message="Blog post retrieved successfully.", data=data, should_encrypt=False
+        )
 
 
 # ==============================
@@ -284,9 +303,9 @@ class BlogCreateView(StandardResponseMixin, generics.GenericAPIView):
         if not serializer.is_valid():
             logger.warning("Blog creation failed validation: %s", serializer.errors)
             return self.error_response(
-                "Validation error occurred.",
-                status.HTTP_400_BAD_REQUEST,
-                serializer.errors,
+                message="Validation error occurred.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                errors=serializer.errors,
             )
 
         blog = serializer.save()
@@ -300,7 +319,9 @@ class BlogCreateView(StandardResponseMixin, generics.GenericAPIView):
 
         data = BlogSerializer(blog).data
         return self.success_response(
-            "Blog post created successfully.", data, status.HTTP_201_CREATED
+            message="Blog post created successfully.",
+            data=data,
+            status_code=status.HTTP_201_CREATED,
         )
 
 
@@ -480,24 +501,26 @@ class BlogAdminDetailView(StandardResponseMixin, generics.GenericAPIView):
         blog = self.get_object(pk)
         if not blog:
             return self.error_response(
-                "Blog post not found.", status.HTTP_404_NOT_FOUND
+                message="Blog post not found.", status_code=status.HTTP_404_NOT_FOUND
             )
         data = BlogSerializer(blog).data
-        return self.success_response("Blog post retrieved successfully.", data)
+        return self.success_response(
+            message="Blog post retrieved successfully.", data=data
+        )
 
     def patch(self, request, pk, *args, **kwargs):
         blog = self.get_object(pk)
         if not blog:
             return self.error_response(
-                "Blog post not found.", status.HTTP_404_NOT_FOUND
+                message="Blog post not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
         serializer = self.get_serializer(blog, data=request.data, partial=True)
         if not serializer.is_valid():
             return self.error_response(
-                "Validation error occurred.",
-                status.HTTP_400_BAD_REQUEST,
-                serializer.errors,
+                message="Validation error occurred.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                errors=serializer.errors,
             )
 
         blog = serializer.save()
@@ -510,13 +533,15 @@ class BlogAdminDetailView(StandardResponseMixin, generics.GenericAPIView):
         )
 
         data = BlogSerializer(blog).data
-        return self.success_response("Blog post updated successfully.", data)
+        return self.success_response(
+            message="Blog post updated successfully.", data=data
+        )
 
     def delete(self, request, pk, *args, **kwargs):
         blog = self.get_object(pk)
         if not blog:
             return self.error_response(
-                "Blog post not found.", status.HTTP_404_NOT_FOUND
+                message="Blog post not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
         title = blog.title
@@ -529,4 +554,4 @@ class BlogAdminDetailView(StandardResponseMixin, generics.GenericAPIView):
         )
         logger.info("Blog deleted: title=%r by user=%s", title, request.user.id)
 
-        return self.success_response("Blog post deleted successfully.")
+        return self.success_response(message="Blog post deleted successfully.")

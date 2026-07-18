@@ -125,37 +125,35 @@ class BlogListViewTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_data = response.data
         if isinstance(response_data, dict) and "data" in response_data:
-            decrypted = decrypt(response_data)
-            if isinstance(decrypted, dict) and "data" in decrypted:
-                data = decrypted["data"]
-                results = data.get("results", [])
-                self.assertEqual(len(results), 5)
-                # Check that no draft or archived posts are in results
-                titles = [post["title"] for post in results]
-                self.assertNotIn("Draft Post", titles)
-                self.assertNotIn("Archived Post", titles)
+            body = response_data
+
+            data = body["data"]
+            results = data.get("results", [])
+            self.assertEqual(len(results), 5)
+            # Check that no draft or archived posts are in results
+            titles = [post["title"] for post in results]
+            self.assertNotIn("Draft Post", titles)
+            self.assertNotIn("Archived Post", titles)
 
     def test_filter_by_category(self):
         """Test filtering posts by category."""
         response = self.client.get(self.url, {"category": "Technology"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            for post in results:
-                self.assertEqual(post["category"], "Technology")
+        body = response.data
+        results = body["data"].get("results", [])
+        for post in results:
+            self.assertEqual(post["category"], "Technology")
 
     def test_filter_by_tag(self):
         """Test filtering posts by tag."""
         response = self.client.get(self.url, {"tag": "python"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            for post in results:
-                self.assertIn("python", post.get("tags", []))
+        body = response.data
+        results = body["data"].get("results", [])
+        for post in results:
+            self.assertIn("python", post.get("tags", []))
 
     def test_search_functionality(self):
         """Test searching posts by title, excerpt, and content."""
@@ -163,20 +161,20 @@ class BlogListViewTest(TestCase):
         response = self.client.get(self.url, {"search": "Published Post 1"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            self.assertEqual(len(results), 1)
-            self.assertEqual(results[0]["title"], "Published Post 1")
+        body = response.data
+
+        results = body["data"].get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["title"], "Published Post 1")
 
         # Search by content
         response = self.client.get(self.url, {"search": "Content 2"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            self.assertGreater(len(results), 0)
+        body = response.data
+
+        results = body["data"].get("results", [])
+        self.assertGreater(len(results), 0)
 
     def test_pagination(self):
         """Test pagination of blog list."""
@@ -184,17 +182,17 @@ class BlogListViewTest(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            self.assertEqual(decrypted["data"]["count"], 5)
+        body = response.data
+
+        self.assertEqual(body["data"]["count"], 5)
 
         # Test custom page size
         response = self.client.get(self.url, {"page_size": 2})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            self.assertEqual(len(decrypted["data"]["results"]), 2)
+        body = response.data
+
+        self.assertEqual(len(body["data"]["results"]), 2)
 
 
 class BlogDetailViewTest(TestCase):
@@ -228,12 +226,12 @@ class BlogDetailViewTest(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            data = decrypted["data"]
-            self.assertEqual(data["title"], "Published Post")
-            self.assertEqual(data["content"], "Published content.")
-            self.assertEqual(data["status"], "published")
+        body = response.data
+
+        data = body["data"]
+        self.assertEqual(data["title"], "Published Post")
+        self.assertEqual(data["content"], "Published content.")
+        self.assertEqual(data["status"], "published")
 
     def test_view_count_increments(self):
         """Test that view count increments when a post is retrieved."""
@@ -995,10 +993,10 @@ class BlogEdgeCasesTest(TestCase):
         response = self.client.get(url, {"search": "Test & Blog"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            self.assertGreater(len(results), 0)
+        body = response.data
+
+        results = body["data"].get("results", [])
+        self.assertGreater(len(results), 0)
 
     def test_pagination_with_large_page_size(self):
         """Test that pagination max page size is enforced."""
@@ -1015,10 +1013,10 @@ class BlogEdgeCasesTest(TestCase):
         response = self.client.get(url, {"page_size": 100})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        decrypted = decrypt(response.data)
-        if isinstance(decrypted, dict) and "data" in decrypted:
-            results = decrypted["data"].get("results", [])
-            self.assertLessEqual(len(results), 50)
+        body = response.data
+
+        results = body["data"].get("results", [])
+        self.assertLessEqual(len(results), 50)
 
 
 class BlogSlugAndSaveRegressionTests(TestCase):
