@@ -655,7 +655,59 @@ class MemberSerializer(serializers.ModelSerializer):
         return obj.total_points or 0
 
 
-class KnowledgeBaseSerializer(serializers.ModelSerializer):
+# =================================================
+# Public / User-facing serializers (Knowledge Base)
+# =================================================
+
+
+class KnowledgeBaseListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the public Knowledge Base listing endpoint.
+    Excludes 'content' to keep the listing payload light.
+    """
+
+    class Meta:
+        model = knowledgeBaseModel
+        fields = [
+            "id",
+            "category",
+            "section",
+            "content_type",
+            "authors",
+            "caption",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class KnowledgeBaseDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the public single article endpoint.
+    Includes all fields for detailed view.
+    """
+
+    class Meta:
+        model = knowledgeBaseModel
+        fields = [
+            "id",
+            "category",
+            "section",
+            "content_type",
+            "authors",
+            "caption",
+            "author_image_urls",
+            "content",
+            "ads_and_media_url",
+            "ad_description",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+# =================================================
+# Admin / Admin-facing serializers (Knowledge Base)
+# =================================================
+class AdminKnowledgeBaseSerializer(serializers.ModelSerializer):
     section = serializers.ChoiceField(
         choices=KNOWLEDGE_BASE_SECTIONS, required=False, allow_null=True
     )

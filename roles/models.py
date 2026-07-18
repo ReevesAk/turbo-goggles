@@ -93,3 +93,6 @@ class knowledgeBaseModel(models.Model):
     selected_date_time = models.DateTimeField(null=True, blank=True)
     selected_time = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return self.caption
