@@ -775,9 +775,22 @@ class GetMemberPointsSummary(generics.GenericAPIView):
     description=(
         "Converts the authenticated member's redeemable points into naira and credits "
         "their wallet from the collection account, minus a flat ₦20 redemption charge. "
-        "Requires PIN or biometric verification."
+        "Requires either 'pin' or 'use_biometrics': true in the request body - "
+        "sending 'use_biometrics': false with no pin is rejected."
     ),
     request=RedeemPointsToWalletSerializer,
+    examples=[
+        OpenApiExample(
+            "Authorize with PIN",
+            value={"pin": "1234"},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Authorize with biometrics",
+            value={"use_biometrics": True},
+            request_only=True,
+        ),
+    ],
     responses={
         200: inline_serializer(
             name="RedeemPointsToWalletSuccessResponse",
@@ -918,6 +931,20 @@ class RedeemPointsToWallet(generics.GenericAPIView):
                 ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+        # Re-query 9PSB for the settled balance so the local cache doesn't
+        # go stale — mirrors the resync done after other wallet credits.
+        balance_enquiry = Wallet.getWalletDetails(wallet.account_number)
+        if balance_enquiry and hasattr(balance_enquiry, "json"):
+            try:
+                enquiry_data = balance_enquiry.json()
+            except ValueError:
+                enquiry_data = {}
+            if enquiry_data.get("status") == "SUCCESS":
+                live_balance = enquiry_data.get("data", {}).get("availableBalance")
+                if live_balance is not None:
+                    wallet.balance = live_balance
+                    wallet.save(update_fields=["balance"])
 
         tx = TxModel.objects.create(
             user=user,
