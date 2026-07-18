@@ -16,7 +16,6 @@ nextbee_base_url = conf("NEXTBEE_BASE_URL")
 secret_key = conf("NEXTBEE_JWT_SECRET_KEY")
 sso_register_widget_config = conf("NEXTBEE_SSO_REGISTER_WIDGET_CONFIG")
 sso_login_widget_config = conf("NEXTBEE_SSO_LOGIN_WIDGET_CONFIG")
-widget_config = conf("NEXTBEE_WIDGET_CONFIG_ID")
 program_id = conf("NEXTBEE_PROGRAM_ID")
 admin_email = conf("NEXTBEE_ADMIN_EMAIL")
 nextbee_environment = conf("NEXTBEE_ENVIRONMENT")
@@ -130,64 +129,4 @@ class NextBee:
             logging.error(f"Generate token API request error: {str(e)}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-    @staticmethod
-    def member_activity(
-        member_email,
-        activityId,
-        numericValue,
-        activityDetailsJsonString=None,
-    ) -> str:
-        """
-        Register member activity on NextBee.
-        """
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
-        }
-
-        url = f"{nextbee_base_url}/client/member/activity"
-        payload = {
-            "widgetConfigId": widget_config,
-            "email": member_email,
-            "activityId": activityId,
-            "numericValue": numericValue,
-        }
-        if activityDetailsJsonString is not None:
-            payload["activityDetailsJsonString"] = activityDetailsJsonString
-        try:
-            response = requests.post(
-                url=url,
-                data=payload,
-                headers=headers
-            )
-            return Response(data=response.json(), status=response.status_code)
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Member activity API request error: {str(e)}")
-            return Response(
-                data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @staticmethod
-    def points_summary(member_email: str) -> str:
-        """
-        Get the points summary for a member.
-        """
-        headers = {
-            "Authorization": f"Bearer {NextBee.get_token(nextbee_advertiser_id, admin_email)}"
-        }
-
-        url = f"{nextbee_base_url}/points-summary?email={member_email}"
-        try:
-            response = requests.get(
-                url=url,
-                headers=headers
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Points summary API request error: {str(e)}")
-            return Response(
-                data={"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

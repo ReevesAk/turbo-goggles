@@ -263,18 +263,6 @@ class DeleteJob(generics.DestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         job = self.get_object()
-        current_user = request.user
-
-        # Decrypt payload to get admin pin
-        decrypted_payload = decrypt(request.data)
-        pin = decrypted_payload.get("pin")
-
-        if not pin or not check_password(password=pin, encoded=current_user.admin_pin):
-            return Response(
-                data=encrypt({"status": "fail", "message": "Incorrect pin."}),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         job.delete()
 
         response = {"status": "success", "message": "Job deleted successfully"}

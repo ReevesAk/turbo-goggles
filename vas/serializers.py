@@ -95,6 +95,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(max_length=255, write_only=True)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
+    use_cashback = serializers.BooleanField(write_only=True, required=False)
     customerId = serializers.CharField(required=True)
     billerId = serializers.CharField(required=True)
     itemId = serializers.CharField(required=True)
@@ -121,12 +122,14 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "otherField",
             "use_bonus",
             "use_points",
+            "use_cashback",
         ]
 
     def create(self, validated_data):
         # Exclude non-model fields
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
+        validated_data.pop("use_cashback", None)
         utility_bill_instance = ValueAddedServices.objects.create(**validated_data)
         return utility_bill_instance
 

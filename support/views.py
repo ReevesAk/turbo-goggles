@@ -17,7 +17,7 @@ from cloudinary import uploader as cloud
 # In project imports.
 from .serializers import (
     RegisterAgentManagerSerializer, SupportVerifyOTPSerializer,
-    CreateTicketSerializers, AssignTicketSerializers,
+    CreateTicketSerializers, AssignTicketSerializers, UpdateTicketSerializer,
     AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
     AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
     CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer,
@@ -1297,6 +1297,122 @@ class ReassignTicket(generics.GenericAPIView):
             {
                 "status": "success",
                 "message": f"Ticket {ticket_number} successfully reassigned to {user.full_name}",
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Support] Update any field on a ticket",
+    tags=["Support"],
+    description=(
+        "Allows a Support Manager, Moderator, or SuperAdmin to update any "
+        "non-protected field on a ticket (e.g. resolution_hours, priority, "
+        "description). Reassigning `assigned_to` (or setting it to null to "
+        "unassign) through this endpoint records the same "
+        "TicketAssignmentHistory/ActivityModel audit trail as the dedicated "
+        "assign/reassign endpoints."
+    ),
+    request=UpdateTicketSerializer,
+    responses={
+        200: inline_serializer("UpdateTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
+        400: inline_serializer("UpdateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer("UpdateTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+    },
+)
+class UpdateTicketAPIView(generics.GenericAPIView):
+    """
+    Generic ticket editor for Support Managers/Moderators. Reassigning or
+    unassigning `assigned_to` through this endpoint triggers the same audit
+    trail as AssignTicket/ReassignTicket (TicketAssignmentHistory +
+    ActivityModel + assigned_at), but skips the agent PIN check since the
+    caller is already gated by IsManagerModeratorOrSuperAdmin.
+    """
+
+    serializer_class = UpdateTicketSerializer
+    permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
+    throttle_classes = []
+
+    def patch(self, request, *args, **kwargs):
+        logger.info("UpdateTicketAPIView request received")
+
+        authenticated_user = request.user
+        ticket_number = kwargs.get("ticket_number")
+
+        ticket = Ticket.objects.filter(number=ticket_number).first()
+        if not ticket:
+            return Response(
+                {"status": "fail", "message": "Ticket does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(ticket, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        assignee_changing = (
+            "assigned_to" in serializer.validated_data
+            and serializer.validated_data.get("assigned_to") != ticket.assigned_to
+        )
+        new_agent = serializer.validated_data.get("assigned_to")
+        is_reassignment = assignee_changing and new_agent is not None
+        is_unassignment = assignee_changing and new_agent is None and ticket.assigned_to is not None
+
+        if is_reassignment:
+            allowed_roles = ["Agent", "Manager", "Moderator"]
+            is_valid_role = AccountType.objects.filter(
+                user=new_agent,
+                user_type__in=allowed_roles
+            ).exists()
+            if not is_valid_role:
+                raise PermissionDenied("User exists, but is not allowed to be assigned tickets.")
+
+        previous_agent = ticket.assigned_to
+        serializer.save()
+
+        if is_reassignment:
+            ticket.assigned_at = timezone.now()
+            ticket.save(update_fields=["assigned_at"])
+
+            TicketAssignmentHistory.objects.create(
+                ticket=ticket,
+                assigned_by=authenticated_user,
+                previous_agent=previous_agent,
+                new_agent=new_agent,
+                priority=ticket.priority,
+                reason=request.data.get("reason"),
+                action="assign" if previous_agent is None else "reassign",
+            )
+
+            description = f"Ticket {ticket_number} reassigned to {new_agent.full_name}"
+        elif is_unassignment:
+            ticket.assigned_at = None
+            ticket.save(update_fields=["assigned_at"])
+
+            TicketAssignmentHistory.objects.create(
+                ticket=ticket,
+                assigned_by=authenticated_user,
+                previous_agent=previous_agent,
+                new_agent=None,
+                priority=ticket.priority,
+                reason=request.data.get("reason"),
+                action="unassign",
+            )
+
+            description = f"Ticket {ticket_number} unassigned from {previous_agent.full_name}"
+        else:
+            description = f"Ticket {ticket_number} updated"
+
+        ActivityModel.objects.create(
+            user=authenticated_user,
+            title="Update Ticket",
+            description=description,
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Ticket {ticket_number} updated successfully",
                 "data": serializer.data,
             },
             status=status.HTTP_200_OK,

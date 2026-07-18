@@ -22,7 +22,7 @@ from decouple import config
 
 from accounts.models import User
 from gamification.models import Points as PointsModel
-from gamification.points import Points as PointsEngine, MIN_POINTS_REQUIRED, TIER_VALUES
+from gamification.points import Points as PointsEngine, TIER_VALUES
 
 yournotify_api_key = config("YOURNOTIFY_API_KEY")
 yournotify_base_url = config("YOURNOTIFY_BASE_URL")
@@ -248,9 +248,10 @@ class Pay:
     @staticmethod
     def with_pts(user, amount):
         """
-        Pay for a purchase using points converted to naira.
+        Pay for a purchase using points converted to naira at the user's own
+        tier rate (same rate RedeemPointsToWallet uses), with no minimum
+        balance requirement.
 
-        Eligibility: user must hold at least MIN_POINTS_REQUIRED (400) points.
         Deduction: proportional — only the points worth the exact naira `amount`
         are deducted, not a flat 400.
 
@@ -264,11 +265,8 @@ class Pay:
         except PointsModel.DoesNotExist:
             return "Not Found", 0
 
-        # Must hold the minimum threshold to unlock point payments
-        if pts.balance < MIN_POINTS_REQUIRED:
-            return "Not Enough", 0
-
-        naira_available = pts.naira_value
+        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0"))
+        naira_available = pts.balance * tier_rate
         if naira_available <= Decimal("0"):
             return "Not Enough", 0
 
@@ -277,7 +275,6 @@ class Pay:
             return "Not Enough", naira_available
 
         # Calculate proportional points to deduct
-        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0.50"))
         points_to_deduct = math.ceil(amount_dec / tier_rate)
 
         PointsEngine.deduct(
@@ -293,13 +290,14 @@ class Pay:
         """
         Refund points after a failed or reversed purchase.
         Bypasses credibility check — this is a restoration, not a reward.
+        Uses the user's current tier rate, same as with_pts.
         """
         try:
             pts = PointsModel.objects.get(user=user)
         except PointsModel.DoesNotExist:
             return
 
-        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0.50"))
+        tier_rate = TIER_VALUES.get(pts.tier, Decimal("0"))
         if tier_rate <= Decimal("0"):
             return
 

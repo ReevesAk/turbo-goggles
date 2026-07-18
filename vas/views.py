@@ -32,6 +32,7 @@ from banking.tasks import post_vas_update
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth
 from gamification.models import Points as PointsModel
+from gamification.points import TIER_VALUES
 from .utility import (
     create_activity,
     create_notification,
@@ -49,6 +50,24 @@ operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
 collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 
 logger = logging.getLogger(__name__)
+
+
+def _handle_pending_response():
+    """
+    Shared response for a purchase the provider explicitly flagged as still
+    processing (e.g. responseCode 202), even after a patient status poll.
+    No refund is issued here - 9PSB settles/reverses a pending transaction
+    on their side once it resolves.
+    """
+    return Response(
+        data=encrypt(
+            {
+                "status": "pending",
+                "message": "Your purchase is still processing. You'll be notified once it completes.",
+            }
+        ),
+        status=status.HTTP_202_ACCEPTED,
+    )
 
 
 @extend_schema(
@@ -332,7 +351,9 @@ class AirTimeTopUp(generics.GenericAPIView):
                     if use_points:
                         try:
                             pts_obj = PointsModel.objects.get(user=user)
-                            avail_pts = pts_obj.naira_value
+                            avail_pts = pts_obj.balance * TIER_VALUES.get(
+                                pts_obj.tier, Decimal("0")
+                            )
                         except Exception:
                             pass
                     if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
@@ -428,8 +449,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                         cashback=cashback_used,
                         account_number=account_number,
                     )
-                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                if status_resp and VAS.is_success(status_resp):
+                status_resp, outcome = VAS.resolve_outcome(
+                    airtime_response, tx_reference, token
+                )
+                if outcome == "success":
                     return self._handle_airtime_success(
                         user=user,
                         phone=phone,
@@ -439,11 +462,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                         cashback=cashback_used,
                         account_number=account_number,
                     )
+                if outcome == "pending":
+                    return _handle_pending_response()
                 return self._handle_airtime_failure(
                     user=user,
                     phone=phone,
                     amount=amount,
-                    airtime_response=airtime_response,
+                    airtime_response=status_resp,
                     reason="Airtime top-up failed.",
                 )
             else:
@@ -505,10 +530,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 account_number=account_number,
                             )
                         # Fallback: confirm via status check
-                        status_resp = VAS.status(
-                            tx_ref=tx_reference, bearer_token=token
+                        status_resp, outcome = VAS.resolve_outcome(
+                            airtime_response, tx_reference, token
                         )
-                        if status_resp and VAS.is_success(status_resp):
+                        if outcome == "success":
                             return self._handle_airtime_success(
                                 user=user,
                                 phone=phone,
@@ -518,11 +543,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 cashback=cashback_used,
                                 account_number=account_number,
                             )
+                        if outcome == "pending":
+                            return _handle_pending_response()
                         return self._handle_airtime_failure(
                             user=user,
                             phone=phone,
                             amount=amount,
-                            airtime_response=airtime_response,
+                            airtime_response=status_resp,
                             reason="Airtime top-up failed.",
                         )
 
@@ -586,6 +613,21 @@ class AirTimeTopUp(generics.GenericAPIView):
                             account_number=account_number,
                         )
                     else:
+                        status_resp, outcome = VAS.resolve_outcome(
+                            airtime_response, tx_reference, token
+                        )
+                        if outcome == "success":
+                            return self._handle_airtime_success(
+                                user=user,
+                                phone=phone,
+                                amount=purchase_amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
+                                account_number=account_number,
+                            )
+                        if outcome == "pending":
+                            return _handle_pending_response()
                         if cashback_used:
                             CashbackService.refund_cashback(
                                 user=user, cashback_amount=cashback_used
@@ -596,7 +638,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             user=user,
                             phone=phone,
                             amount=purchase_amount,
-                            airtime_response=airtime_response,
+                            airtime_response=status_resp,
                             reason="Airtime top-up failed.",
                         )
 
@@ -651,8 +693,10 @@ class AirTimeTopUp(generics.GenericAPIView):
                             cashback=cashback_used,
                             account_number=account_number,
                         )
-                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                    if status_resp and VAS.is_success(status_resp):
+                    status_resp, outcome = VAS.resolve_outcome(
+                        airtime_response, tx_reference, token
+                    )
+                    if outcome == "success":
                         return self._handle_airtime_success(
                             user=user,
                             guest_id=guest_id,
@@ -663,12 +707,14 @@ class AirTimeTopUp(generics.GenericAPIView):
                             cashback=cashback_used,
                             account_number=account_number,
                         )
+                    if outcome == "pending":
+                        return _handle_pending_response()
                     return self._handle_airtime_failure(
                         user=user,
                         guest_id=guest_id,
                         phone=phone,
                         amount=amount,
-                        airtime_response=airtime_response,
+                        airtime_response=status_resp,
                         reason="Airtime top-up failed.",
                     )
 
@@ -1063,8 +1109,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         cashback=cashback_used,
                     )
-                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                if status_resp and VAS.is_success(status_resp):
+                status_resp, outcome = VAS.resolve_outcome(
+                    data_response, tx_reference, token
+                )
+                if outcome == "success":
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -1074,11 +1122,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         cashback=cashback_used,
                     )
+                if outcome == "pending":
+                    return _handle_pending_response()
                 return self._handle_data_failure(
                     user=user,
                     phone=phone,
                     amount=amount,
-                    data_response=data_response,
+                    data_response=status_resp,
                     reason="Data subscription failed.",
                 )
             else:
@@ -1103,7 +1153,9 @@ class DataSubscriptionView(generics.GenericAPIView):
                     from gamification.models import Points as PointsModel
 
                     pts_obj = PointsModel.objects.get(user=user)
-                    avail_pts = pts_obj.naira_value
+                    avail_pts = pts_obj.balance * TIER_VALUES.get(
+                        pts_obj.tier, Decimal("0")
+                    )
                 except Exception:
                     pass
             if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
@@ -1166,8 +1218,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                             cashback=cashback_used,
                         )
                     # Fallback: confirm via status check
-                    status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                    if status_resp and VAS.is_success(status_resp):
+                    status_resp, outcome = VAS.resolve_outcome(
+                        data_response, tx_reference, token
+                    )
+                    if outcome == "success":
                         return self._handle_data_success(
                             user=user,
                             phone=phone,
@@ -1177,11 +1231,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                             tx_reference=tx_reference,
                             cashback=cashback_used,
                         )
+                    if outcome == "pending":
+                        return _handle_pending_response()
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
                         amount=amount,
-                        data_response=data_response,
+                        data_response=status_resp,
                         reason="Data subscription failed.",
                     )
 
@@ -1233,6 +1289,21 @@ class DataSubscriptionView(generics.GenericAPIView):
                         cashback=cashback_used,
                     )
                 else:
+                    status_resp, outcome = VAS.resolve_outcome(
+                        data_response, tx_reference, token
+                    )
+                    if outcome == "success":
+                        return self._handle_data_success(
+                            user=user,
+                            phone=phone,
+                            productId=product_id,
+                            amount=purchase_amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                            cashback=cashback_used,
+                        )
+                    if outcome == "pending":
+                        return _handle_pending_response()
                     if cashback_used:
                         CashbackService.refund_cashback(
                             user=user, cashback_amount=cashback_used
@@ -1243,7 +1314,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                         user=user,
                         phone=phone,
                         amount=purchase_amount,
-                        data_response=data_response,
+                        data_response=status_resp,
                         reason="Data subscription failed.",
                     )
 
@@ -1284,8 +1355,10 @@ class DataSubscriptionView(generics.GenericAPIView):
                         network=network,
                         tx_reference=tx_reference,
                     )
-                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                if status_resp and VAS.is_success(status_resp):
+                status_resp, outcome = VAS.resolve_outcome(
+                    data_response, tx_reference, token
+                )
+                if outcome == "success":
                     return self._handle_data_success(
                         user=user,
                         guest_id=guest_id,
@@ -1295,12 +1368,14 @@ class DataSubscriptionView(generics.GenericAPIView):
                         network=network,
                         tx_reference=tx_reference,
                     )
+                if outcome == "pending":
+                    return _handle_pending_response()
                 return self._handle_data_failure(
                     user=user,
                     guest_id=guest_id,
                     phone=phone,
                     amount=amount,
-                    data_response=data_response,
+                    data_response=status_resp,
                     reason="Data subscription failed.",
                 )
 
@@ -1908,6 +1983,7 @@ class BillPaymentView(generics.GenericAPIView):
         pin = user_data.get("pin")
         amount = user_data.get("amount")
         use_points = user_data.get("use_points")
+        use_cashback = user_data.get("use_cashback")
         payment_option = user_data.get("payment_option")
         customerId = user_data.get("customerId")
         billerId = user_data.get("billerId")
@@ -1978,32 +2054,56 @@ class BillPaymentView(generics.GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-        # Points-only payment: lock, validate, deduct atomically, release before VAS call
+        # Hybrid points/cashback payment: lock, validate, deduct atomically,
+        # release before VAS call. Cashback is applied first, points cover
+        # whatever's left - together they must cover the full amount.
+        cashback_used = Decimal("0")
         pts_used = Decimal("0")
         purchase_amount = int(amount) if amount else 0
 
-        if use_points and payment_option == "WALLET" and user:
+        if (use_points or use_cashback) and payment_option == "WALLET" and user:
             try:
                 with transaction.atomic():
-                    pts_obj = PointsModel.objects.select_for_update().get(user=user)
-                    if pts_obj.naira_value < Decimal(str(purchase_amount)):
+                    user_wallet = WalletModel.objects.select_for_update().get(
+                        user=user, walletType="INDIVIDUAL"
+                    )
+                    avail_cashback = (
+                        user_wallet.cashback_balance if use_cashback else Decimal("0")
+                    )
+                    avail_pts = Decimal("0")
+                    if use_points:
+                        try:
+                            pts_obj = PointsModel.objects.get(user=user)
+                            avail_pts = pts_obj.balance * TIER_VALUES.get(
+                                pts_obj.tier, Decimal("0")
+                            )
+                        except PointsModel.DoesNotExist:
+                            pass
+                    if avail_cashback + avail_pts < Decimal(str(purchase_amount)):
                         return Response(
                             data=encrypt(
                                 {
                                     "status": "fail",
-                                    "message": "Insufficient points balance to complete this purchase.",
+                                    "message": "Insufficient points/cashback balance to complete this purchase.",
                                 }
                             ),
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                    Pay.with_pts(user=user, amount=purchase_amount)
-                    pts_used = Decimal(str(purchase_amount))
-            except PointsModel.DoesNotExist:
+                    if use_cashback:
+                        payment = CashbackService.apply_cashback_payment(
+                            user=user, amount=purchase_amount
+                        )
+                        cashback_used = payment["cashback_used"]
+                        remaining = int(payment["wallet_amount"])
+                    else:
+                        remaining = purchase_amount
+                    if use_points and remaining > 0:
+                        Pay.with_pts(user=user, amount=remaining)
+                        pts_used = Decimal(str(remaining))
+            except WalletModel.DoesNotExist:
                 return Response(
-                    data=encrypt(
-                        {"status": "fail", "message": "No points balance found."}
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    data=encrypt({"status": "fail", "message": "Wallet not found."}),
+                    status=status.HTTP_404_NOT_FOUND,
                 )
         # Lock released — VAS call proceeds without holding the DB lock
 
@@ -2011,13 +2111,19 @@ class BillPaymentView(generics.GenericAPIView):
             case "WALLET":
                 token = VAS.authenticate()
                 if not token:
+                    if cashback_used:
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=purchase_amount if use_points else amount,
+                        amount=(
+                            purchase_amount if (use_points or use_cashback) else amount
+                        ),
                         reason="VAS authentication failed.",
                     )
                 vas_response = VAS.bill_payment(
@@ -2025,21 +2131,31 @@ class BillPaymentView(generics.GenericAPIView):
                     customerId=customerId,
                     billerId=billerId,
                     itemId=itemId,
-                    amount=purchase_amount if use_points else amount,
+                    amount=purchase_amount if (use_points or use_cashback) else amount,
                     customerPhone=phone_number,
                     customerName=customerName,
                     otherField=otherField,
                     transactionReference=tx_reference,
-                    debitAccount=collection_account if use_points else account_number,
+                    debitAccount=(
+                        collection_account
+                        if (use_points or use_cashback)
+                        else account_number
+                    ),
                 )
                 if vas_response is None:
+                    if cashback_used:
+                        CashbackService.refund_cashback(
+                            user=user, cashback_amount=cashback_used
+                        )
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
-                        amount=purchase_amount if use_points else amount,
+                        amount=(
+                            purchase_amount if (use_points or use_cashback) else amount
+                        ),
                         reason="VAS service unavailable.",
                     )
                 if VAS.is_success(vas_response):
@@ -2049,7 +2165,9 @@ class BillPaymentView(generics.GenericAPIView):
                         customerId=customerId,
                         billerId=billerId,
                         itemId=itemId,
-                        amount=purchase_amount if use_points else amount,
+                        amount=(
+                            purchase_amount if (use_points or use_cashback) else amount
+                        ),
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
@@ -2058,21 +2176,31 @@ class BillPaymentView(generics.GenericAPIView):
                         account_number=account_number,
                     )
                 # Fallback: confirm via status check
-                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                if status_resp and VAS.is_success(status_resp):
+                status_resp, outcome = VAS.resolve_outcome(
+                    vas_response, tx_reference, token
+                )
+                if outcome == "success":
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
                         customerId=customerId,
                         billerId=billerId,
                         itemId=itemId,
-                        amount=purchase_amount if use_points else amount,
+                        amount=(
+                            purchase_amount if (use_points or use_cashback) else amount
+                        ),
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
-                        vas_response=vas_response,
+                        vas_response=status_resp,
                         tx_reference=tx_reference,
                         account_number=account_number,
+                    )
+                if outcome == "pending":
+                    return _handle_pending_response()
+                if cashback_used:
+                    CashbackService.refund_cashback(
+                        user=user, cashback_amount=cashback_used
                     )
                 if pts_used:
                     Pay.refund_pts(user=user, naira_amount=pts_used)
@@ -2080,8 +2208,8 @@ class BillPaymentView(generics.GenericAPIView):
                     user=user,
                     guest_id=guest_id,
                     phone_number=phone_number,
-                    amount=purchase_amount if use_points else amount,
-                    vas_response=vas_response,
+                    amount=purchase_amount if (use_points or use_cashback) else amount,
+                    vas_response=status_resp,
                     reason="Bill payment failed.",
                 )
 
@@ -2130,8 +2258,10 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         account_number=account_number,
                     )
-                status_resp = VAS.status(tx_ref=tx_reference, bearer_token=token)
-                if status_resp and VAS.is_success(status_resp):
+                status_resp, outcome = VAS.resolve_outcome(
+                    vas_response, tx_reference, token
+                )
+                if outcome == "success":
                     return self._handle_success(
                         user=user,
                         guest_id=guest_id,
@@ -2142,16 +2272,18 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
-                        vas_response=vas_response,
+                        vas_response=status_resp,
                         tx_reference=tx_reference,
                         account_number=account_number,
                     )
+                if outcome == "pending":
+                    return _handle_pending_response()
                 return self._handle_failure(
                     user=user,
                     guest_id=guest_id,
                     phone_number=phone_number,
                     amount=amount,
-                    vas_response=vas_response,
+                    vas_response=status_resp,
                     reason="Bill payment failed.",
                 )
 
