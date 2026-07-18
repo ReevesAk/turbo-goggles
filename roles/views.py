@@ -35,7 +35,9 @@ from .serializers import (
     StaffForgotPasswordSerializer,
     StaffPasswordResendOTPSerializer,
     StaffResetPasswordSerializer,
-    KnowledgeBaseSerializer,
+    AdminKnowledgeBaseSerializer,
+    KnowledgeBaseListSerializer,
+    KnowledgeBaseDetailSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -85,6 +87,7 @@ from tasks.models import SocialTask, TaskSubmission, BrandTaskSubmission
 from adverts.models import CreateAd
 from gamification.models import StreakChallenge
 from permissions import IsTaskAdminOrSuperAdmin
+from modules.response_mixings import StandardResponseMixin, Pagination
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -3553,11 +3556,176 @@ class AdminDashboardDataView(APIView):
         return Response(encrypt(response_data), status=status.HTTP_200_OK)
 
 
+# ==========================================
+# Public / User-facing Knowledge Base endpoints
+# ==========================================
+
+
+@extend_schema(
+    summary="List knowledge base articles",
+    tags=["Knowledge Base"],
+    description="Returns a paginated list of knowledge base articles. Supports filtering by section, content_type, and category.",
+    parameters=[
+        OpenApiParameter(
+            name="section",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter articles by section (Airtime & Data, Electricity, Cable TV, Banking, Brand Ads, Partners)",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="content_type",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter articles by content type (Website, Social Post, Email)",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="category",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter articles by category",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="Page number for pagination",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="Number of results per page (max 50)",
+            required=False,
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "KnowledgeBaseListResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "KnowledgeBaseListError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class KnowledgeBaseListView(StandardResponseMixin, generics.ListAPIView):
+    """
+    GET /knowledge-base/
+
+    Public knowledge base listing. Returns paginated articles.
+    Supports `section`, `content_type`, and `category` filters.
+    """
+
+    serializer_class = KnowledgeBaseListSerializer
+    permission_classes = [AllowAny]
+    pagination_class = Pagination
+
+    def get_queryset(self):
+        qs = knowledgeBaseModel.objects.all().order_by("-created_at")
+
+        section = self.request.query_params.get("section")
+        if section:
+            qs = qs.filter(section__iexact=section)
+
+        content_type = self.request.query_params.get("content_type")
+        if content_type:
+            qs = qs.filter(content_type__iexact=content_type)
+
+        category = self.request.query_params.get("category")
+        if category:
+            qs = qs.filter(category__iexact=category)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "Public knowledge base list requested. Filters: %s",
+            dict(request.query_params),
+        )
+        return self.paginated_response(
+            self.get_queryset(),
+            KnowledgeBaseListSerializer,
+            request,
+            "Knowledge base articles retrieved successfully.",
+        )
+
+
+@extend_schema(
+    summary="Retrieve a single knowledge base article",
+    tags=["Knowledge Base"],
+    description="Retrieves a single knowledge base article by ID. Returns 404 if the article does not exist.",
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="The ID of the knowledge base article",
+            required=True,
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "KnowledgeBaseDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "KnowledgeBaseDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class KnowledgeBaseDetailView(StandardResponseMixin, generics.RetrieveAPIView):
+    """
+    GET /knowledge-base/<id>/
+
+    Retrieves a single knowledge base article by ID.
+    Returns 404 if the article does not exist.
+    """
+
+    serializer_class = KnowledgeBaseDetailSerializer
+    permission_classes = [AllowAny]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return knowledgeBaseModel.objects.all()
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            article = self.get_queryset().get(id=kwargs["id"])
+        except knowledgeBaseModel.DoesNotExist:
+            logger.info("Knowledge base article not found: id=%s", kwargs["id"])
+            return self.error_response(
+                message="Knowledge base article not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+                should_encrypt=False,
+            )
+
+        data = KnowledgeBaseDetailSerializer(article).data
+        return self.success_response(
+            message="Knowledge base article retrieved successfully.",
+            data=data,
+            should_encrypt=False,
+        )
+
+
 @extend_schema(
     summary="Create a knowledge base entry",
     tags=["Admin"],
     description="Creates a new knowledge base article with optional media uploads. Supports scheduled publishing.",
-    request=KnowledgeBaseSerializer,
+    request=AdminKnowledgeBaseSerializer,
     responses={
         201: inline_serializer(
             "CreateKnowledgeBaseResponse",
@@ -3569,7 +3737,7 @@ class AdminDashboardDataView(APIView):
     },
 )
 class CreateKnowledgeBaseView(generics.GenericAPIView):
-    serializer_class = KnowledgeBaseSerializer
+    serializer_class = AdminKnowledgeBaseSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -3601,10 +3769,10 @@ class CreateKnowledgeBaseView(generics.GenericAPIView):
     summary="List all knowledge base entries",
     tags=["Admin"],
     description="Returns a paginated list of knowledge base articles, filterable by category, section, and content type.",
-    responses={200: KnowledgeBaseSerializer(many=True)},
+    responses={200: AdminKnowledgeBaseSerializer(many=True)},
 )
-class ListKnowledgeBaseView(generics.ListAPIView):
-    serializer_class = KnowledgeBaseSerializer
+class AdminKnowledgeBaseListView(generics.ListAPIView):
+    serializer_class = AdminKnowledgeBaseSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = PaginationStyle
 
@@ -3654,15 +3822,15 @@ class ListKnowledgeBaseView(generics.ListAPIView):
     tags=["Admin"],
     description="GET retrieves, PATCH partially updates, and DELETE removes a specific knowledge base entry by primary key.",
     responses={
-        200: KnowledgeBaseSerializer,
+        200: AdminKnowledgeBaseSerializer,
         404: inline_serializer(
             "KnowledgeBaseDetailNotFound",
             fields={"status": s.CharField(), "message": s.CharField()},
         ),
     },
 )
-class KnowledgeBaseDetailView(generics.GenericAPIView):
-    serializer_class = KnowledgeBaseSerializer
+class AdminKnowledgeBaseDetailView(generics.GenericAPIView):
+    serializer_class = AdminKnowledgeBaseSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, JSONParser]
 

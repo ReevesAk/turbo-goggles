@@ -4,15 +4,19 @@ from uuid import uuid4
 
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
+from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
+from django.urls import reverse
 
+
+from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import AccountType, DeviceId, OTP, User, UserNotification
 from security import decrypt, encrypt
-from .models import ADMIN_TYPES
+from .models import ADMIN_TYPES, knowledgeBaseModel
 
 
 def _make_payload(**kwargs):
@@ -858,3 +862,522 @@ class ReviewTaskSubmissionAdminViewTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
         mock_delay.assert_called_once_with(str(submission.pk), str(self.admin.pk))
+
+
+# ==========================================
+# Knowledge Base Test Cases
+# ==========================================
+
+
+class KnowledgeBaseModelTest(TestCase):
+    """Test cases for the Knowledge Base model."""
+
+    def setUp(self):
+        self.article = knowledgeBaseModel.objects.create(
+            category="Mobile Services",
+            section="Airtime & Data",
+            content_type="Website",
+            authors=["John Doe", "Jane Smith"],
+            caption="How to buy airtime",
+            author_image_urls=["https://example.com/author1.jpg"],
+            content="Detailed content about buying airtime...",
+            ads_and_media_url=["https://example.com/ad1.jpg"],
+            ad_description="Promotional ad description",
+            is_post_scheduled=False,
+        )
+
+    def test_knowledge_base_creation(self):
+        """Test that a knowledge base article is created correctly."""
+        self.assertEqual(self.article.category, "Mobile Services")
+        self.assertEqual(self.article.section, "Airtime & Data")
+        self.assertEqual(self.article.content_type, "Website")
+        self.assertEqual(len(self.article.authors), 2)
+        self.assertEqual(self.article.caption, "How to buy airtime")
+        self.assertIsNotNone(self.article.created_at)
+
+    def test_string_representation(self):
+        """Test the string representation of the model."""
+        expected = f"{self.article.caption}"
+        self.assertEqual(str(self.article), expected)
+
+    def test_optional_fields(self):
+        """Test that optional fields can be null/blank."""
+        article = knowledgeBaseModel.objects.create(
+            category="Test",
+            section="Banking",
+            content_type="Email",
+            caption="Test article",
+        )
+        self.assertEqual([], article.authors)
+        self.assertEqual([], article.author_image_urls)
+        self.assertEqual([], article.ads_and_media_url)
+        self.assertIsNone(article.ad_description)
+        self.assertFalse(article.is_post_scheduled)
+
+
+class KnowledgeBaseListViewTest(TestCase):
+    """Test cases for the public KnowledgeBaseListView."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("roles:knowledge-base-list")
+
+        # Create articles with different sections and content types
+        self.articles = []
+        sections = ["Airtime & Data", "Electricity", "Banking", "Brand Ads", "Partners"]
+        content_types = ["Website", "Social Post", "Email"]
+
+        for i in range(10):
+            article = knowledgeBaseModel.objects.create(
+                category=f"Category {i % 3}",
+                section=sections[i % len(sections)],
+                content_type=content_types[i % len(content_types)],
+                authors=[f"Author {i}"],
+                caption=f"Article {i}",
+                content=f"Content for article {i}",
+                is_post_scheduled=i % 2 == 0,
+            )
+            self.articles.append(article)
+
+    def test_list_all_articles(self):
+        """Test that all articles are returned."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # The response should be unencrypted (should_encrypt=False)
+        data = response.data
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(
+            data["message"], "Knowledge base articles retrieved successfully."
+        )
+        self.assertEqual(data["data"]["count"], 10)
+
+    def test_filter_by_section(self):
+        """Test filtering articles by section."""
+        response = self.client.get(self.url, {"section": "Banking"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        for article in results:
+            self.assertEqual(article["section"], "Banking")
+
+    def test_filter_by_content_type(self):
+        """Test filtering articles by content type."""
+        response = self.client.get(self.url, {"content_type": "Social Post"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        for article in results:
+            self.assertEqual(article["content_type"], "Social Post")
+
+    def test_filter_by_category(self):
+        """Test filtering articles by category."""
+        response = self.client.get(self.url, {"category": "Category 0"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        for article in results:
+            self.assertEqual(article["category"], "Category 0")
+
+    def test_multiple_filters(self):
+        """Test filtering with multiple parameters."""
+        response = self.client.get(
+            self.url, {"section": "Airtime & Data", "content_type": "Website"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        for article in results:
+            self.assertEqual(article["section"], "Airtime & Data")
+            self.assertEqual(article["content_type"], "Website")
+
+    def test_pagination(self):
+        """Test pagination of knowledge base list."""
+        # Test default page size (10)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data["data"]["count"], 10)
+        self.assertEqual(len(data["data"]["results"]), 10)
+
+        # Test custom page size
+        response = self.client.get(self.url, {"page_size": 3})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(len(data["data"]["results"]), 3)
+
+    def test_list_serializer_excludes_content(self):
+        """Test that the list serializer excludes the 'content' field."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        if results:
+            # The content field should not be in the list view
+            self.assertNotIn("content", results[0])
+            self.assertNotIn("ads_and_media_url", results[0])
+            self.assertNotIn("author_image_urls", results[0])
+
+            # These fields should be present
+            self.assertIn("id", results[0])
+            self.assertIn("category", results[0])
+            self.assertIn("section", results[0])
+            self.assertIn("content_type", results[0])
+            self.assertIn("authors", results[0])
+            self.assertIn("caption", results[0])
+
+
+class KnowledgeBaseDetailViewTest(TestCase):
+    """Test cases for the public KnowledgeBaseDetailView."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # Create a test article
+        self.article = knowledgeBaseModel.objects.create(
+            category="Mobile Services",
+            section="Airtime & Data",
+            content_type="Website",
+            authors=["John Doe", "Jane Smith"],
+            caption="How to buy airtime",
+            author_image_urls=["https://example.com/author1.jpg"],
+            content="Detailed content about buying airtime on Picadailys platform...",
+            ads_and_media_url=["https://example.com/ad1.jpg"],
+            ad_description="Special promotion: 10% off on airtime purchases",
+            is_post_scheduled=False,
+        )
+
+        self.url = reverse(
+            "roles:knowledge-base-detail", kwargs={"id": self.article.id}
+        )
+
+    def test_retrieve_article_success(self):
+        """Test retrieving a knowledge base article successfully."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Response should be unencrypted (should_encrypt=False)
+        data = response.data
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(
+            data["message"], "Knowledge base article retrieved successfully."
+        )
+
+        article_data = data["data"]
+        self.assertEqual(article_data["id"], self.article.id)
+        self.assertEqual(article_data["category"], self.article.category)
+        self.assertEqual(article_data["section"], self.article.section)
+        self.assertEqual(article_data["content_type"], self.article.content_type)
+        self.assertEqual(article_data["authors"], self.article.authors)
+        self.assertEqual(article_data["caption"], self.article.caption)
+        self.assertEqual(
+            article_data["author_image_urls"], self.article.author_image_urls
+        )
+        self.assertEqual(article_data["content"], self.article.content)
+        self.assertEqual(
+            article_data["ads_and_media_url"], self.article.ads_and_media_url
+        )
+        self.assertEqual(article_data["ad_description"], self.article.ad_description)
+
+    def test_retrieve_article_not_found(self):
+        """Test retrieving a non-existent knowledge base article."""
+        non_existent_url = reverse("roles:knowledge-base-detail", kwargs={"id": 99999})
+        response = self.client.get(non_existent_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        data = response.data
+        response_status = data["status"]
+        message = data["message"]
+        self.assertEqual(response_status, "fail")
+        self.assertEqual(message, "Knowledge base article not found.")
+
+    def test_detail_serializer_includes_all_fields(self):
+        """Test that the detail serializer includes all fields."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        article_data = data["data"]
+
+        # All fields should be present in detail view
+        expected_fields = [
+            "id",
+            "category",
+            "section",
+            "content_type",
+            "authors",
+            "caption",
+            "author_image_urls",
+            "content",
+            "ads_and_media_url",
+            "ad_description",
+            "created_at",
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, article_data)
+
+
+class KnowledgeBaseEdgeCasesTest(TestCase):
+    """Test cases for edge cases and error scenarios."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.list_url = reverse("roles:knowledge-base-list")
+
+    def test_empty_list(self):
+        """Test listing when there are no articles."""
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data["data"]["count"], 0)
+        self.assertEqual(data["data"]["results"], [])
+
+    def test_filter_with_no_matches(self):
+        """Test filtering with a value that has no matches."""
+        response = self.client.get(self.list_url, {"section": "NonExistent"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data["data"]["count"], 0)
+        self.assertEqual(data["data"]["results"], [])
+
+    def test_pagination_with_large_page_size(self):
+        """Test that pagination max page size is enforced."""
+        # Create more than max page size articles
+        for i in range(60):
+            knowledgeBaseModel.objects.create(
+                category=f"Category {i}",
+                section="Airtime & Data",
+                content_type="Website",
+                caption=f"Article {i}",
+            )
+
+        response = self.client.get(self.list_url, {"page_size": 100})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+        self.assertLessEqual(len(results), 50)  # Max page size
+
+    def test_special_characters_in_search_filter(self):
+        """Test filtering with special characters."""
+        article = knowledgeBaseModel.objects.create(
+            category="Test & Category",
+            section="Banking",
+            content_type="Social Post",
+            caption="Test @#$% article",
+        )
+
+        # Filter by category with special characters
+        response = self.client.get(self.list_url, {"category": "Test & Category"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+        self.assertGreater(len(results), 0)
+        self.assertEqual(results[0]["category"], "Test & Category")
+
+    def test_case_insensitive_filtering(self):
+        """Test that filtering is case-insensitive."""
+        article = knowledgeBaseModel.objects.create(
+            category="Mobile Services",
+            section="Airtime & Data",
+            content_type="Website",
+            caption="Test article",
+        )
+
+        # Try different case variations
+        response = self.client.get(self.list_url, {"section": "airtime & data"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+        self.assertGreater(len(results), 0)
+
+        response = self.client.get(self.list_url, {"content_type": "website"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+        self.assertGreater(len(results), 0)
+
+    def test_article_with_minimal_fields(self):
+        """Test retrieving an article with minimal fields."""
+        minimal_article = knowledgeBaseModel.objects.create(
+            category="Test",
+            section="Banking",
+            content_type="Email",
+            caption="Minimal article",
+        )
+
+        url = reverse("roles:knowledge-base-detail", kwargs={"id": minimal_article.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        article_data = data["data"]
+
+        # Optional fields should be None or empty
+        self.assertEqual([], article_data["authors"])
+        self.assertEqual([], article_data["author_image_urls"])
+        self.assertIsNone(article_data["content"])
+        self.assertEqual([], article_data["ads_and_media_url"])
+        self.assertIsNone(article_data["ad_description"])
+
+    def test_filter_by_scheduled_status(self):
+        """Test filtering by scheduled status."""
+        # Create both scheduled and non-scheduled articles
+        knowledgeBaseModel.objects.create(
+            category="Scheduled",
+            section="Airtime & Data",
+            content_type="Website",
+            caption="Scheduled article",
+            is_post_scheduled=True,
+        )
+        knowledgeBaseModel.objects.create(
+            category="Not Scheduled",
+            section="Electricity",
+            content_type="Social Post",
+            caption="Not scheduled article",
+            is_post_scheduled=False,
+        )
+
+        # Note: The current implementation doesn't filter by is_post_scheduled
+        # This test ensures the endpoint handles articles with both statuses
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        results = data["data"].get("results", [])
+
+        # Both types should be returned
+        scheduled = [a for a in results if a.get("caption") == "Scheduled article"]
+        not_scheduled = [
+            a for a in results if a.get("caption") == "Not scheduled article"
+        ]
+
+        self.assertTrue(len(scheduled) > 0 or len(not_scheduled) > 0)
+
+
+class KnowledgeBasePermissionsTest(TestCase):
+    """Test cases for knowledge base permissions."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.list_url = reverse("roles:knowledge-base-list")
+
+        self.article = knowledgeBaseModel.objects.create(
+            category="Test",
+            section="Banking",
+            content_type="Website",
+            caption="Test article",
+        )
+        self.detail_url = reverse(
+            "knowledge-base-detail", kwargs={"id": self.article.id}
+        )
+
+    def test_public_access_to_list(self):
+        """Test that anyone can access the knowledge base list."""
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_public_access_to_detail(self):
+        """Test that anyone can access the knowledge base detail."""
+        response = self.client.get(self.detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_allow_any_permission_on_list_view(self):
+        """Test that the list view has AllowAny permission."""
+        # This is a structural test - ensure the view is accessible without auth
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_allow_any_permission_on_detail_view(self):
+        """Test that the detail view has AllowAny permission."""
+        response = self.client.get(self.detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class KnowledgeBaseSerializationTest(TestCase):
+    """Test cases for knowledge base serializers."""
+
+    def setUp(self):
+        self.article = knowledgeBaseModel.objects.create(
+            category="Mobile Services",
+            section="Airtime & Data",
+            content_type="Website",
+            authors=["John Doe", "Jane Smith"],
+            caption="How to buy airtime",
+            author_image_urls=["https://example.com/author1.jpg"],
+            content="Detailed content about buying airtime...",
+            ads_and_media_url=["https://example.com/ad1.jpg"],
+            ad_description="Promotional ad description",
+            is_post_scheduled=False,
+        )
+
+    def test_knowledge_base_list_serializer(self):
+        """Test the KnowledgeBaseListSerializer."""
+        from .serializers import KnowledgeBaseListSerializer
+
+        serializer = KnowledgeBaseListSerializer(self.article)
+        data = serializer.data
+
+        # Fields that should be present
+        self.assertEqual(data["id"], self.article.id)
+        self.assertEqual(data["category"], self.article.category)
+        self.assertEqual(data["section"], self.article.section)
+        self.assertEqual(data["content_type"], self.article.content_type)
+        self.assertEqual(data["authors"], self.article.authors)
+        self.assertEqual(data["caption"], self.article.caption)
+        self.assertIsNotNone(data["created_at"])
+
+        # Fields that should NOT be present
+        self.assertNotIn("content", data)
+        self.assertNotIn("author_image_urls", data)
+        self.assertNotIn("ads_and_media_url", data)
+        self.assertNotIn("ad_description", data)
+
+    def test_knowledge_base_detail_serializer(self):
+        """Test the KnowledgeBaseDetailSerializer."""
+        from .serializers import KnowledgeBaseDetailSerializer
+
+        serializer = KnowledgeBaseDetailSerializer(self.article)
+        data = serializer.data
+
+        # All fields should be present
+        expected_fields = [
+            "id",
+            "category",
+            "section",
+            "content_type",
+            "authors",
+            "caption",
+            "author_image_urls",
+            "content",
+            "ads_and_media_url",
+            "ad_description",
+            "created_at",
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, data)
+
+        # Verify values
+        self.assertEqual(data["content"], self.article.content)
+        self.assertEqual(data["author_image_urls"], self.article.author_image_urls)
+        self.assertEqual(data["ads_and_media_url"], self.article.ads_and_media_url)
+        self.assertEqual(data["ad_description"], self.article.ad_description)

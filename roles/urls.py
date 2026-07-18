@@ -37,7 +37,9 @@ from .views import (
     StaffPasswordResendOTP,
     StaffResetPassword,
     CreateKnowledgeBaseView,
-    ListKnowledgeBaseView,
+    AdminKnowledgeBaseDetailView,
+    AdminKnowledgeBaseListView,
+    KnowledgeBaseListView,
     KnowledgeBaseDetailView,
     GamificationDashboardView,
 )
@@ -424,11 +426,22 @@ urlpatterns = [
         TreasuryAccountSearch.as_view(),
         name="treasury_account_search",
     ),
-    # Knowledge base endpoints.
-    path("knowledge-base/create", CreateKnowledgeBaseView.as_view(), name="kb_create"),
-    path("knowledge-base/all", ListKnowledgeBaseView.as_view(), name="kb_list"),
+    # User Knowledge base endpoints.
     path(
-        "knowledge-base/<int:pk>/", KnowledgeBaseDetailView.as_view(), name="kb_detail"
+        "knowledge-base/", KnowledgeBaseListView.as_view(), name="knowledge-base-list"
+    ),
+    path(
+        "knowledge-base/<int:id>/",
+        KnowledgeBaseDetailView.as_view(),
+        name="knowledge-base-detail",
+    ),
+    # Admin Knowledge base endpoints.
+    path("knowledge-base/create", CreateKnowledgeBaseView.as_view(), name="kb_create"),
+    path("knowledge-base/all", AdminKnowledgeBaseListView.as_view(), name="kb_list"),
+    path(
+        "knowledge-base/<int:pk>/",
+        AdminKnowledgeBaseDetailView.as_view(),
+        name="kb_detail",
     ),
     # Member endpoints.
     path("members/all", AllMembersView.as_view(), name="all_members"),
