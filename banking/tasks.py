@@ -209,7 +209,10 @@ def post_vas_update(
             except Exception as e:
                 logging.warning(f"post_vas_update: could not sync balance: {e}")
 
-        if getattr(user, "has_done_survey", False):
+        if getattr(user, "has_done_survey", False) and service_type not in (
+            "AIRTIME",
+            "DATA",
+        ):
             try:
                 points = Points.determine(
                     activity_type="service_purchase", level=user.level
