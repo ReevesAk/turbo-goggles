@@ -158,7 +158,6 @@ class BlogSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.setdefault("featured_image", "")
         validated_data.setdefault("og_image", "")
-        validated_data["status"] = Blog.Status.DRAFT
 
         blog = Blog.objects.create(**validated_data)
         logger.info("Blog created: id=%s title=%r", blog.id, blog.title)
