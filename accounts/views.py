@@ -1026,7 +1026,14 @@ class Login(APIView):
                 start_date__lte=timezone.now(),
                 end_date__gte=timezone.now(),
             ).first()
-            if active_campaign:
+            # user.last_login still holds the *previous* login here — it's only
+            # overwritten below — so this tells us whether they were already
+            # credited today.
+            already_logged_in_today = (
+                user.last_login is not None
+                and user.last_login.date() == timezone.now().date()
+            )
+            if active_campaign and not already_logged_in_today:
                 points = Points.determine(activity_type="daily_login", level=user.level)
                 Points.award(
                     user, amount=points, reason="Daily login", source="daily_login"

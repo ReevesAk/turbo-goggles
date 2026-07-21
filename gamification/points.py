@@ -94,10 +94,10 @@ class Points:
             return 0, Decimal("0.00"), tier  # No redemption allowed
 
         rate = TIER_VALUES.get(tier, Decimal("0.50"))
-        naira_value = Decimal(MIN_POINTS_REQUIRED) * rate
 
-        # Points used is always MIN_POINTS_REQUIRED for eligible tiers
-        points_used = MIN_POINTS_REQUIRED
+        # Once the minimum threshold is met, the entire balance is redeemable.
+        points_used = user_points
+        naira_value = Decimal(points_used) * rate
 
         return points_used, naira_value, tier
 

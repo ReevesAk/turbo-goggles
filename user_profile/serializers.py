@@ -19,7 +19,8 @@ class ProfileImageSerializer(serializers.Serializer):
 class GetUserSerializer(serializers.ModelSerializer):
     """Serailizers for retrieving User profile."""
 
-    balance = serializers.SerializerMethodField()
+    lifetime_points = serializers.IntegerField(source="total_points", read_only=True)
+    points_balance = serializers.SerializerMethodField()
     redeemable = serializers.SerializerMethodField()
     tier = serializers.CharField(read_only=True)
     socials = serializers.SerializerMethodField()
@@ -42,7 +43,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_verified",
-            "total_points",
+            "lifetime_points",
             "level",
             "has_done_survey",
             "is_member",
@@ -50,7 +51,7 @@ class GetUserSerializer(serializers.ModelSerializer):
             "has_bonus",
             "welcome_bonus",
             "has_card",
-            "balance",
+            "points_balance",
             "redeemable",
             "is_bvn_verified",
             "is_nin_verified",
@@ -60,17 +61,13 @@ class GetUserSerializer(serializers.ModelSerializer):
             "socials",
         ]
 
-    def get_balance(self, obj) -> int:
-        points = getattr(obj, "points_set", None)
-        if points and points.exists():
-            return points.first().balance
-        return 0
+    def get_points_balance(self, obj) -> int:
+        points = getattr(obj, "points", None)
+        return points.balance if points else 0
 
     def get_redeemable(self, obj) -> int:
-        points = getattr(obj, "points_set", None)
-        if points and points.exists():
-            return points.first().redeemable
-        return 0
+        points = getattr(obj, "points", None)
+        return points.redeemable if points else 0
 
     def get_socials(self, obj) -> dict | None:
         try:
