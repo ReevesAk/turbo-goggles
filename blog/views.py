@@ -253,7 +253,7 @@ class BlogCreateView(StandardResponseMixin, generics.GenericAPIView):
         ActivityModel.objects.create(
             user=request.user,
             title="Blog Post Created",
-            description=f"{request.user.first_name} {request.user.last_name} created a draft: '{blog.title}'.",
+            description=f"{request.user.first_name} {request.user.last_name} created a blog: '{blog.title}' with the status: {blog.status}.",
         )
         logger.info("Blog created: id=%s by user=%s", blog.id, request.user.id)
 
