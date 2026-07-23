@@ -38,6 +38,7 @@ from .serializers import (
     CreateWalletPinSerializer,
     VerifyPinOTPSerializer,
     ResetPinSerializer,
+    ChangePinSerializer,
     BankNtfnSerializer,
     BankingStatusSerializer,
     RefundSerializers,
@@ -56,6 +57,10 @@ from .helpers import (
     generate_transaction_sms,
     ExportStatement,
     get_asset_id,
+    Pin,
+    summarize_transactions,
+    is_credit_tx,
+    describe_transaction,
 )
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
@@ -1607,6 +1612,107 @@ class ResetPin(generics.CreateAPIView):
 
 
 @extend_schema(
+    summary="Change wallet PIN",
+    tags=["Wallet"],
+    description="Change the authenticated user's wallet PIN. Unlike the forgot-pin/OTP flow, this requires the user's current PIN as proof of identity.",
+    request=ChangePinSerializer,
+    responses={
+        200: inline_serializer(
+            name="ChangePinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="ChangePinErrorResponse",
+            fields={"error": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="ChangePinNotFoundResponse",
+            fields={"error": s.CharField()},
+        ),
+    },
+)
+class ChangePin(generics.CreateAPIView):
+    """
+    ChangePin lets a logged-in user who still remembers their current
+    PIN set a new one, without going through the OTP-based forgot-pin flow.
+    """
+
+    serializer_class = ChangePinSerializer
+    permission_classes = (IsAuthenticated, IsPartnerUserOrMember)
+
+    def create(self, request):
+        authenticated_user = request.user
+        decrypted_data = decrypt(request.data)
+        user_data = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_data.items()
+        }
+        serializer = self.get_serializer(data=user_data)
+
+        try:
+            account = WalletModel.objects.get(
+                user=authenticated_user, walletType="INDIVIDUAL"
+            )
+        except WalletModel.DoesNotExist:
+            return Response(
+                data=encrypt({"error": "Wallet not found for the authenticated user."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if serializer.is_valid(raise_exception=True):
+            old_pin = user_data.get("old_pin")
+            pin = user_data.get("pin")
+            pin2 = user_data.get("pin2")
+
+            verification = Pin.verify(
+                user=authenticated_user, pin=old_pin, hashed_pin=account.pin
+            )
+            if isinstance(verification, Response):
+                return verification
+            if verification is not True:
+                return Response(
+                    data=encrypt({"error": "Incorrect current PIN"}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if pin != pin2:
+                return Response(
+                    data=encrypt({"error": "Pins do not match!"}),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if pin == old_pin:
+                return Response(
+                    data=encrypt(
+                        {"error": "New pin cannot be the same as the current pin"}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            account.pin = make_password(pin)
+            account.save(update_fields=["pin"])
+
+            UserNotification.objects.create(
+                user=authenticated_user,
+                title="Change Wallet Pin",
+                message="Wallet pin was changed successfully.",
+            )
+
+            ActivityModel.objects.create(
+                user=authenticated_user,
+                title="Change Wallet Pin",
+                description=f"{authenticated_user.first_name} {authenticated_user.last_name} changed their wallet pin.",
+            )
+
+            response = {"status": "success", "message": "Pin changed successfully"}
+            return Response(data=encrypt(response), status=status.HTTP_200_OK)
+        else:
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+@extend_schema(
     summary="Refund a failed card transaction",
     tags=["Wallet"],
     description="Initiate a Paystack refund for a failed card payment on behalf of a guest user identified by X-Guest-ID.",
@@ -2107,6 +2213,13 @@ class GetCorporateWalletStatus(generics.GenericAPIView):
             fields={
                 "status": s.CharField(),
                 "message": s.CharField(),
+                "account_name": s.CharField(),
+                "account_number": s.CharField(),
+                "start_date": s.DateField(),
+                "end_date": s.DateField(),
+                "total_credit": s.FloatField(),
+                "total_debit": s.FloatField(),
+                "net_movement": s.FloatField(),
                 "transactions": s.ListField(child=s.DictField()),
             },
         ),
@@ -2150,13 +2263,23 @@ class GenerateAccountStatement(generics.GenericAPIView):
             user=request.user,
             date__date__range=[start_date, end_date],
             status="SUCCESS",
-        ).only("date", "tx_reference", "tx_type", "amount", "description", "status")
+        ).prefetch_related("transfers").only(
+            "date", "tx_reference", "tx_type", "amount", "description", "status"
+        )
 
         if not transactions.exists():
             return Response(
                 data=encrypt({"message": "No transactions found for this period"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        wallet = WalletModel.objects.filter(
+            user=request.user, walletType="INDIVIDUAL"
+        ).first()
+        account_name = wallet.acct_name if wallet else None
+        account_number = wallet.account_number if wallet else None
+
+        total_credit, total_debit, net_movement = summarize_transactions(transactions)
 
         data = []
 
@@ -2166,18 +2289,26 @@ class GenerateAccountStatement(generics.GenericAPIView):
                     "date": tx.date,
                     "reference": tx.tx_reference,
                     "transaction_type": tx.tx_type,
+                    "direction": "Credit" if is_credit_tx(tx.tx_type) else "Debit",
                     "amount": tx.amount,
-                    "description": tx.description,
+                    "description": describe_transaction(tx),
                     "status": tx.status,
                 }
             )
 
+        statement_kwargs = dict(
+            account_name=account_name,
+            account_number=account_number,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
         match format_type:
             case "CSV":
-                file_content = ExportStatement.to_csv(transactions)
+                file_content = ExportStatement.to_csv(transactions, **statement_kwargs)
                 suffix = ".csv"
             case "PDF":
-                file_content = ExportStatement.to_pdf(transactions)
+                file_content = ExportStatement.to_pdf(transactions, **statement_kwargs)
                 suffix = ".pdf"
             case _:
                 return Response(
@@ -2245,6 +2376,13 @@ class GenerateAccountStatement(generics.GenericAPIView):
                 {
                     "status": "success",
                     "message": "User account statement generated succesfully.",
+                    "account_name": account_name,
+                    "account_number": account_number,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "total_credit": total_credit,
+                    "total_debit": total_debit,
+                    "net_movement": net_movement,
                     "transactions": data,
                 }
             ),
