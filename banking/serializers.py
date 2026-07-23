@@ -114,6 +114,17 @@ class ResetPinSerializer(serializers.ModelSerializer):
         fields = ("otp", "pin", "pin2")
 
 
+class ChangePinSerializer(serializers.ModelSerializer):
+    """For a logged-in user changing their wallet pin while they still remember it."""
+
+    old_pin = serializers.CharField(max_length=4, write_only=True, required=True)
+    pin2 = serializers.CharField(max_length=4, write_only=True, required=True)
+
+    class Meta:
+        model = WalletModel
+        fields = ("old_pin", "pin", "pin2")
+
+
 class TxModelSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()
     sender_account_number = serializers.SerializerMethodField()
@@ -130,6 +141,7 @@ class TxModelSerializer(serializers.ModelSerializer):
             "transfer_fee",
             "description",
             "rwd",
+            "status",
             "date",
             "sender_name",
             "sender_account_number",

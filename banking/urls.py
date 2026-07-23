@@ -11,6 +11,7 @@ from .views import (
     PinResendOTP,
     PinVerifyOTP,
     ResetPin,
+    ChangePin,
     NotificationView,
     GetAccountDetails,
     RefundFailedCardTransaction,
@@ -71,6 +72,7 @@ urlpatterns = [
     path("resend-otp", PinResendOTP.as_view(), name="resend_otp"),
     path("verify-otp", PinVerifyOTP.as_view(), name="verify_otp"),
     path("reset-wallet-pin", ResetPin.as_view(), name="reset_wallet_pin"),
+    path("change-wallet-pin", ChangePin.as_view(), name="change_wallet_pin"),
     # Transfers
     path("transfers/get-all-banks", GetAllBanks.as_view(), name="get_all_banks"),
     path("transfers/get-9psb-wallet", Get9PSBWallet.as_view(), name="get_9psb_wallet"),
