@@ -1,3 +1,4 @@
+import re
 import requests
 import csv
 from io import BytesIO, StringIO
@@ -162,15 +163,80 @@ def generate_transaction_sms(
     return "\n".join(lines)
 
 
+# tx_type values that represent money coming into the wallet. Everything else
+# (transfers out, bill/airtime/data purchases, etc.) is treated as a debit.
+CREDIT_TX_TYPES = {
+    "Card Funding",
+    "Funding of wallet",
+    "Points Redemption to Wallet",
+    "Wallet Credit",
+}
+
+
+def is_credit_tx(tx_type):
+    return tx_type in CREDIT_TX_TYPES
+
+
+def describe_transaction(tx):
+    """
+    Builds a statement-friendly description, e.g. "Fund Transfer to Michael Olise"
+    or "Payment received from Onana", using the counterparty name on the linked
+    transfer where available. Falls back to the raw description/tx_type.
+    """
+    transfers = tx.transfers.all()
+    transfer = transfers[0] if transfers else None
+    credit = is_credit_tx(tx.tx_type)
+
+    if transfer:
+        if credit and transfer.sender_name:
+            return f"Payment received from {transfer.sender_name}"
+        if not credit and transfer.beneficiary_name:
+            return f"Fund Transfer to {transfer.beneficiary_name}"
+
+    if tx.tx_type == "Wallet Credit" and tx.description:
+        match = re.search(r"Credit from (.+?) \(", tx.description)
+        if match:
+            return f"Payment received from {match.group(1)}"
+
+    return tx.description or tx.tx_type or "Transaction"
+
+
+def summarize_transactions(transactions):
+    """Returns (total_credit, total_debit, net) for a list/queryset of TxModel rows."""
+    total_credit = 0
+    total_debit = 0
+    for tx in transactions:
+        amount = float(tx.amount or 0)
+        if is_credit_tx(tx.tx_type):
+            total_credit += amount
+        else:
+            total_debit += amount
+    return total_credit, total_debit, total_credit - total_debit
+
+
 class ExportStatement:
 
     @staticmethod
-    def to_csv(transactions):
+    def to_csv(transactions, account_name=None, account_number=None, start_date=None, end_date=None):
+        total_credit, total_debit, net = summarize_transactions(transactions)
+
         buffer = StringIO()
         writer = csv.writer(buffer)
 
+        writer.writerow(["Picadailys Account Statement"])
+        if account_name:
+            writer.writerow(["Account Name", account_name])
+        if account_number:
+            writer.writerow(["Account Number", account_number])
+        if start_date and end_date:
+            writer.writerow(["Period", f"{start_date} to {end_date}"])
+        writer.writerow(["Total Credit", f"{total_credit:,.2f}"])
+        writer.writerow(["Total Debit", f"{total_debit:,.2f}"])
+        writer.writerow(["Net Movement", f"{net:,.2f}"])
+        writer.writerow([])
+
         writer.writerow(
-            ["Date", "Reference", "Type", "Amount", "Description", "Status"]
+            ["Date", "Reference", "Type", "Direction", "Amount", "Description", "Status"]
         )
 
         for tx in transactions:
@@ -179,8 +245,9 @@ class ExportStatement:
                     tx.date.strftime("%Y-%m-%d %H:%M"),
                     tx.tx_reference,
                     tx.tx_type,
+                    "Credit" if is_credit_tx(tx.tx_type) else "Debit",
                     tx.amount,
-                    tx.description,
+                    describe_transaction(tx),
                     tx.status,
                 ]
             )
@@ -188,7 +255,7 @@ class ExportStatement:
         return buffer.getvalue()
 
     @staticmethod
-    def to_pdf(transactions):
+    def to_pdf(transactions, account_name=None, account_number=None, start_date=None, end_date=None):
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -208,17 +275,19 @@ class ExportStatement:
             "title",
             parent=styles["Normal"],
             fontSize=20,
+            leading=24,
             fontName="Helvetica-Bold",
             textColor=brand_green,
-            spaceAfter=2,
+            spaceAfter=6,
         )
         subtitle_style = ParagraphStyle(
             "subtitle",
             parent=styles["Normal"],
             fontSize=9,
+            leading=13,
             fontName="Helvetica",
             textColor=mid_grey,
-            spaceAfter=0,
+            spaceAfter=4,
         )
         ref_style = ParagraphStyle(
             "ref",
@@ -228,13 +297,33 @@ class ExportStatement:
             textColor=mid_grey,
             wordWrap="CJK",
         )
+        info_style = ParagraphStyle(
+            "info",
+            parent=styles["Normal"],
+            fontSize=9,
+            leading=13,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#333333"),
+            spaceAfter=1,
+        )
+
+        total_credit, total_debit, net = summarize_transactions(transactions)
 
         elements = []
 
         # Header
         elements.append(Paragraph("Picadailys", title_style))
         elements.append(Paragraph("Account Statement", subtitle_style))
-        elements.append(Spacer(1, 0.25 * inch))
+        if account_name:
+            elements.append(Paragraph(f"Account Name: {account_name}", info_style))
+        if account_number:
+            elements.append(Paragraph(f"Account Number: {account_number}", info_style))
+        if start_date and end_date:
+            elements.append(Paragraph(f"Period: {start_date} to {end_date}", info_style))
+        elements.append(
+            Paragraph(f"Transactions: {len(transactions)}", info_style)
+        )
+        elements.append(Spacer(1, 0.2 * inch))
 
         # Divider
         divider_data = [[""]]
@@ -251,14 +340,67 @@ class ExportStatement:
         elements.append(divider)
         elements.append(Spacer(1, 0.2 * inch))
 
+        # Summary totals
+        summary_data = [
+            [
+                Paragraph("<b>Total Credit</b>", styles["Normal"]),
+                Paragraph("<b>Total Debit</b>", styles["Normal"]),
+                Paragraph("<b>Net Movement</b>", styles["Normal"]),
+            ],
+            [
+                Paragraph(
+                    f'<font color="#2E7D32">+ NGN {total_credit:,.2f}</font>',
+                    styles["Normal"],
+                ),
+                Paragraph(
+                    f'<font color="#C62828">- NGN {total_debit:,.2f}</font>',
+                    styles["Normal"],
+                ),
+                Paragraph(f"NGN {net:,.2f}", styles["Normal"]),
+            ],
+        ]
+        summary_table = Table(
+            summary_data, colWidths=[doc.width / 3.0] * 3
+        )
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), light_grey),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E0E0E0")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ]
+            )
+        )
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.25 * inch))
+
         # Table header
-        col_widths = [1.0 * inch, 2.6 * inch, 1.5 * inch, 0.9 * inch, 0.8 * inch]
+        col_widths = [
+            0.75 * inch,
+            0.95 * inch,
+            0.9 * inch,
+            0.8 * inch,
+            0.85 * inch,
+            1.55 * inch,
+            0.9 * inch,
+        ]
+        header_style = ParagraphStyle(
+            "tableHeader",
+            parent=styles["Normal"],
+            textColor=colors.white,
+            fontName="Helvetica-Bold",
+            fontSize=9,
+        )
         header = [
-            Paragraph("<b>Date</b>", styles["Normal"]),
-            Paragraph("<b>Reference</b>", styles["Normal"]),
-            Paragraph("<b>Type</b>", styles["Normal"]),
-            Paragraph("<b>Amount (₦)</b>", styles["Normal"]),
-            Paragraph("<b>Status</b>", styles["Normal"]),
+            Paragraph("Date", header_style),
+            Paragraph("Reference", header_style),
+            Paragraph("Type", header_style),
+            Paragraph("Direction", header_style),
+            Paragraph("Amount (NGN)", header_style),
+            Paragraph("Description", header_style),
+            Paragraph("Status", header_style),
         ]
         table_data = [header]
 
@@ -273,11 +415,18 @@ class ExportStatement:
                     else colors.HexColor("#E65100")
                 )
             )
+            credit = is_credit_tx(tx.tx_type)
+            direction_color = "#2E7D32" if credit else "#C62828"
             row = [
                 Paragraph(tx.date.strftime("%d %b %Y"), styles["Normal"]),
                 Paragraph(tx.tx_reference or "—", ref_style),
                 Paragraph(tx.tx_type or "—", styles["Normal"]),
+                Paragraph(
+                    f'<font color="{direction_color}">{"Credit" if credit else "Debit"}</font>',
+                    styles["Normal"],
+                ),
                 Paragraph(f"{float(tx.amount):,.2f}", styles["Normal"]),
+                Paragraph(describe_transaction(tx), ref_style),
                 Paragraph(
                     f'<font color="{status_color.hexval()}">{status_text}</font>',
                     styles["Normal"],
@@ -308,7 +457,8 @@ class ExportStatement:
                     ("LINEBELOW", (0, 0), (-1, 0), 1.5, brand_green),
                     # Alignment
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+                    ("ALIGN", (3, 0), (3, -1), "CENTER"),
+                    ("ALIGN", (4, 0), (4, -1), "RIGHT"),
                 ]
             )
         )
