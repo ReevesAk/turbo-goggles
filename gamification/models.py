@@ -791,7 +791,12 @@ class UserGeneratedContent(models.Model):
         """
         if self.unlimited_slots:
             return False
-        return self.available_slots <= 0
+        # Local import: commons.py imports gamification.models at module
+        # load time, so importing commons here at module level would be
+        # circular.
+        from commons import is_slot_target_reached
+
+        return is_slot_target_reached(self.slot_cap, self.slots_filled)
 
     @property
     def is_expired(self) -> bool:

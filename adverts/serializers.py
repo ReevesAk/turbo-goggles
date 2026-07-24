@@ -8,6 +8,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
 from accounts.models import User
+from commons import is_slot_target_reached
 from .models import CreateAd, AdLocation, AdMedia, StoreVisitQRCode
 
 logger = logging.getLogger(__name__)
@@ -194,7 +195,7 @@ class BrandAdListSerializer(serializers.ModelSerializer):
         now = timezone.now()
         if obj.is_active and obj.expiry_date and obj.expiry_date > now:
             return "active"
-        if obj.slots_filled >= (obj.slot_cap or 0):
+        if is_slot_target_reached(obj.slot_cap, obj.slots_filled):
             return "completed"
         return "inactive"
 
