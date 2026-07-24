@@ -60,6 +60,17 @@ from security import encrypt, decrypt
 logger = logging.getLogger(__name__)
 
 
+def _build_narration(sender_name: str, user_narration) -> str:
+    """
+    Enforces the sender's name as a prefix on every outbound transfer
+    narration, with whatever the user typed appended after it.
+    """
+    user_narration = (user_narration or "").strip()
+    if user_narration:
+        return f"{sender_name}/{user_narration}"
+    return sender_name
+
+
 @extend_schema(
     summary="Get all supported banks and their codes",
     tags=["Banking"],
@@ -498,6 +509,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                 external_tx_id = self._generate_transaction_id(prefix="TRA")
                 sender_name = account.acct_name
                 account_number = account.account_number
+                narration = _build_narration(sender_name, payload.get("description"))
 
                 tx = TxModel.objects.create(
                     user=authenticated_user,
@@ -505,7 +517,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     external_tx_reference=external_tx_id,
                     tx_type="Intra-Bank Transfer",
                     amount=str(total),
-                    description=payload.get("description"),
+                    description=narration,
                     status="PENDING",
                 )
 
@@ -517,7 +529,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                 sender_name=sender_name,
                 sender_account_number=payload.get("sender_account_number"),
                 amount=payload.get("amount"),
-                description=payload.get("description"),
+                description=narration,
                 transactionType="INTRA_BANK",
                 tx_ref=external_tx_id,
                 merchant_fee=int(intra_merchant_fee) if intra_merchant_fee else None,
@@ -538,7 +550,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                         ),
                         sender_full_name=sender_name,
                         amount_str=str(total),
-                        narration=payload.get("description"),
+                        narration=narration,
                         idempotency_key=idempotency_key,
                         alert_type=getattr(
                             authenticated_user, "alert_type_choice", "Both"
@@ -574,7 +586,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     ),
                     sender_full_name=sender_name,
                     amount_str=str(total),
-                    narration=payload.get("description"),
+                    narration=narration,
                     idempotency_key=idempotency_key,
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
                     phone_number=getattr(authenticated_user, "phone_number", None),
@@ -586,7 +598,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     "credit_account": payload.get("beneficiary_account_number"),
                     "debit_account": payload.get("sender_account_number"),
                     "amount": str(amount),
-                    "narration": payload.get("description"),
+                    "narration": narration,
                     "beneficiaryBank": "Picadailys/9PSB",
                     "transactionReference": idempotency_key,
                     "total_debited": str(total),
@@ -910,6 +922,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 external_tx_id = self._generate_transaction_id(prefix="TRA")
                 sender_name = account.acct_name
                 account_number = account.account_number
+                narration = _build_narration(sender_name, payload.get("description"))
 
                 tx = TxModel.objects.create(
                     user=authenticated_user,
@@ -919,7 +932,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     amount=charge["total"],
                     vat=charge["vat"],
                     transfer_fee=charge["transfer_fee"],
-                    description=payload.get("description"),
+                    description=narration,
                     status="PENDING",
                 )
 
@@ -931,7 +944,7 @@ class InterBankTransfer(generics.CreateAPIView):
                 sender_name=sender_name,
                 sender_account_number=payload.get("sender_account_number"),
                 amount=payload.get("amount"),
-                description=payload.get("description"),
+                description=narration,
                 transactionType="INTER_BANK",
                 tx_ref=external_tx_id,
                 merchant_fee=charge["merchant_fee"],
@@ -952,7 +965,7 @@ class InterBankTransfer(generics.CreateAPIView):
                         ),
                         sender_full_name=sender_name,
                         amount_str=charge["principal"],
-                        narration=payload.get("description"),
+                        narration=narration,
                         idempotency_key=idempotency_key,
                         alert_type=getattr(
                             authenticated_user, "alert_type_choice", "Both"
@@ -988,7 +1001,7 @@ class InterBankTransfer(generics.CreateAPIView):
                     ),
                     sender_full_name=sender_name,
                     amount_str=charge["principal"],
-                    narration=payload.get("description"),
+                    narration=narration,
                     idempotency_key=idempotency_key,
                     alert_type=getattr(authenticated_user, "alert_type_choice", "Both"),
                     phone_number=getattr(authenticated_user, "phone_number", None),
@@ -1009,7 +1022,7 @@ class InterBankTransfer(generics.CreateAPIView):
                                 "amount": charge["principal"],
                                 "vat": charge["vat"],
                                 "total": charge["total"],
-                                "narration": payload.get("description"),
+                                "narration": narration,
                                 "beneficiaryBank": payload.get("beneficiary_bank_code"),
                                 "transactionReference": idempotency_key,
                             },

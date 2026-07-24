@@ -37,6 +37,7 @@ import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from accounts.models import User, AccountType, UserNotification
+from commons import is_slot_target_reached
 from permissions import (
     IsNotDisabled,
     IsAdAdminOrSuperAdmin,
@@ -770,7 +771,7 @@ class BrandTaskDetailAdminView(generics.GenericAPIView):
         now = timezone.now()
         days_left = max(0, (ad.expiry_date - now).days) if ad.expiry_date else None
         duration_days = int(ad.campaign_duration) if ad.campaign_duration else None
-        is_completed = ad.slot_cap and ad.slots_filled >= ad.slot_cap
+        is_completed = is_slot_target_reached(ad.slot_cap, ad.slots_filled)
 
         return Response(
             data=encrypt(

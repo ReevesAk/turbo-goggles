@@ -6,6 +6,27 @@ import requests
 from decimal import Decimal
 
 
+def is_slot_target_reached(slot_cap, slots_filled) -> bool:
+    """
+    Campaigns are allowed to close early: once slots_filled falls in the top
+    15% of slot_cap (85%-100%), a fresh random point within that band is
+    rolled and compared against slots_filled. slots_filled never exceeds
+    slot_cap regardless. The random point is not persisted, so this can
+    return a different answer on repeated calls while slots_filled sits in
+    the band.
+    """
+    if not slot_cap:
+        return False
+    slots_filled = slots_filled or 0
+    if slots_filled >= slot_cap:
+        return True
+    floor = math.ceil(slot_cap * 0.85)
+    if slots_filled < floor:
+        return False
+    target = random.randint(floor, slot_cap)
+    return slots_filled >= target
+
+
 def first_validation_error(detail) -> str:
     """Recursively extract the first human-readable string from a DRF error detail structure."""
     if isinstance(detail, list):
