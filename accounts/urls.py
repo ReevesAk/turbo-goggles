@@ -12,6 +12,7 @@ from .views import (
     PasswordResendOTP,
     ResetPassword,
     Logout,
+    PlatformUserCountsView,
 )
 
 app_name = "accounts"
@@ -39,4 +40,6 @@ urlpatterns = [
         "password-resend-otp", PasswordResendOTP.as_view(), name="password_resend_otp"
     ),
     path("password-reset", ResetPassword.as_view(), name="password_reset"),
+    # ===== Public stats =====
+    path("user-counts", PlatformUserCountsView.as_view(), name="user_counts"),
 ]
