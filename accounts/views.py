@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import logging
 
+from django.core.cache import cache
 from django.template.loader import render_to_string
 
 # Third party imports.
@@ -1329,3 +1330,55 @@ class Logout(APIView):
                     {"status": "fail", "message": "Logout failed. Please try again."}
                 ),
             )
+
+
+@extend_schema(
+    summary="Platform-wide user counts",
+    tags=["Auth"],
+    description=(
+        "Public, unauthenticated endpoint returning platform-wide user counts "
+        "for display in the mobile app. Cached for 6 hours, so figures may lag "
+        "reality by up to that long."
+    ),
+    responses={
+        200: inline_serializer(
+            name="UserCountsResponse",
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    name="UserCountsData",
+                    fields={
+                        "total": s.IntegerField(),
+                        "members": s.IntegerField(),
+                        "brands": s.IntegerField(),
+                        "partners": s.IntegerField(),
+                    },
+                ),
+            },
+        ),
+    },
+)
+class PlatformUserCountsView(generics.GenericAPIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        cache_key = "platform_user_counts"
+        data = cache.get(cache_key)
+
+        if data is None:
+            data = {
+                "total": User.objects.count(),
+                "members": User.objects.filter(is_member=True).count(),
+                "brands": User.objects.filter(account_types__user_type="BrandAd")
+                .distinct()
+                .count(),
+                "partners": User.objects.filter(account_types__user_type="Partner")
+                .distinct()
+                .count(),
+            }
+            cache.set(cache_key, data, timeout=60 * 60 * 6)
+
+        return Response(
+            data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
