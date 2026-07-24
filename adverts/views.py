@@ -2,7 +2,6 @@ import logging
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db import transaction
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 
@@ -35,12 +34,11 @@ from .serializers import (
 # from mail import send_email
 from accounts.models import User, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
-from .models import BrandAdCreditWallet, CreateAd
-from .credit import reconcile_credit
+from .models import CreateAd
 from banking.helpers import verify_wallet_auth
 
 from security import encrypt, decrypt
-from commons import first_validation_error
+from commons import first_validation_error, is_slot_target_reached
 
 # Shared mixins with UGC
 from modules.billing_mixings import BrandChargeMixin
@@ -597,12 +595,22 @@ class GetBrandAdDetails(generics.RetrieveAPIView):
         active_qs = user_ads.filter(is_active=True, expiry_date__gt=now)
         active_ads = active_qs.count()
 
-        completed_qs = user_ads.filter(
-            Q(is_active=False)
-            | Q(expiry_date__lte=now)
-            | Q(slots_filled__gte=F("slot_cap"))
-        ).distinct()
-        completed_ads = completed_qs.count()
+        inactive_or_expired = Q(is_active=False) | Q(expiry_date__lte=now)
+        completed_pks = set(
+            user_ads.filter(inactive_or_expired).values_list("pk", flat=True)
+        )
+        # slot_cap completion is a randomized threshold in the 85%-100% band
+        # (see commons.is_slot_target_reached), not a plain DB comparison,
+        # so ads still active/unexpired are checked in Python.
+        completed_pks.update(
+            ad.pk
+            for ad in user_ads.exclude(inactive_or_expired).only(
+                "pk", "slot_cap", "slots_filled"
+            )
+            if is_slot_target_reached(ad.slot_cap, ad.slots_filled)
+        )
+        completed_qs = user_ads.filter(pk__in=completed_pks)
+        completed_ads = len(completed_pks)
         completed_reach = (
             completed_qs.aggregate(total=Sum("slots_filled"))["total"] or 0
         )
@@ -921,88 +929,6 @@ class SingleAdDetailView(generics.RetrieveAPIView):
 #                 return Response(data=encrypted_success, status=status.HTTP_200_OK)
 
 
-_COST_PREVIEW_RESPONSE = inline_serializer(
-    name="CostPreviewResponse",
-    fields={
-        "status": s.CharField(),
-        "data": inline_serializer(
-            name="CostPreviewData",
-            fields={
-                "ledger_balance": s.CharField(
-                    help_text="Available credit from unused slots on past expired ads"
-                ),
-                "credit_to_apply": s.CharField(
-                    help_text="Credit the user can apply against their next ad"
-                ),
-            },
-        ),
-    },
-)
-
-
-@extend_schema(
-    summary="Get available ad credit",
-    tags=["Brand Ads"],
-    description=(
-        "Call this **before** creating an ad. Returns the brand's available ledger credit "
-        "(from unused slots on expired ads). Frontend subtracts this from the ad total to "
-        "get the actual charge."
-    ),
-    responses={200: _COST_PREVIEW_RESPONSE},
-    examples=[
-        OpenApiExample(
-            "Credit available",
-            response_only=True,
-            status_codes=["200"],
-            value={
-                "status": "success",
-                "data": {"ledger_balance": "3000", "credit_to_apply": "3000"},
-            },
-        ),
-        OpenApiExample(
-            "No credit available",
-            response_only=True,
-            status_codes=["200"],
-            value={
-                "status": "success",
-                "data": {"ledger_balance": "0", "credit_to_apply": "0"},
-            },
-        ),
-    ],
-)
-class AdCostPreviewView(generics.GenericAPIView):
-    """
-    GET /v1/brands/ads/cost-preview/
-
-    Returns the brand's available ledger credit after reconciling expired ads.
-    Frontend uses credit_to_apply to calculate the actual charge on their side.
-    """
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-
-        with transaction.atomic():
-            reconcile_credit(user)
-
-        wallet, _ = BrandAdCreditWallet.objects.get_or_create(user=user)
-        ledger_balance = wallet.balance
-
-        return Response(
-            data=encrypt(
-                {
-                    "status": "success",
-                    "data": {
-                        "ledger_balance": str(ledger_balance),
-                        "credit_to_apply": str(ledger_balance),
-                    },
-                }
-            ),
-            status=status.HTTP_200_OK,
-        )
-
-
 @extend_schema(
     summary="Brand ad analytics (ongoing & finished)",
     tags=["Brand Ads"],
@@ -1179,7 +1105,7 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
             )
 
         now = timezone.now()
-        slots_exhausted = bool(ad.slot_cap and ad.slots_filled >= ad.slot_cap)
+        slots_exhausted = is_slot_target_reached(ad.slot_cap, ad.slots_filled)
         expired = bool(ad.expiry_date and ad.expiry_date <= now)
         is_finished = slots_exhausted or expired or not ad.is_active
 

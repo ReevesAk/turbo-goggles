@@ -14,6 +14,7 @@ from .models import (
 )
 from adverts.models import CreateAd, StoreVisitQRCode
 from gamification.models import StreakChallenge, UserStreak
+from commons import is_slot_target_reached
 
 
 class SocialTaskSerializer(serializers.ModelSerializer):
@@ -533,7 +534,7 @@ class ScanStoreVisitQRSerializer(serializers.Serializer):
         if ad.expiry_date and ad.expiry_date < timezone.now():
             raise serializers.ValidationError("This campaign has expired.")
 
-        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+        if is_slot_target_reached(ad.slot_cap, ad.slots_filled):
             raise serializers.ValidationError("This campaign's slots are full.")
 
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():
@@ -595,7 +596,7 @@ class StoreVisitArriveSerializer(serializers.Serializer):
         if ad.expiry_date and ad.expiry_date < timezone.now():
             raise serializers.ValidationError("This campaign has expired.")
 
-        if ad.slot_cap and ad.slots_filled >= ad.slot_cap:
+        if is_slot_target_reached(ad.slot_cap, ad.slots_filled):
             raise serializers.ValidationError("This campaign's slots are full.")
 
         if BrandTaskSubmission.objects.filter(ad=ad, user=user).exclude(status="Rejected").exists():

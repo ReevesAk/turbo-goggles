@@ -13,7 +13,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from django.db.models import Q, F
 from adverts.models import CreateAd, StoreVisitQRCode
-from commons import Messaging, first_validation_error
+from commons import Messaging, first_validation_error, is_slot_target_reached
 from gamification.models import StreakChallenge, UserStreak
 from gamification.points import Points
 from security import encrypt, decrypt
@@ -311,7 +311,10 @@ class BrandTaskFeedView(generics.ListAPIView):
                 | Q(countries__contains=[user_country])
             )
 
-        # Filter out ads that have hit their slot cap
+        # Filter out ads that have hit their true slot cap ceiling. Ads that
+        # have crossed into the randomized 85%-100% completion band but not
+        # yet hit this hard ceiling are excluded later, per-item, in list()
+        # via is_slot_target_reached (can't be expressed as a DB filter).
         qs = qs.filter(slots_filled__lt=F("slot_cap"))
 
         # Prevent duplicate rows from relational joins
@@ -369,7 +372,11 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         # Separate store visits from other task types
         store_visits = queryset.filter(task_type="store_visit")
-        other_brand_tasks = queryset.exclude(task_type="store_visit")
+        other_brand_tasks = [
+            t
+            for t in queryset.exclude(task_type="store_visit")
+            if not is_slot_target_reached(t.slot_cap, t.slots_filled)
+        ]
 
         # Process store visits with location filtering
         store_data = []
@@ -383,6 +390,13 @@ class BrandTaskFeedView(generics.ListAPIView):
                 radius_km=radius_km,
                 max_results=limit_store_visits,
             )
+            matched_store_tasks = [
+                item
+                for item in matched_store_tasks
+                if not is_slot_target_reached(
+                    item["task"].slot_cap, item["task"].slots_filled
+                )
+            ]
 
             # Serialize matched store tasks
             for item in matched_store_tasks:
@@ -400,6 +414,11 @@ class BrandTaskFeedView(generics.ListAPIView):
             )
         else:
             # Show store visits but without distance info when user location is unavailable
+            store_visits = [
+                t
+                for t in store_visits
+                if not is_slot_target_reached(t.slot_cap, t.slots_filled)
+            ]
             store_data = BrandTaskFeedSerializer(
                 store_visits, many=True, context={"request": request}
             ).data

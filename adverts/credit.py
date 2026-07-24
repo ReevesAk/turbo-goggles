@@ -1,14 +1,23 @@
 """
-Shared brand credit ledger. A single BrandAdCreditWallet per brand accrues
-credit from any expired, unsettled campaign with unfilled slots — currently
-CreateAd (paid ads) and UserGeneratedContent (paid UGC tasks) — and that
-credit can be applied against the cost of creating a new item of either type.
+Handles what happens when a billable campaign (CreateAd paid ads, or
+UserGeneratedContent paid UGC tasks) expires without having reached its
+slot_cap completion target (see commons.is_slot_target_reached):
+  - target reached  -> settle normally, marked credit_settled, no credit.
+  - target not reached -> not closed out; expiry_date is pushed forward by
+    a month instead, giving it another window to reach the target. This
+    repeats indefinitely until the target is reached.
 
-reconcile_credit() and reserve_credit()/finalize_credit()/release_credit()
-are written against a small duck-typed contract rather than a single model.
+There is no more wallet-credit generation from unfilled slots — brands are
+no longer refunded for expired campaigns, they're given more time instead.
+
+reserve_credit()/finalize_credit()/release_credit() remain as the generic
+"apply a brand's existing BrandAdCreditWallet balance toward a new charge"
+mechanism (used by billing_mixings.py for every wallet/card charge), for
+any wallet balance already on the books — but expiry no longer feeds it.
+
 Both CreateAd and UserGeneratedContent must implement:
     - .user, .slot_cap, .slots_filled, .amount
-    - .credit_settled, .ads_credit, .expiry_date
+    - .credit_settled, .expiry_date
     - .campaign_name or .task_name
 
 Adding a third billable model later means: add it to _SWEEPABLE_MODELS,
@@ -16,7 +25,7 @@ add a branch in _source_kwargs(), and add a source_<x> FK on
 BrandAdCreditLedger.
 
 Call order for charging a new item (see billing/mixins.py):
-    1. reconcile_credit(user)                              — sweep expired credit
+    1. reconcile_credit(user)                              — sweep expired items
     2. credit_reserved, net_charge = reserve_credit(user, full_charge)
     3. ... perform the real, external debit for net_charge ...
     4a. on success: item = save_fn(); finalize_credit(user, item, credit_reserved)
@@ -24,18 +33,22 @@ Call order for charging a new item (see billing/mixins.py):
         release_credit(user, credit_reserved)
 """
 
+from datetime import timedelta
 from decimal import Decimal
 from typing import Tuple
 
 from django.db.models import F
 from django.utils import timezone
 
+from commons import is_slot_target_reached
 from .models import BrandAdCreditLedger, BrandAdCreditWallet, CreateAd
 from gamification.models import UserGeneratedContent
 
-# Every model type whose expired, unfilled-slot campaigns should be swept
-# into wallet credit. Order is arbitrary — each is processed independently.
+# Every model type whose expired campaigns should be swept (settled or
+# auto-extended). Order is arbitrary — each is processed independently.
 _SWEEPABLE_MODELS = (CreateAd, UserGeneratedContent)
+
+_AUTO_EXTEND = timedelta(days=30)
 
 
 def _label(item) -> str:
@@ -66,67 +79,42 @@ def _pending_queryset(model, user, now):
     ).exclude(slot_cap=0)
 
 
-def _sweep_model(model, user, wallet, now) -> bool:
+def _sweep_model(model, user, now) -> None:
     """
-    Sweep one model's expired, unsettled, unfilled-slot rows into wallet
-    credit. Mutates `wallet.balance` in place; the caller saves the wallet
-    once after all models have been swept.
+    Settle or auto-extend one model's expired, unsettled rows for this user.
 
-    Returns True if any row was processed (regardless of whether it carried
-    positive credit), so the caller knows whether a wallet save is needed.
+    A row that already reached its slot_cap completion target is closed out
+    (credit_settled=True, no credit generated). A row that hasn't gets
+    another window: expiry_date moves forward by _AUTO_EXTEND, and it stays
+    unsettled so it's picked up again next time it expires.
     """
     expired_unsettled = model.objects.select_for_update().filter(
         pk__in=_pending_queryset(model, user, now).values("pk")
     )
 
-    swept_any = False
     for item in expired_unsettled:
-        swept_any = True
-        credit = item.unused_credit
-        item.credit_settled = True
-        item.ads_credit = credit
-        item.save(update_fields=["credit_settled", "ads_credit"])
-
-        if credit <= 0:
-            continue
-
-        wallet.balance += credit
-
-        unused_slots = (item.slot_cap or 0) - (item.slots_filled or 0)
-        BrandAdCreditLedger.objects.create(
-            user=user,
-            transaction_type=BrandAdCreditLedger.CREDIT,
-            amount=credit,
-            balance_after=wallet.balance,
-            reason=(
-                f"Unused slots refund: {unused_slots}/{item.slot_cap} "
-                f"slots unfilled on '{_label(item)}'"
-            ),
-            **_source_kwargs(item),
-        )
-
-    return swept_any
+        if is_slot_target_reached(item.slot_cap, item.slots_filled):
+            item.credit_settled = True
+            item.save(update_fields=["credit_settled"])
+        else:
+            item.expiry_date = item.expiry_date + _AUTO_EXTEND
+            item.save(update_fields=["expiry_date"])
 
 
-def reconcile_credit(user) -> Decimal:
+def reconcile_credit(user) -> None:
     """
-    Called inside an atomic block at the start of ad/UGC creation views
-    (and read-only cost-preview views).
+    Called inside an atomic block at the start of ad/UGC creation views.
 
     Fast path: if nothing is actually pending sweep, does a plain unlocked
-    existence check and returns without taking the wallet lock or issuing
-    a write. This is the path hit by nearly every call, since most requests
+    existence check and returns without taking any row locks or issuing a
+    write. This is the path hit by nearly every call, since most requests
     aren't the one that happens to coincide with an item expiring — only
-    brands with something genuinely to sweep pay for the lock + UPDATE.
-
-    Does NOT create a wallet row on this fast path, so a read-only view
-    (e.g. AdCostPreviewView) never provisions a wallet as a side effect of
-    being viewed.
+    brands with something genuinely expired pay for the lock + UPDATE.
 
     The unlocked existence check can race with another concurrent sweep,
     but that's harmless: _sweep_model's actual locked queryset re-filters
     on credit_settled=False, so a row already swept by another request
-    simply won't appear and swept_any stays False for it.
+    simply won't appear.
     """
     now = timezone.now()
 
@@ -134,20 +122,10 @@ def reconcile_credit(user) -> Decimal:
         _pending_queryset(model, user, now).exists() for model in _SWEEPABLE_MODELS
     )
     if not has_pending:
-        wallet = BrandAdCreditWallet.objects.filter(user=user).first()
-        return wallet.balance if wallet else Decimal("0.00")
+        return
 
-    wallet, _ = BrandAdCreditWallet.objects.select_for_update().get_or_create(user=user)
-
-    swept_any = False
     for model in _SWEEPABLE_MODELS:
-        if _sweep_model(model, user, wallet, now):
-            swept_any = True
-
-    if swept_any:
-        wallet.save(update_fields=["balance"])
-
-    return wallet.balance
+        _sweep_model(model, user, now)
 
 
 def reserve_credit(user, charge: Decimal) -> Tuple[Decimal, Decimal]:
