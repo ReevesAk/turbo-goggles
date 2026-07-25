@@ -115,6 +115,12 @@ def post_transfer_update(
             sender_account_number=account_number,
             amount=amount_str,
             available_balance=new_balance,
+            narration=narration,
+            description=narration,
+            tx_reference=idempotency_key,
+            transaction_type=(
+                "INTRA_BANK" if tx.tx_type == "Intra-Bank Transfer" else "OUTBOUND"
+            ),
         )
 
         message = f"Dear {sender_full_name},\nYour transfer of ₦{amount_str} has been confirmed. Your available balance is ₦{new_balance}."
