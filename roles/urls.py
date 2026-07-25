@@ -32,6 +32,24 @@ from .views import (
     PinVerifyOTP,
     ResetPin,
     AdminDashboardDataView,
+    IncomeActivityDashboardView,
+    CashInVsCashOutChartView,
+    ServicesBreakdownView,
+    CustomerInsightView,
+    AlertAndRiskView,
+    AllTransactionsView,
+    GamificationPicapointsOverviewView,
+    TaskInsightView,
+    DemographicBreakdownView,
+    PendingSettlementListView,
+    TransactionDetailView,
+    ReconciliationDifferencesListView,
+    ReconciliationDifferenceDetailView,
+    DuplicateTransactionsListView,
+    DuplicateTransactionDetailView,
+    FraudAlertsListView,
+    MessageThirdPartyView,
+    CancelPendingTransactionView,
     StaffEmailVerifyOTP,
     StaffForgotPassword,
     StaffPasswordResendOTP,
@@ -81,6 +99,8 @@ from .partners import (
     RestrictPartnerAccountView,
     AdminViewPartnerServiceList,
     PartnerSearch,
+    PendingCommissionServiceList,
+    SetPartnerServiceCommission,
 )
 from .brand import (
     RestrictBrandAdAccountView,
@@ -294,6 +314,16 @@ urlpatterns = [
         name="view_partners_services",
     ),
     path("partners/<str:search_term>/", PartnerSearch.as_view(), name="partner_search"),
+    path(
+        "partners/pending-commission-services",
+        PendingCommissionServiceList.as_view(),
+        name="pending_commission_services",
+    ),
+    path(
+        "partners/service/<int:service_id>/set-commission",
+        SetPartnerServiceCommission.as_view(),
+        name="set_service_commission",
+    ),
     # BrandAd endpoints.
     path(
         "brands/<int:brand_id>/restrict-brandAd",
@@ -409,6 +439,97 @@ urlpatterns = [
         "gamification-dashboard",
         GamificationDashboardView.as_view(),
         name="gamification_dashboard",
+    ),
+    path(
+        "income-activity-dashboard",
+        IncomeActivityDashboardView.as_view(),
+        name="income_activity_dashboard",
+    ),
+    path(
+        "cash-in-vs-cash-out-chart",
+        CashInVsCashOutChartView.as_view(),
+        name="cash_in_vs_cash_out_chart",
+    ),
+    path(
+        "services-breakdown",
+        ServicesBreakdownView.as_view(),
+        name="services_breakdown",
+    ),
+    path(
+        "customer-insight",
+        CustomerInsightView.as_view(),
+        name="customer_insight",
+    ),
+    path(
+        "alert-and-risk",
+        AlertAndRiskView.as_view(),
+        name="alert_and_risk",
+    ),
+    path(
+        "all-transactions",
+        AllTransactionsView.as_view(),
+        name="all_transactions",
+    ),
+    path(
+        "picapoints-overview",
+        GamificationPicapointsOverviewView.as_view(),
+        name="picapoints_overview",
+    ),
+    path(
+        "task-insight",
+        TaskInsightView.as_view(),
+        name="task_insight",
+    ),
+    path(
+        "demographic-breakdown",
+        DemographicBreakdownView.as_view(),
+        name="demographic_breakdown",
+    ),
+    # Alert and Risk drill-downs.
+    path(
+        "alert-and-risk/pending-settlement",
+        PendingSettlementListView.as_view(),
+        name="pending_settlement_list",
+    ),
+    path(
+        "alert-and-risk/pending-settlement/<str:transaction_id>",
+        TransactionDetailView.as_view(),
+        name="transaction_detail",
+    ),
+    path(
+        "alert-and-risk/reconciliation-differences",
+        ReconciliationDifferencesListView.as_view(),
+        name="reconciliation_differences_list",
+    ),
+    path(
+        "alert-and-risk/reconciliation-differences/<str:transaction_id>",
+        ReconciliationDifferenceDetailView.as_view(),
+        name="reconciliation_difference_detail",
+    ),
+    path(
+        "alert-and-risk/duplicate-transactions",
+        DuplicateTransactionsListView.as_view(),
+        name="duplicate_transactions_list",
+    ),
+    path(
+        "alert-and-risk/duplicate-transactions/<str:transaction_id>",
+        DuplicateTransactionDetailView.as_view(),
+        name="duplicate_transaction_detail",
+    ),
+    path(
+        "alert-and-risk/duplicate-transactions/<str:transaction_id>/cancel-pending",
+        CancelPendingTransactionView.as_view(),
+        name="cancel_pending_transaction",
+    ),
+    path(
+        "alert-and-risk/fraud-alerts",
+        FraudAlertsListView.as_view(),
+        name="fraud_alerts_list",
+    ),
+    path(
+        "alert-and-risk/message-third-party",
+        MessageThirdPartyView.as_view(),
+        name="message_third_party",
     ),
     # Treasury account admin endpoints.
     path(

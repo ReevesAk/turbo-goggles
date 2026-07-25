@@ -38,6 +38,7 @@ from .serializers import (
     AdminKnowledgeBaseSerializer,
     KnowledgeBaseListSerializer,
     KnowledgeBaseDetailSerializer,
+    TransactionResolutionSerializer,
 )
 from user_profile.serializers import GetUserSerializer
 from partners.serializers import PartnerProfileSerializer
@@ -52,6 +53,7 @@ from accounts.models import DeviceId, AccountType
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.serializers import VerifyOTPSerializer
 from support.models import Ticket
+from support.utils import generate_ticket_number
 
 # Third party imports.
 from rest_framework import generics, status, exceptions
@@ -70,8 +72,32 @@ from .models import ADMIN_TYPES
 
 from cloudinary import uploader as cloud
 
-from accounts.models import User, UserNotification
+from accounts.models import User, UserNotification, TxModel
 from accounts.otp import otp_manager
+from .analytics import (
+    resolve_period,
+    compute_trend,
+    GRANULARITY_CHOICES,
+    get_cashflow_snapshot,
+    get_daily_cashflow_series,
+    get_services_snapshot,
+    get_customer_insight_snapshot,
+    ACTIVE_USER_THRESHOLD_DAYS,
+    get_pending_settlement_count,
+    get_duplicate_transaction_count,
+    get_all_transactions,
+    get_picapoints_overview_snapshot,
+    get_task_insight_snapshot,
+    get_demographic_breakdown_snapshot,
+    get_reconciliation_differences_count,
+    get_pending_settlement_list,
+    get_transaction_detail_row,
+    get_reconciliation_differences_list,
+    get_reconciliation_difference_detail,
+    get_duplicate_transactions_list,
+    get_duplicate_transaction_detail,
+    get_fraud_alerts_list,
+)
 from security import encrypt, decrypt
 from permissions import (
     IsSuperAdmin,
@@ -4070,5 +4096,1675 @@ class GamificationDashboardView(APIView):
                     },
                 }
             ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Income Activity dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns cash inflow/outflow, card deposits, VAS bill payments, and "
+        "self-service + partner-service revenue for a selected period, each "
+        "with a period-over-period trend badge (value/change_pct/direction, "
+        "or label='New' when there's no prior-period baseline to compare "
+        "against). Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
+        "default weekly) or an explicit `start_date`/`end_date` range - the "
+        "prior period compared against is always the immediately preceding "
+        "period of equal length, not a fixed calendar unit."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "IncomeActivityDashboardResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "IncomeActivityDashboardError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class IncomeActivityDashboardView(APIView):
+    """
+    Separate from AdminDashboardDataView by design - this endpoint is scoped
+    to the Income Activity panel only (one date range in, one set of KPI
+    tiles out), so the frontend can refresh it independently of the rest of
+    the dashboard.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_snapshot = get_cashflow_snapshot(current_start, current_end)
+        prior_snapshot = get_cashflow_snapshot(prior_start, prior_end)
+
+        data = {
+            key: compute_trend(current_snapshot[key], prior_snapshot[key])
+            for key in current_snapshot
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+MAX_CHART_RANGE_DAYS = 400
+
+
+@extend_schema(
+    summary="Cash In vs Cash Out chart data",
+    tags=["Admin"],
+    description=(
+        "Returns cash_in/cash_out bucketed by calendar day for the selected "
+        "period. Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
+        "default weekly) or an explicit `start_date`/`end_date` range (capped "
+        f"at {MAX_CHART_RANGE_DAYS} days). cash_in is inbound transfers + card "
+        "deposits; cash_out is outbound transfers + VAS bill payments + "
+        "self-service/partner spend."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "CashInVsCashOutChartResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "CashInVsCashOutChartError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class CashInVsCashOutChartView(APIView):
+    """Separate from IncomeActivityDashboardView - this is chart data (a
+    series of points), not KPI tiles, so the two can be fetched/cached
+    independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                if (end_date - start_date).days > MAX_CHART_RANGE_DAYS:
+                    return Response(
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "message": f"Range too wide - max {MAX_CHART_RANGE_DAYS} days.",
+                            }
+                        ),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        series = get_daily_cashflow_series(current_start, current_end)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        "series": series,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Services breakdown dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns revenue for each Services-donut category - VAS, Self "
+        "Services, Brand Ads, Partners - each with a trend badge and its "
+        "% share of the combined total. Self Services and Partners are a "
+        "mutually exclusive split of self-service TxModel revenue by "
+        "whether the booking is linked to a specific PartnerServices "
+        "listing. vas_cashback is included since VAS is currently the only "
+        "category with a real cashback mechanism (CashbackRule) - Self "
+        "Services/Brand Ads/Partners have none yet, so no cashback field is "
+        "returned for them rather than reporting a misleading 0. Pass "
+        "`granularity` (daily/weekly/monthly/quarterly/yearly, default "
+        "weekly) or an explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "ServicesBreakdownResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "ServicesBreakdownError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ServicesBreakdownView(APIView):
+    """Separate from IncomeActivityDashboardView/CashInVsCashOutChartView -
+    this is the Services panel (donut + per-category revenue), fetched and
+    refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_snapshot = get_services_snapshot(current_start, current_end)
+        prior_snapshot = get_services_snapshot(prior_start, prior_end)
+
+        category_keys = ["vas", "self_services", "brand_ads", "partners"]
+        total = sum(current_snapshot[key] for key in category_keys)
+
+        categories = {}
+        for key in category_keys:
+            trend = compute_trend(current_snapshot[key], prior_snapshot[key])
+            trend["percentage"] = (
+                round(current_snapshot[key] / total * 100, 2) if total else 0
+            )
+            categories[key] = trend
+
+        categories["vas_cashback"] = compute_trend(
+            current_snapshot["vas_cashback"], prior_snapshot["vas_cashback"]
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **categories,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Customer Insight dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns New/Active/Dormant/Deleted user counts. New and Deleted "
+        "are period-scoped (date_joined/deleted_at within the selected "
+        "range) with a trend badge. Active/Dormant are current-moment "
+        f"snapshots (logged in within the last {ACTIVE_USER_THRESHOLD_DAYS} "
+        "days = Active, otherwise Dormant) and have no trend badge - only "
+        "the single most recent login is stored, so a past period's active "
+        "count can't be reconstructed. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "CustomerInsightResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "CustomerInsightError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class CustomerInsightView(APIView):
+    """Separate from the other dashboard panels - Customer Insight is
+    fetched/refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_snapshot = get_customer_insight_snapshot(current_start, current_end)
+        prior_snapshot = get_customer_insight_snapshot(prior_start, prior_end)
+
+        data = {
+            "new_users": compute_trend(
+                current_snapshot["new_users"], prior_snapshot["new_users"]
+            ),
+            "deleted_users": compute_trend(
+                current_snapshot["deleted_users"], prior_snapshot["deleted_users"]
+            ),
+            # Snapshots, not period-scoped - no trend badge (see
+            # get_customer_insight_snapshot docstring).
+            "active_users": {"value": current_snapshot["active_users"]},
+            "dormant_users": {"value": current_snapshot["dormant_users"]},
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Alert and Risk dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns the Alert and Risk panel. pending_settlement is a current "
+        "backlog snapshot (transactions stuck in PENDING right now, not "
+        "period-scoped). duplicate_transactions is period-scoped with a "
+        "trend badge, using a heuristic (same user + tx_type + amount within "
+        "a short window counts as a duplicate) since there's no first-class "
+        "dedup concept in the schema. reconciliation_differences is "
+        "period-scoped with a trend badge, scoped to partner-linked "
+        "purchases where the underlying transaction succeeded but the "
+        "partner hasn't been marked settled after a grace period (see "
+        "PartnerPurchase.settled). fraud_alerts is always 0 - no fraud "
+        "ruleset is defined anywhere yet. Each row is drillable - see "
+        "the pending-settlement/reconciliation-differences/duplicate-"
+        "transactions/fraud-alerts list endpoints. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "AlertAndRiskResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "AlertAndRiskError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class AlertAndRiskView(APIView):
+    """Separate from the other dashboard panels - Alert and Risk is
+    fetched/refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_duplicates = get_duplicate_transaction_count(current_start, current_end)
+        prior_duplicates = get_duplicate_transaction_count(prior_start, prior_end)
+        current_reconciliation = get_reconciliation_differences_count(
+            current_start, current_end
+        )
+        prior_reconciliation = get_reconciliation_differences_count(
+            prior_start, prior_end
+        )
+
+        data = {
+            # Snapshot, not period-scoped - no trend badge (see docstring).
+            "pending_settlement": {"value": get_pending_settlement_count()},
+            "duplicate_transactions": compute_trend(
+                current_duplicates, prior_duplicates
+            ),
+            "reconciliation_differences": compute_trend(
+                current_reconciliation, prior_reconciliation
+            ),
+            # Always 0 - no fraud ruleset exists yet (see get_fraud_alerts_list).
+            "fraud_alerts": {"value": 0},
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="All Transactions dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns a merged, paginated transaction list spanning TxModel "
+        "(self-service, partners, brand ads/UGC, wallet transfers), VAS "
+        "(airtime/data/electricity/cable), and FMCG orders - three "
+        "differently-shaped models merged and sorted by date in Python, "
+        "since none of them share a single ledger table. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range, plus optional `status` and "
+        "`category` filters (category is one of: Self Services, Partners, "
+        "Brand Ads, Wallet, VAS, FMCG, Other) and `page`/`page_size`."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "status", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "category", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page_size", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "AllTransactionsResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "AllTransactionsError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class AllTransactionsView(APIView):
+    """Separate from the other dashboard panels - All Transactions is a raw
+    list, not an aggregate, so it's paginated rather than trend-badged."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    MAX_PAGE_SIZE = 100
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+        status_filter = request.query_params.get("status")
+        category_filter = request.query_params.get("category")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            page = max(int(request.query_params.get("page", 1)), 1)
+            page_size = min(
+                max(int(request.query_params.get("page_size", 20)), 1),
+                self.MAX_PAGE_SIZE,
+            )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "page and page_size must be integers.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        all_rows = get_all_transactions(
+            current_start, current_end, status_filter, category_filter
+        )
+        total = len(all_rows)
+        offset = (page - 1) * page_size
+        page_rows = all_rows[offset : offset + page_size]
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        "count": total,
+                        "page": page,
+                        "page_size": page_size,
+                        "results": page_rows,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Gamification Picapoints Overview",
+    tags=["Admin"],
+    description=(
+        "Returns Picapoints Created (awarded) and Distributed (redeemed to "
+        "wallet) for the selected period, each with a trend badge, plus "
+        "average points in circulation - a current snapshot (average "
+        "Points.balance across all users), not period-scoped, so no trend "
+        "badge. auto_boost_points is returned as null: it exists as a "
+        "config field on UGC task creation but nothing in the codebase ever "
+        "reads it to actually award points, so there's no real figure to "
+        "report yet. Pass `granularity` (daily/weekly/monthly/quarterly/"
+        "yearly, default weekly) or an explicit `start_date`/`end_date` "
+        "range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "GamificationPicapointsOverviewResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "GamificationPicapointsOverviewError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class GamificationPicapointsOverviewView(APIView):
+    """Separate from the other dashboard panels - Picapoints Overview is
+    fetched/refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_snapshot = get_picapoints_overview_snapshot(current_start, current_end)
+        prior_snapshot = get_picapoints_overview_snapshot(prior_start, prior_end)
+
+        data = {
+            "created": compute_trend(
+                current_snapshot["created"], prior_snapshot["created"]
+            ),
+            "distributed": compute_trend(
+                current_snapshot["distributed"], prior_snapshot["distributed"]
+            ),
+            "auto_boost_points": None,
+            # Snapshot, not period-scoped - no trend badge (see docstring).
+            "avg_points_in_circulation": {
+                "value": current_snapshot["avg_points_in_circulation"]
+            },
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Task Insight dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns participant counts for each Task Insight category - Brand "
+        "task (BrandTaskSubmission), In App Task (TaskSubmission), and "
+        "Streaks (UserStreak) - plus Partner Ecosystem, which is a revenue "
+        "figure rather than a participant count: Picadailys's commission "
+        "cut when one partner buys another partner's PartnerServices "
+        "listing through self-service. All four are period-scoped with a "
+        "trend badge. Pass `granularity` (daily/weekly/monthly/quarterly/"
+        "yearly, default weekly) or an explicit `start_date`/`end_date` "
+        "range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "TaskInsightResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "TaskInsightError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class TaskInsightView(APIView):
+    """Separate from the other dashboard panels - Task Insight is
+    fetched/refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_snapshot = get_task_insight_snapshot(current_start, current_end)
+        prior_snapshot = get_task_insight_snapshot(prior_start, prior_end)
+
+        data = {
+            "brand_task": compute_trend(
+                current_snapshot["brand_task"], prior_snapshot["brand_task"]
+            ),
+            "in_app_task": compute_trend(
+                current_snapshot["in_app_task"], prior_snapshot["in_app_task"]
+            ),
+            "streaks": compute_trend(
+                current_snapshot["streaks"], prior_snapshot["streaks"]
+            ),
+            "partner_ecosystem": compute_trend(
+                current_snapshot["partner_ecosystem"],
+                prior_snapshot["partner_ecosystem"],
+            ),
+        }
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Demographic breakdown dashboard data",
+    tags=["Admin"],
+    description=(
+        "Returns Revenue by Location/Gender/Age for the selected period. "
+        "Revenue is the same combined figure used in ServicesBreakdownView "
+        "(vas + self_services + brand_ads + partners), attributed to the "
+        "transacting user. Location comes from User.state (required at "
+        "registration - good coverage). Gender/Age come from "
+        "MemberSurvey.sex/age_bracket, which only exists for users who "
+        "completed the survey - anyone missing falls into an 'Unspecified' "
+        "bucket rather than being dropped, so each breakdown's total still "
+        "reconciles with the true revenue figure. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "DemographicBreakdownResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "DemographicBreakdownError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class DemographicBreakdownView(APIView):
+    """Separate from the other dashboard panels - Demographic Breakdown is
+    fetched/refreshed independently."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        breakdown = get_demographic_breakdown_snapshot(current_start, current_end)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **breakdown,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+# ── Alert and Risk drill-downs ──────────────────────────────────────────
+
+
+def _paginate_rows(rows, request, max_page_size=100):
+    """Shared manual pagination for the Alert and Risk drill-down list
+    endpoints - same list-slicing approach as AllTransactionsView. Returns
+    (paginated_dict, error_response); exactly one of the two is None."""
+    try:
+        page = max(int(request.query_params.get("page", 1)), 1)
+        page_size = min(
+            max(int(request.query_params.get("page_size", 20)), 1), max_page_size
+        )
+    except ValueError:
+        return None, Response(
+            data=encrypt(
+                {"status": "fail", "message": "page and page_size must be integers."}
+            ),
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    offset = (page - 1) * page_size
+    return {
+        "count": len(rows),
+        "page": page,
+        "page_size": page_size,
+        "results": rows[offset : offset + page_size],
+    }, None
+
+
+def _find_tx_by_transaction_id(transaction_id):
+    query = Q(tx_reference=transaction_id)
+    if transaction_id.isdigit():
+        query |= Q(id=int(transaction_id))
+    return TxModel.objects.select_related("user").filter(query).first()
+
+
+@extend_schema(
+    summary="Pending Settlement drill-down list",
+    tags=["Admin"],
+    description=(
+        "Alert and Risk drill-down: every TxModel currently PENDING - a "
+        "live backlog snapshot, not period-scoped, same framing as the "
+        "pending_settlement count on the Alert and Risk panel. Supports "
+        "`page`/`page_size`."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "page", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page_size", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "PendingSettlementListResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+    },
+)
+class PendingSettlementListView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        rows = get_pending_settlement_list()
+        paginated, error = _paginate_rows(rows, request)
+        if error:
+            return error
+        return Response(
+            data=encrypt({"status": "success", "data": paginated}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Transaction Details (Pending Settlement)",
+    tags=["Admin"],
+    description=(
+        "Single transaction lookup by transaction_id (tx_reference, or the "
+        "numeric id when tx_reference is null) - backs the Pending "
+        'Settlement "Transaction Details" modal.'
+    ),
+    responses={
+        200: inline_serializer(
+            "TransactionDetailResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        404: inline_serializer(
+            "TransactionDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class TransactionDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request, transaction_id):
+        row = get_transaction_detail_row(transaction_id)
+        if not row:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Transaction not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            data=encrypt({"status": "success", "data": row}), status=status.HTTP_200_OK
+        )
+
+
+@extend_schema(
+    summary="Reconciliation Differences drill-down list",
+    tags=["Admin"],
+    description=(
+        "Alert and Risk drill-down: partner-linked purchases where the "
+        "underlying transaction succeeded but the partner hasn't been "
+        "marked settled after a grace period (see PartnerPurchase.settled, "
+        "RECONCILIATION_GRACE_PERIOD_HOURS). Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range, plus `page`/`page_size`."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page_size", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "ReconciliationDifferencesListResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "ReconciliationDifferencesListError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ReconciliationDifferencesListView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows = get_reconciliation_differences_list(current_start, current_end)
+        paginated, error = _paginate_rows(rows, request)
+        if error:
+            return error
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **paginated,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Reconciliation Difference Details (two-sided)",
+    tags=["Admin"],
+    description=(
+        "Two-sided Transaction Details for a Reconciliation Difference: "
+        "the user's side (their TxModel row - the wallet debit, already "
+        "succeeded) and the partner's side (the PartnerPurchase payout, "
+        "still awaiting settlement confirmation)."
+    ),
+    responses={
+        200: inline_serializer(
+            "ReconciliationDifferenceDetailResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        404: inline_serializer(
+            "ReconciliationDifferenceDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ReconciliationDifferenceDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request, transaction_id):
+        detail = get_reconciliation_difference_detail(transaction_id)
+        if not detail:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Reconciliation difference not found.",
+                    }
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            data=encrypt({"status": "success", "data": detail}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Duplicate Transactions drill-down list",
+    tags=["Admin"],
+    description=(
+        "Alert and Risk drill-down: transactions that look like an "
+        "accidental repeat of an immediately preceding one from the same "
+        "user (same tx_type + amount within DUPLICATE_TRANSACTION_WINDOW_"
+        "MINUTES). Pass `granularity` (daily/weekly/monthly/quarterly/"
+        "yearly, default weekly) or an explicit `start_date`/`end_date` "
+        "range, plus `page`/`page_size`."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "page_size", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "DuplicateTransactionsListResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "DuplicateTransactionsListError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class DuplicateTransactionsListView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows = get_duplicate_transactions_list(current_start, current_end)
+        paginated, error = _paginate_rows(rows, request)
+        if error:
+            return error
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **paginated,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Duplicate Transaction Details (two-sided)",
+    tags=["Admin"],
+    description=(
+        "Two-sided Transaction Details for a specific duplicate: the "
+        "flagged (later) transaction plus the original it duplicates, "
+        "each with its real status."
+    ),
+    responses={
+        200: inline_serializer(
+            "DuplicateTransactionDetailResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        404: inline_serializer(
+            "DuplicateTransactionDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class DuplicateTransactionDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request, transaction_id):
+        detail = get_duplicate_transaction_detail(transaction_id)
+        if not detail:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Duplicate transaction not found."}
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            data=encrypt({"status": "success", "data": detail}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Fraud Alert drill-down list",
+    tags=["Admin"],
+    description=(
+        "Alert and Risk drill-down: always empty. No fraud ruleset is "
+        "defined anywhere in the codebase yet."
+    ),
+    responses={
+        200: inline_serializer(
+            "FraudAlertsListResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+    },
+)
+class FraudAlertsListView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        paginated, error = _paginate_rows(get_fraud_alerts_list(), request)
+        if error:
+            return error
+        return Response(
+            data=encrypt({"status": "success", "data": paginated}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Message Third Party - flag a transaction for resolution",
+    tags=["Admin"],
+    description=(
+        "Creates a support Ticket linked to a specific transaction, for an "
+        "ops agent to follow up with the relevant third party (partner/"
+        "provider) outside the system - no automated outbound "
+        'notification is sent. Backs the "Message Third Party" form on '
+        "the Pending Settlement/Reconciliation Differences detail modals."
+    ),
+    request=TransactionResolutionSerializer,
+    responses={
+        201: inline_serializer(
+            "MessageThirdPartyResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "MessageThirdPartyError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class MessageThirdPartyView(generics.GenericAPIView):
+    serializer_class = TransactionResolutionSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        transaction_id = serializer.validated_data["transaction_id"]
+        title = serializer.validated_data["title"]
+        issues_description = serializer.validated_data["issues_description"]
+
+        tx = _find_tx_by_transaction_id(transaction_id)
+
+        ticket = Ticket.objects.create(
+            user=tx.user if tx and tx.user_id else None,
+            customer_name=(
+                f"{tx.user.first_name or ''} {tx.user.last_name or ''}".strip()
+                if tx and tx.user_id
+                else None
+            ),
+            customer_email=tx.user.email if tx and tx.user_id else None,
+            customer_phone_number=tx.user.phone_number if tx and tx.user_id else None,
+            title=title,
+            category="Transaction Resolution",
+            channel="App",
+            status="New",
+            priority="Medium",
+            description=f"Transaction ID: {transaction_id}\n\n{issues_description}",
+        )
+        # Ticket.save()'s own number-generation never fires (it checks
+        # self.pk is None, but BaseModel's UUID pk is already populated by
+        # its field default before the first save) - same workaround
+        # support.views.CreateTicket already uses.
+        ticket.number = generate_ticket_number()
+        ticket.save(update_fields=["number"])
+
+        logger.info(
+            "SuperAdmin %s raised transaction resolution ticket %s for tx %s.",
+            request.user.id,
+            ticket.number,
+            transaction_id,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Message sent.",
+                    "data": {"ticket_number": ticket.number},
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="Cancel a pending duplicate transaction",
+    tags=["Admin"],
+    description=(
+        "Marks a PENDING TxModel as CANCELLED - status only, no money "
+        "movement (it's still PENDING, so nothing has settled to refund "
+        'yet). Backs the "Cancel Pending" action on the Duplicate '
+        "Transactions detail modal."
+    ),
+    request=None,
+    responses={
+        200: inline_serializer(
+            "CancelPendingResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "CancelPendingError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "CancelPendingNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class CancelPendingTransactionView(APIView):
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, transaction_id):
+        tx = _find_tx_by_transaction_id(transaction_id)
+        if not tx:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Transaction not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if tx.status != "PENDING":
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"Only PENDING transactions can be cancelled (this one is {tx.status}).",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tx.status = "CANCELLED"
+        tx.save(update_fields=["status"])
+
+        logger.info(
+            "SuperAdmin %s cancelled pending transaction %s.",
+            request.user.id,
+            transaction_id,
+        )
+
+        return Response(
+            data=encrypt({"status": "success", "message": "Transaction cancelled."}),
             status=status.HTTP_200_OK,
         )

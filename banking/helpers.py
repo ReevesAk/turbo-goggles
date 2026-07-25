@@ -217,7 +217,13 @@ def summarize_transactions(transactions):
 class ExportStatement:
 
     @staticmethod
-    def to_csv(transactions, account_name=None, account_number=None, start_date=None, end_date=None):
+    def to_csv(
+        transactions,
+        account_name=None,
+        account_number=None,
+        start_date=None,
+        end_date=None,
+    ):
         total_credit, total_debit, net = summarize_transactions(transactions)
 
         buffer = StringIO()
@@ -236,7 +242,15 @@ class ExportStatement:
         writer.writerow([])
 
         writer.writerow(
-            ["Date", "Reference", "Type", "Direction", "Amount", "Description", "Status"]
+            [
+                "Date",
+                "Reference",
+                "Type",
+                "Direction",
+                "Amount",
+                "Description",
+                "Status",
+            ]
         )
 
         for tx in transactions:
@@ -255,7 +269,13 @@ class ExportStatement:
         return buffer.getvalue()
 
     @staticmethod
-    def to_pdf(transactions, account_name=None, account_number=None, start_date=None, end_date=None):
+    def to_pdf(
+        transactions,
+        account_name=None,
+        account_number=None,
+        start_date=None,
+        end_date=None,
+    ):
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -319,10 +339,10 @@ class ExportStatement:
         if account_number:
             elements.append(Paragraph(f"Account Number: {account_number}", info_style))
         if start_date and end_date:
-            elements.append(Paragraph(f"Period: {start_date} to {end_date}", info_style))
-        elements.append(
-            Paragraph(f"Transactions: {len(transactions)}", info_style)
-        )
+            elements.append(
+                Paragraph(f"Period: {start_date} to {end_date}", info_style)
+            )
+        elements.append(Paragraph(f"Transactions: {len(transactions)}", info_style))
         elements.append(Spacer(1, 0.2 * inch))
 
         # Divider
@@ -359,9 +379,7 @@ class ExportStatement:
                 Paragraph(f"NGN {net:,.2f}", styles["Normal"]),
             ],
         ]
-        summary_table = Table(
-            summary_data, colWidths=[doc.width / 3.0] * 3
-        )
+        summary_table = Table(summary_data, colWidths=[doc.width / 3.0] * 3)
         summary_table.setStyle(
             TableStyle(
                 [

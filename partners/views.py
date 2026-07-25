@@ -888,8 +888,9 @@ class AllPartnersServiceList(generics.ListAPIView):
     def get_queryset(self, business=None):
         """
         Retrieves all Partner services filtered by business name if provided.
+        Only services with a negotiated commission are eligible for self-serve.
         """
-        queryset = PartnerServices.objects.all()
+        queryset = PartnerServices.objects.filter(commission_set=True)
 
         if business:
             queryset = queryset.filter(business=business)

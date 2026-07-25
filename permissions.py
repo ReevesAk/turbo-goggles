@@ -178,6 +178,23 @@ class IsMember(permissions.BasePermission):
         raise PermissionDenied("Authentication is required to access this resource.")
 
 
+class IsMemberOrPartner(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Required type.
+        required_user_types = ["Member", "Partner"]
+
+        if request.user.is_authenticated:
+            # Check if the user_type matches the required user_type
+            if request.user.active_role in required_user_types:
+                return True
+            else:
+                raise PermissionDenied(
+                    "Only Members and Partners can perform this action."
+                )
+
+        raise PermissionDenied("Authentication is required to access this resource.")
+
+
 class IsBrandAd(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required type.

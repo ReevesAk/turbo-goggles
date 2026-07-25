@@ -36,10 +36,10 @@ TRANSACTION_TYPE = (
     ("Transfer to Picadailys Account", "Transfer to Picadailys Account"),
     ("Transfer to Bank Account", "Transfer to Bank Account"),
     ("Points Redemption to Wallet", "Points Redemption to Wallet"),
-    ("Brand Promostion", "Brand Promostion"),
+    ("Brand Promotion", "Brand Promotion"),
+    ("UGC Task Funding", "UGC Task Funding"),
     ("Data", "Data"),
     ("Airtime", "Airtime"),
-    ("Data", "Data"),
     ("Electricity", "Electricity"),
     ("Hotel", "Hotel"),
     ("Travel", "Travel"),
@@ -49,6 +49,10 @@ TRANSACTION_TYPE = (
     ("Food", "Food"),
     ("Health", "Health"),
     ("Insurance", "Insurance"),
+    ("Gym", "Gym"),
+    ("Cinema", "Cinema"),
+    ("Courier", "Courier"),
+    ("Partner Service", "Partner Service"),
 )
 
 
@@ -115,6 +119,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_disabled = models.BooleanField(default=False, null=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -184,6 +190,7 @@ class TxModel(models.Model):
         ("PENDING", "Pending"),
         ("SUCCESS", "Success"),
         ("FAILED", "Failed"),
+        ("CANCELLED", "Cancelled"),
     ]
 
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
@@ -269,3 +276,26 @@ class WelcomeBonusAward(models.Model):
 
     class Meta:
         ordering = ["-awarded_at"]
+
+
+class UserDeletion(models.Model):
+    """
+    Audit log for account deletion (soft delete - see User.is_deleted).
+    One row per deletion. deleted_by is null for self-service deletions.
+    """
+
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="deletion_records"
+    )
+    reason = models.TextField(blank=True)
+    deleted_by = models.ForeignKey(
+        to=User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deletions_performed",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
