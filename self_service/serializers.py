@@ -26,6 +26,7 @@ class RestaurantBookingSerializers(serializers.ModelSerializer):
         model = RestaurantBooking
         fields = [
             "id",
+            "partner_service",
             "name",
             "table",
             "amount",
@@ -50,6 +51,7 @@ class GymSubcriptionSerializers(serializers.ModelSerializer):
         model = GymSubcription
         fields = [
             "id",
+            "partner_service",
             "name",
             "personal_trainer",
             "amount",
@@ -73,6 +75,7 @@ class CinemaBookingSerializers(serializers.ModelSerializer):
         model = CinemaBooking
         fields = [
             "id",
+            "partner_service",
             "name",
             "available_seats",
             "amount",
@@ -95,6 +98,7 @@ class CourierBookingSerializers(serializers.ModelSerializer):
         model = CourierService
         fields = [
             "id",
+            "partner_service",
             "pickup",
             "destination",
             "price_per_kg",
@@ -109,7 +113,7 @@ class ConsumableSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ConsumableService
-        fields = ["id", "price", "contact"]  # contact the seller
+        fields = ["id", "partner_service", "price", "contact"]  # contact the seller
 
 
 class LandTravelsSerilaizers(serializers.ModelSerializer):
@@ -117,6 +121,7 @@ class LandTravelsSerilaizers(serializers.ModelSerializer):
         model = LandTravels
         fields = [
             "id",
+            "partner_service",
             "trip_date",
             "return_date",
             "departure_state",
@@ -134,6 +139,7 @@ class HotelSerializers(serializers.ModelSerializer):
         model = Hotels
         fields = [
             "id",
+            "partner_service",
             "payment_option",
             "amount",
         ]

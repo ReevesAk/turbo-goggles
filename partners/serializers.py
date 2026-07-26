@@ -84,6 +84,11 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
 
     trainer_name = serializers.CharField(required=False, read_only=True)
     trainer_price = serializers.FloatField(required=False, read_only=True)
+    commission_rate = serializers.DecimalField(
+        max_digits=5, decimal_places=2, read_only=True
+    )
+    commission_set = serializers.BooleanField(read_only=True)
+    final_price = serializers.FloatField(read_only=True)
 
     class Meta:
         model = PartnerServices
@@ -98,6 +103,9 @@ class PartnerServiceSerializer(serializers.ModelSerializer):
             "trainer_price",
             "from_station",
             "destination",
+            "commission_rate",
+            "commission_set",
+            "final_price",
         ]
 
 
@@ -172,6 +180,15 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class SetCommissionSerializer(serializers.ModelSerializer):
+    """Serializer for a PartnersAdmin negotiating and locking in a service's commission."""
+
+    class Meta:
+        model = PartnerServices
+        fields = ["commission_rate"]
+        extra_kwargs = {"commission_rate": {"required": True}}
 
 
 class VerifyPartnerSerializers(serializers.ModelSerializer):

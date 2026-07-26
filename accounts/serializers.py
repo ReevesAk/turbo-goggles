@@ -208,3 +208,10 @@ class LogoutSerializer(serializers.Serializer):
         fields = [
             "refresh_token",
         ]
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    password = serializers.CharField(max_length=255, write_only=True)
+    reason = serializers.CharField(
+        max_length=1000, required=False, allow_blank=True, default=""
+    )

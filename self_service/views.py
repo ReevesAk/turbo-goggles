@@ -1,6 +1,6 @@
 import logging
 
-from permissions import IsSuperAdmin, IsMember
+from permissions import IsSuperAdmin, IsMemberOrPartner
 
 # Third party imports
 from rest_framework import generics, status
@@ -35,7 +35,8 @@ from .models import (
     TransactionStatus,
 )
 from .helpers import ProductTagmanager
-from accounts.models import UserNotification, PurchaseModel
+from accounts.models import UserNotification, PurchaseModel, TxModel
+from partners.commission_service import PartnerCommissionService
 from banking.helpers import Pin
 from banking.controllers import Wallet
 from banking.models import WalletModel
@@ -54,6 +55,26 @@ SERVICES = (
     ("land_travel", "land_travel"),
     ("hotel", "hotel"),
 )
+
+
+def partner_booking_rejection(user, partner_service):
+    """
+    Partner accounts may only book self-service items tied to another
+    partner's PartnerServices listing (the Partner Ecosystem) - a Partner
+    booking a non-partner-linked item doesn't fit that model. Returns an
+    error Response if the booking should be rejected, else None.
+    """
+    if user.active_role == "Partner" and not partner_service:
+        return Response(
+            data=encrypt(
+                {
+                    "status": "fail",
+                    "error": "Partners can only book services listed by another partner.",
+                }
+            ),
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return None
 
 
 class PaginationStyle(PageNumberPagination):
@@ -90,11 +111,16 @@ class PaginationStyle(PageNumberPagination):
 )
 class TableBooking(generics.CreateAPIView):
     serializer_class = RestaurantBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = RestaurantBookingSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 decrypted_payload = decrypt(request.user)
@@ -200,6 +226,13 @@ class TableBooking(generics.CreateAPIView):
                                     status="Success",
                                     details="Restaurant booking paid successfully.",
                                 )
+                                tx = TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Food",
+                                    amount=amount,
+                                    status="SUCCESS",
+                                    description="Restaurant booking paid successfully.",
+                                )
                                 tag = ProductTagmanager.generate(service_type="RST-")
                                 current_user = RestaurantBooking.objects.get(
                                     user=authenticated_user
@@ -207,7 +240,14 @@ class TableBooking(generics.CreateAPIView):
                                 current_user.purchase = purchase
                                 current_user.product_tag = tag
                                 current_user.transaction_status = tx_status
+                                current_user.tx = tx
                                 current_user.save()
+                                PartnerCommissionService.record_purchase(
+                                    user=authenticated_user,
+                                    partner_service=current_user.partner_service,
+                                    tx=tx,
+                                    amount=amount,
+                                )
 
                                 response_data = {
                                     "status": "Success!",
@@ -227,6 +267,13 @@ class TableBooking(generics.CreateAPIView):
                                 tx_status = TransactionStatus.objects.create(
                                     status="Fail",
                                     details="Restaurant booking failed.",
+                                )
+                                TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Food",
+                                    amount=amount,
+                                    status="FAILED",
+                                    description="Restaurant booking failed.",
                                 )
                                 response_data = {
                                     "status": "fail!",
@@ -262,6 +309,13 @@ class TableBooking(generics.CreateAPIView):
                             status="Success",
                             details="Restaurant booking paid successfully.",
                         )
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_type="Food",
+                            amount=amount,
+                            status="SUCCESS",
+                            description="Restaurant booking paid successfully.",
+                        )
                         tag = ProductTagmanager.generate(service_type="RST-")
                         current_user = RestaurantBooking.objects.get(
                             user=authenticated_user
@@ -269,7 +323,14 @@ class TableBooking(generics.CreateAPIView):
                         current_user.purchase = purchase
                         current_user.product_tag = tag
                         current_user.transaction_status = tx_status
+                        current_user.tx = tx
                         current_user.save()
+                        PartnerCommissionService.record_purchase(
+                            user=authenticated_user,
+                            partner_service=current_user.partner_service,
+                            tx=tx,
+                            amount=amount,
+                        )
 
                         response_data = {
                             "status": "Success!",
@@ -321,7 +382,7 @@ class TableBookingList(generics.ListAPIView):
     """TableBookingList lists all restaurant bookings."""
 
     serializer_class = RestaurantBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -370,7 +431,7 @@ class TableBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = RestaurantBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -423,11 +484,16 @@ class TableBookingDetail(generics.RetrieveAPIView):
 )
 class GymBooking(generics.CreateAPIView):
     serializer_class = GymSubcriptionSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = GymSubcriptionSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 decrypted_payload = decrypt(request.data)
@@ -530,6 +596,13 @@ class GymBooking(generics.CreateAPIView):
                                     status="Success",
                                     details="Gym Subscription paid successfully.",
                                 )
+                                tx = TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Gym",
+                                    amount=amount,
+                                    status="SUCCESS",
+                                    description="Gym Subscription paid successfully.",
+                                )
                                 tag = ProductTagmanager.generate(service_type="GYM-")
                                 current_user = GymSubcription.objects.get(
                                     user=authenticated_user
@@ -537,7 +610,14 @@ class GymBooking(generics.CreateAPIView):
                                 current_user.purchase = purchase
                                 current_user.product_tag = tag
                                 current_user.transaction_status = tx_status
+                                current_user.tx = tx
                                 current_user.save()
+                                PartnerCommissionService.record_purchase(
+                                    user=authenticated_user,
+                                    partner_service=current_user.partner_service,
+                                    tx=tx,
+                                    amount=amount,
+                                )
 
                                 response_data = {
                                     "status": "Success!",
@@ -554,6 +634,13 @@ class GymBooking(generics.CreateAPIView):
                                     status=status.HTTP_200_OK,
                                 )
                             else:
+                                TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Gym",
+                                    amount=amount,
+                                    status="FAILED",
+                                    description="Gym Subscription failed.",
+                                )
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
@@ -588,6 +675,13 @@ class GymBooking(generics.CreateAPIView):
                             status="Success",
                             details="Gym Subscription paid successfully.",
                         )
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_type="Gym",
+                            amount=amount,
+                            status="SUCCESS",
+                            description="Gym Subscription paid successfully.",
+                        )
                         tag = ProductTagmanager.generate(service_type="GYM-")
                         current_user = GymSubcription.objects.get(
                             user=authenticated_user
@@ -595,7 +689,14 @@ class GymBooking(generics.CreateAPIView):
                         current_user.purchase = purchase
                         current_user.product_tag = tag
                         current_user.transaction_status = tx_status
+                        current_user.tx = tx
                         current_user.save()
+                        PartnerCommissionService.record_purchase(
+                            user=authenticated_user,
+                            partner_service=current_user.partner_service,
+                            tx=tx,
+                            amount=amount,
+                        )
 
                         response_data = {
                             "status": "Success!",
@@ -647,7 +748,7 @@ class GymBookingList(generics.ListAPIView):
     """GymBookingList lists all gym bookings."""
 
     serializer_class = GymSubcriptionSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -696,7 +797,7 @@ class GymBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = GymSubcriptionSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -749,12 +850,17 @@ class GymBookingDetail(generics.RetrieveAPIView):
 )
 class CinemaBookingView(generics.CreateAPIView):
     serializer_class = CinemaBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         decrypted_payload = decrypt(request.data)
         serializer = CinemaBookingSerializers(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 user_data = {
@@ -856,6 +962,13 @@ class CinemaBookingView(generics.CreateAPIView):
                                     status="Success",
                                     details="Cinema seats paid successfully.",
                                 )
+                                tx = TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Cinema",
+                                    amount=amount,
+                                    status="SUCCESS",
+                                    description="Cinema seats paid successfully.",
+                                )
                                 tag = ProductTagmanager.generate(service_type="CIN-")
                                 current_user = CinemaBooking.objects.get(
                                     user=authenticated_user
@@ -863,7 +976,14 @@ class CinemaBookingView(generics.CreateAPIView):
                                 current_user.purchase = purchase
                                 current_user.product_tag = tag
                                 current_user.transaction_status = tx_status
+                                current_user.tx = tx
                                 current_user.save()
+                                PartnerCommissionService.record_purchase(
+                                    user=authenticated_user,
+                                    partner_service=current_user.partner_service,
+                                    tx=tx,
+                                    amount=amount,
+                                )
 
                                 response_data = {
                                     "status": "Success!",
@@ -880,6 +1000,13 @@ class CinemaBookingView(generics.CreateAPIView):
                                     status=status.HTTP_200_OK,
                                 )
                             else:
+                                TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Cinema",
+                                    amount=amount,
+                                    status="FAILED",
+                                    description="Cinema seats booking failed.",
+                                )
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
@@ -914,6 +1041,13 @@ class CinemaBookingView(generics.CreateAPIView):
                             status="Success",
                             details="Cinema seats paid successfully.",
                         )
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_type="Cinema",
+                            amount=amount,
+                            status="SUCCESS",
+                            description="Cinema seats paid successfully.",
+                        )
                         tag = ProductTagmanager.generate(service_type="CIN-")
                         current_user = CinemaBooking.objects.get(
                             user=authenticated_user
@@ -921,7 +1055,14 @@ class CinemaBookingView(generics.CreateAPIView):
                         current_user.purchase = purchase
                         current_user.product_tag = tag
                         current_user.transaction_status = tx_status
+                        current_user.tx = tx
                         current_user.save()
+                        PartnerCommissionService.record_purchase(
+                            user=authenticated_user,
+                            partner_service=current_user.partner_service,
+                            tx=tx,
+                            amount=amount,
+                        )
 
                         response_data = {
                             "status": "Success!",
@@ -973,7 +1114,7 @@ class CinemaBookingList(generics.ListAPIView):
     """CinemaBookingList lists all cinema bookings."""
 
     serializer_class = CinemaBookingSerializers
-    permission_classes = [IsAuthenticated, IsMember | IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsMemberOrPartner | IsSuperAdmin]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1022,7 +1163,7 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = CinemaBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1075,11 +1216,16 @@ class CinemaBookingDetail(generics.RetrieveAPIView):
 )
 class BookCourierSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def create(self, request, *args, **kwargs):
         serializer = CourierBookingSerializers(data=request.data)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 dedicated_payload = decrypt(request.data)
@@ -1183,7 +1329,14 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 )
                                 tx_status = TransactionStatus.objects.create(
                                     status="Success",
-                                    details="Cinema seats paid successfully.",
+                                    details="Courier service booked successfully.",
+                                )
+                                tx = TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Courier",
+                                    amount=amount,
+                                    status="SUCCESS",
+                                    description="Courier service booked successfully.",
                                 )
                                 tag = ProductTagmanager.generate(service_type="COU-")
                                 current_user = CourierService.objects.get(
@@ -1192,7 +1345,14 @@ class BookCourierSercvice(generics.CreateAPIView):
                                 current_user.purchase = purchase
                                 current_user.product_tag = tag
                                 current_user.transaction_status = tx_status
+                                current_user.tx = tx
                                 current_user.save()
+                                PartnerCommissionService.record_purchase(
+                                    user=authenticated_user,
+                                    partner_service=current_user.partner_service,
+                                    tx=tx,
+                                    amount=amount,
+                                )
 
                                 response_data = {
                                     "status": "Success!",
@@ -1209,6 +1369,13 @@ class BookCourierSercvice(generics.CreateAPIView):
                                     status=status.HTTP_200_OK,
                                 )
                             else:
+                                TxModel.objects.create(
+                                    user=authenticated_user,
+                                    tx_type="Courier",
+                                    amount=amount,
+                                    status="FAILED",
+                                    description="Courier service booking failed.",
+                                )
                                 response_data = {
                                     "status": "fail!",
                                     "details": debit_response.json(),
@@ -1241,7 +1408,14 @@ class BookCourierSercvice(generics.CreateAPIView):
                         )
                         tx_status = TransactionStatus.objects.create(
                             status="Success",
-                            details="Cinema seats paid successfully.",
+                            details="Courier service booked successfully.",
+                        )
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_type="Courier",
+                            amount=amount,
+                            status="SUCCESS",
+                            description="Courier service booked successfully.",
                         )
                         tag = ProductTagmanager.generate(service_type="COU-")
                         current_user = CourierService.objects.get(
@@ -1250,7 +1424,14 @@ class BookCourierSercvice(generics.CreateAPIView):
                         current_user.purchase = purchase
                         current_user.product_tag = tag
                         current_user.transaction_status = tx_status
+                        current_user.tx = tx
                         current_user.save()
+                        PartnerCommissionService.record_purchase(
+                            user=authenticated_user,
+                            partner_service=current_user.partner_service,
+                            tx=tx,
+                            amount=amount,
+                        )
 
                         response_data = {
                             "status": "Success!",
@@ -1302,7 +1483,7 @@ class CourierBookingList(generics.ListAPIView):
     """CourierBookingList lists all courier bookings."""
 
     serializer_class = CourierBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1350,7 +1531,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = CourierBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1403,7 +1584,7 @@ class CourierBookingDetail(generics.RetrieveAPIView):
 )
 class BookConsumableSercvice(generics.CreateAPIView):
     serializer_class = CourierBookingSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     queryset = ConsumableService.objects.all()
 
     def create(self, request, *args, **kwargs):
@@ -1416,6 +1597,11 @@ class BookConsumableSercvice(generics.CreateAPIView):
         authenticated_user = request.user
         if not serializer.is_valid(raise_exception=True):
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        rejection = partner_booking_rejection(
+            authenticated_user, serializer.validated_data.get("partner_service")
+        )
+        if rejection:
+            return rejection
         serializer.save()  # Save booking details.
 
         authenticated_user = request.user
@@ -1490,12 +1676,26 @@ class BookConsumableSercvice(generics.CreateAPIView):
                         status="Success",
                         details="Coonsumable service booked successfully.",
                     )
+                    tx = TxModel.objects.create(
+                        user=authenticated_user,
+                        tx_type="Consumables",
+                        amount=price,
+                        status="SUCCESS",
+                        description="Consumable service booked successfully.",
+                    )
                     tag = ProductTagmanager.generate(service_type="FMCG-")
                     current_user = ConsumableService.objects.get(user=request.user)
                     current_user.purchase = purchase
                     current_user.product_tag = tag
                     current_user.transaction_status = tx_status
+                    current_user.tx = tx
                     current_user.save()
+                    PartnerCommissionService.record_purchase(
+                        user=request.user,
+                        partner_service=current_user.partner_service,
+                        tx=tx,
+                        amount=price,
+                    )
 
                     response_data = {
                         "status": "success",
@@ -1507,6 +1707,13 @@ class BookConsumableSercvice(generics.CreateAPIView):
                     }
                     return Response(data=response_data, status=status.HTTP_201_CREATED)
                 else:
+                    TxModel.objects.create(
+                        user=authenticated_user,
+                        tx_type="Consumables",
+                        amount=price,
+                        status="FAILED",
+                        description="Consumable service booking failed.",
+                    )
                     response_data = {
                         "status": "fail!",
                         "details": debit_response.json(),
@@ -1537,12 +1744,26 @@ class BookConsumableSercvice(generics.CreateAPIView):
                     status="Success",
                     details="Coonsumable service booked successfully.",
                 )
+                tx = TxModel.objects.create(
+                    user=authenticated_user,
+                    tx_type="Consumables",
+                    amount=price,
+                    status="SUCCESS",
+                    description="Consumable service booked successfully.",
+                )
                 tag = ProductTagmanager.generate(service_type="FMCG-")
                 current_user = ConsumableService.objects.get(user=request.user)
                 current_user.purchase = purchase
                 current_user.product_tag = tag
                 current_user.transaction_status = tx_status
+                current_user.tx = tx
                 current_user.save()
+                PartnerCommissionService.record_purchase(
+                    user=request.user,
+                    partner_service=current_user.partner_service,
+                    tx=tx,
+                    amount=price,
+                )
 
                 response_data = {
                     "status": "success",
@@ -1575,7 +1796,7 @@ class ConsumableBookingList(generics.ListAPIView):
     """ConsumableBookingList lists all consumable bookings."""
 
     serializer_class = ConsumableSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1613,7 +1834,7 @@ class ConsumableBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = ConsumableSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1662,12 +1883,17 @@ class BookLandTrip(generics.GenericAPIView):
     """
 
     serializer_class = LandTravelsSerilaizers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
         serializer = self.serializer_class(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 payload = {
@@ -1684,6 +1910,7 @@ class BookLandTrip(generics.GenericAPIView):
                 no_of_children = payload["no_of_children"]
                 trip_type = payload["trip_type"]
                 trip_pattern = payload["trip_pattern"]
+                partner_service = serializer.validated_data.get("partner_service")
 
                 # Create the LandTravels object
                 land_travel = LandTravels.objects.create(
@@ -1697,6 +1924,7 @@ class BookLandTrip(generics.GenericAPIView):
                     no_of_children=no_of_children,
                     trip_type=trip_type,
                     trip_pattern=trip_pattern,
+                    partner_service=partner_service,
                 )
 
                 data = {
@@ -1722,11 +1950,25 @@ class BookLandTrip(generics.GenericAPIView):
                         status="Success",
                         details="One way trip booked successfully.",
                     )
+                    tx = TxModel.objects.create(
+                        user=authenticated_user,
+                        tx_type="Travel",
+                        amount=0,
+                        status="SUCCESS",
+                        description="One way trip booked successfully.",
+                    )
                     tag = ProductTagmanager.generate(service_type="LTS-")
                     land_travel.purchase = purchase
                     land_travel.product_tag = tag
                     land_travel.transaction_status = tx_status
+                    land_travel.tx = tx
                     land_travel.save()
+                    PartnerCommissionService.record_purchase(
+                        user=authenticated_user,
+                        partner_service=partner_service,
+                        tx=tx,
+                        amount=0,
+                    )
 
                     UserNotification.objects.create(
                         user=authenticated_user,
@@ -1761,11 +2003,25 @@ class BookLandTrip(generics.GenericAPIView):
                         status="Success",
                         details="Round trip booked successfully.",
                     )
+                    tx = TxModel.objects.create(
+                        user=authenticated_user,
+                        tx_type="Travel",
+                        amount=0,
+                        status="SUCCESS",
+                        description="Round trip booked successfully.",
+                    )
                     tag = ProductTagmanager.generate(service_type="LTS-")
                     land_travel.purchase = purchase
                     land_travel.product_tag = tag
                     land_travel.transaction_status = tx_status
+                    land_travel.tx = tx
                     land_travel.save()
+                    PartnerCommissionService.record_purchase(
+                        user=authenticated_user,
+                        partner_service=partner_service,
+                        tx=tx,
+                        amount=0,
+                    )
 
                     UserNotification.objects.create(
                         user=authenticated_user,
@@ -1826,7 +2082,7 @@ class LandTripBookingDetail(generics.RetrieveAPIView):
     """
 
     serializer_class = LandTravelsSerilaizers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_object(self):
         booking_id = self.kwargs.get("id")
@@ -1869,7 +2125,7 @@ class LandTripBookingList(generics.ListAPIView):
     """LandTripBookingList lists all land travel bookings."""
 
     serializer_class = LandTravelsSerilaizers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     pagination_class = PaginationStyle
 
     def get_queryset(self):
@@ -1934,12 +2190,17 @@ class BookHotel(generics.GenericAPIView):
     """
 
     serializer_class = HotelSerializers
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
         serializer = HotelSerializers(data=decrypted_payload)
         if serializer.is_valid(raise_exception=True):
+            rejection = partner_booking_rejection(
+                request.user, serializer.validated_data.get("partner_service")
+            )
+            if rejection:
+                return rejection
             try:
                 authenticated_user = request.user
                 user_data = {
@@ -1999,7 +2260,7 @@ class BookHotel(generics.GenericAPIView):
                             reason="Debit for hotel booking.",
                             transactionReference="",
                         )
-                        if debit_response == 200:
+                        if debit_response.status_code == 200:
                             UserNotification.objects.create(
                                 user=authenticated_user,
                                 title="Hotel Booking.",
@@ -2024,12 +2285,26 @@ class BookHotel(generics.GenericAPIView):
                                 status="Success",
                                 details="Hotel service booking paid successfully.",
                             )
+                            tx = TxModel.objects.create(
+                                user=authenticated_user,
+                                tx_type="Hotel",
+                                amount=amount,
+                                status="SUCCESS",
+                                description="Hotel service booking paid successfully.",
+                            )
                             tag = ProductTagmanager.generate(service_type="LTS-")
                             current_user = Hotels.objects.get(user=request.user)
                             current_user.purchase = purchase
                             current_user.product_tag = tag
                             current_user.transaction_status = tx_status
+                            current_user.tx = tx
                             current_user.save()
+                            PartnerCommissionService.record_purchase(
+                                user=authenticated_user,
+                                partner_service=current_user.partner_service,
+                                tx=tx,
+                                amount=amount,
+                            )
 
                             response_data = {
                                 "status": "Success!",
@@ -2044,6 +2319,13 @@ class BookHotel(generics.GenericAPIView):
                                 data=encrypt(response_data), status=status.HTTP_200_OK
                             )
                         else:
+                            TxModel.objects.create(
+                                user=authenticated_user,
+                                tx_type="Hotel",
+                                amount=amount,
+                                status="FAILED",
+                                description="Hotel service booking failed.",
+                            )
                             response_data = {
                                 "status": "fail",
                                 "details": debit_response.json(),
@@ -2077,12 +2359,26 @@ class BookHotel(generics.GenericAPIView):
                             status="Success",
                             details="Hotel service booking paid successfully.",
                         )
+                        tx = TxModel.objects.create(
+                            user=authenticated_user,
+                            tx_type="Hotel",
+                            amount=amount,
+                            status="SUCCESS",
+                            description="Hotel service booking paid successfully.",
+                        )
                         tag = ProductTagmanager.generate(service_type="LTS-")
                         current_user = Hotels.objects.get(user=request.user)
                         current_user.purchase = purchase
                         current_user.product_tag = tag
                         current_user.transaction_status = tx_status
+                        current_user.tx = tx
                         current_user.save()
+                        PartnerCommissionService.record_purchase(
+                            user=authenticated_user,
+                            partner_service=current_user.partner_service,
+                            tx=tx,
+                            amount=amount,
+                        )
 
                         response_data = {
                             "status": "Success!",
@@ -2143,7 +2439,7 @@ class ServiceRating(generics.GenericAPIView):
     """
 
     serializer_class = CustomerRatingSerializer
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
     lookup_field = "id"
 
     def post(self, request, *args, **kwargs):
@@ -2230,7 +2526,7 @@ class GetTransaction(generics.RetrieveAPIView):
     """
 
     serializer_class = GetTransactionSerializer
-    permission_classes = [IsAuthenticated & (IsMember | IsSuperAdmin)]
+    permission_classes = [IsAuthenticated & (IsMemberOrPartner | IsSuperAdmin)]
 
     def get_queryset(self, request):
         decrypted_payload = decrypt(request.data)

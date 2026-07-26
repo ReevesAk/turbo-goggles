@@ -3,6 +3,7 @@ import logging
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q
 from django.core.cache import cache
+from django.http import Http404
 
 # In project imports.
 from .serializers import (
@@ -11,7 +12,11 @@ from .serializers import (
 )
 from .views import PaginationStyle
 from .models import RestrictPartnerAccount, ActivityModel
-from partners.serializers import PartnerServiceSerializer, PartnerProfileSerializer
+from partners.serializers import (
+    PartnerServiceSerializer,
+    PartnerProfileSerializer,
+    SetCommissionSerializer,
+)
 from partners.models import PartnerServices
 
 # Third party imports.
@@ -440,3 +445,91 @@ class PartnerSearch(generics.ListAPIView):
                 ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+@extend_schema(
+    summary="[Admin] List partner services pending commission",
+    tags=["Partner Services"],
+    description="Admin queue: returns all partner service listings that have not yet had a commission negotiated and set. These are not visible on self-serve until a PartnersAdmin sets a commission.",
+    responses={200: PartnerServiceSerializer(many=True)},
+)
+class PendingCommissionServiceList(generics.ListAPIView):
+    """Lists partner services created but not yet given a negotiated commission."""
+
+    serializer_class = PartnerServiceSerializer
+    permission_classes = [IsAuthenticated & IsPartnerAdminOrSuperAdmin]
+    pagination_class = PaginationStyle
+
+    def get_queryset(self):
+        return PartnerServices.objects.filter(commission_set=False).order_by(
+            "created_at"
+        )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            encrypted_payload = encrypt(
+                {
+                    "count": self.paginator.page.paginator.count,
+                    "next": self.paginator.get_next_link(),
+                    "previous": self.paginator.get_previous_link(),
+                    "results": serializer.data,
+                }
+            )
+            return Response(encrypted_payload, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(encrypt(serializer.data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="[Admin] Set a partner service's commission",
+    tags=["Partner Services"],
+    description="PartnersAdmin negotiates and locks in the commission for a specific partner service. Sets commission_set=True and recomputes final_price (price + commission), making the service eligible to appear on self-serve.",
+    request=SetCommissionSerializer,
+    responses={
+        200: PartnerServiceSerializer,
+        404: inline_serializer(
+            name="SetCommissionNotFoundResponse", fields={"detail": s.CharField()}
+        ),
+    },
+)
+class SetPartnerServiceCommission(generics.GenericAPIView):
+    """PartnersAdmin sets/edits the commission on a specific partner service."""
+
+    serializer_class = SetCommissionSerializer
+    permission_classes = [IsAuthenticated & IsPartnerAdminOrSuperAdmin]
+
+    def get_object(self, service_id):
+        try:
+            return PartnerServices.objects.get(id=service_id)
+        except PartnerServices.DoesNotExist:
+            raise Http404(encrypt("Partner service not found."))
+
+    def patch(self, request, service_id, *args, **kwargs):
+        service = self.get_object(service_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        service.set_commission(serializer.validated_data["commission_rate"])
+
+        logger.info(
+            "PartnersAdmin %s set commission_rate=%s on service %s.",
+            request.user.id,
+            serializer.validated_data["commission_rate"],
+            service.id,
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Commission set. Service is now eligible for self-serve.",
+                    "data": PartnerServiceSerializer(service).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )

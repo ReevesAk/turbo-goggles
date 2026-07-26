@@ -2259,12 +2259,14 @@ class GenerateAccountStatement(generics.GenericAPIView):
         end_date = serializer.validated_data["end_date"]
         format_type = serializer.validated_data["format"]
 
-        transactions = TxModel.objects.filter(
-            user=request.user,
-            date__date__range=[start_date, end_date],
-            status="SUCCESS",
-        ).prefetch_related("transfers").only(
-            "date", "tx_reference", "tx_type", "amount", "description", "status"
+        transactions = (
+            TxModel.objects.filter(
+                user=request.user,
+                date__date__range=[start_date, end_date],
+                status="SUCCESS",
+            )
+            .prefetch_related("transfers")
+            .only("date", "tx_reference", "tx_type", "amount", "description", "status")
         )
 
         if not transactions.exists():

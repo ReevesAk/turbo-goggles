@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 # Third party imports

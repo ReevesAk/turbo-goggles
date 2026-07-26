@@ -2,7 +2,8 @@ import uuid
 from django.db import models
 
 from basemodel import ItemPurchaseBaseModel
-from accounts.models import User, PurchaseModel
+from accounts.models import User, PurchaseModel, TxModel
+from partners.models import PartnerServices
 
 TRIP_TYPE = (
     ("Local Trip", "Local Trip"),
@@ -37,6 +38,20 @@ class RestaurantBooking(ItemPurchaseBaseModel):
         related_name="restaurant_purchase",
         null=True,
     )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="restaurant_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="restaurant_bookings",
+    )
     name = models.CharField(max_length=155, null=True)
     table = models.CharField(max_length=155, null=True)
     number_of_seats = models.CharField(max_length=150, null=True)
@@ -57,6 +72,20 @@ class GymSubcription(ItemPurchaseBaseModel):
         related_name="gym_purchase",
         null=True,
     )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gym_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gym_bookings",
+    )
     name = models.CharField(max_length=155, null=True)
     personal_trainer = models.CharField(max_length=155, blank=True, null=True)
     number_of_persons = models.CharField(max_length=150, null=True)
@@ -75,6 +104,20 @@ class CinemaBooking(ItemPurchaseBaseModel):
         on_delete=models.CASCADE,
         related_name="cinema_purchase",
         null=True,
+    )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cinema_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cinema_bookings",
     )
     name = models.CharField(max_length=155, null=True)
     available_seats = models.CharField(max_length=100, null=True)
@@ -95,6 +138,20 @@ class CourierService(ItemPurchaseBaseModel):
         related_name="courier_purchase",
         null=True,
     )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="courier_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="courier_bookings",
+    )
     pickup = models.CharField(max_length=155, null=True)
     destination = models.CharField(max_length=155, null=True)
     price_per_kg = models.CharField(max_length=155, null=True)
@@ -114,6 +171,20 @@ class ConsumableService(ItemPurchaseBaseModel):
         related_name="comsumable_purchase",
         null=True,
     )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="consumable_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="consumable_bookings",
+    )
     price = models.CharField(max_length=155, null=True)
     contact = models.CharField(max_length=155, null=True)
     product_tag = models.CharField(max_length=255, blank=True, null=True)
@@ -131,6 +202,20 @@ class LandTravels(ItemPurchaseBaseModel):
         on_delete=models.CASCADE,
         related_name="landtravel_purchase",
         null=True,
+    )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="land_travel_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="land_travel_bookings",
     )
     trip_date = models.DateField(null=True, blank=True)
     return_date = models.DateField(null=True, blank=True)
@@ -154,6 +239,20 @@ class Hotels(ItemPurchaseBaseModel):
         on_delete=models.CASCADE,
         related_name="hotel_purchase",
         null=True,
+    )
+    tx = models.ForeignKey(
+        to=TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hotel_tx",
+    )
+    partner_service = models.ForeignKey(
+        to=PartnerServices,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hotel_bookings",
     )
     amount = models.FloatField(null=True)
     product_tag = models.CharField(max_length=255, blank=True, null=True)
