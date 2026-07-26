@@ -47,6 +47,7 @@ from .serializers import (
     SetAlertTypeSerializer,
     CreateUpdateUserLocationSerializer,
     UserLocationResponseSerializer,
+    SubmitSocialHandleSerializer,
 )
 from support.serializers import AgentRatingSerializers
 from .helpers import MysteryBox, VariationCodes, MemberSurveyService
@@ -67,7 +68,13 @@ from self_service.models import (
 from vas.models import ValueAddedServices
 from fmcg.models import Product, Favourite
 from security import encrypt, decrypt
-from .models import DeviceToken, MemberSurvey, HandleChangeRequest, UserLocation
+from .models import (
+    DeviceToken,
+    MemberSurvey,
+    HandleChangeRequest,
+    PLATFORM_HANDLE_FIELDS,
+    UserLocation,
+)
 from .fcm import send_push_to_user, send_push_to_admins
 
 logger = logging.getLogger(__name__)
@@ -1458,6 +1465,65 @@ class SocialProfileView(generics.RetrieveUpdateAPIView):
                 allow_handle_change=False
             )
         return response
+
+
+@extend_schema(
+    summary="Submit a social handle for the first time",
+    tags=["Profile"],
+    description=(
+        "Sets a social handle for a platform the member has never linked before — used when "
+        "they open a task for a platform with no handle on file yet. Only works while that "
+        "platform's handle is still blank; changing a handle that's already set requires an "
+        "admin-approved handle change request instead."
+    ),
+    request=SubmitSocialHandleSerializer,
+    responses={
+        201: MemberSurveySerializers,
+        409: inline_serializer(
+            name="SocialHandleAlreadySet",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class SubmitSocialHandleView(generics.GenericAPIView):
+    serializer_class = SubmitSocialHandleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        decrypted_payload = decrypt(request.data)
+
+        serializer = self.get_serializer(data=decrypted_payload)
+        serializer.is_valid(raise_exception=True)
+
+        platform = serializer.validated_data["platform"]
+        handle = serializer.validated_data["handle"].strip()
+        field_name = PLATFORM_HANDLE_FIELDS[platform]
+
+        profile, _ = MemberSurvey.objects.get_or_create(user=request.user)
+
+        if getattr(profile, field_name):
+            return Response(
+                encrypt(
+                    {
+                        "status": "fail",
+                        "message": (
+                            f"You already have a {platform} handle on file. "
+                            "Submit a handle change request to update it."
+                        ),
+                    }
+                ),
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        setattr(profile, field_name, handle)
+        profile.save(update_fields=[field_name])
+
+        response = {
+            "status": "success",
+            "message": f"{platform} handle saved.",
+            "data": MemberSurveySerializers(profile).data,
+        }
+        return Response(encrypt(response), status=status.HTTP_201_CREATED)
 
 
 @extend_schema(

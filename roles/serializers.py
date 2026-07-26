@@ -824,3 +824,11 @@ class AdminKnowledgeBaseSerializer(serializers.ModelSerializer):
             "selected_time": instance.selected_time,
             "created_at": instance.created_at,
         }
+
+
+class TransactionResolutionSerializer(serializers.Serializer):
+    """Message Third Party form - Alert and Risk transaction drill-downs."""
+
+    transaction_id = serializers.CharField()
+    title = serializers.CharField(max_length=150)
+    issues_description = serializers.CharField()

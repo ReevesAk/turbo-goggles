@@ -13,6 +13,7 @@ from .views import (
     ResetPassword,
     Logout,
     PlatformUserCountsView,
+    DeleteAccount,
 )
 
 app_name = "accounts"
@@ -28,6 +29,7 @@ urlpatterns = [
     # ===== Authentication =====
     path("login", Login.as_view(), name="login"),
     path("logout", Logout.as_view(), name="logout"),
+    path("delete-account", DeleteAccount.as_view(), name="delete_account"),
     path("new-device-otp", DeviceVerificationOTP.as_view(), name="new_device_otp"),
     # ===== Password Management =====
     path("forgot-password", ForgotPassword.as_view(), name="forgot_password"),

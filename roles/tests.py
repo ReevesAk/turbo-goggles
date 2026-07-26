@@ -14,9 +14,29 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import AccountType, DeviceId, OTP, User, UserNotification
+from accounts.models import AccountType, DeviceId, OTP, TxModel, User, UserNotification
+from banking.models import WalletModel
+from partners.models import PartnerServices, PartnerPurchase
+from support.models import Ticket
 from security import decrypt, encrypt
 from .models import ADMIN_TYPES, knowledgeBaseModel
+from .analytics import (
+    _tx_category,
+    get_pending_settlement_list,
+    get_transaction_detail_row,
+    get_reconciliation_differences_queryset,
+    get_reconciliation_differences_count,
+    get_reconciliation_differences_list,
+    get_reconciliation_difference_detail,
+    get_duplicate_transaction_pairs,
+    get_duplicate_transactions_list,
+    get_duplicate_transaction_detail,
+    get_fraud_alerts_list,
+    get_alert_and_risk_snapshot,
+    get_all_transactions,
+    RECONCILIATION_GRACE_PERIOD_HOURS,
+    DUPLICATE_TRANSACTION_WINDOW_MINUTES,
+)
 
 
 def _make_payload(**kwargs):
@@ -1381,3 +1401,632 @@ class KnowledgeBaseSerializationTest(TestCase):
         self.assertEqual(data["author_image_urls"], self.article.author_image_urls)
         self.assertEqual(data["ads_and_media_url"], self.article.ads_and_media_url)
         self.assertEqual(data["ad_description"], self.article.ad_description)
+
+
+def _backdate(instance, **fields):
+    """Bypass auto_now_add by updating via the QuerySet, not instance.save()."""
+    type(instance).objects.filter(pk=instance.pk).update(**fields)
+    instance.refresh_from_db()
+    return instance
+
+
+class AlertAndRiskAnalyticsTests(TestCase):
+    """Unit tests for the roles.analytics functions backing the Alert and
+    Risk drill-downs (Pending Settlement, Reconciliation Differences,
+    Duplicate Transactions, Fraud Alert) and the account_type/wallet
+    enrichment added to get_all_transactions."""
+
+    def setUp(self):
+        self.buyer = User.objects.create(
+            phone_number="2348010000001",
+            email="buyer@example.com",
+            first_name="Bola",
+            last_name="Buyer",
+            country="NG",
+            state="Lagos",
+            city="Ikeja",
+            active_role="Member",
+        )
+        self.partner_user = User.objects.create(
+            phone_number="2348010000002",
+            email="partner@example.com",
+            first_name="Pat",
+            last_name="Partner",
+            country="NG",
+            state="Lagos",
+            city="Ikeja",
+            active_role="Partner",
+        )
+        WalletModel.objects.create(
+            user=self.buyer,
+            walletType="INDIVIDUAL",
+            acct_name="Bola Buyer",
+            account_number="1000000001",
+        )
+        self.partner_service = PartnerServices.objects.create(
+            user=self.partner_user,
+            business="Restaurant",
+            service="Jollof Rice",
+            price=5000,
+        )
+
+    def _make_tx(
+        self, user=None, tx_type="Food", amount=5000, status="SUCCESS", **overrides
+    ):
+        return TxModel.objects.create(
+            user=user or self.buyer,
+            tx_type=tx_type,
+            amount=amount,
+            status=status,
+            **overrides,
+        )
+
+    # ── _tx_category ──────────────────────────────────────────────────
+
+    def test_tx_category_self_service_vs_partner_vs_brand_vs_wallet_vs_other(self):
+        self_service_tx = self._make_tx(tx_type="Food")
+        partner_tx = self._make_tx(tx_type="Gym")
+        brand_tx = self._make_tx(tx_type="Brand Promotion")
+        wallet_tx = self._make_tx(tx_type="Transfer to Bank Account")
+        other_tx = self._make_tx(tx_type="Funding of wallet")
+
+        partner_linked = {partner_tx.id}
+
+        self.assertEqual(_tx_category(self_service_tx, partner_linked), "Self Services")
+        self.assertEqual(_tx_category(partner_tx, partner_linked), "Partners")
+        self.assertEqual(_tx_category(brand_tx, partner_linked), "Brand Ads")
+        self.assertEqual(_tx_category(wallet_tx, partner_linked), "Wallet")
+        self.assertEqual(_tx_category(other_tx, partner_linked), "Other")
+
+    # ── Pending Settlement ───────────────────────────────────────────
+
+    def test_pending_settlement_list_returns_only_pending_with_wallet_info(self):
+        pending_tx = self._make_tx(status="PENDING", tx_type="Intra-Bank Transfer")
+        self._make_tx(status="SUCCESS")
+
+        rows = get_pending_settlement_list()
+
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(
+            row["transaction_id"], pending_tx.tx_reference or str(pending_tx.id)
+        )
+        self.assertEqual(row["status"], "PENDING")
+        self.assertEqual(row["account_type"], "Member")
+        self.assertEqual(row["wallet_name"], "Bola Buyer")
+        self.assertEqual(row["wallet_number"], "1000000001")
+
+    def test_transaction_detail_row_found_and_not_found(self):
+        self._make_tx(tx_reference="TX-ABC-123")
+
+        found = get_transaction_detail_row("TX-ABC-123")
+        missing = get_transaction_detail_row("does-not-exist")
+
+        self.assertIsNotNone(found)
+        self.assertEqual(found["transaction_id"], "TX-ABC-123")
+        self.assertIsNone(missing)
+
+    # ── Reconciliation Differences ──────────────────────────────────
+
+    def test_reconciliation_excludes_transaction_within_grace_period(self):
+        tx = self._make_tx(tx_type="Food", status="SUCCESS")
+        # Still inside the grace period - not old enough to flag yet.
+        _backdate(tx, date=timezone.now() - timedelta(hours=1))
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=4500,
+            settled=False,
+        )
+
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=1)
+
+        self.assertEqual(get_reconciliation_differences_count(start, end), 0)
+
+    def test_reconciliation_excludes_settled_purchase(self):
+        tx = self._make_tx(tx_type="Food", status="SUCCESS")
+        _backdate(
+            tx,
+            date=timezone.now()
+            - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1),
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=4500,
+            settled=True,
+        )
+
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=1)
+
+        self.assertEqual(get_reconciliation_differences_count(start, end), 0)
+
+    def test_reconciliation_flags_unsettled_purchase_past_grace_period(self):
+        tx = self._make_tx(tx_type="Food", status="SUCCESS")
+        _backdate(
+            tx,
+            date=timezone.now()
+            - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1),
+        )
+        purchase = PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=4500,
+            settled=False,
+        )
+
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=1)
+
+        self.assertEqual(get_reconciliation_differences_count(start, end), 1)
+        qs_ids = list(
+            get_reconciliation_differences_queryset(start, end).values_list(
+                "id", flat=True
+            )
+        )
+        self.assertEqual(qs_ids, [purchase.id])
+
+        rows = get_reconciliation_differences_list(start, end)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["category"], "Partners")
+
+    def test_reconciliation_difference_detail_two_sided_shape(self):
+        tx = self._make_tx(tx_type="Food", status="SUCCESS", tx_reference="TX-RECON-1")
+        _backdate(
+            tx,
+            date=timezone.now()
+            - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1),
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=4500,
+            settled=False,
+        )
+
+        detail = get_reconciliation_difference_detail("TX-RECON-1")
+
+        self.assertIsNotNone(detail)
+        self.assertEqual(detail["user_side"]["status"], "SUCCESS")
+        self.assertEqual(detail["user_side"]["category"], "User")
+        self.assertEqual(detail["partner_side"]["status"], "PENDING")
+        self.assertEqual(detail["partner_side"]["category"], "Partner")
+        self.assertEqual(detail["partner_side"]["amount"], 4500.0)
+
+    def test_reconciliation_difference_detail_not_found(self):
+        self.assertIsNone(get_reconciliation_difference_detail("nope"))
+
+    # ── Duplicate Transactions ───────────────────────────────────────
+
+    def test_duplicate_pair_detected_within_window(self):
+        first = self._make_tx(tx_type="Food", amount=1000)
+        second = self._make_tx(tx_type="Food", amount=1000)
+        now = timezone.now()
+        _backdate(first, date=now)
+        _backdate(
+            second,
+            date=now + timedelta(minutes=DUPLICATE_TRANSACTION_WINDOW_MINUTES - 1),
+        )
+
+        start = now - timedelta(days=1)
+        end = now + timedelta(days=1)
+        pairs = get_duplicate_transaction_pairs(start, end)
+
+        self.assertEqual(len(pairs), 1)
+        duplicate_tx, original_tx = pairs[0]
+        self.assertEqual(duplicate_tx.id, second.id)
+        self.assertEqual(original_tx.id, first.id)
+
+    def test_duplicate_pair_not_detected_outside_window(self):
+        first = self._make_tx(tx_type="Gym", amount=2000)
+        second = self._make_tx(tx_type="Gym", amount=2000)
+        now = timezone.now()
+        _backdate(first, date=now)
+        _backdate(
+            second,
+            date=now + timedelta(minutes=DUPLICATE_TRANSACTION_WINDOW_MINUTES + 5),
+        )
+
+        start = now - timedelta(days=1)
+        end = now + timedelta(days=1)
+
+        self.assertEqual(get_duplicate_transaction_pairs(start, end), [])
+
+    def test_duplicate_pair_not_detected_for_different_amount(self):
+        first = self._make_tx(tx_type="Cinema", amount=1000)
+        second = self._make_tx(tx_type="Cinema", amount=1500)
+        now = timezone.now()
+        _backdate(first, date=now)
+        _backdate(second, date=now + timedelta(minutes=1))
+
+        start = now - timedelta(days=1)
+        end = now + timedelta(days=1)
+
+        self.assertEqual(get_duplicate_transaction_pairs(start, end), [])
+
+    def test_duplicate_transactions_list_overrides_status_label(self):
+        first = self._make_tx(tx_type="Food", amount=3000)
+        second = self._make_tx(tx_type="Food", amount=3000)
+        now = timezone.now()
+        _backdate(first, date=now)
+        _backdate(second, date=now + timedelta(minutes=2))
+
+        rows = get_duplicate_transactions_list(
+            now - timedelta(days=1), now + timedelta(days=1)
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["status"], "Duplicate")
+        self.assertEqual(
+            rows[0]["transaction_id"], second.tx_reference or str(second.id)
+        )
+
+    def test_duplicate_transaction_detail_returns_both_sides_with_real_status(self):
+        first = self._make_tx(
+            tx_type="Food", amount=3000, status="SUCCESS", tx_reference="TX-ORIG"
+        )
+        second = self._make_tx(
+            tx_type="Food", amount=3000, status="PENDING", tx_reference="TX-DUP"
+        )
+        # get_duplicate_transaction_detail computes its own [now-365d, now)
+        # window internally - backdate into the past, not relative to a
+        # locally-captured `now`, so both rows are safely inside it by the
+        # time the function calls timezone.now() itself.
+        base = timezone.now() - timedelta(minutes=10)
+        _backdate(first, date=base)
+        _backdate(second, date=base + timedelta(minutes=2))
+
+        detail = get_duplicate_transaction_detail("TX-DUP")
+
+        self.assertIsNotNone(detail)
+        self.assertEqual(detail["duplicate"]["transaction_id"], "TX-DUP")
+        self.assertEqual(detail["duplicate"]["status"], "PENDING")
+        self.assertEqual(detail["original"]["transaction_id"], "TX-ORIG")
+        self.assertEqual(detail["original"]["status"], "SUCCESS")
+
+    def test_duplicate_transaction_detail_not_found(self):
+        self.assertIsNone(get_duplicate_transaction_detail("nope"))
+
+    # ── Fraud Alert / snapshot ───────────────────────────────────────
+
+    def test_fraud_alerts_list_always_empty(self):
+        self.assertEqual(get_fraud_alerts_list(), [])
+
+    def test_alert_and_risk_snapshot_aggregates_all_four_counts(self):
+        self._make_tx(status="PENDING")
+
+        recon_tx = self._make_tx(tx_type="Food", status="SUCCESS")
+        _backdate(
+            recon_tx,
+            date=timezone.now()
+            - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1),
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=recon_tx,
+            commission_amount=100,
+            payout_amount=900,
+            settled=False,
+        )
+
+        dup_first = self._make_tx(tx_type="Cinema", amount=7000)
+        dup_second = self._make_tx(tx_type="Cinema", amount=7000)
+        now = timezone.now()
+        _backdate(dup_first, date=now)
+        _backdate(dup_second, date=now + timedelta(minutes=1))
+
+        start = now - timedelta(days=2)
+        end = now + timedelta(days=1)
+        snapshot = get_alert_and_risk_snapshot(start, end)
+
+        self.assertGreaterEqual(snapshot["pending_settlement"], 1)
+        self.assertEqual(snapshot["duplicate_transactions"], 1)
+        self.assertEqual(snapshot["reconciliation_differences"], 1)
+        self.assertEqual(snapshot["fraud_alerts"], 0)
+
+    # ── All Transactions enrichment ──────────────────────────────────
+
+    def test_all_transactions_rows_include_account_type_and_wallet_fields(self):
+        self._make_tx(tx_type="Intra-Bank Transfer", status="SUCCESS")
+
+        rows = get_all_transactions(
+            timezone.now() - timedelta(days=1), timezone.now() + timedelta(days=1)
+        )
+
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertIn("account_type", row)
+        self.assertEqual(row["account_type"], "Member")
+        self.assertEqual(row["wallet_name"], "Bola Buyer")
+        self.assertEqual(row["wallet_number"], "1000000001")
+
+
+class AlertAndRiskViewTests(APITestCase):
+    """HTTP-level tests for the Alert and Risk drill-down endpoints and the
+    action endpoints (Message Third Party, Cancel Pending)."""
+
+    def setUp(self):
+        cache.clear()
+        self.superadmin = _create_user(
+            email="risk-super@example.com",
+            phone_number="2348020000001",
+            active_role="SuperAdmin",
+        )
+        self.member = _create_user(
+            email="risk-member@example.com",
+            phone_number="2348020000002",
+            active_role="Member",
+        )
+        self.buyer = _create_user(
+            email="risk-buyer@example.com",
+            phone_number="2348020000003",
+            active_role="Member",
+        )
+        self.partner_user = _create_user(
+            email="risk-partner@example.com",
+            phone_number="2348020000004",
+            active_role="Partner",
+        )
+        WalletModel.objects.create(
+            user=self.buyer,
+            walletType="INDIVIDUAL",
+            acct_name="Risk Buyer",
+            account_number="2000000001",
+        )
+        self.partner_service = PartnerServices.objects.create(
+            user=self.partner_user,
+            business="Gym",
+            service="Monthly Membership",
+            price=10000,
+        )
+
+    def _make_tx(self, **overrides):
+        defaults = dict(user=self.buyer, tx_type="Gym", amount=10000, status="SUCCESS")
+        defaults.update(overrides)
+        return TxModel.objects.create(**defaults)
+
+    def test_pending_settlement_list_requires_authentication(self):
+        response = self.client.get(reverse("roles:pending_settlement_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pending_settlement_list_rejects_non_superadmin(self):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.get(reverse("roles:pending_settlement_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_pending_settlement_list_returns_rows_for_superadmin(self):
+        self._make_tx(status="PENDING", tx_reference="TX-PEND-1")
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.get(reverse("roles:pending_settlement_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["data"]["count"], 1)
+        self.assertEqual(body["data"]["results"][0]["transaction_id"], "TX-PEND-1")
+
+    def test_transaction_detail_view_found_and_not_found(self):
+        self._make_tx(status="PENDING", tx_reference="TX-DETAIL-1")
+        self.client.force_authenticate(user=self.superadmin)
+
+        found = self.client.get(
+            reverse(
+                "roles:transaction_detail", kwargs={"transaction_id": "TX-DETAIL-1"}
+            )
+        )
+        missing = self.client.get(
+            reverse("roles:transaction_detail", kwargs={"transaction_id": "nope"})
+        )
+
+        self.assertEqual(found.status_code, status.HTTP_200_OK)
+        self.assertEqual(decrypt(found.data)["data"]["transaction_id"], "TX-DETAIL-1")
+        self.assertEqual(missing.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_reconciliation_differences_list_view(self):
+        tx = self._make_tx(status="SUCCESS", tx_reference="TX-RECON-VIEW")
+        now = timezone.now()
+        TxModel.objects.filter(pk=tx.pk).update(
+            date=now - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1)
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=9500,
+            settled=False,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.get(
+            reverse("roles:reconciliation_differences_list"),
+            {"granularity": "yearly"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["data"]["count"], 1)
+        self.assertEqual(body["data"]["results"][0]["transaction_id"], "TX-RECON-VIEW")
+
+    def test_reconciliation_difference_detail_view(self):
+        tx = self._make_tx(status="SUCCESS", tx_reference="TX-RECON-DETAIL")
+        TxModel.objects.filter(pk=tx.pk).update(
+            date=timezone.now() - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1)
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=9500,
+            settled=False,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.get(
+            reverse(
+                "roles:reconciliation_difference_detail",
+                kwargs={"transaction_id": "TX-RECON-DETAIL"},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["data"]["user_side"]["status"], "SUCCESS")
+        self.assertEqual(body["data"]["partner_side"]["status"], "PENDING")
+
+    def test_duplicate_transactions_list_and_detail_view(self):
+        first = self._make_tx(amount=4000, tx_reference="TX-DUP-ORIG")
+        second = self._make_tx(amount=4000, tx_reference="TX-DUP-COPY")
+        # Backdate into the past (not relative to a locally-captured `now`)
+        # so both rows are safely inside whatever window either endpoint
+        # computes internally, however many milliseconds later that is.
+        base = timezone.now() - timedelta(minutes=10)
+        TxModel.objects.filter(pk=first.pk).update(date=base)
+        TxModel.objects.filter(pk=second.pk).update(date=base + timedelta(minutes=1))
+        self.client.force_authenticate(user=self.superadmin)
+
+        list_response = self.client.get(
+            reverse("roles:duplicate_transactions_list"),
+            {"granularity": "yearly"},
+        )
+        detail_response = self.client.get(
+            reverse(
+                "roles:duplicate_transaction_detail",
+                kwargs={"transaction_id": "TX-DUP-COPY"},
+            )
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        list_body = decrypt(list_response.data)
+        self.assertEqual(list_body["data"]["count"], 1)
+        self.assertEqual(list_body["data"]["results"][0]["status"], "Duplicate")
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        detail_body = decrypt(detail_response.data)
+        self.assertEqual(
+            detail_body["data"]["duplicate"]["transaction_id"], "TX-DUP-COPY"
+        )
+        self.assertEqual(
+            detail_body["data"]["original"]["transaction_id"], "TX-DUP-ORIG"
+        )
+
+    def test_fraud_alerts_list_view_is_always_empty(self):
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.get(reverse("roles:fraud_alerts_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["data"]["count"], 0)
+        self.assertEqual(body["data"]["results"], [])
+
+    def test_message_third_party_creates_ticket_with_number(self):
+        self._make_tx(status="PENDING", tx_reference="TX-MSG-1")
+        self.client.force_authenticate(user=self.superadmin)
+
+        # Plain JSON, not encrypted - MessageThirdPartyView reads
+        # request.data directly (same convention as
+        # roles.partners.SetPartnerServiceCommission): only responses are
+        # encrypted on these admin write endpoints, not request bodies.
+        response = self.client.post(
+            reverse("roles:message_third_party"),
+            data=_json.dumps(
+                {
+                    "transaction_id": "TX-MSG-1",
+                    "title": "Pending Settlement",
+                    "issues_description": (
+                        "This transaction has not dropped in the customer's wallet."
+                    ),
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "success")
+        self.assertTrue(body["data"]["ticket_number"])
+        ticket = Ticket.objects.get(number=body["data"]["ticket_number"])
+        self.assertEqual(ticket.title, "Pending Settlement")
+        self.assertEqual(ticket.user_id, self.buyer.id)
+        self.assertIn("TX-MSG-1", ticket.description)
+
+    def test_cancel_pending_transaction_marks_cancelled(self):
+        tx = self._make_tx(status="PENDING", tx_reference="TX-CANCEL-1")
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.post(
+            reverse(
+                "roles:cancel_pending_transaction",
+                kwargs={"transaction_id": "TX-CANCEL-1"},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, "CANCELLED")
+
+    def test_cancel_pending_transaction_rejects_non_pending(self):
+        self._make_tx(status="SUCCESS", tx_reference="TX-CANCEL-2")
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.post(
+            reverse(
+                "roles:cancel_pending_transaction",
+                kwargs={"transaction_id": "TX-CANCEL-2"},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cancel_pending_transaction_404_for_unknown(self):
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.post(
+            reverse(
+                "roles:cancel_pending_transaction",
+                kwargs={"transaction_id": "does-not-exist"},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_alert_and_risk_view_returns_real_reconciliation_and_fraud_numbers(self):
+        tx = self._make_tx(status="SUCCESS", tx_reference="TX-SNAPSHOT")
+        TxModel.objects.filter(pk=tx.pk).update(
+            date=timezone.now() - timedelta(hours=RECONCILIATION_GRACE_PERIOD_HOURS + 1)
+        )
+        PartnerPurchase.objects.create(
+            user=self.buyer,
+            service=self.partner_service,
+            tx=tx,
+            commission_amount=500,
+            payout_amount=9500,
+            settled=False,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+
+        response = self.client.get(
+            reverse("roles:alert_and_risk"), {"granularity": "yearly"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertIsNotNone(body["data"]["reconciliation_differences"]["value"])
+        self.assertEqual(body["data"]["fraud_alerts"]["value"], 0)

@@ -22,6 +22,7 @@ from .views import (
     ChooseAlertTypeView,
     RegisterDeviceTokenView,
     SocialProfileView,
+    SubmitSocialHandleView,
     RequestHandleChangeView,
     LogUserLocation,
 )
@@ -86,8 +87,13 @@ urlpatterns = [
     ),
     # FCM push notification device token
     path("device-token/", RegisterDeviceTokenView.as_view(), name="device_token"),
-    # Social profile (merged from tasks.SocialProfile)
+    # Social profile
     path("social-profile/", SocialProfileView.as_view(), name="social_profile"),
+    path(
+        "social-profile/submit-handle/",
+        SubmitSocialHandleView.as_view(),
+        name="submit_social_handle",
+    ),
     # Handle change requests
     path(
         "social-profile/request-change/",

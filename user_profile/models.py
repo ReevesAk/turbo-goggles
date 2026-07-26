@@ -46,13 +46,13 @@ class MemberSurvey(models.Model):
     wheredoyoulive = models.CharField(max_length=200, null=True)
     state = models.CharField(max_length=100, null=True)
     facebook_followers = models.CharField(choices=FOLLOWERS, max_length=255, null=True)
-    facebook_handle = models.CharField(max_length=255, null=True)
+    facebook_handle = models.CharField(max_length=255, null=True, blank=True)
     twitter_followers = models.CharField(choices=FOLLOWERS, max_length=255, null=True)
-    twitter_handle = models.CharField(max_length=255, null=True)
+    twitter_handle = models.CharField(max_length=255, null=True, blank=True)
     thread_followers = models.CharField(choices=FOLLOWERS, max_length=255, null=True)
     thread_handle = models.CharField(max_length=255, null=True)
     instagram_followers = models.CharField(choices=FOLLOWERS, max_length=255, null=True)
-    instagram_handle = models.CharField(max_length=255, null=True)
+    instagram_handle = models.CharField(max_length=255, null=True, blank=True)
     tiktok_followers = models.CharField(
         choices=FOLLOWERS, max_length=255, null=True, blank=True
     )
@@ -77,6 +77,17 @@ class MemberSurvey(models.Model):
             "LinkedIn": self.linkedin_handle,
         }
         return mapping.get(platform)
+
+
+# Platforms a member can submit a handle for via SubmitSocialHandleView, matching
+# tasks.models.SocialTask.PLATFORM_CHOICES so a task's platform can be used directly.
+PLATFORM_HANDLE_FIELDS = {
+    "X": "twitter_handle",
+    "Instagram": "instagram_handle",
+    "Facebook": "facebook_handle",
+    "TikTok": "tiktok_handle",
+    "YouTube": "youtube_handle",
+}
 
 
 HANDLE_PLATFORM_CHOICES = (

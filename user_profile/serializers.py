@@ -3,7 +3,12 @@ from rest_framework import serializers
 
 # In project imports.
 from accounts.models import User, UserNotification
-from .models import HandleChangeRequest, MemberSurvey, UserLocation
+from .models import (
+    HandleChangeRequest,
+    MemberSurvey,
+    PLATFORM_HANDLE_FIELDS,
+    UserLocation,
+)
 from fmcg.models import Favourite
 from support.models import Ticket
 
@@ -148,6 +153,13 @@ class MemberSurveySerializers(serializers.ModelSerializer):
             "youtube_handle",
             "linkedin_handle",
         ]
+
+
+class SubmitSocialHandleSerializer(serializers.Serializer):
+    """First-time submission of a single platform handle (e.g. from a task prompt)."""
+
+    platform = serializers.ChoiceField(choices=list(PLATFORM_HANDLE_FIELDS.keys()))
+    handle = serializers.CharField(max_length=255)
 
 
 class ChangePasswordSerializer(serializers.ModelSerializer):

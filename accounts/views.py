@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 # Third party imports.
 from rest_framework import generics
 from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -31,8 +31,9 @@ from .serializers import (
     PasswordResendOTPSerializer,
     LogoutSerializer,
     NewDeviceOTPVerifyOTPSerializer,
+    DeleteAccountSerializer,
 )
-from .models import User, DeviceId, AccountType, UserNotification
+from .models import User, DeviceId, AccountType, UserNotification, UserDeletion
 from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
@@ -845,8 +846,6 @@ class Login(APIView):
         password = data.get("password")
         biometrics = data.get("use_biometrics")
         device_id = data.get("device_id")
-        device_name = data.get("device_name")
-        device_os = data.get("device_os")
 
         logger.info("Login attempt for phone number: %s", login)
 
@@ -1352,6 +1351,7 @@ class Logout(APIView):
                         "members": s.IntegerField(),
                         "brands": s.IntegerField(),
                         "partners": s.IntegerField(),
+                        "members_completed_survey": s.IntegerField(),
                     },
                 ),
             },
@@ -1369,6 +1369,9 @@ class PlatformUserCountsView(generics.GenericAPIView):
             data = {
                 "total": User.objects.count(),
                 "members": User.objects.filter(is_member=True).count(),
+                "members_completed_survey": User.objects.filter(
+                    is_member=True, has_done_survey=True
+                ).count(),
                 "brands": User.objects.filter(account_types__user_type="BrandAd")
                 .distinct()
                 .count(),
@@ -1380,5 +1383,75 @@ class PlatformUserCountsView(generics.GenericAPIView):
 
         return Response(
             data=encrypt({"status": "success", "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Delete account",
+    tags=["Auth"],
+    description=(
+        "Soft-deletes the authenticated user's account after verifying their "
+        "password. The account and all related records (wallet, transaction "
+        "history, points, etc.) are retained for compliance - the user is "
+        "just excluded from active-user views and can no longer log in. "
+        "An optional `reason` is logged for churn analysis."
+    ),
+    request=DeleteAccountSerializer,
+    responses={
+        200: inline_serializer(
+            name="DeleteAccountResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="DeleteAccountUnauthorized",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="DeleteAccountBadRequest",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class DeleteAccount(generics.GenericAPIView):
+    serializer_class = DeleteAccountSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        decrypted_payload = decrypt(request.data)
+        serializer = self.serializer_class(data=decrypted_payload)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+
+        if not check_password(serializer.validated_data["password"], user.password):
+            logger.warning("Delete account: incorrect password for user %s", user.id)
+            return Response(
+                data=encrypt({"status": "fail", "error": "Incorrect password."}),
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if user.is_deleted:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Account already deleted."}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        user.is_deleted = True
+        user.deleted_at = now
+        user.is_active = False
+        user.save(update_fields=["is_deleted", "deleted_at", "is_active"])
+
+        UserDeletion.objects.create(
+            user=user, reason=serializer.validated_data.get("reason", "")
+        )
+
+        logger.info("User %s deleted their account.", user.id)
+
+        return Response(
+            data=encrypt(
+                {"status": "success", "message": "Account deleted successfully."}
+            ),
             status=status.HTTP_200_OK,
         )
