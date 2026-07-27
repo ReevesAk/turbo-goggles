@@ -560,7 +560,7 @@ urlpatterns = [
     path("knowledge-base/create", CreateKnowledgeBaseView.as_view(), name="kb_create"),
     path("knowledge-base/all", AdminKnowledgeBaseListView.as_view(), name="kb_list"),
     path(
-        "knowledge-base/<int:pk>/",
+        "knowledge-base/admin/<int:pk>/",
         AdminKnowledgeBaseDetailView.as_view(),
         name="kb_detail",
     ),
