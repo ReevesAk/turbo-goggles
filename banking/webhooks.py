@@ -580,7 +580,10 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
         reference = webhook_data["data"]["reference"]
         email = webhook_data["data"]["customer"]["email"]
         tx_status = webhook_data["data"]["status"]
-        amount = webhook_data["data"]["amount"]  # Convert kobo to naira
+        # Paystack sends amount in kobo.
+        amount = (Decimal(str(webhook_data["data"]["amount"])) / 100).quantize(
+            Decimal("0.01")
+        )
 
         user_obj = FundWithCard.objects.filter(txn_reference=reference).first()
         if user_obj:
@@ -706,7 +709,11 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
             live_status = live_data.get("status")
             if live_status == "success":
                 transaction.status = "success"
-                transaction.amount = live_data.get("amount", transaction.amount)
+                if "amount" in live_data:
+                    # Paystack sends amount in kobo.
+                    transaction.amount = (
+                        Decimal(str(live_data["amount"])) / 100
+                    ).quantize(Decimal("0.01"))
                 transaction.email = live_data.get("customer", {}).get(
                     "email", transaction.email
                 )
