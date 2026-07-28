@@ -20,7 +20,7 @@ from drf_spectacular.types import OpenApiTypes
 import rest_framework.serializers as s
 
 from .models import FundWithCard, WalletModel, AddressVerificationModel
-from .controllers import Transfers
+from .controllers import Transfers, Paystack
 from .serializers import (
     WebhookSerializer,
     TransferNotificationWebhookSerializer,
@@ -688,6 +688,31 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # The webhook may not have landed yet — ask Paystack directly rather
+        # than making the caller wait on webhook delivery.
+        if transaction.status != "success":
+            try:
+                live_data = Paystack.verify_transaction(tx_ref).get("data", {})
+            except Exception:
+                logger.exception(
+                    "Paystack verify_transaction failed for reference=%s", tx_ref
+                )
+                live_data = {}
+
+            live_status = live_data.get("status")
+            if live_status == "success":
+                transaction.status = "success"
+                transaction.amount = live_data.get("amount", transaction.amount)
+                transaction.email = live_data.get("customer", {}).get(
+                    "email", transaction.email
+                )
+                transaction.save(update_fields=["status", "amount", "email"])
+            elif live_status in ("failed", "abandoned"):
+                transaction.status = live_status
+                transaction.save(update_fields=["status"])
+            # else: still pending on Paystack's side too — leave as-is,
+            # don't fire a false "unsuccessful" notification below.
+
         transaction_data = {
             "txn_reference": transaction.txn_reference,
             "amount": str(transaction.amount),
@@ -723,7 +748,7 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 )
 
             return Response(data=encrypted_resp, status=status.HTTP_200_OK)
-        else:
+        elif transaction.status in ("failed", "abandoned"):
             resp = {
                 "status": "fail",
                 "message": f"Transaction is not successful. Current status: {transaction.status}.",
@@ -749,6 +774,16 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
                 )
             encrypted_resp = encrypt(resp)
             return Response(data=encrypted_resp, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Neither our webhook nor a live Paystack check has resolved this
+            # yet — genuinely still pending, not a failure. No notification;
+            # the caller is expected to poll again shortly.
+            resp = {
+                "status": "pending",
+                "message": "Transaction is still processing. Please check again shortly.",
+                "transaction": transaction_data,
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_202_ACCEPTED)
 
 
 class RedirectingPageView(View):

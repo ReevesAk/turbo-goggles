@@ -1,6 +1,7 @@
 import re
 import requests
 import csv
+from decimal import Decimal
 from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -15,7 +16,7 @@ from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import WalletModel
+from .models import WalletModel, FundWithCard
 
 # Third party imports.
 from rest_framework.response import Response
@@ -136,6 +137,52 @@ def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
         )
 
     return True, None
+
+
+def verify_card_payment(card_reference, amount):
+    """
+    Validates a confirmed, unspent PayWithCard payment and reserves it
+    against a purchase before the request proceeds. Reservation happens
+    here (before the caller talks to the provider) so a reference can't
+    be spent twice by concurrent requests.
+
+    Returns (funding_or_None, error_response_or_None).
+    """
+    if not card_reference:
+        return None, Response(
+            encrypt({"status": "fail", "message": "card_reference is required."}),
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    funding = FundWithCard.objects.filter(
+        txn_reference=card_reference, status="success", is_processed=False
+    ).first()
+    if not funding:
+        return None, Response(
+            encrypt(
+                {
+                    "status": "fail",
+                    "message": "Invalid, unconfirmed, or already-used payment reference.",
+                }
+            ),
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if Decimal(str(funding.amount)) < Decimal(str(amount)):
+        return None, Response(
+            encrypt(
+                {
+                    "status": "fail",
+                    "message": "Card payment does not cover the purchase amount.",
+                }
+            ),
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    funding.is_processed = True
+    funding.save(update_fields=["is_processed"])
+
+    return funding, None
 
 
 def generate_transaction_sms(

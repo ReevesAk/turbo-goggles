@@ -1197,31 +1197,42 @@ class PayWithCard(generics.CreateAPIView):
     """
 
     serializer_class = PaymentURLSerializers
-    permission_classes = (IsGuestWithValidId,)
+    permission_classes = (IsAuthenticated | IsGuestWithValidId,)
 
     def post(self, request):
         user_data = decrypt(request.data)
-        guest_email = user_data.get("email")
+        authenticated_user = request.user if request.user.is_authenticated else None
         guest_id = request.headers.get("X-Guest-ID")
 
+        if authenticated_user:
+            user_data.setdefault("email", authenticated_user.email)
+
+        caller_desc = (
+            f"User {authenticated_user.id}"
+            if authenticated_user
+            else f"Guest User: {guest_id}"
+        )
         logger.info(
-            f"Guest User: {guest_id} initiated a PayWithCard request with data: {user_data}"
+            f"{caller_desc} initiated a PayWithCard request with data: {user_data}"
         )
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             try:
                 amount_in_naira = int(user_data["amount"]) * 100
                 checkout_url_response = Paystack.generate_url(
-                    email=guest_email, amount=amount_in_naira
+                    email=user_data["email"], amount=amount_in_naira
                 )
                 if checkout_url_response.status_code == 200:
                     url_resp = checkout_url_response.json()
                     logger.info(
-                        f"Checkout URL generated successfully for guest user {guest_id} with reference {url_resp['data']['reference']}"
+                        f"Checkout URL generated successfully for {caller_desc} with reference {url_resp['data']['reference']}"
                     )
                     FundWithCard.objects.update_or_create(
                         txn_reference=url_resp["data"]["reference"],
-                        defaults={"email": guest_email},
+                        defaults={
+                            "email": user_data["email"],
+                            "user": authenticated_user,
+                        },
                     )
                     response = {
                         "status": "success",
@@ -1233,7 +1244,7 @@ class PayWithCard(generics.CreateAPIView):
                     return Response(data=encrypt(response), status=status.HTTP_200_OK)
                 else:
                     logger.error(
-                        f"Failed to generate checkout URL for guest user {guest_id}. Status code: {checkout_url_response.status_code}"
+                        f"Failed to generate checkout URL for {caller_desc}. Status code: {checkout_url_response.status_code}"
                     )
                     return Response(
                         data=encrypt(checkout_url_response.json()),
@@ -1241,7 +1252,7 @@ class PayWithCard(generics.CreateAPIView):
                     )
             except Exception as e:
                 logger.exception(
-                    f"Exception occurred while generating checkout URL for guest user {guest_id}: {e}"
+                    f"Exception occurred while generating checkout URL for {caller_desc}: {e}"
                 )
                 return Response(
                     data=encrypt(
@@ -1254,7 +1265,7 @@ class PayWithCard(generics.CreateAPIView):
                 )
         else:
             logger.warning(
-                f"Validation failed for PayWithCard request by guest user {guest_id} with errors: {serializer.errors}"
+                f"Validation failed for PayWithCard request by {caller_desc} with errors: {serializer.errors}"
             )
             return Response(
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
@@ -1310,10 +1321,8 @@ class FundWallet(generics.GenericAPIView):
         user = get_object_or_404(User, email=email)
         logger.info("User %s found for wallet funding.", user.id)
 
-        reference_exists = FundWithCard.objects.filter(
-            user=user, txn_reference=tx_ref
-        ).exists()
-        if not reference_exists:
+        funding = FundWithCard.objects.filter(user=user, txn_reference=tx_ref).first()
+        if not funding:
             logger.error(
                 "Transaction reference %s does not exist or belong to user %s",
                 tx_ref,
@@ -1329,6 +1338,38 @@ class FundWallet(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        if funding.is_processed:
+            logger.warning(
+                "Transaction reference %s has already been processed for user %s",
+                tx_ref,
+                user.id,
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Transaction has already been processed.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if funding.status != "success":
+            logger.warning(
+                "Transaction reference %s has not been confirmed by Paystack yet (status=%s)",
+                tx_ref,
+                funding.status,
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Card payment has not been confirmed yet.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
 
         try:
@@ -1340,6 +1381,9 @@ class FundWallet(generics.GenericAPIView):
             if transfer_resp.status_code == 200:
                 tx_id = generate_txId()
                 logger.info("Transfer successful. Transaction ID: %s", tx_id)
+
+                funding.is_processed = True
+                funding.save(update_fields=["is_processed"])
 
                 # Award welcome bonus if user opened wallet and funded >= 2000 NGN
                 try:
