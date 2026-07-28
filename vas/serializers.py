@@ -11,6 +11,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     )
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
+    card_reference = serializers.CharField(write_only=True, required=False)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
@@ -25,6 +26,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "pin",
             "use_biometrics",
             "payment_option",
+            "card_reference",
             "use_bonus",
             "use_points",
             "use_cashback",
@@ -38,6 +40,7 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
         validated_data.pop("use_cashback", None)
+        validated_data.pop("card_reference", None)
 
         airtime_instance = ValueAddedServices.objects.create(**validated_data)
 
@@ -52,6 +55,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     )
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
+    card_reference = serializers.CharField(write_only=True, required=False)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
@@ -67,6 +71,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "pin",
             "use_biometrics",
             "payment_option",
+            "card_reference",
             "use_bonus",
             "use_points",
             "use_cashback",
@@ -80,6 +85,7 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
         validated_data.pop("use_cashback", None)
+        validated_data.pop("card_reference", None)
 
         data_instance = ValueAddedServices.objects.create(**validated_data)
         return data_instance
@@ -93,6 +99,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     )
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
+    card_reference = serializers.CharField(write_only=True, required=False)
     use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
@@ -113,6 +120,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "pin",
             "use_biometrics",
             "payment_option",
+            "card_reference",
             "customerId",
             "billerId",
             "itemId",
@@ -130,6 +138,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
         validated_data.pop("pin", None)
         validated_data.pop("use_biometrics", None)
         validated_data.pop("use_cashback", None)
+        validated_data.pop("card_reference", None)
         utility_bill_instance = ValueAddedServices.objects.create(**validated_data)
         return utility_bill_instance
 
