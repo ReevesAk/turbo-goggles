@@ -311,11 +311,15 @@ class BrandTaskFeedView(generics.ListAPIView):
                 | Q(countries__contains=[user_country])
             )
 
-        # Filter out ads that have hit their true slot cap ceiling. Ads that
-        # have crossed into the randomized 85%-100% completion band but not
-        # yet hit this hard ceiling are excluded later, per-item, in list()
-        # via is_slot_target_reached (can't be expressed as a DB filter).
-        qs = qs.filter(slots_filled__lt=F("slot_cap"))
+        # Filter out ads that have hit their true slot cap ceiling. slot_cap
+        # is required on new ads, but older rows may still have it unset -
+        # NULL must be treated as "no limit", not excluded (slots_filled <
+        # NULL is false in SQL, which would hide those rows forever). Ads
+        # that have crossed into the randomized 85%-100% completion band but
+        # not yet hit this hard ceiling are excluded later, per-item, in
+        # list() via is_slot_target_reached (can't be expressed as a DB
+        # filter).
+        qs = qs.filter(Q(slot_cap__isnull=True) | Q(slots_filled__lt=F("slot_cap")))
 
         # Prevent duplicate rows from relational joins
         return qs.distinct()

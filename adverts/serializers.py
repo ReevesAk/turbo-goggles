@@ -295,11 +295,13 @@ class CreateAdSerializers(serializers.ModelSerializer):
     )
 
     campaign_name = serializers.CharField(max_length=150)
+    slot_cap = serializers.IntegerField(required=True, min_value=1)
 
     pin = serializers.CharField(max_length=6, write_only=True, required=False)
     payment_option = serializers.CharField(
         max_length=20, write_only=True, required=True
     )
+    card_reference = serializers.CharField(write_only=True, required=False)
     biometrics = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
@@ -308,6 +310,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
             "id",
             "pin",
             "payment_option",
+            "card_reference",
             "biometrics",
             "business_or_brand_name",
             "type_of_business",
@@ -373,6 +376,7 @@ class CreateAdSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("pin", None)
         validated_data.pop("payment_option", None)
+        validated_data.pop("card_reference", None)
         validated_data.pop("biometrics", None)
 
         states = validated_data.pop("state", [])
