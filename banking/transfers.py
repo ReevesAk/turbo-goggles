@@ -1373,12 +1373,18 @@ class FundWallet(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Trust what Paystack actually confirmed for this reference, not
+        # whatever the client claims - the client-supplied `amount` above is
+        # otherwise unverified and forgeable. net_credit() applies the same
+        # NIP + merchant fee and VAT deducted on any internal transfer.
+        amount = TransferCharge.net_credit(funding.amount)
+
         user_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
 
         try:
             transfer_resp = Wallet.Credit(
                 acct_no=user_details.account_number,
-                amount=amount,
+                amount=float(amount),
                 reason=f"You funded your wallet with {amount} using paystack.",
             )
             if transfer_resp.status_code == 200:
