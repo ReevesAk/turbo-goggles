@@ -1218,7 +1218,7 @@ class PayWithCard(generics.CreateAPIView):
         serializer = PaymentURLSerializers(data=user_data)
         if serializer.is_valid(raise_exception=True):
             try:
-                amount_in_naira = int(user_data["amount"]) * 100
+                amount_in_naira = int(Decimal(str(user_data["amount"])) * 100)
                 checkout_url_response = Paystack.generate_url(
                     email=user_data["email"], amount=amount_in_naira
                 )
@@ -1232,6 +1232,9 @@ class PayWithCard(generics.CreateAPIView):
                         defaults={
                             "email": user_data["email"],
                             "user": authenticated_user,
+                            "purpose": serializer.validated_data.get(
+                                "purpose", "wallet_topup"
+                            ),
                         },
                     )
                     response = {

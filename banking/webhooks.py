@@ -589,7 +589,11 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             user_obj.amount = amount
             user_obj.save()
 
-            if tx_status == "success" and user_obj.user:
+            if (
+                tx_status == "success"
+                and user_obj.user
+                and user_obj.purpose == "wallet_topup"
+            ):
                 send_push_to_user(
                     user=user_obj.user,
                     title="Card Funding Successful 💳",

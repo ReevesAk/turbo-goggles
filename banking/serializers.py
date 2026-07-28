@@ -334,9 +334,13 @@ class WalletStatusSerializer(serializers.ModelSerializer):
 
 
 class PaymentURLSerializers(serializers.ModelSerializer):
+    purpose = serializers.ChoiceField(
+        choices=["wallet_topup", "purchase"], required=False, default="wallet_topup"
+    )
+
     class Meta:
         model = FundWithCard
-        fields = ["id", "amount", "email"]
+        fields = ["id", "amount", "email", "purpose"]
 
 
 # class VerifyCardDepositSerializers(serializers.ModelSerializer):

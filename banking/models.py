@@ -259,6 +259,12 @@ class TransferModel(models.Model):
         return f"Transfer {self.tx_reference} - {self.beneficiary_name or 'Unknown'}"
 
 
+FUND_WITH_CARD_PURPOSE_CHOICES = (
+    ("wallet_topup", "Wallet top-up"),
+    ("purchase", "Purchase (spent via verify_card_payment, wallet never credited)"),
+)
+
+
 class FundWithCard(BaseModel):
     txn_reference = models.CharField(max_length=200, unique=True, null=True)
     user = models.ForeignKey(
@@ -272,6 +278,18 @@ class FundWithCard(BaseModel):
     email = models.EmailField(null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     is_processed = models.BooleanField(default=False)
+    purpose = models.CharField(
+        max_length=20,
+        choices=FUND_WITH_CARD_PURPOSE_CHOICES,
+        default="wallet_topup",
+        help_text=(
+            "Set at checkout-URL generation time (PayWithCard). Lets the "
+            "Paystack webhook know whether this charge is a genuine wallet "
+            "top-up (send the funding notification) or earmarked for "
+            "immediate spend elsewhere via verify_card_payment (skip it - "
+            "the consuming flow sends its own success notification)."
+        ),
+    )
 
 
 class AddressVerificationModel(models.Model):
