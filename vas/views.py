@@ -30,7 +30,7 @@ from banking.models import WalletModel
 from banking.cashback_service import CashbackService
 from banking.tasks import post_vas_update
 from permissions import IsAuthenticatedOrGuestWithValidId
-from banking.helpers import Pin, verify_wallet_auth
+from banking.helpers import Pin, verify_wallet_auth, verify_card_payment
 from gamification.models import Points as PointsModel
 from gamification.points import TIER_VALUES
 from .utility import (
@@ -260,6 +260,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         # Extract fields
         pin = user_data.get("pin")
         payment_option = user_data.get("payment_option")
+        card_reference = user_data.get("card_reference")
         use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
         phone = user_data.get("phone_number")
@@ -643,6 +644,12 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
 
                 case "CARD":
+                    funding, card_error_response = verify_card_payment(
+                        card_reference, amount
+                    )
+                    if card_error_response is not None:
+                        return card_error_response
+
                     token = VAS.authenticate()
                     if not token:
                         return self._handle_airtime_failure(
@@ -993,6 +1000,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         phone = user_data.get("phone_number")
         use_points = user_data.get("use_points")
         payment_option = user_data.get("payment_option")
+        card_reference = user_data.get("card_reference")
         network = user_data.get("network")
         product_id = user_data.get("product_id")
         biometrics = user_data.get("use_biometrics")
@@ -1320,6 +1328,12 @@ class DataSubscriptionView(generics.GenericAPIView):
 
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
+                funding, card_error_response = verify_card_payment(
+                    card_reference, amount
+                )
+                if card_error_response is not None:
+                    return card_error_response
+
                 token = VAS.authenticate()
                 if not token:
                     return self._handle_data_failure(
@@ -1985,6 +1999,7 @@ class BillPaymentView(generics.GenericAPIView):
         use_points = user_data.get("use_points")
         use_cashback = user_data.get("use_cashback")
         payment_option = user_data.get("payment_option")
+        card_reference = user_data.get("card_reference")
         customerId = user_data.get("customerId")
         billerId = user_data.get("billerId")
         phone_number = user_data.get("phone_number") or (
@@ -2215,6 +2230,12 @@ class BillPaymentView(generics.GenericAPIView):
 
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
+                funding, card_error_response = verify_card_payment(
+                    card_reference, amount
+                )
+                if card_error_response is not None:
+                    return card_error_response
+
                 token = VAS.authenticate()
                 if not token:
                     return self._handle_failure(
