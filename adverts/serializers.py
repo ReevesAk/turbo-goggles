@@ -297,11 +297,15 @@ class CreateAdSerializers(serializers.ModelSerializer):
     campaign_name = serializers.CharField(max_length=150)
     slot_cap = serializers.IntegerField(required=True, min_value=1)
 
-    pin = serializers.CharField(max_length=6, write_only=True, required=False)
+    pin = serializers.CharField(
+        max_length=6, write_only=True, required=False, allow_blank=True
+    )
     payment_option = serializers.CharField(
         max_length=20, write_only=True, required=True
     )
-    card_reference = serializers.CharField(write_only=True, required=False)
+    card_reference = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
     biometrics = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
@@ -351,6 +355,16 @@ class CreateAdSerializers(serializers.ModelSerializer):
         task_details = attrs.get("task_details", {})
         latitude = attrs.get("latitude")
         longitude = attrs.get("longitude")
+        payment_option = attrs.get("payment_option")
+
+        if payment_option == "WALLET" and not attrs.get("pin"):
+            raise serializers.ValidationError(
+                {"pin": "This field is required when paying with WALLET."}
+            )
+        if payment_option == "CARD" and not attrs.get("card_reference"):
+            raise serializers.ValidationError(
+                {"card_reference": "This field is required when paying with CARD."}
+            )
 
         if task_type:
             validator = TASK_DETAIL_VALIDATORS.get(task_type)
