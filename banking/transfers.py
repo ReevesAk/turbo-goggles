@@ -18,7 +18,7 @@ from permissions import (
     IsBrandAd,
     IsGuestWithValidId,
 )
-from commons import generate_txId, Biometrics
+from commons import Biometrics
 
 # Third party imports.
 from rest_framework import generics
@@ -1404,8 +1404,7 @@ class FundWallet(generics.GenericAPIView):
                 reason=f"You funded your wallet with {amount} using paystack.",
             )
             if transfer_resp.status_code == 200:
-                tx_id = generate_txId()
-                logger.info("Transfer successful. Transaction ID: %s", tx_id)
+                logger.info("Transfer successful for user %s.", user.id)
 
                 # Award welcome bonus if user opened wallet and funded >= 2000 NGN
                 try:
@@ -1467,33 +1466,16 @@ class FundWallet(generics.GenericAPIView):
                             "Error while attempting to award welcome bonus"
                         )
 
-                tx = TxModel.objects.create(
-                    user=user,
-                    tx_reference=tx_id,
-                    tx_type="Funding of wallet",
-                    amount=amount,
-                    description="You funded your wallet.",
-                )
-                TransferModel.objects.create(
-                    user=user,
-                    tx=tx,
-                    beneficiary_account_number=user_details.account_number,
-                    sender_name=user.first_name + " " + user.last_name,
-                    amount=amount,
-                )
-
-                account = TransferModel.objects.filter(user=user).first()
-
-                # No user-facing notification (in-app or email) here - the
-                # gross amount isn't what actually lands after 9PSB's own
-                # transfer fee, so it was showing the wrong figure. The
-                # webhook that confirmed the Paystack charge already sent
-                # the one notification the user gets for this event; see
-                # CardDepositPaystackWebhook.handle_charge_success.
+                # No TxModel/TransferModel written here on purpose: this is
+                # the gross, pre-9PSB-fee amount, not what actually lands.
+                # InflowsWebhookNotificationView creates the authoritative
+                # TxModel (real net amount, SUCCESS status) once 9PSB
+                # confirms the settlement, and sends the one user-facing
+                # notification for this event.
                 ActivityModel.objects.create(
                     user=user,
                     title="Wallet Funding",
-                    description=f"{user.first_name} {user.last_name} funded their account with ₦{amount}. Available balance is ₦{account.available_balance}.",
+                    description=f"{user.first_name} {user.last_name} funded their account with ₦{amount}. Available balance is ₦{user_details.balance}.",
                 )
                 logger.info("Activity log created for user %s", user.id)
 
