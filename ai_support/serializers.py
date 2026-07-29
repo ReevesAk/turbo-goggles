@@ -21,7 +21,14 @@ class SessionHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AISupportSession
-        fields = ["id", "messages", "is_escalated", "ticket_number", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "messages",
+            "is_escalated",
+            "ticket_number",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_ticket_number(self, obj):
         return obj.ticket.number if obj.ticket else None

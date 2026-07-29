@@ -12,8 +12,8 @@ SEX = (
 )
 
 TRANSFER_TYPE = (
-    ("INTERNAL", "Internal"),   # sub-account to sub-account within Anchor
-    ("EXTERNAL", "External"),   # NIP/NIBSS to any Nigerian bank
+    ("INTERNAL", "Internal"),  # sub-account to sub-account within Anchor
+    ("EXTERNAL", "External"),  # NIP/NIBSS to any Nigerian bank
 )
 
 TRANSFER_STATUS = (
@@ -40,20 +40,32 @@ class TreasuryAccount(models.Model):
     Equivalent to WalletModel in banking.
     """
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="treasury_account")
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="treasury_account"
+    )
 
     # Anchor identifiers
-    anchor_customer_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)
-    anchor_account_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)
+    anchor_customer_id = models.CharField(
+        max_length=100, null=True, blank=True, db_index=True
+    )
+    anchor_account_id = models.CharField(
+        max_length=100, null=True, blank=True, db_index=True
+    )
 
     # NUBAN details
-    account_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    account_number = models.CharField(
+        max_length=20, null=True, blank=True, db_index=True
+    )
     bank_name = models.CharField(max_length=100, null=True, blank=True)
     acct_name = models.CharField(max_length=150, null=True, blank=True)
 
     # Balances (cached — source of truth is Anchor)
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    cashback_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    balance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    cashback_balance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
 
     # Security
     pin = models.CharField(max_length=155, null=True, blank=True)
@@ -82,28 +94,44 @@ class TreasuryTransfer(models.Model):
     Equivalent to TransferModel in banking.
     """
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="treasury_transfers")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="treasury_transfers"
+    )
     tx = models.ForeignKey(
-        TxModel, on_delete=models.SET_NULL, null=True, blank=True, related_name="treasury_transfers"
+        TxModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="treasury_transfers",
     )
 
     # Anchor's own transfer/payout ID (returned in the API response)
-    anchor_transfer_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)
+    anchor_transfer_id = models.CharField(
+        max_length=100, null=True, blank=True, db_index=True
+    )
 
-    transfer_type = models.CharField(max_length=10, choices=TRANSFER_TYPE, default="EXTERNAL")
+    transfer_type = models.CharField(
+        max_length=10, choices=TRANSFER_TYPE, default="EXTERNAL"
+    )
     status = models.CharField(max_length=10, choices=TRANSFER_STATUS, default="PENDING")
 
     # Beneficiary
-    beneficiary_account_number = models.CharField(max_length=30, null=True, blank=True, db_index=True)
+    beneficiary_account_number = models.CharField(
+        max_length=30, null=True, blank=True, db_index=True
+    )
     beneficiary_bank_code = models.CharField(max_length=20, null=True, blank=True)
     beneficiary_name = models.CharField(max_length=150, null=True, blank=True)
 
     # Sender
-    sender_account_number = models.CharField(max_length=30, null=True, blank=True, db_index=True)
+    sender_account_number = models.CharField(
+        max_length=30, null=True, blank=True, db_index=True
+    )
     sender_name = models.CharField(max_length=150, null=True, blank=True)
 
     # Transaction details
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
     currency = models.CharField(max_length=10, default="NGN")
     narration = models.TextField(null=True, blank=True)
     tx_reference = models.CharField(max_length=100, unique=True, null=True)
@@ -137,8 +165,12 @@ class TreasuryNotification(models.Model):
     reference = models.CharField(max_length=150, null=True, blank=True)
     narration = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE, null=True)
-    balance_after = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    transaction_type = models.CharField(
+        max_length=10, choices=TRANSACTION_TYPE, null=True
+    )
+    balance_after = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -151,7 +183,9 @@ class TreasuryBeneficiary(models.Model):
     Caches the Anchor counterparty ID so it doesn't need to be re-created on every transfer.
     """
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="treasury_beneficiaries")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="treasury_beneficiaries"
+    )
     account_number = models.CharField(max_length=20, db_index=True)
     account_name = models.CharField(max_length=150)
     bank_code = models.CharField(max_length=20)
@@ -173,7 +207,11 @@ class TreasuryCardFunding(BaseModel):
     """
 
     user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="treasury_card_fundings"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="treasury_card_fundings",
     )
     txn_reference = models.CharField(max_length=200, unique=True, null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True)

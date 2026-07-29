@@ -6,18 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0005_add_verification_code_and_youtube'),
+        ("tasks", "0005_add_verification_code_and_youtube"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='socialtask',
-            name='target_content_hint',
-            field=models.CharField(blank=True, help_text="Short description of the target post/video so the AI can visually identify it. E.g. 'Video titled PicaDaily App Launch' or 'Post captioned Summer Sale is here'.", max_length=300, null=True),
+            model_name="socialtask",
+            name="target_content_hint",
+            field=models.CharField(
+                blank=True,
+                help_text="Short description of the target post/video so the AI can visually identify it. E.g. 'Video titled PicaDaily App Launch' or 'Post captioned Summer Sale is here'.",
+                max_length=300,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='verificationresult',
-            name='target_matched',
+            model_name="verificationresult",
+            name="target_matched",
             field=models.BooleanField(default=False),
         ),
     ]

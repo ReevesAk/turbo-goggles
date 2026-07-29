@@ -41,7 +41,9 @@ class Pin:
                 account.pin_locked_until = timezone.now() + timedelta(minutes=30)
                 account.save(update_fields=["pin_attempts", "pin_locked_until"])
                 return Response(
-                    data={"message": "Too many wrong PIN attempts. Locked for 30 minutes."},
+                    data={
+                        "message": "Too many wrong PIN attempts. Locked for 30 minutes."
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
             else:

@@ -56,6 +56,7 @@ def _create_ad(user, **overrides):
 
 # Brand Task Feed
 
+
 class BrandTaskFeedViewTests(APITestCase):
     url = "/v1/tasks/brand/feed/"
 
@@ -146,14 +147,20 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         mock_delay.assert_not_called()
-        self.assertFalse(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists())
+        self.assertFalse(
+            BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists()
+        )
 
     @patch("tasks.jobs.approve_brand_submission.delay")
     def test_social_engage_without_screenshot_returns_400(self, mock_delay):
         social_ad = _create_ad(
             self.brand,
             task_type="social_engage",
-            task_details={"platform": "Instagram", "post_url": "https://ig.com/p/1", "required_actions": ["like"]},
+            task_details={
+                "platform": "Instagram",
+                "post_url": "https://ig.com/p/1",
+                "required_actions": ["like"],
+            },
         )
         self.client.force_authenticate(user=self.user)
 
@@ -171,7 +178,11 @@ class SubmitBrandTaskViewTests(APITestCase):
         social_ad = _create_ad(
             self.brand,
             task_type="social_engage",
-            task_details={"platform": "Instagram", "post_url": "https://ig.com/p/1", "required_actions": ["like"]},
+            task_details={
+                "platform": "Instagram",
+                "post_url": "https://ig.com/p/1",
+                "required_actions": ["like"],
+            },
         )
         self.client.force_authenticate(user=self.user)
 
@@ -281,7 +292,9 @@ class CompleteWebviewTaskViewTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists())
+        self.assertFalse(
+            BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists()
+        )
 
     def test_rejects_non_webview_task(self):
         social_ad = _create_ad(self.brand, task_type="social_engage")
@@ -294,10 +307,14 @@ class CompleteWebviewTaskViewTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(BrandTaskSubmission.objects.filter(ad=social_ad, user=self.user).exists())
+        self.assertFalse(
+            BrandTaskSubmission.objects.filter(ad=social_ad, user=self.user).exists()
+        )
 
     def test_rejects_duplicate_completion(self):
-        BrandTaskSubmission.objects.create(ad=self.ad, user=self.user, status="Approved", reward_issued=True)
+        BrandTaskSubmission.objects.create(
+            ad=self.ad, user=self.user, status="Approved", reward_issued=True
+        )
         self.client.force_authenticate(user=self.user)
 
         response = self.client.post(
@@ -307,10 +324,13 @@ class CompleteWebviewTaskViewTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).count(), 1)
+        self.assertEqual(
+            BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).count(), 1
+        )
 
 
 # My Brand Submissions
+
 
 class MyBrandSubmissionsViewTests(APITestCase):
     url = "/v1/tasks/brand/my-submissions/"
@@ -330,7 +350,9 @@ class MyBrandSubmissionsViewTests(APITestCase):
         my_ad = _create_ad(self.brand, campaign_name="My Campaign")
         other_ad = _create_ad(self.brand, campaign_name="Other Campaign")
         BrandTaskSubmission.objects.create(ad=my_ad, user=self.user, status="Approved")
-        BrandTaskSubmission.objects.create(ad=other_ad, user=self.other, status="Pending")
+        BrandTaskSubmission.objects.create(
+            ad=other_ad, user=self.other, status="Pending"
+        )
         self.client.force_authenticate(user=self.user)
 
         response = self.client.get(self.url)

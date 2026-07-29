@@ -43,20 +43,3 @@ class TransferCharge:
             "total_charges": str(total_charges.quantize(Decimal("0.01"))),
             "total": str(total),
         }
-
-    # Confirmed against real card-funding transactions: ₦100 nets ₦78.50.
-    # Covers Paystack's own processing cut plus the NIP+VAT cost of forwarding
-    # the settled amount into the user's wallet - not decomposed further
-    # since Paystack's cut isn't exposed to us per-transaction.
-    CARD_FUNDING_NET_RATE = Decimal("0.785")  # 21.5% total charge
-
-    @staticmethod
-    def net_credit(gross_amount) -> Decimal:
-        """
-        Amount actually credited to the wallet for a card funding of
-        `gross_amount` (the Paystack-verified gross), after Paystack's cut
-        and our own NIP forwarding cost.
-        """
-        gross_amount = Decimal(str(gross_amount))
-        net = gross_amount * TransferCharge.CARD_FUNDING_NET_RATE
-        return net.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

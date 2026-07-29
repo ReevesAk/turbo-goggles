@@ -6,7 +6,6 @@ from django.db.models import Avg, Count, Case, When, IntegerField
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import authenticate
-from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
@@ -16,16 +15,32 @@ from cloudinary import uploader as cloud
 
 # In project imports.
 from .serializers import (
-    RegisterAgentManagerSerializer, SupportVerifyOTPSerializer,
-    CreateTicketSerializers, AssignTicketSerializers, UpdateTicketSerializer,
-    AgentRatingSerializers, TicketSerializers, TicketEscalateSerializer,
-    AddAgentSerializer, AddAgentContdSerializer, SupportAgentLoginSerializers,
-    CreateAgentPinSerializer, ListAgentModeratorAndManagerSerializer,
-    TicketAssignmentHistorySerializer, UpdateTicketStatusSerializer,
-    DisableAgentSerializer, EnableAgentSerializer, AgentDeletionSerializer,
-    UserProfileSerializer, CompleteTicketSerializer, AgentForgotPinSerializer,
-    AgentVerifyOTPSerializer, AgentResetPinSerializer, SupportStaffForgotPasswordSerializer,
-    SupportStaffPasswordResendOTPSerializer, SupportStaffResetPasswordSerializer,
+    RegisterAgentManagerSerializer,
+    SupportVerifyOTPSerializer,
+    CreateTicketSerializers,
+    AssignTicketSerializers,
+    UpdateTicketSerializer,
+    AgentRatingSerializers,
+    TicketSerializers,
+    TicketEscalateSerializer,
+    AddAgentSerializer,
+    AddAgentContdSerializer,
+    SupportAgentLoginSerializers,
+    CreateAgentPinSerializer,
+    ListAgentModeratorAndManagerSerializer,
+    TicketAssignmentHistorySerializer,
+    UpdateTicketStatusSerializer,
+    DisableAgentSerializer,
+    EnableAgentSerializer,
+    AgentDeletionSerializer,
+    UserProfileSerializer,
+    CompleteTicketSerializer,
+    AgentForgotPinSerializer,
+    AgentVerifyOTPSerializer,
+    AgentResetPinSerializer,
+    SupportStaffForgotPasswordSerializer,
+    SupportStaffPasswordResendOTPSerializer,
+    SupportStaffResetPasswordSerializer,
     ReopenTicketSerializer,
 )
 from .utils import generate_ticket_number
@@ -37,21 +52,19 @@ from rest_framework import generics, status, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, JSONParser
 
 import rest_framework.serializers as s
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from accounts.models import User, UserNotification, AccountType, DeviceId
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.otp import otp_manager
+from security import encrypt
 from roles.models import ActivityModel
-from permissions import (
-    IsManagerModeratorOrSuperAdmin, IsManagerOrSuperAdmin, IsAgent
-)
+from permissions import IsManagerModeratorOrSuperAdmin, IsManagerOrSuperAdmin, IsAgent
 from commons import Messaging, first_validation_error
 
 logger = logging.getLogger(__name__)
@@ -69,9 +82,22 @@ class CustomPageNumberPagination(PageNumberPagination):
     description="One-time registration for the platform's Support Agent Manager. Sends an OTP to the registered phone and email for verification.",
     request=RegisterAgentManagerSerializer,
     responses={
-        201: inline_serializer("RegisterManagerResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("RegisterManagerError", fields={"status": s.CharField(), "message": s.CharField()}),
-        403: inline_serializer("RegisterManagerForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "RegisterManagerResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "RegisterManagerError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        403: inline_serializer(
+            "RegisterManagerForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class RegisterManager(generics.GenericAPIView):
@@ -80,6 +106,7 @@ class RegisterManager(generics.GenericAPIView):
     It takes in email, phone, active_role, password, and password2.
     Sends an OTP to the phone for validation.
     """
+
     serializer_class = RegisterAgentManagerSerializer
     throttle_classes = []
 
@@ -119,15 +146,16 @@ class RegisterManager(generics.GenericAPIView):
                 recipient = current_user.phone_number[1:]
 
                 # Send OTP message — WhatsApp first (registration), SMS fallback
-                Messaging.send_otp_whatsapp_first(phone_number=recipient, otp=otp, msg=msg)
+                Messaging.send_otp_whatsapp_first(
+                    phone_number=recipient, otp=otp, msg=msg
+                )
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
                     context={
                         "custom_text": f"Dear {current_user.full_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone":
-                            "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895",
                     },
                 )
 
@@ -180,7 +208,7 @@ class RegisterManager(generics.GenericAPIView):
                 "message": "Invalid data received for Manager registration.",
                 "data": serializer.errors,
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
 
@@ -190,8 +218,14 @@ class RegisterManager(generics.GenericAPIView):
     description="Sends a PIN reset OTP to the support agent's registered email address.",
     request=AgentForgotPinSerializer,
     responses={
-        201: inline_serializer("AgentForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("AgentForgotPinNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AgentForgotPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "AgentForgotPinNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AgentForgotPin(generics.GenericAPIView):
@@ -211,9 +245,7 @@ class AgentForgotPin(generics.GenericAPIView):
         }
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         email = user_data.get("email")
         try:
@@ -274,8 +306,18 @@ class AgentForgotPin(generics.GenericAPIView):
     description="Validates the OTP sent to the support agent's email before allowing a PIN reset.",
     request=AgentVerifyOTPSerializer,
     responses={
-        200: inline_serializer("AgentPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField(), "user_id": s.CharField()}),
-        400: inline_serializer("AgentPinVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "AgentPinVerifyOTPResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "user_id": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            "AgentPinVerifyOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AgentPinVerifyOTP(generics.GenericAPIView):
@@ -301,9 +343,7 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
         # Validate incoming data with serializer class.
         if not serializer.is_valid(raise_exception=True):
             logger.error("Serializer validation failed.")
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         received_otp = serializer.data["otp"]
 
@@ -379,8 +419,14 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
     description="Sets a new PIN for a support agent after successful OTP verification.",
     request=AgentResetPinSerializer,
     responses={
-        200: inline_serializer("AgentResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("AgentResetPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "AgentResetPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "AgentResetPinError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AgentResetPin(generics.CreateAPIView):
@@ -394,9 +440,7 @@ class AgentResetPin(generics.CreateAPIView):
         }
         serializer = self.get_serializer(data=payload)
         if not serializer.is_valid(raise_exception=True):
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user_data = serializer.validated_data
         agent_id = payload.get("agent_id")
@@ -450,8 +494,14 @@ class AgentResetPin(generics.CreateAPIView):
     description="Sends a password reset OTP to the support staff member's registered email address.",
     request=SupportStaffForgotPasswordSerializer,
     responses={
-        201: inline_serializer("SupportForgotPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("SupportForgotPasswordNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "SupportForgotPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "SupportForgotPasswordNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SupportForgotPassword(generics.GenericAPIView):
@@ -471,9 +521,9 @@ class SupportForgotPassword(generics.GenericAPIView):
             return Response(
                 data={
                     "status": "success",
-                    "message": "If this account exists, an OTP has been sent."
+                    "message": "If this account exists, an OTP has been sent.",
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         # Restrict to staff roles only
@@ -484,9 +534,9 @@ class SupportForgotPassword(generics.GenericAPIView):
             return Response(
                 data={
                     "status": "fail",
-                    "message": "This account is not authorized for staff portal."
+                    "message": "This account is not authorized for staff portal.",
                 },
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         user_id = user.id
@@ -532,8 +582,14 @@ class SupportForgotPassword(generics.GenericAPIView):
     description="Resends the password reset OTP to a support staff member's registered email address.",
     request=SupportStaffPasswordResendOTPSerializer,
     responses={
-        201: inline_serializer("SupportPasswordResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SupportPasswordResendOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "SupportPasswordResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SupportPasswordResendOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SupportPasswordResendOTP(generics.GenericAPIView):
@@ -564,7 +620,9 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
 
                 # Generate OTP using the user's ID
                 otp = otp_manager.create_otp(user_id=str(user.id))
-                msg = msg = f"Enter this {otp} to verify your account and reset your login password"
+                msg = msg = (
+                    f"Enter this {otp} to verify your account and reset your login password"
+                )
 
                 text_content = render_to_string(
                     template_name="empty_email.html",
@@ -590,9 +648,7 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
                 return Response(data=response, status=status.HTTP_200_OK)
 
             except User.DoesNotExist:
-                logger.warning(
-                    "Agent with email %s does not exist.", email
-                )
+                logger.warning("Agent with email %s does not exist.", email)
                 resp = {
                     "status": "fail",
                     "message": "Agent with the provided email does not exist.",
@@ -604,9 +660,8 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
 
         else:
             logger.error("OTP resend validation failed.")
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @extend_schema(
     summary="Verify password reset OTP for a support staff member",
@@ -614,8 +669,14 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
     description="Validates the password reset OTP sent to the support staff member's email before allowing a password change.",
     request=SupportVerifyOTPSerializer,
     responses={
-        200: inline_serializer("SupportEmailVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SupportEmailVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "SupportEmailVerifyOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SupportEmailVerifyOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SupportEmailVerifyOTP(generics.GenericAPIView):
@@ -706,9 +767,7 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
             )
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
@@ -717,8 +776,14 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
     description="Sets a new password for a support staff member after successful OTP verification.",
     request=SupportStaffResetPasswordSerializer,
     responses={
-        200: inline_serializer("SupportfResetPasswordResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SupportfResetPasswordError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "SupportfResetPasswordResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SupportfResetPasswordError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SupportfResetPassword(generics.CreateAPIView):
@@ -781,19 +846,26 @@ class SupportfResetPassword(generics.CreateAPIView):
         return Response(data=response, status=status.HTTP_200_OK)
 
 
-
 @extend_schema(
     summary="[Support] List all agents and moderators",
     tags=["Support"],
     description="Returns a list of all support agent and moderator user profiles. Accessible to managers, moderators, and super admins.",
     responses={
-        200: inline_serializer("ListUserDetailsAPIResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "ListUserDetailsAPIResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class ListUserDetailsAPI(generics.ListAPIView):
     """
     ListUserDetailsAPI handles the GET request to list all agents and moderators.
     """
+
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     throttle_classes = []
@@ -820,7 +892,7 @@ class ListUserDetailsAPI(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
-    
+
 
 @extend_schema(
     summary="[Support] Create a support ticket for a user",
@@ -828,8 +900,18 @@ class ListUserDetailsAPI(generics.ListAPIView):
     description="Logs a support issue on behalf of a customer and generates a ticket with a unique ticket number. Supports optional image upload.",
     request=CreateTicketSerializers,
     responses={
-        201: inline_serializer("CreateTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("CreateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "CreateTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CreateTicket(generics.CreateAPIView):
@@ -837,6 +919,7 @@ class CreateTicket(generics.CreateAPIView):
     CreateTicket handles the POST request of logging an issue for
     a customer and generating a ticket.
     """
+
     serializer_class = CreateTicketSerializers
     permission_classes = [IsAuthenticated, IsManagerModeratorOrSuperAdmin]
     parser_classes = (
@@ -875,40 +958,48 @@ class CreateTicket(generics.CreateAPIView):
 
         attachment_url = None
 
-        if request.user.agent_pin_locked_until and request.user.agent_pin_locked_until > timezone.now():
+        if (
+            request.user.agent_pin_locked_until
+            and request.user.agent_pin_locked_until > timezone.now()
+        ):
             return Response(
                 data={
                     "status": "fail",
-                    "message": "Too many wrong pin attempts. Try again later."
+                    "message": "Too many wrong pin attempts. Try again later.",
                 },
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
-        if not request.user.agent_pin or not check_password(password=pin, encoded=request.user.agent_pin):
+        if not request.user.agent_pin or not check_password(
+            password=pin, encoded=request.user.agent_pin
+        ):
             request.user.agent_pin_attempts = (request.user.agent_pin_attempts or 0) + 1
             if request.user.agent_pin_attempts >= 4:
-                request.user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
-                request.user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                request.user.agent_pin_locked_until = timezone.now() + timedelta(
+                    minutes=30
+                )
+                request.user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
                 return Response(
                     data={
                         "status": "fail",
-                        "message": "Too many wrong pin attempts. Locked for 30 minutes."
+                        "message": "Too many wrong pin attempts. Locked for 30 minutes.",
                     },
-                    status=status.HTTP_403_FORBIDDEN
+                    status=status.HTTP_403_FORBIDDEN,
                 )
             else:
                 request.user.save(update_fields=["agent_pin_attempts"])
                 return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Incorrect pin"
-                    },
-                    status=status.HTTP_401_UNAUTHORIZED
+                    data={"status": "fail", "message": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
         # Reset attempts on success
         if request.user.agent_pin_attempts:
             request.user.agent_pin_attempts = 0
             request.user.agent_pin_locked_until = None
-            request.user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+            request.user.save(
+                update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+            )
         try:
             user = User.objects.get(email=user_email)
             logger.info("User  found: %s", user)
@@ -948,7 +1039,9 @@ class CreateTicket(generics.CreateAPIView):
             ticket.save(update_fields=["number"])
         except Exception:
             # In case generating/saving number fails, keep ticket but log
-            logger.exception("Failed to generate/save ticket number for ticket %s", ticket.id)
+            logger.exception(
+                "Failed to generate/save ticket number for ticket %s", ticket.id
+            )
 
         logger.info("Ticket created successfully: %s", ticket)
 
@@ -956,7 +1049,7 @@ class CreateTicket(generics.CreateAPIView):
         UserNotification.objects.create(
             user=user,
             title="Create Ticket",
-            message="Support ticket has been created for your issue."
+            message="Support ticket has been created for your issue.",
         )
         send_push_to_user(
             user,
@@ -970,14 +1063,18 @@ class CreateTicket(generics.CreateAPIView):
         ActivityModel.objects.create(
             user=user,
             title="Create Ticket",
-            description=f"Support ticket has been created for user: {user.first_name} {user.last_name}, issue: {category}"
+            description=f"Support ticket has been created for user: {user.first_name} {user.last_name}, issue: {category}",
         )
         logger.info("Activity logged for user: %s", user)
 
         # Serialize the created ticket
         serialized_ticket = self.get_serializer(ticket)
 
-        display_name = customer_name or f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+        display_name = (
+            customer_name
+            or f"{user.first_name or ''} {user.last_name or ''}".strip()
+            or user.email
+        )
 
         resp = {
             "status": "success",
@@ -999,9 +1096,22 @@ class CreateTicket(generics.CreateAPIView):
     description="Assigns an unassigned support ticket to a specific agent for the first time. Notifies both the agent and the customer.",
     request=AssignTicketSerializers,
     responses={
-        201: inline_serializer("AssignTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("AssignTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("AssignTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AssignTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "AssignTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "AssignTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AssignTicket(generics.GenericAPIView):
@@ -1019,14 +1129,10 @@ class AssignTicket(generics.GenericAPIView):
         authenticated_user = request.user
 
         payload = {
-            k: v.strip() if isinstance(v, str) else v
-            for k, v in request.data.items()
+            k: v.strip() if isinstance(v, str) else v for k, v in request.data.items()
         }
 
-        serializer = self.get_serializer(
-            data=payload,
-            context={"request": request}
-        )
+        serializer = self.get_serializer(data=payload, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         ticket_number = kwargs.get("ticket_number") or kwargs.get("ticket_id")
@@ -1044,24 +1150,42 @@ class AssignTicket(generics.GenericAPIView):
             return Response(
                 {
                     "status": "fail",
-                    "message": "Ticket already assigned. Use reassign resource endpoint."
+                    "message": "Ticket already assigned. Use reassign resource endpoint.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         from datetime import timedelta
-        if authenticated_user.agent_pin_locked_until and authenticated_user.agent_pin_locked_until > timezone.now():
+
+        if (
+            authenticated_user.agent_pin_locked_until
+            and authenticated_user.agent_pin_locked_until > timezone.now()
+        ):
             return Response(
-                {"status": "fail", "error": "Too many wrong pin attempts. Try again later."},
+                {
+                    "status": "fail",
+                    "error": "Too many wrong pin attempts. Try again later.",
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
-            authenticated_user.agent_pin_attempts = (authenticated_user.agent_pin_attempts or 0) + 1
+        if not authenticated_user.agent_pin or not check_password(
+            pin, authenticated_user.agent_pin
+        ):
+            authenticated_user.agent_pin_attempts = (
+                authenticated_user.agent_pin_attempts or 0
+            ) + 1
             if authenticated_user.agent_pin_attempts >= 4:
-                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
-                authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(
+                    minutes=30
+                )
+                authenticated_user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
                 return Response(
-                    {"status": "fail", "error": "Too many wrong pin attempts. Locked for 30 minutes."},
+                    {
+                        "status": "fail",
+                        "error": "Too many wrong pin attempts. Locked for 30 minutes.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
             else:
@@ -1074,7 +1198,9 @@ class AssignTicket(generics.GenericAPIView):
         if authenticated_user.agent_pin_attempts:
             authenticated_user.agent_pin_attempts = 0
             authenticated_user.agent_pin_locked_until = None
-            authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+            authenticated_user.save(
+                update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+            )
 
         agent_email = serializer.validated_data["agent_email"]
         agent_role = serializer.validated_data["agent_role"]
@@ -1088,8 +1214,7 @@ class AssignTicket(generics.GenericAPIView):
 
         if authenticated_user == user:
             is_manager_or_moderator = AccountType.objects.filter(
-                user=authenticated_user,
-                user_type__in=["Manager", "Moderator"]
+                user=authenticated_user, user_type__in=["Manager", "Moderator"]
             ).exists()
 
             if not is_manager_or_moderator:
@@ -1100,12 +1225,13 @@ class AssignTicket(generics.GenericAPIView):
         allowed_roles = ["Agent", "Manager", "Moderator"]
 
         is_valid_role = AccountType.objects.filter(
-            user=user,
-            user_type__in=allowed_roles
+            user=user, user_type__in=allowed_roles
         ).exists()
 
         if not is_valid_role:
-            raise PermissionDenied("User exists, but is not allowed to be assigned tickets.")
+            raise PermissionDenied(
+                "User exists, but is not allowed to be assigned tickets."
+            )
 
         ticket.assigned_to = user
         ticket.priority = serializer.validated_data.get("priority")
@@ -1149,9 +1275,22 @@ class AssignTicket(generics.GenericAPIView):
     description="Transfers an already-assigned ticket to a different agent. Records the reassignment in the ticket assignment history.",
     request=AssignTicketSerializers,
     responses={
-        200: inline_serializer("ReassignTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("ReassignTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("ReassignTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "ReassignTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "ReassignTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "ReassignTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ReassignTicket(generics.GenericAPIView):
@@ -1169,14 +1308,10 @@ class ReassignTicket(generics.GenericAPIView):
         authenticated_user = request.user
 
         payload = {
-            k: v.strip() if isinstance(v, str) else v
-            for k, v in request.data.items()
+            k: v.strip() if isinstance(v, str) else v for k, v in request.data.items()
         }
 
-        serializer = self.get_serializer(
-            data=payload,
-            context={"request": request}
-        )
+        serializer = self.get_serializer(data=payload, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         ticket_number = kwargs.get("ticket_number")
@@ -1194,24 +1329,42 @@ class ReassignTicket(generics.GenericAPIView):
             return Response(
                 {
                     "status": "fail",
-                    "message": "Ticket not yet assigned. Use assign endpoint."
+                    "message": "Ticket not yet assigned. Use assign endpoint.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         from datetime import timedelta
-        if authenticated_user.agent_pin_locked_until and authenticated_user.agent_pin_locked_until > timezone.now():
+
+        if (
+            authenticated_user.agent_pin_locked_until
+            and authenticated_user.agent_pin_locked_until > timezone.now()
+        ):
             return Response(
-                {"status": "fail", "error": "Too many wrong pin attempts. Try again later."},
+                {
+                    "status": "fail",
+                    "error": "Too many wrong pin attempts. Try again later.",
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
-            authenticated_user.agent_pin_attempts = (authenticated_user.agent_pin_attempts or 0) + 1
+        if not authenticated_user.agent_pin or not check_password(
+            pin, authenticated_user.agent_pin
+        ):
+            authenticated_user.agent_pin_attempts = (
+                authenticated_user.agent_pin_attempts or 0
+            ) + 1
             if authenticated_user.agent_pin_attempts >= 4:
-                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(minutes=30)
-                authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+                authenticated_user.agent_pin_locked_until = timezone.now() + timedelta(
+                    minutes=30
+                )
+                authenticated_user.save(
+                    update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+                )
                 return Response(
-                    {"status": "fail", "error": "Too many wrong pin attempts. Locked for 30 minutes."},
+                    {
+                        "status": "fail",
+                        "error": "Too many wrong pin attempts. Locked for 30 minutes.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
             else:
@@ -1224,7 +1377,9 @@ class ReassignTicket(generics.GenericAPIView):
         if authenticated_user.agent_pin_attempts:
             authenticated_user.agent_pin_attempts = 0
             authenticated_user.agent_pin_locked_until = None
-            authenticated_user.save(update_fields=["agent_pin_attempts", "agent_pin_locked_until"])
+            authenticated_user.save(
+                update_fields=["agent_pin_attempts", "agent_pin_locked_until"]
+            )
 
         agent_email = serializer.validated_data["agent_email"]
         agent_role = serializer.validated_data["agent_role"]
@@ -1240,7 +1395,7 @@ class ReassignTicket(generics.GenericAPIView):
             return Response(
                 {
                     "status": "fail",
-                    "message": "Ticket is already assigned to this agent."
+                    "message": "Ticket is already assigned to this agent.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -1248,8 +1403,7 @@ class ReassignTicket(generics.GenericAPIView):
         # Make sure only a manager or moderator can reassign to themselves.
         if authenticated_user == user:
             is_manager_or_moderator = AccountType.objects.filter(
-                user=authenticated_user,
-                user_type__in=["Manager", "Moderator"]
+                user=authenticated_user, user_type__in=["Manager", "Moderator"]
             ).exists()
 
             if not is_manager_or_moderator:
@@ -1260,8 +1414,7 @@ class ReassignTicket(generics.GenericAPIView):
         allowed_roles = ["Agent", "Manager", "Moderator"]
 
         is_agent = AccountType.objects.filter(
-            user=user,
-            user_type__in=allowed_roles
+            user=user, user_type__in=allowed_roles
         ).exists()
 
         if not is_agent:
@@ -1296,7 +1449,7 @@ class ReassignTicket(generics.GenericAPIView):
         return Response(
             {
                 "status": "success",
-                "message": f"Ticket {ticket_number} successfully reassigned to {user.full_name}",
+                "message": f"Ticket {ticket_number} successfully reassigned to {agent_role}, {user.full_name}",
                 "data": serializer.data,
             },
             status=status.HTTP_200_OK,
@@ -1316,9 +1469,22 @@ class ReassignTicket(generics.GenericAPIView):
     ),
     request=UpdateTicketSerializer,
     responses={
-        200: inline_serializer("UpdateTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("UpdateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("UpdateTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "UpdateTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "UpdateTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpdateTicketAPIView(generics.GenericAPIView):
@@ -1356,16 +1522,19 @@ class UpdateTicketAPIView(generics.GenericAPIView):
         )
         new_agent = serializer.validated_data.get("assigned_to")
         is_reassignment = assignee_changing and new_agent is not None
-        is_unassignment = assignee_changing and new_agent is None and ticket.assigned_to is not None
+        is_unassignment = (
+            assignee_changing and new_agent is None and ticket.assigned_to is not None
+        )
 
         if is_reassignment:
             allowed_roles = ["Agent", "Manager", "Moderator"]
             is_valid_role = AccountType.objects.filter(
-                user=new_agent,
-                user_type__in=allowed_roles
+                user=new_agent, user_type__in=allowed_roles
             ).exists()
             if not is_valid_role:
-                raise PermissionDenied("User exists, but is not allowed to be assigned tickets.")
+                raise PermissionDenied(
+                    "User exists, but is not allowed to be assigned tickets."
+                )
 
         previous_agent = ticket.assigned_to
         serializer.save()
@@ -1399,7 +1568,9 @@ class UpdateTicketAPIView(generics.GenericAPIView):
                 action="unassign",
             )
 
-            description = f"Ticket {ticket_number} unassigned from {previous_agent.full_name}"
+            description = (
+                f"Ticket {ticket_number} unassigned from {previous_agent.full_name}"
+            )
         else:
             description = f"Ticket {ticket_number} updated"
 
@@ -1425,8 +1596,18 @@ class UpdateTicketAPIView(generics.GenericAPIView):
     description="Allows an assigned agent to update only the status field of a support ticket (e.g., open, in-progress, resolved).",
     request=UpdateTicketStatusSerializer,
     responses={
-        200: inline_serializer("UpdateTicketStatusResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        404: inline_serializer("UpdateTicketStatusNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "UpdateTicketStatusResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "UpdateTicketStatusNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpdateTicketStatus(generics.GenericAPIView):
@@ -1444,8 +1625,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
         authenticated_user = request.user
 
         payload = {
-            k: v.strip() if isinstance(v, str) else v
-            for k, v in request.data.items()
+            k: v.strip() if isinstance(v, str) else v for k, v in request.data.items()
         }
 
         serializer = self.get_serializer(data=payload)
@@ -1462,7 +1642,9 @@ class UpdateTicketStatus(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+        if not authenticated_user.agent_pin or not check_password(
+            pin, authenticated_user.agent_pin
+        ):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1475,7 +1657,7 @@ class UpdateTicketStatus(generics.GenericAPIView):
             return Response(
                 {
                     "status": "fail",
-                    "message": f"Ticket is already in '{new_status}' status."
+                    "message": f"Ticket is already in '{new_status}' status.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -1490,12 +1672,18 @@ class UpdateTicketStatus(generics.GenericAPIView):
                 "Closed": "Your support ticket has been closed.",
                 "Escalated": "Your ticket has been escalated to a senior agent.",
             }
-            push_body = status_messages.get(new_status, f"Your ticket status has been updated to '{new_status}'.")
+            push_body = status_messages.get(
+                new_status, f"Your ticket status has been updated to '{new_status}'."
+            )
             send_push_to_user(
                 user=ticket.user,
-                title=f"Support Ticket Update",
+                title="Support Ticket Update",
                 body=push_body,
-                data={"type": "ticket_update", "ticket_number": str(ticket_number), "status": new_status},
+                data={
+                    "type": "ticket_update",
+                    "ticket_number": str(ticket_number),
+                    "status": new_status,
+                },
             )
 
         # Activity log
@@ -1536,9 +1724,18 @@ class UpdateTicketStatus(generics.GenericAPIView):
     description="Marks a support ticket as escalated and notifies the assigned manager. Requires the ticket to be currently open.",
     request=TicketEscalateSerializer,
     responses={
-        200: inline_serializer("EscalateTicketResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("EscalateTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("EscalateTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "EscalateTicketResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "EscalateTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "EscalateTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class EscalateTicketAPIView(APIView):
@@ -1556,8 +1753,7 @@ class EscalateTicketAPIView(APIView):
         ticket = Ticket.objects.filter(number=ticket_number).first()
         if not ticket:
             return Response(
-                {"detail": "Ticket not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "Ticket not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         to_user = User.objects.get(id=serializer.validated_data["to_user_id"])
@@ -1566,7 +1762,10 @@ class EscalateTicketAPIView(APIView):
         allowed_escalation_roles = ["Moderator", "Manager"]
         if to_role not in allowed_escalation_roles:
             return Response(
-                {"status": "fail", "error": "You cannot only escalate tickets to Moderators."},
+                {
+                    "status": "fail",
+                    "error": "You cannot only escalate tickets to Moderators.",
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1574,7 +1773,9 @@ class EscalateTicketAPIView(APIView):
         from_role = ticket.agent_role
 
         pin = serializer.validated_data["pin"]
-        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+        if not authenticated_user.agent_pin or not check_password(
+            pin, authenticated_user.agent_pin
+        ):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -1614,7 +1815,7 @@ class EscalateTicketAPIView(APIView):
 
         return Response(
             {"status": "success", "message": "Ticket escalated successfully"},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
@@ -1623,8 +1824,14 @@ class EscalateTicketAPIView(APIView):
     tags=["Support"],
     description="Returns the full round-robin assignment history trail for a specific support ticket, identified by ticket number or UUID.",
     responses={
-        200: inline_serializer("TicketRRTrailResponse", fields={"status": s.CharField(), "data": s.ListField()}),
-        404: inline_serializer("TicketRRTrailNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "TicketRRTrailResponse",
+            fields={"status": s.CharField(), "data": s.ListField()},
+        ),
+        404: inline_serializer(
+            "TicketRRTrailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class TicketRRTrailAPIView(APIView):
@@ -1637,6 +1844,7 @@ class TicketRRTrailAPIView(APIView):
         try:
             # Try to parse as UUID first, then fall back to ticket number
             import uuid
+
             ticket = None
             try:
                 param_uuid = uuid.UUID(str(ticket_id))
@@ -1647,27 +1855,34 @@ class TicketRRTrailAPIView(APIView):
 
             if not ticket:
                 return Response(
-                    {"detail": "Ticket not found"},
-                    status=status.HTTP_404_NOT_FOUND
+                    {"detail": "Ticket not found"}, status=status.HTTP_404_NOT_FOUND
                 )
 
-            trails = TicketAssignmentHistory.objects.filter(
-                ticket=ticket
-            ).select_related(
-                "assigned_by", "previous_agent", "new_agent"
-            ).order_by("created_at")
+            trails = (
+                TicketAssignmentHistory.objects.filter(ticket=ticket)
+                .select_related("assigned_by", "previous_agent", "new_agent")
+                .order_by("created_at")
+            )
 
             data = []
             for trail in trails:
-                data.append({
-                    "action": getattr(trail, "action", None),
-                    "assigned_by": getattr(getattr(trail, "assigned_by", None), "full_name", None),
-                    "previous_agent": getattr(getattr(trail, "previous_agent", None), "full_name", None),
-                    "new_agent": getattr(getattr(trail, "new_agent", None), "full_name", None),
-                    "priority": getattr(trail, "priority", None),
-                    "reason": getattr(trail, "reason", None),
-                    "happened_at": getattr(trail, "created_at", None),
-                })
+                data.append(
+                    {
+                        "action": getattr(trail, "action", None),
+                        "assigned_by": getattr(
+                            getattr(trail, "assigned_by", None), "full_name", None
+                        ),
+                        "previous_agent": getattr(
+                            getattr(trail, "previous_agent", None), "full_name", None
+                        ),
+                        "new_agent": getattr(
+                            getattr(trail, "new_agent", None), "full_name", None
+                        ),
+                        "priority": getattr(trail, "priority", None),
+                        "reason": getattr(trail, "reason", None),
+                        "happened_at": getattr(trail, "created_at", None),
+                    }
+                )
 
             return Response(
                 {
@@ -1679,7 +1894,9 @@ class TicketRRTrailAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
         except Exception as exc:
-            logger.exception("Error while fetching RR trail for ticket_id %s: %s", ticket_id, exc)
+            logger.exception(
+                "Error while fetching RR trail for ticket_id %s: %s", ticket_id, exc
+            )
             return Response(
                 {"status": "fail", "message": "Unable to fetch ticket RR trail."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1691,7 +1908,14 @@ class TicketRRTrailAPIView(APIView):
     tags=["Support"],
     description="Returns a paginated list of all support tickets on the platform. Accessible to managers, moderators, and super admins.",
     responses={
-        200: inline_serializer("GetAllSupportTicketsResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "GetAllSupportTicketsResponse",
+            fields={
+                "status": s.CharField(),
+                "count": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class GetAllSupportTickets(generics.ListAPIView):
@@ -1731,15 +1955,19 @@ class GetAllSupportTickets(generics.ListAPIView):
                     "created_at": ticket.created_at,
                     "assigned_to": {
                         "id": ticket.assigned_to.id if ticket.assigned_to else None,
-                        "full_name": ticket.assigned_to.full_name if ticket.assigned_to else None,
-                        "email": ticket.assigned_to.email if ticket.assigned_to else None,
+                        "full_name": (
+                            ticket.assigned_to.full_name if ticket.assigned_to else None
+                        ),
+                        "email": (
+                            ticket.assigned_to.email if ticket.assigned_to else None
+                        ),
                     },
                     "assigned_at": ticket.assigned_at,
                     "resolution_hours": ticket.resolution_hours,
                     "remaining_seconds": ticket.remaining_time,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
-                    "status": ticket.status
+                    "status": ticket.status,
                 }
             )
 
@@ -1760,7 +1988,14 @@ class GetAllSupportTickets(generics.ListAPIView):
     tags=["Support"],
     description="Returns a paginated list of all support tickets currently assigned to the authenticated support agent.",
     responses={
-        200: inline_serializer("GetMyAssignedTicketsResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "GetMyAssignedTicketsResponse",
+            fields={
+                "status": s.CharField(),
+                "count": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class GetMyAssignedTickets(generics.ListAPIView):
@@ -1773,13 +2008,10 @@ class GetMyAssignedTickets(generics.ListAPIView):
     throttle_classes = []
 
     def list(self, request, *args, **kwargs):
-        logger.info(
-            "Fetching tickets assigned to user %s", request.user.id
-        )
+        logger.info("Fetching tickets assigned to user %s", request.user.id)
 
         tickets = Ticket.objects.filter(
-            assigned_to=request.user,
-            deleted=False
+            assigned_to=request.user, deleted=False
         ).order_by("-created_at")
 
         paginator = self.pagination_class()
@@ -1793,11 +2025,13 @@ class GetMyAssignedTickets(generics.ListAPIView):
                 "description": ticket.description,
                 "ai_summary": ticket.ai_summary,
                 "created_at": ticket.created_at,
-                "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
-                "customer_info":{
+                "assigned_to": (
+                    ticket.assigned_to.full_name if ticket.assigned_to else None
+                ),
+                "customer_info": {
                     "name": ticket.customer_name,
                     "email": ticket.customer_email,
-                    "phone_number": ticket.customer_phone_number
+                    "phone_number": ticket.customer_phone_number,
                 },
                 "assigned_at": ticket.assigned_at,
                 "resolution_hours": ticket.resolution_hours,
@@ -1827,7 +2061,10 @@ class GetMyAssignedTickets(generics.ListAPIView):
     description="Retrieves full detail for a specific support ticket, including assignment history and status trail.",
     responses={
         200: CreateTicketSerializers,
-        404: inline_serializer("GetSingleTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(
+            "GetSingleTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetSingleTicket(generics.RetrieveAPIView):
@@ -1852,20 +2089,17 @@ class GetSingleTicket(generics.RetrieveAPIView):
 
         try:
             ticket = (
-                Ticket.objects
-                .select_related("assigned_to")
+                Ticket.objects.select_related("assigned_to")
                 .prefetch_related("assignment_history")
                 .get(number=ticket_id)
             )
             logger.info("Ticket found: %s", ticket)
 
-            history = TicketAssignmentHistory.objects.filter(
-                ticket=ticket
-            ).order_by("created_at")
+            history = TicketAssignmentHistory.objects.filter(ticket=ticket).order_by(
+                "created_at"
+            )
 
-            history_data = TicketAssignmentHistorySerializer(
-                history, many=True
-            ).data
+            history_data = TicketAssignmentHistorySerializer(history, many=True).data
 
             if not ticket.opened_at:
                 Ticket.objects.filter(pk=ticket.pk).update(opened_at=timezone.now())
@@ -1881,7 +2115,9 @@ class GetSingleTicket(generics.RetrieveAPIView):
                     "description": ticket.description,
                     "ai_summary": ticket.ai_summary,
                     "created_at": ticket.created_at,
-                    "assigned_to": ticket.assigned_to.full_name if ticket.assigned_to else None,
+                    "assigned_to": (
+                        ticket.assigned_to.full_name if ticket.assigned_to else None
+                    ),
                     "assigned_at": ticket.assigned_at,
                     "ticket_channel": ticket.channel,
                     "priority": ticket.priority,
@@ -1916,8 +2152,14 @@ class GetSingleTicket(generics.RetrieveAPIView):
     tags=["Support"],
     description="Returns all support tickets matching the specified channel (e.g., WhatsApp, email, in-app).",
     responses={
-        200: inline_serializer("GetTicketByChannelResponse", fields={"status": s.CharField(), "data": s.ListField()}),
-        404: inline_serializer("GetTicketByChannelNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "GetTicketByChannelResponse",
+            fields={"status": s.CharField(), "data": s.ListField()},
+        ),
+        404: inline_serializer(
+            "GetTicketByChannelNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetTicketByChannel(generics.ListAPIView):
@@ -1977,8 +2219,14 @@ class GetTicketByChannel(generics.ListAPIView):
     tags=["Support"],
     description="Permanently deletes a support ticket by its ticket number. Restricted to managers and super admins.",
     responses={
-        204: inline_serializer("DeleteTicketResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("DeleteTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        204: inline_serializer(
+            "DeleteTicketResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "DeleteTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DeleteTicket(generics.DestroyAPIView):
@@ -2027,9 +2275,22 @@ class DeleteTicket(generics.DestroyAPIView):
     description="Allows any authenticated user to submit a star rating and review for the support agent who handled their ticket.",
     request=AgentRatingSerializers,
     responses={
-        201: inline_serializer("RateSupportAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("RateSupportAgentError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("RateSupportAgentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "RateSupportAgentResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "RateSupportAgentError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "RateSupportAgentNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class RateSupportAgent(generics.GenericAPIView):
@@ -2071,15 +2332,22 @@ class RateSupportAgent(generics.GenericAPIView):
 
         except Ticket.DoesNotExist:
             logger.error("Ticket with ID %s does not exist.", ticket_id)
-            return Response({"error": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except User.DoesNotExist:
             logger.error("User  with ID %s does not exist.", agent_id)
-            return Response({"error": "User  not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "User  not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except Exception as e:
             logger.exception("An unexpected error occurred: %s", str(e))
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         logger.info("Ticket found: %s", ticket)
         AgentRating.objects.create(
@@ -2087,14 +2355,14 @@ class RateSupportAgent(generics.GenericAPIView):
             agent=agent,
             ticket=ticket,
             rating=request.data.get("rating"),
-            rating_comment=request.get("rating_comment")
+            rating_comment=request.get("rating_comment"),
         )
 
         # Create user notification
         UserNotification.objects.create(
             user=authenticated_user,
             title="Agent Rating",
-            message=f"Your rating of agent: {agent.full_name} has been recorded."
+            message=f"Your rating of agent: {agent.full_name} has been recorded.",
         )
         logger.info("User  notification created for user: %s", authenticated_user)
 
@@ -2103,14 +2371,14 @@ class RateSupportAgent(generics.GenericAPIView):
         ActivityModel.objects.create(
             user=authenticated_user,
             title="Agent Rating",
-            message=f"{authenticated_user.first_name} {authenticated_user.last_name} rated {agent.full_name} as {rating}."
+            message=f"{authenticated_user.first_name} {authenticated_user.last_name} rated {agent.full_name} as {rating}.",
         )
         logger.info("Activity logged for user: %s", authenticated_user)
 
         resp = {
             "status": "success",
             "message": "Agent rating was successful.",
-            "data": serializer.data
+            "data": serializer.data,
         }
         return Response(data=resp, status=status.HTTP_201_CREATED)
 
@@ -2120,7 +2388,10 @@ class RateSupportAgent(generics.GenericAPIView):
     tags=["Support"],
     description="Returns a list of all platform users that have at least one support ticket on record.",
     responses={
-        200: inline_serializer("UsersWithTicketsResponse", fields={"status": s.CharField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "UsersWithTicketsResponse",
+            fields={"status": s.CharField(), "data": s.ListField()},
+        ),
     },
 )
 class UsersWithTickets(generics.ListAPIView):
@@ -2152,9 +2423,21 @@ class UsersWithTickets(generics.ListAPIView):
     description="Creates a new support agent or moderator account. Only support managers can perform this action. Sends an OTP to the new agent's phone for sign-up completion.",
     request=AddAgentSerializer,
     responses={
-        201: inline_serializer("AddAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("AddAgentError", fields={"status": s.CharField(), "message": s.CharField()}),
-        403: inline_serializer("AddAgentForbidden", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            "AddAgentResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "AddAgentError", fields={"status": s.CharField(), "message": s.CharField()}
+        ),
+        403: inline_serializer(
+            "AddAgentForbidden",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AddAgent(generics.CreateAPIView):
@@ -2186,18 +2469,24 @@ class AddAgent(generics.CreateAPIView):
             role = payload["role"]
             if not check_password(password=pin, encoded=request.user.agent_pin):
                 return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Incorrect pin"
-                    },
-                    status=status.HTTP_401_UNAUTHORIZED
+                    data={"status": "fail", "message": "Incorrect pin"},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             if not payload.get("email"):
-                return Response(data={"status": "fail", "message": "Email field cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data={"status": "fail", "message": "Email field cannot be empty."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             if not payload["role"]:
-                return Response(data={"status": "fail", "message": "At least one role must be selected."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data={
+                        "status": "fail",
+                        "message": "At least one role must be selected.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Check if email exists
             if User.objects.filter(email=payload.get("email")).exists():
@@ -2222,7 +2511,9 @@ class AddAgent(generics.CreateAPIView):
                 logger.info(f"Support Agent created successfully: {user.email}")
 
                 # Generate signup link
-                signup_link = f"https://support.picadailys.com/sign-up?user_id={user.id}"
+                signup_link = (
+                    f"https://support.picadailys.com/sign-up?user_id={user.id}"
+                )
 
                 name = user.full_name
                 text_content = render_to_string(
@@ -2238,7 +2529,7 @@ class AddAgent(generics.CreateAPIView):
                             If you have any questions, feel free to contact us at our support email or phone below.
                         """,
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895"
+                        "picadailys_phone": "02012271894 02012271895",
                     },
                 )
 
@@ -2273,7 +2564,10 @@ class AddAgent(generics.CreateAPIView):
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}", exc_info=True)
             return Response(
-                data={"status": "fail", "message": "An unexpected error occurred. Please try again."},
+                data={
+                    "status": "fail",
+                    "message": "An unexpected error occurred. Please try again.",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2284,8 +2578,14 @@ class AddAgent(generics.CreateAPIView):
     description="Completes a support agent's registration by verifying their OTP and finalising account details such as full name and password.",
     request=AddAgentContdSerializer,
     responses={
-        200: inline_serializer("AgentSignUpCompleteResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("AgentSignUpCompleteError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "AgentSignUpCompleteResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "AgentSignUpCompleteError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class AgentSignUpComplete(generics.UpdateAPIView):
@@ -2329,18 +2629,15 @@ class AgentSignUpComplete(generics.UpdateAPIView):
         if instance is None:
             logger.warning("User with ID %s not found or not authorized.", user_id)
             return Response(
-                data={"status": "fail", "message": "User not found or not authorized."}, 
-                status=status.HTTP_404_NOT_FOUND
+                data={"status": "fail", "message": "User not found or not authorized."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if instance.is_verified:
             logger.warning("Agent with Id: %s has already completed signup.", user_id)
             return Response(
-                {
-                    "status": "fail",
-                    "message": "User has already registered."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"status": "fail", "message": "User has already registered."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         payload = {
@@ -2363,7 +2660,8 @@ class AgentSignUpComplete(generics.UpdateAPIView):
                     description=f"Support agent {instance.full_name} completed signup.",
                 )
                 logger.info(
-                    "Support agent registration completed successfully for user ID: %s", user_id
+                    "Support agent registration completed successfully for user ID: %s",
+                    user_id,
                 )
                 return Response(
                     data={
@@ -2394,8 +2692,14 @@ class AgentSignUpComplete(generics.UpdateAPIView):
     description="Deactivates a support agent account so they can no longer log in or receive ticket assignments. Requires Manager or Super Admin permission.",
     request=DisableAgentSerializer,
     responses={
-        200: inline_serializer("DisableAgentRoleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("DisableAgentRoleNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "DisableAgentRoleResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "DisableAgentRoleNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DisableAgentrole(generics.RetrieveUpdateAPIView):
@@ -2423,7 +2727,10 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
             if user is None:
                 logger.warning("Agent with email '%s' does not exist.", email)
                 return Response(
-                    data={"status": "fail", "message": f"Agent with '{email}' does not exist."},
+                    data={
+                        "status": "fail",
+                        "message": f"Agent with '{email}' does not exist.",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -2477,8 +2784,14 @@ class DisableAgentrole(generics.RetrieveUpdateAPIView):
     description="Reactivates a previously disabled support agent account so they can log in and receive ticket assignments again. Requires Manager or Super Admin permission.",
     request=EnableAgentSerializer,
     responses={
-        200: inline_serializer("EnableAgentRoleResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("EnableAgentRoleNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "EnableAgentRoleResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "EnableAgentRoleNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class EnableAgentrole(generics.RetrieveUpdateAPIView):
@@ -2507,7 +2820,10 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
             if user is None:
                 logger.warning("Agent with email '%s' does not exist.", email)
                 return Response(
-                    data={"status": "fail", "error": f"Agent with '{email}' does not exist."},
+                    data={
+                        "status": "fail",
+                        "error": f"Agent with '{email}' does not exist.",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -2563,9 +2879,17 @@ class EnableAgentrole(generics.RetrieveUpdateAPIView):
     description="Permanently removes a support agent account from the platform. Requires Manager or Super Admin permission and PIN verification.",
     request=AgentDeletionSerializer,
     responses={
-        200: inline_serializer("DeleteAgentResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("DeleteAgentError", fields={"status": s.CharField(), "error": s.DictField()}),
-        404: inline_serializer("DeleteAgentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "DeleteAgentResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "DeleteAgentError", fields={"status": s.CharField(), "error": s.DictField()}
+        ),
+        404: inline_serializer(
+            "DeleteAgentNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DeleteAgent(generics.GenericAPIView):
@@ -2609,7 +2933,7 @@ class DeleteAgent(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {request.user.first_name},<br><br>Your agent account has been deleted.",
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "02012271894 02012271895"
+                            "picadailys_phone": "02012271894 02012271895",
                         },
                     )
 
@@ -2622,7 +2946,10 @@ class DeleteAgent(generics.GenericAPIView):
                     )
 
                     return Response(
-                        data={"status": "success", "message": f"Agent with '{email}' deleted successfully."},
+                        data={
+                            "status": "success",
+                            "message": f"Agent with '{email}' deleted successfully.",
+                        },
                         status=status.HTTP_200_OK,
                     )
                 else:
@@ -2638,13 +2965,17 @@ class DeleteAgent(generics.GenericAPIView):
             except User.DoesNotExist:
                 logger.warning("Agent with email '%s' does not exist.", email)
                 return Response(
-                    data={"status": "fail", "error": f"Agent with '{email}' does not exist."},
+                    data={
+                        "status": "fail",
+                        "error": f"Agent with '{email}' does not exist.",
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
         else:
             logger.error("Serializer validation failed: %s", serializer.errors)
             return Response(
-                data={"status": "fail", "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
+                data={"status": "fail", "error": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
@@ -2654,8 +2985,14 @@ class DeleteAgent(generics.GenericAPIView):
     description="Validates the phone OTP sent during manager registration to activate the manager account.",
     request=SupportVerifyOTPSerializer,
     responses={
-        200: inline_serializer("SupportPhoneVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SupportPhoneVerifyOTPError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "SupportPhoneVerifyOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SupportPhoneVerifyOTPError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SupportPhoneVerifyOTP(generics.GenericAPIView):
@@ -2666,7 +3003,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
 
     permission_classes = (AllowAny,)
     serializer_class = SupportVerifyOTPSerializer
-    
+
     def post(self, request):
         user_data = {
             key: value.strip() if isinstance(value, str) else value
@@ -2683,9 +3020,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             if not user_id:
                 logger.warning("Invalid or expired OTP.")
                 return Response(
-                    data={
-                        "status": "fail", "message": "Invalid or expired OTP"
-                    },
+                    data={"status": "fail", "message": "Invalid or expired OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -2711,8 +3046,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone":
-                        "02012271894  02012271895",
+                    "picadailys_phone": "02012271894  02012271895",
                 },
             )
 
@@ -2728,7 +3062,9 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             user.is_verified = True
             user.is_active = True
             user.save()
-            logger.info("Support Manager with Id: %s has been verified and activated.", user.id)
+            logger.info(
+                "Support Manager with Id: %s has been verified and activated.", user.id
+            )
 
             # Log activity
             ActivityModel.objects.create(
@@ -2744,9 +3080,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
             logger.error(
                 "Serializer validation failed with errors: %s", serializer.errors
             )
-            return Response(
-                data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
@@ -2755,8 +3089,18 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
     description="Authenticates a support staff member with email and password. Returns JWT access and refresh tokens on success.",
     request=SupportAgentLoginSerializers,
     responses={
-        200: inline_serializer("LoginAgentResponse", fields={"status": s.CharField(), "message": s.CharField(), "tokens": s.DictField()}),
-        401: inline_serializer("LoginAgentUnauthorized", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "LoginAgentResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "tokens": s.DictField(),
+            },
+        ),
+        401: inline_serializer(
+            "LoginAgentUnauthorized",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class LoginAgent(APIView):
@@ -2783,13 +3127,22 @@ class LoginAgent(APIView):
 
         try:
             user_obj = User.objects.filter(email=email).first()
-            if user_obj and user_obj.password_locked_until and user_obj.password_locked_until > timezone.now():
+            if (
+                user_obj
+                and user_obj.password_locked_until
+                and user_obj.password_locked_until > timezone.now()
+            ):
                 return Response(
-                    data={"status": "fail", "message": "Account locked due to too many failed login attempts. Try again later."},
+                    data={
+                        "status": "fail",
+                        "message": "Account locked due to too many failed login attempts. Try again later.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
             if not user_obj:
-                logger.warning(f"Login attempt failed: User with email {email} not found.")
+                logger.warning(
+                    f"Login attempt failed: User with email {email} not found."
+                )
                 return Response(
                     data={"status": "fail", "message": "Invalid credentials"},
                     status=status.HTTP_401_UNAUTHORIZED,
@@ -2825,7 +3178,10 @@ class LoginAgent(APIView):
                     )
 
                 return Response(
-                    data={"status": "fail", "message": "Agent cannot login on more than two devices, oldest device ID deleted."},
+                    data={
+                        "status": "fail",
+                        "message": "Agent cannot login on more than two devices, oldest device ID deleted.",
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -2834,7 +3190,10 @@ class LoginAgent(APIView):
                     f"User {user.email} is not verified. Login attempt blocked."
                 )
                 return Response(
-                    data={"status": "fail", "message": "Please verify your account to login"},
+                    data={
+                        "status": "fail",
+                        "message": "Please verify your account to login",
+                    },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
@@ -2843,15 +3202,19 @@ class LoginAgent(APIView):
             user_name = (
                 "Manager"
                 if user.active_role == "Manager"
-                else "SuperAdmin"
-                if user.active_role == "SuperAdmin"
-                else user.full_name
-                if user.active_role
-                in {
-                    "Moderator",
-                    "Agent",
-                }
-                else "Unknown"
+                else (
+                    "SuperAdmin"
+                    if user.active_role == "SuperAdmin"
+                    else (
+                        user.full_name
+                        if user.active_role
+                        in {
+                            "Moderator",
+                            "Agent",
+                        }
+                        else "Unknown"
+                    )
+                )
             )
 
             UserNotification.objects.create(
@@ -2898,9 +3261,14 @@ class LoginAgent(APIView):
             user_obj.password_attempts = (user_obj.password_attempts or 0) + 1
             if user_obj.password_attempts >= 4:
                 user_obj.password_locked_until = timezone.now() + timedelta(minutes=30)
-                user_obj.save(update_fields=["password_attempts", "password_locked_until"])
+                user_obj.save(
+                    update_fields=["password_attempts", "password_locked_until"]
+                )
                 return Response(
-                    data={"status": "fail", "message": "Too many failed login attempts. Account locked for 30 minutes."},
+                    data={
+                        "status": "fail",
+                        "message": "Too many failed login attempts. Account locked for 30 minutes.",
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
             else:
@@ -2920,8 +3288,14 @@ class LoginAgent(APIView):
     description="Creates a security PIN for the authenticated support agent. Required before the agent can perform sensitive actions.",
     request=CreateAgentPinSerializer,
     responses={
-        201: inline_serializer("SetAgentPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer("SetAgentPinError", fields={"status": s.CharField(), "message": s.DictField()}),
+        201: inline_serializer(
+            "SetAgentPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            "SetAgentPinError",
+            fields={"status": s.CharField(), "message": s.DictField()},
+        ),
     },
 )
 class SetAgentPin(generics.CreateAPIView):
@@ -2939,9 +3313,7 @@ class SetAgentPin(generics.CreateAPIView):
         logger.info(f"Creating admin pin for user: {user.full_name}.")
 
         if not pin:
-            logger.warning(
-                f"No pin provided for user: {user.full_name}."
-            )
+            logger.warning(f"No pin provided for user: {user.full_name}.")
             return Response(
                 data={"status": "fail", "message": "Pin is required."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -3000,7 +3372,14 @@ class SetAgentPin(generics.CreateAPIView):
     tags=["Support"],
     description="Returns a count and list of all users with support roles: Agent, Moderator, and Manager. Includes performance metrics per agent.",
     responses={
-        200: inline_serializer("GetAllAgentModeratorAndSupportManagerResponse", fields={"status": s.CharField(), "count": s.IntegerField(), "data": s.ListField()}),
+        200: inline_serializer(
+            "GetAllAgentModeratorAndSupportManagerResponse",
+            fields={
+                "status": s.CharField(),
+                "count": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
     },
 )
 class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
@@ -3030,59 +3409,65 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         logger.info("Accessing agent, moderator and manager users list view.")
 
-        agents = User.objects.filter(
-            account_types__user_type="Agent"
-        ).annotate(
-            total_tickets_assigned=Count("assigned_tickets", distinct=True),
-            total_tickets_resolved=Count("resolved_tickets", distinct=True),
-            average_rating=Avg(
-                Case(
-                    When(agent_rated__rating="5", then=5),
-                    When(agent_rated__rating="4", then=4),
-                    When(agent_rated__rating="3", then=3),
-                    When(agent_rated__rating="2", then=2),
-                    When(agent_rated__rating="1", then=1),
-                    output_field=IntegerField()
-                )
-            ),
-            rating_count=Count("agent_rated", distinct=True)
-        ).distinct()
+        agents = (
+            User.objects.filter(account_types__user_type="Agent")
+            .annotate(
+                total_tickets_assigned=Count("assigned_tickets", distinct=True),
+                total_tickets_resolved=Count("resolved_tickets", distinct=True),
+                average_rating=Avg(
+                    Case(
+                        When(agent_rated__rating="5", then=5),
+                        When(agent_rated__rating="4", then=4),
+                        When(agent_rated__rating="3", then=3),
+                        When(agent_rated__rating="2", then=2),
+                        When(agent_rated__rating="1", then=1),
+                        output_field=IntegerField(),
+                    )
+                ),
+                rating_count=Count("agent_rated", distinct=True),
+            )
+            .distinct()
+        )
 
-        moderators = User.objects.filter(
-            account_types__user_type="Moderator"
-        ).annotate(
-            total_tickets_assigned=Count("assigned_tickets", distinct=True),
-            total_tickets_resolved=Count("resolved_tickets", distinct=True),
-            average_rating=Avg(
-                Case(
-                    When(agent_rated__rating="5", then=5),
-                    When(agent_rated__rating="4", then=4),
-                    When(agent_rated__rating="3", then=3),
-                    When(agent_rated__rating="2", then=2),
-                    When(agent_rated__rating="1", then=1),
-                    output_field=IntegerField()
-                )
-            ),
-            rating_count=Count("agent_rated", distinct=True)
-        ).distinct()
+        moderators = (
+            User.objects.filter(account_types__user_type="Moderator")
+            .annotate(
+                total_tickets_assigned=Count("assigned_tickets", distinct=True),
+                total_tickets_resolved=Count("resolved_tickets", distinct=True),
+                average_rating=Avg(
+                    Case(
+                        When(agent_rated__rating="5", then=5),
+                        When(agent_rated__rating="4", then=4),
+                        When(agent_rated__rating="3", then=3),
+                        When(agent_rated__rating="2", then=2),
+                        When(agent_rated__rating="1", then=1),
+                        output_field=IntegerField(),
+                    )
+                ),
+                rating_count=Count("agent_rated", distinct=True),
+            )
+            .distinct()
+        )
 
-        managers = User.objects.filter(
-            account_types__user_type="Manager"
-        ).annotate(
-            total_tickets_assigned=Count("assigned_tickets", distinct=True),
-            total_tickets_resolved=Count("resolved_tickets", distinct=True),
-            average_rating=Avg(
-                Case(
-                    When(agent_rated__rating="5", then=5),
-                    When(agent_rated__rating="4", then=4),
-                    When(agent_rated__rating="3", then=3),
-                    When(agent_rated__rating="2", then=2),
-                    When(agent_rated__rating="1", then=1),
-                    output_field=IntegerField()
-                )
-            ),
-            rating_count=Count("agent_rated", distinct=True)
-        ).distinct()
+        managers = (
+            User.objects.filter(account_types__user_type="Manager")
+            .annotate(
+                total_tickets_assigned=Count("assigned_tickets", distinct=True),
+                total_tickets_resolved=Count("resolved_tickets", distinct=True),
+                average_rating=Avg(
+                    Case(
+                        When(agent_rated__rating="5", then=5),
+                        When(agent_rated__rating="4", then=4),
+                        When(agent_rated__rating="3", then=3),
+                        When(agent_rated__rating="2", then=2),
+                        When(agent_rated__rating="1", then=1),
+                        output_field=IntegerField(),
+                    )
+                ),
+                rating_count=Count("agent_rated", distinct=True),
+            )
+            .distinct()
+        )
 
         response_data = {
             "status": "success",
@@ -3104,8 +3489,18 @@ class GetAllAgentModeratorAndSupportManager(generics.ListAPIView):
     description="Marks an assigned support ticket as fully resolved. Records the resolving agent, resolution timestamp, and optional attachment.",
     request=CompleteTicketSerializer,
     responses={
-        200: inline_serializer("CompleteTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        404: inline_serializer("CompleteTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "CompleteTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "CompleteTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
@@ -3123,8 +3518,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         authenticated_user = request.user
 
         payload = {
-            k: v.strip() if isinstance(v, str) else v
-            for k, v in request.data.items()
+            k: v.strip() if isinstance(v, str) else v for k, v in request.data.items()
         }
 
         serializer = self.get_serializer(data=payload)
@@ -3141,11 +3535,15 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
                     "message": "Ticket can only be resolved by the agent it was assigned to.",
                     "assigned_agent": {
                         "id": ticket.assigned_to.id if ticket.assigned_to else None,
-                        "full_name": ticket.assigned_to.full_name if ticket.assigned_to else None,
-                        "email": ticket.assigned_to.email if ticket.assigned_to else None,
-                    }
+                        "full_name": (
+                            ticket.assigned_to.full_name if ticket.assigned_to else None
+                        ),
+                        "email": (
+                            ticket.assigned_to.email if ticket.assigned_to else None
+                        ),
+                    },
                 },
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         ticket.status = "Resolved"
@@ -3153,7 +3551,7 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
         ticket.resolved_by = authenticated_user
         ticket.resolved_at = timezone.now()
         ticket.save()
-        
+
         response_data = {
             "status": "success",
             "message": f"Ticket {ticket_number} marked as completed successfully.",
@@ -3161,9 +3559,11 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
                 "ticket_number": ticket_number,
                 "status": ticket.status,
                 "resolved_at": ticket.resolved_at,
-                "resolved_by": ticket.resolved_by.full_name if ticket.resolved_by else None,
+                "resolved_by": (
+                    ticket.resolved_by.full_name if ticket.resolved_by else None
+                ),
                 "resolution_attachment": ticket.resolution_attachment,
-            }
+            },
         }
 
         return Response(data=response_data, status=status.HTTP_200_OK)
@@ -3175,9 +3575,22 @@ class CompleteTicketAPIView(generics.RetrieveUpdateAPIView):
     description="Reopens a ticket that was previously Resolved or Closed. Sets status to 'Reopened', increments the reopen counter, and logs the action in the RR trail.",
     request=ReopenTicketSerializer,
     responses={
-        200: inline_serializer("ReopenTicketResponse", fields={"status": s.CharField(), "message": s.CharField(), "data": s.DictField()}),
-        400: inline_serializer("ReopenTicketError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer("ReopenTicketNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            "ReopenTicketResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "ReopenTicketError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            "ReopenTicketNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ReopenTicketAPIView(APIView):
@@ -3208,7 +3621,9 @@ class ReopenTicketAPIView(APIView):
             )
 
         pin = serializer.validated_data["pin"]
-        if not authenticated_user.agent_pin or not check_password(pin, authenticated_user.agent_pin):
+        if not authenticated_user.agent_pin or not check_password(
+            pin, authenticated_user.agent_pin
+        ):
             return Response(
                 {"status": "fail", "error": "Incorrect pin"},
                 status=status.HTTP_401_UNAUTHORIZED,

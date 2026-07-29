@@ -47,24 +47,34 @@ def run_ai_support(user, session):
 
         if response.stop_reason == "end_turn":
             reply = next(
-                (block["text"] for block in content_dicts if block.get("type") == "text"),
+                (
+                    block["text"]
+                    for block in content_dicts
+                    if block.get("type") == "text"
+                ),
                 "I'm sorry, I couldn't process that. Please try again.",
             )
             if not escalated:
                 session.resolved_by_ai = True
             session.save()
-            return {"reply": reply, "escalated": escalated, "ticket_number": ticket_number}
+            return {
+                "reply": reply,
+                "escalated": escalated,
+                "ticket_number": ticket_number,
+            }
 
         if response.stop_reason == "tool_use":
             tool_results = []
             for block in content_dicts:
                 if block.get("type") == "tool_use":
                     result = execute_tool(block["name"], block["input"], user, session)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block["id"],
-                        "content": str(result["data"]),
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block["id"],
+                            "content": str(result["data"]),
+                        }
+                    )
                     if result.get("escalated"):
                         escalated = True
                         ticket_number = result.get("ticket_number")
@@ -73,7 +83,11 @@ def run_ai_support(user, session):
             continue
 
         # Unexpected stop reason — bail out
-        logger.warning("Unexpected stop_reason '%s' for session %s", response.stop_reason, session.id)
+        logger.warning(
+            "Unexpected stop_reason '%s' for session %s",
+            response.stop_reason,
+            session.id,
+        )
         session.save()
         return {
             "reply": "Something went wrong. Please try again.",

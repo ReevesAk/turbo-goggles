@@ -263,22 +263,35 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     status="SUCCESS",
                 )
 
-                UserNotification.objects.create(
-                    user=wallet.user,
-                    title="Wallet Credit",
-                    message=f"Your wallet has been credited with ₦{amount} from {sender_name}.",
+                # This same webhook fires for every inbound transfer,
+                # including the internal one Wallet.Credit triggers to
+                # settle a card funding (see FundWallet) - recognizable by
+                # its narration, which is literally the reason string we
+                # passed to Wallet.Credit. That case already got its one
+                # notification from the Paystack webhook when the card
+                # charge was confirmed, so skip these two for it; genuine
+                # third-party transfers are unaffected.
+                is_card_funding_settlement = (description or "").startswith(
+                    "You funded your wallet with"
                 )
 
-                send_push_to_user(
-                    user=wallet.user,
-                    title="INCOMING TRANSFER 💰",
-                    body=f"₦{amount} from {sender_name} ({source_bank}) has been credited to your wallet.",
-                    data={
-                        "type": "wallet_credit",
-                        "amount": str(amount),
-                        "reference": nipsessionid,
-                    },
-                )
+                if not is_card_funding_settlement:
+                    UserNotification.objects.create(
+                        user=wallet.user,
+                        title="Wallet Credit",
+                        message=f"Your wallet has been credited with ₦{amount} from {sender_name}.",
+                    )
+
+                    send_push_to_user(
+                        user=wallet.user,
+                        title="INCOMING TRANSFER 💰",
+                        body=f"₦{amount} from {sender_name} ({source_bank}) has been credited to your wallet.",
+                        data={
+                            "type": "wallet_credit",
+                            "amount": str(amount),
+                            "reference": nipsessionid,
+                        },
+                    )
 
                 ActivityModel.objects.create(
                     user=wallet.user,
@@ -597,10 +610,16 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
                 and user_obj.user
                 and user_obj.purpose == "wallet_topup"
             ):
+                # Generic, no amount: the real net (after 9PSB's own transfer
+                # fee) isn't known yet at this point - only Paystack's charge
+                # has been confirmed, the internal wallet settlement hasn't
+                # happened. This is the only notification sent for a card
+                # funding; see FundWallet and the 9PSB inflow webhook, both
+                # of which suppress their own for this same event.
                 send_push_to_user(
                     user=user_obj.user,
-                    title="Card Funding Successful 💳",
-                    body=f"Your wallet has been funded with ₦{amount} via card.",
+                    title="Wallet Funded 💳",
+                    body="You have successfully funded your wallet with your card.",
                     data={
                         "type": "card_deposit",
                         "reference": reference,

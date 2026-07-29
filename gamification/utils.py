@@ -9,7 +9,6 @@ from decouple import config as conf
 from rest_framework.response import Response
 from rest_framework import status
 
-
 logger = logging.getLogger(__name__)
 
 nextbee_base_url = conf("NEXTBEE_BASE_URL")
@@ -26,20 +25,21 @@ nextbee_program_id = conf("NEXTBEE_PROGRAM_ID")
 class NextBee:
     @staticmethod
     def encrypt_nb(data: str, key: str) -> str:
-        encrypted = ''.join(chr(ord(data[i]) ^ ord(key[i % len(key)])) for i in range(len(data)))
+        encrypted = "".join(
+            chr(ord(data[i]) ^ ord(key[i % len(key)])) for i in range(len(data))
+        )
         return base64.b64encode(encrypted.encode()).decode()
 
     @staticmethod
-    def generate_jwt_token(advertiser_id: str, email: str, algorithm: str = 'HS256') -> str:
+    def generate_jwt_token(
+        advertiser_id: str, email: str, algorithm: str = "HS256"
+    ) -> str:
         """
         Generate a JWT token with the given data and secret key.
         """
 
         # Data to be encrypted
-        data = {
-            "aid": advertiser_id,
-            "email": email
-        }
+        data = {"aid": advertiser_id, "email": email}
 
         # === Encrypt and encode ===
         json_data = json.dumps(data)
@@ -53,7 +53,7 @@ class NextBee:
             "iss": "nextbee",
             "sub": encrypted_data,
             "iat": timestamp,
-            "exp": timestamp + exp_duration
+            "exp": timestamp + exp_duration,
         }
 
         # Generate JWT token
@@ -62,7 +62,9 @@ class NextBee:
 
     @staticmethod
     def sso_login(
-        email: str, first_name: str = "", last_name: str = "",
+        email: str,
+        first_name: str = "",
+        last_name: str = "",
     ) -> str:
         """
         Login to NextBee SSO.
@@ -71,7 +73,7 @@ class NextBee:
         token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}",
         }
 
         url = f"{nextbee_base_url}/client/sso-login"
@@ -86,11 +88,7 @@ class NextBee:
         }
 
         try:
-            response = requests.post(
-                url=url,
-                data=payload,
-                headers=headers
-            )
+            response = requests.post(url=url, data=payload, headers=headers)
             return response
         except requests.exceptions.RequestException as e:
             logging.error(f"SSO login API request error: {str(e)}")
@@ -109,7 +107,7 @@ class NextBee:
         token = NextBee.generate_jwt_token(nextbee_advertiser_id, email)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}",
         }
 
         url = f"{nextbee_base_url}/client/api-token"
@@ -119,11 +117,7 @@ class NextBee:
             "program_id": program_id,
         }
         try:
-            response = requests.post(
-                url=url,
-                data=payload,
-                headers=headers
-            )
+            response = requests.post(url=url, data=payload, headers=headers)
             return response.json().get("token", "No token found in response")
         except requests.exceptions.RequestException as e:
             logging.error(f"Generate token API request error: {str(e)}")

@@ -8,7 +8,13 @@ from django.utils import timezone
 from accounts.models import User
 from gamification.points import Points, BASE_POINTS
 from user_profile.fcm import send_push_to_user, send_push_to_admins
-from .models import BrandTaskSubmission, BrandVerificationResult, TaskSubmission, VerificationResult, UserTrustScore
+from .models import (
+    BrandTaskSubmission,
+    BrandVerificationResult,
+    TaskSubmission,
+    VerificationResult,
+    UserTrustScore,
+)
 from .verification import verify_submission, verify_brand_submission, VerificationError
 
 logger = logging.getLogger(__name__)
@@ -67,7 +73,11 @@ def run_verification(self, submission_id: str):
         else:
             submission.status = "Pending"
             submission.save(update_fields=["status"])
-            logger.info("Submission %s queued for manual review (verdict=%s)", submission_id, verdict)
+            logger.info(
+                "Submission %s queued for manual review (verdict=%s)",
+                submission_id,
+                verdict,
+            )
             send_push_to_admins(
                 title="Submission Needs Review",
                 body=f"{submission.user.full_name or submission.user.email} submitted proof for '{submission.task.title}' — requires manual review.",
@@ -101,7 +111,9 @@ def _approve_submission(submission, trust):
         body=f"Your submission for '{task.title}' was approved. {task.reward_points} pts credited.",
         data={"type": "task_approved", "submission_id": str(submission.pk)},
     )
-    logger.info("Auto-approved submission %s, issued %d pts", submission.pk, task.reward_points)
+    logger.info(
+        "Auto-approved submission %s, issued %d pts", submission.pk, task.reward_points
+    )
 
 
 def _reject_submission(submission, trust, reason: str = ""):
@@ -122,7 +134,9 @@ def _reject_submission(submission, trust, reason: str = ""):
 def manual_approve(submission_id: str, reviewer_id: str):
     """Admin/moderator manually approves a submission."""
     try:
-        submission = TaskSubmission.objects.select_related("task", "user").get(pk=submission_id)
+        submission = TaskSubmission.objects.select_related("task", "user").get(
+            pk=submission_id
+        )
         reviewer = User.objects.get(pk=reviewer_id)
     except (TaskSubmission.DoesNotExist, User.DoesNotExist):
         return
@@ -132,7 +146,9 @@ def manual_approve(submission_id: str, reviewer_id: str):
         submission.reward_issued = True
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
-        submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
+        submission.save(
+            update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"]
+        )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_approval()
@@ -172,7 +188,9 @@ def manual_reject(submission_id: str, reviewer_id: str, reason: str = ""):
         submission.rejection_reason = reason
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
-        submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
+        submission.save(
+            update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"]
+        )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_rejection()
@@ -227,13 +245,16 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
         submission.reward_issued = True
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
-        submission.save(update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"])
+        submission.save(
+            update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"]
+        )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_approval()
 
         ad = submission.ad
         from adverts.models import CreateAd as _CreateAd
+
         _CreateAd.objects.filter(pk=ad.pk).update(slots_filled=F("slots_filled") + 1)
 
         # Credit points using the brand-set reward_points, falling back to BASE_POINTS
@@ -259,7 +280,9 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
     )
     logger.info(
         "Brand submission %s approved — %d pts awarded to %s",
-        submission_id, points_amount, submission.user.email,
+        submission_id,
+        points_amount,
+        submission.user.email,
     )
     return points_amount
 
@@ -273,7 +296,9 @@ def approve_brand_submission(submission_id: str, reviewer_id: str = None):
 def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = ""):
     """Admin rejects a BrandTaskSubmission."""
     try:
-        submission = BrandTaskSubmission.objects.select_related("user").get(pk=submission_id)
+        submission = BrandTaskSubmission.objects.select_related("user").get(
+            pk=submission_id
+        )
         reviewer = User.objects.get(pk=reviewer_id)
     except (BrandTaskSubmission.DoesNotExist, User.DoesNotExist):
         return
@@ -283,7 +308,9 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         submission.rejection_reason = reason
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
-        submission.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"])
+        submission.save(
+            update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"]
+        )
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_rejection()
 
@@ -303,7 +330,9 @@ def run_brand_verification(self, submission_id: str):
     then approve or reject based on the verdict.
     """
     try:
-        submission = BrandTaskSubmission.objects.select_related("ad", "user").get(pk=submission_id)
+        submission = BrandTaskSubmission.objects.select_related("ad", "user").get(
+            pk=submission_id
+        )
     except BrandTaskSubmission.DoesNotExist:
         logger.error("run_brand_verification: submission %s not found", submission_id)
         return
@@ -340,10 +369,16 @@ def run_brand_verification(self, submission_id: str):
 
     if verdict == "Pass" and confidence >= 85 and action_confirmed and target_matched:
         approve_brand_submission_now(submission_id, None)
-    elif verdict == "Fail" or (verdict == "Pass" and not (action_confirmed and target_matched)) or confidence < 60:
+    elif (
+        verdict == "Fail"
+        or (verdict == "Pass" and not (action_confirmed and target_matched))
+        or confidence < 60
+    ):
         with transaction.atomic():
             submission.status = "Rejected"
-            submission.rejection_reason = f"AI verification failed: {result['reasoning']}"
+            submission.rejection_reason = (
+                f"AI verification failed: {result['reasoning']}"
+            )
             submission.reviewed_at = timezone.now()
             submission.save(update_fields=["status", "rejection_reason", "reviewed_at"])
             trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
@@ -359,7 +394,9 @@ def run_brand_verification(self, submission_id: str):
         )
         logger.info(
             "Brand submission %s auto-rejected by AI (confidence=%d): %s",
-            submission_id, confidence, result["reasoning"],
+            submission_id,
+            confidence,
+            result["reasoning"],
         )
     else:
         with transaction.atomic():
@@ -368,7 +405,9 @@ def run_brand_verification(self, submission_id: str):
             submission.save(update_fields=["status", "reviewed_at"])
         logger.info(
             "Brand submission %s flagged for manual review (verdict=%s, confidence=%d)",
-            submission_id, verdict, confidence,
+            submission_id,
+            verdict,
+            confidence,
         )
         send_push_to_user(
             user=submission.user,

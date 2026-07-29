@@ -8,9 +8,15 @@ from support.models import Ticket
 
 class AISupportSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ai_support_sessions")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="ai_support_sessions"
+    )
     ticket = models.OneToOneField(
-        Ticket, null=True, blank=True, on_delete=models.SET_NULL, related_name="ai_session"
+        Ticket,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_session",
     )
     messages = models.JSONField(default=list)
     resolved_by_ai = models.BooleanField(default=False)

@@ -27,7 +27,10 @@ class Migration(migrations.Migration):
                 ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
-                ("screenshot_url", models.CharField(blank=True, max_length=500, null=True)),
+                (
+                    "screenshot_url",
+                    models.CharField(blank=True, max_length=500, null=True),
+                ),
                 ("notes", models.TextField(blank=True, null=True)),
                 (
                     "status",
