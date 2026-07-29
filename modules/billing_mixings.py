@@ -13,6 +13,7 @@ from adverts.credit import (
 from banking.models import WalletModel, TxModel
 from accounts.models import UserNotification
 from banking.controllers import Wallet
+from banking.helpers import verify_card_payment
 from roles.models import ActivityModel
 from security import encrypt
 
@@ -91,6 +92,7 @@ class BrandChargeMixin:
         *,
         user,
         payment_option,
+        card_reference,
         amount,
         tx_reference,
         tx_type,
@@ -127,7 +129,13 @@ class BrandChargeMixin:
             )
         if payment_option == "CARD":
             return self._charge_card(
-                user, full_charge, tx_reference, copy, save_fn, existing_tx
+                user,
+                full_charge,
+                card_reference,
+                tx_reference,
+                copy,
+                save_fn,
+                existing_tx,
             )
 
         return None, self._fail("Invalid payment option")
@@ -367,7 +375,21 @@ class BrandChargeMixin:
     # CARD
     # ====================
 
-    def _charge_card(self, user, full_charge, tx_reference, copy, save_fn, existing_tx):
+    def _charge_card(
+        self,
+        user,
+        full_charge,
+        card_reference,
+        tx_reference,
+        copy,
+        save_fn,
+        existing_tx,
+    ):
+
+        # First, verify the card payment actually happened
+        funding, card_error_response = verify_card_payment(card_reference, full_charge)
+        if card_error_response is not None:
+            return None, card_error_response
         with transaction.atomic():
             reconcile_credit(user)
 

@@ -872,6 +872,9 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
     payment_option = serializers.CharField(
         max_length=20, write_only=True, required=True
     )
+    card_reference = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
     biometrics = serializers.BooleanField(write_only=True, required=False)
 
     # Owner (read-only — set by the view, never accepted from the client)
@@ -890,6 +893,7 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
             "user",
             "pin",
             "payment_option",
+            "card_reference",
             "biometrics",
             "business_or_brand_name",
             "type_of_business",
@@ -1151,6 +1155,16 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
                 {"cities": "Cities must be a list of city names."}
             )
 
+        payment_option = attrs.get("payment_option")
+        if payment_option == "WALLET" and not attrs.get("pin"):
+            raise serializers.ValidationError(
+                {"pin": "This field is required when paying with WALLET."}
+            )
+        if payment_option == "CARD" and not attrs.get("card_reference"):
+            raise serializers.ValidationError(
+                {"card_reference": "This field is required when paying with CARD."}
+            )
+
         logger.info(
             "Brand UGC task validation successful: task_name=%r task_type=%r amount=%r",
             attrs.get("task_name", "")[:80],
@@ -1186,6 +1200,7 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
         """
         validated_data.pop("pin", None)
         validated_data.pop("payment_option", None)
+        validated_data.pop("card_reference", None)
         validated_data.pop("biometrics", None)
 
         request = self.context.get("request")
