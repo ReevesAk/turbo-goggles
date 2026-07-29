@@ -8,7 +8,6 @@ from decimal import Decimal
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.template.loader import render_to_string
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
@@ -36,7 +35,6 @@ from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
 from banking.tasks import (
     post_transfer_update,
-    send_transfer_notifications,
     resolve_pending_transfer,
 )
 from accounts.models import (
@@ -1324,64 +1322,82 @@ class FundWallet(generics.GenericAPIView):
         user = get_object_or_404(User, email=email)
         logger.info("User %s found for wallet funding.", user.id)
 
-        funding = FundWithCard.objects.filter(user=user, txn_reference=tx_ref).first()
-        if not funding:
-            logger.error(
-                "Transaction reference %s does not exist or belong to user %s",
-                tx_ref,
-                user.id,
+        # Reserve the row under lock before doing anything else: is_processed
+        # was previously only set True *after* the external Wallet.Credit
+        # call succeeded, leaving a wide window where two concurrent/retried
+        # requests for the same reference could both read is_processed=False
+        # and both credit the wallet. Locking + marking processed up front
+        # closes that race; a failed credit reverts it below so a genuine
+        # retry can still go through.
+        with transaction.atomic():
+            funding = (
+                FundWithCard.objects.select_for_update()
+                .filter(user=user, txn_reference=tx_ref)
+                .first()
             )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Transaction reference does not exist or belong to User",
-                    }
-                ),
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            if not funding:
+                logger.error(
+                    "Transaction reference %s does not exist or belong to user %s",
+                    tx_ref,
+                    user.id,
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Transaction reference does not exist or belong to User",
+                        }
+                    ),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
-        if funding.is_processed:
-            logger.warning(
-                "Transaction reference %s has already been processed for user %s",
-                tx_ref,
-                user.id,
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Transaction has already been processed.",
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if funding.is_processed:
+                logger.warning(
+                    "Transaction reference %s has already been processed for user %s",
+                    tx_ref,
+                    user.id,
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Transaction has already been processed.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if funding.status != "success":
-            logger.warning(
-                "Transaction reference %s has not been confirmed by Paystack yet (status=%s)",
-                tx_ref,
-                funding.status,
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Card payment has not been confirmed yet.",
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if funding.status != "success":
+                logger.warning(
+                    "Transaction reference %s has not been confirmed by Paystack yet (status=%s)",
+                    tx_ref,
+                    funding.status,
+                )
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Card payment has not been confirmed yet.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Trust what Paystack actually confirmed for this reference, not
-        # whatever the client claims - the client-supplied `amount` above is
-        # otherwise unverified and forgeable. net_credit() applies the same
-        # NIP + merchant fee and VAT deducted on any internal transfer.
-        amount = TransferCharge.net_credit(funding.amount)
+            # Trust what Paystack actually confirmed for this reference, not
+            # whatever the client claims - the client-supplied `amount` above
+            # is otherwise unverified and forgeable. Pass the verified gross
+            # straight through - 9PSB deducts its own flat transfer fee
+            # automatically on every Wallet.Credit call, so pre-deducting
+            # anything here double-charges the user (confirmed against real
+            # transactions: a requested 95.38 landed as 73.88, exactly 21.50
+            # short - the same flat gap seen crediting a raw 100 as 78.50).
+            amount = Decimal(str(funding.amount))
 
-        user_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
+            funding.is_processed = True
+            funding.save(update_fields=["is_processed"])
 
         try:
+            user_details = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
             transfer_resp = Wallet.Credit(
                 acct_no=user_details.account_number,
                 amount=float(amount),
@@ -1390,9 +1406,6 @@ class FundWallet(generics.GenericAPIView):
             if transfer_resp.status_code == 200:
                 tx_id = generate_txId()
                 logger.info("Transfer successful. Transaction ID: %s", tx_id)
-
-                funding.is_processed = True
-                funding.save(update_fields=["is_processed"])
 
                 # Award welcome bonus if user opened wallet and funded >= 2000 NGN
                 try:
@@ -1470,47 +1483,19 @@ class FundWallet(generics.GenericAPIView):
                 )
 
                 account = TransferModel.objects.filter(user=user).first()
-                message = f"Dear {user.first_name} {user.last_name}, /n Your transfer of {amount} has been confirmed. Your available balance is ₦{account.available_balance}."
 
-                UserNotification.objects.create(
-                    user=user,
-                    title="Wallet Funding",
-                    message=f"Your transfer of ₦{amount} has been confirmed. Your available balance is ₦{account.available_balance}.",
-                )
-                logger.info("User notification created for user %s", user.id)
-
+                # No user-facing notification (in-app or email) here - the
+                # gross amount isn't what actually lands after 9PSB's own
+                # transfer fee, so it was showing the wrong figure. The
+                # webhook that confirmed the Paystack charge already sent
+                # the one notification the user gets for this event; see
+                # CardDepositPaystackWebhook.handle_charge_success.
                 ActivityModel.objects.create(
                     user=user,
                     title="Wallet Funding",
                     description=f"{user.first_name} {user.last_name} funded their account with ₦{amount}. Available balance is ₦{account.available_balance}.",
                 )
                 logger.info("Activity log created for user %s", user.id)
-
-                text_content = render_to_string(
-                    template_name="empty_email.html",
-                    context={
-                        "custom_text": message,
-                        "support_email": "support@picadailys.com",
-                        "picadailys_phone": [
-                            "02012271894",
-                            "02012271895",
-                        ],
-                    },
-                )
-
-                send_transfer_notifications.delay(
-                    user.id,
-                    None,
-                    user.email,
-                    "Email",
-                    message,
-                    "Wallet Funding",
-                    text_content,
-                    text_content,
-                )
-                logger.info(
-                    "Wallet funding email task sent to Celery for user %s", user.id
-                )
 
                 resp = {
                     "status": "success",
@@ -1523,6 +1508,7 @@ class FundWallet(generics.GenericAPIView):
                     transfer_resp.status_code,
                     transfer_resp.json(),
                 )
+                FundWithCard.objects.filter(pk=funding.pk).update(is_processed=False)
                 return Response(
                     data=encrypt(
                         {
@@ -1540,6 +1526,7 @@ class FundWallet(generics.GenericAPIView):
                 user.id,
                 str(e),
             )
+            FundWithCard.objects.filter(pk=funding.pk).update(is_processed=False)
             return Response(
                 data=encrypt(
                     {

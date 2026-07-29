@@ -14,6 +14,7 @@ logger = logging.getLogger("support")
 
 class RegisterAgentManagerSerializer(serializers.ModelSerializer):
     """Serializer for agent manager first-time registration"""
+
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
     device_id = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
@@ -36,18 +37,12 @@ class RegisterAgentManagerSerializer(serializers.ModelSerializer):
         password2 = attrs.get("password2", "")
         # Validate that email is provided and not already in use
         if not email:
-            raise serializers.ValidationError(
-                {"email": "Email field cannot be empty."}
-            )
+            raise serializers.ValidationError({"email": "Email field cannot be empty."})
         if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError(
-                {"email": "Email has already been used."}
-            )
+            raise serializers.ValidationError({"email": "Email has already been used."})
         # Validate that passwords match
         if password != password2:
-            raise serializers.ValidationError(
-                {"password": "Passwords do not match."}
-            )
+            raise serializers.ValidationError({"password": "Passwords do not match."})
         return attrs
 
     def create(self, validated_data):
@@ -121,10 +116,7 @@ class SupportVerifyOTPSerializer(serializers.Serializer):
 
 class CreateTicketSerializers(serializers.ModelSerializer):
     email = serializers.CharField(max_length=68, min_length=6, write_only=True)
-    attachments = serializers.FileField(
-        required=False,
-        allow_null=True
-    )
+    attachments = serializers.FileField(required=False, allow_null=True)
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
 
     class Meta:
@@ -170,15 +162,14 @@ class UserWithTicketsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'user_tickets']
+        fields = ["id", "first_name", "last_name", "email", "user_tickets"]
 
 
 class AssignTicketSerializers(serializers.ModelSerializer):
     agent_name = serializers.CharField(max_length=68, write_only=True)
     agent_email = serializers.CharField(max_length=68, write_only=True)
     agent_role = serializers.ChoiceField(
-        choices=["Agent", "Moderator", "Manager"],
-        write_only=True
+        choices=["Agent", "Moderator", "Manager"], write_only=True
     )
     pin = serializers.CharField(max_length=10, min_length=5, write_only=True)
     reason = serializers.CharField(max_length=200, write_only=True, required=False)
@@ -195,7 +186,7 @@ class AssignTicketSerializers(serializers.ModelSerializer):
             "resolution_hours",
             "agent_email",
             "reason",
-            "priority"
+            "priority",
         ]
 
 
@@ -204,8 +195,13 @@ class UpdateTicketSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = "__all__"
         read_only_fields = [
-            "id", "number", "user", "created_at", "updated_at",
-            "deleted", "resolved_by",
+            "id",
+            "number",
+            "user",
+            "created_at",
+            "updated_at",
+            "deleted",
+            "resolved_by",
         ]
 
 
@@ -270,17 +266,12 @@ class TicketAssignmentHistorySerializer(serializers.ModelSerializer):
 
 class AgentRatingSerializers(serializers.ModelSerializer):
     rating_comment = serializers.CharField(
-        max_length=68, min_length=6, write_only=True,
-        required=False
+        max_length=68, min_length=6, write_only=True, required=False
     )
 
     class Meta:
         model = AgentRating
-        fields = [
-            "id",
-            "rating",
-            "rating_comment"
-        ]
+        fields = ["id", "rating", "rating_comment"]
 
 
 class AgentDeletionSerializer(serializers.ModelSerializer):
@@ -357,9 +348,7 @@ class AddAgentContdSerializer(serializers.ModelSerializer):
         password2 = attrs.get("password2")
 
         if password != password2:
-            raise serializers.ValidationError(
-                {"password": "Passwords do not match."}
-            )
+            raise serializers.ValidationError({"password": "Passwords do not match."})
 
         return attrs
 
@@ -426,7 +415,7 @@ class ListAgentModeratorAndManagerSerializer(serializers.ModelSerializer):
             "rating_count",
             "is_agent_disabled",
             "total_tickets_assigned",
-            "total_tickets_resolved"
+            "total_tickets_resolved",
         ]
 
     def get_user_type(self, obj):
@@ -462,7 +451,6 @@ class AgentForgotPinSerializer(serializers.ModelSerializer):
         fields = ["email"]
 
     def validate(self, attrs):
-        email = attrs.get("email")
         return attrs
 
 
@@ -527,5 +515,3 @@ class SupportStaffResetPasswordSerializer(serializers.ModelSerializer):
         user = User.objects.get(id=agent_id)
         logger.info("Password reset request for email: %s", user.email)
         return attrs
-
-

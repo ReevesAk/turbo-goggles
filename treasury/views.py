@@ -10,7 +10,6 @@ from django.template.loader import render_to_string
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -29,7 +28,6 @@ from .serializers import (
 from .models import TreasuryAccount, TreasuryBeneficiary
 from .controllers import Anchor
 from .tasks import create_notification, create_activity
-from .helpers import Pin
 from security import encrypt, decrypt
 from accounts.models import UserNotification
 from roles.models import ActivityModel
@@ -43,15 +41,24 @@ logger = logging.getLogger(__name__)
     description="Creates an Anchor customer and deposit account for the authenticated user. Returns the account number and bank details on success.",
     request=CreateTreasuryAccountSerializer,
     responses={
-        201: inline_serializer(name="CreateTreasuryAccountResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "account_number": s.CharField(),
-            "bank_name": s.CharField(),
-            "acct_name": s.CharField(),
-        }),
-        400: inline_serializer(name="CreateTreasuryAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
-        502: inline_serializer(name="CreateTreasuryAccountGatewayError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="CreateTreasuryAccountResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "account_number": s.CharField(),
+                "bank_name": s.CharField(),
+                "acct_name": s.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name="CreateTreasuryAccountError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        502: inline_serializer(
+            name="CreateTreasuryAccountGatewayError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class CreateTreasuryAccount(generics.GenericAPIView):
@@ -78,9 +85,13 @@ class CreateTreasuryAccount(generics.GenericAPIView):
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
-        acct_name = payload.get("acct_name") or f"{user.first_name} {user.last_name}".strip()
+        acct_name = (
+            payload.get("acct_name") or f"{user.first_name} {user.last_name}".strip()
+        )
 
         # Convert phone to E.164 (+234...)
         phone = user.phone_number or ""
@@ -95,9 +106,14 @@ class CreateTreasuryAccount(generics.GenericAPIView):
             phone=phone,
         )
         if not customer_resp or not Anchor.is_success(customer_resp):
-            logger.error("Anchor create_customer failed: %s", getattr(customer_resp, "text", "no response"))
+            logger.error(
+                "Anchor create_customer failed: %s",
+                getattr(customer_resp, "text", "no response"),
+            )
             return Response(
-                data=encrypt({"status": "fail", "message": "Account service unavailable."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Account service unavailable."}
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -105,16 +121,25 @@ class CreateTreasuryAccount(generics.GenericAPIView):
         customer_id = customer_data.get("data", {}).get("id")
         if not customer_id:
             return Response(
-                data=encrypt({"status": "fail", "message": "Failed to create customer."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Failed to create customer."}
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
         # Step 2: create deposit account
-        acct_resp = Anchor.create_deposit_account(customer_id=customer_id, account_name=acct_name)
+        acct_resp = Anchor.create_deposit_account(
+            customer_id=customer_id, account_name=acct_name
+        )
         if not acct_resp or not Anchor.is_success(acct_resp):
-            logger.error("Anchor create_deposit_account failed: %s", getattr(acct_resp, "text", "no response"))
+            logger.error(
+                "Anchor create_deposit_account failed: %s",
+                getattr(acct_resp, "text", "no response"),
+            )
             return Response(
-                data=encrypt({"status": "fail", "message": "Failed to create deposit account."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Failed to create deposit account."}
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -126,7 +151,12 @@ class CreateTreasuryAccount(generics.GenericAPIView):
 
         if not anchor_account_id or not account_number:
             return Response(
-                data=encrypt({"status": "fail", "message": "Invalid response from account service."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid response from account service.",
+                    }
+                ),
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -139,7 +169,9 @@ class CreateTreasuryAccount(generics.GenericAPIView):
             acct_name=acct_name,
         )
 
-        logger.info("Treasury account created: user=%s acct=%s", user.id, account_number)
+        logger.info(
+            "Treasury account created: user=%s acct=%s", user.id, account_number
+        )
 
         create_notification.delay(
             user_id=user.id,
@@ -179,13 +211,15 @@ class CreateTreasuryAccount(generics.GenericAPIView):
             )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Account created successfully.",
-                "account_number": account_number,
-                "bank_name": bank_name,
-                "acct_name": acct_name,
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Account created successfully.",
+                    "account_number": account_number,
+                    "bank_name": bank_name,
+                    "acct_name": acct_name,
+                }
+            ),
             status=status.HTTP_201_CREATED,
         )
 
@@ -196,7 +230,10 @@ class CreateTreasuryAccount(generics.GenericAPIView):
     description="Returns the user's treasury account details including a live balance fetched from Anchor. Also returns tier level, upgrade status, and current tier limits.",
     responses={
         200: TreasuryAccountDetailsSerializer,
-        404: inline_serializer(name="TreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        404: inline_serializer(
+            name="TreasuryAccountNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetTreasuryAccountDetails(generics.GenericAPIView):
@@ -249,13 +286,23 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
 
         tier_limits = {
             1: {"max_balance": 300000, "daily_deposit": 50000, "daily_transfer": 20000},
-            2: {"max_balance": 3000000, "daily_deposit": 500000, "daily_transfer": 100000},
+            2: {
+                "max_balance": 3000000,
+                "daily_deposit": 500000,
+                "daily_transfer": 100000,
+            },
             3: {"max_balance": None, "daily_deposit": None, "daily_transfer": None},
         }
         resp_data["tier_limits"] = tier_limits.get(account.tier_level, tier_limits[1])
 
         return Response(
-            data=encrypt({"status": "success", "message": "Account details retrieved.", "data": resp_data}),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Account details retrieved.",
+                    "data": resp_data,
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -266,8 +313,14 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
     description="Sets the PIN for the user's treasury account for the first time. Both pin and pin2 must match.",
     request=CreateAccountPinSerializer,
     responses={
-        201: inline_serializer(name="SetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="SetPinError", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="SetPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="SetPinError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class SetAccountPin(generics.CreateAPIView):
@@ -281,7 +334,9 @@ class SetAccountPin(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         decrypted_resp = decrypt(request.data)
-        user_data = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_resp.items()}
+        user_data = {
+            k: v.strip() if isinstance(v, str) else v for k, v in decrypted_resp.items()
+        }
         user = request.user
 
         try:
@@ -294,7 +349,9 @@ class SetAccountPin(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         pin = user_data.get("pin")
         pin2 = user_data.get("pin2")
@@ -310,7 +367,9 @@ class SetAccountPin(generics.CreateAPIView):
         user.has_created_pin = True
         user.save()
 
-        UserNotification.objects.create(user=user, title="Account PIN", message="PIN created successfully.")
+        UserNotification.objects.create(
+            user=user, title="Account PIN", message="PIN created successfully."
+        )
         ActivityModel.objects.create(
             user=user,
             title="Account PIN",
@@ -350,7 +409,10 @@ class SetAccountPin(generics.CreateAPIView):
     tags=["Treasury"],
     description="Sends an OTP to the user's registered phone or email to initiate a PIN reset flow.",
     responses={
-        201: inline_serializer(name="ForgotPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        201: inline_serializer(
+            name="ForgotPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ForgotAccountPin(generics.GenericAPIView):
@@ -408,7 +470,10 @@ class ForgotAccountPin(generics.GenericAPIView):
     tags=["Treasury"],
     description="Resends the PIN reset OTP to the user's registered phone or email address.",
     responses={
-        200: inline_serializer(name="TreasuryPinResendOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="TreasuryPinResendOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class PinResendOTP(generics.GenericAPIView):
@@ -428,7 +493,9 @@ class PinResendOTP(generics.GenericAPIView):
         status_msg = ""
 
         if user.alert_type_choice in ("SMS", "Both"):
-            Messaging.send_otp_whatsapp_fallback(phone_number=phone_number, otp=otp, msg=msg)
+            Messaging.send_otp_whatsapp_fallback(
+                phone_number=phone_number, otp=otp, msg=msg
+            )
             status_msg = "OTP resent. Check your phone."
         if user.alert_type_choice in ("Email", "Both"):
             html = render_to_string(
@@ -460,8 +527,13 @@ class PinResendOTP(generics.GenericAPIView):
     description="Validates the OTP submitted during the PIN reset flow. On success the caller may proceed to reset the PIN.",
     request=TreasuryVerifyPinOTPSerializer,
     responses={
-        200: inline_serializer(name="TreasuryPinVerifyOTPResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="TreasuryPinVerifyOTPError", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            name="TreasuryPinVerifyOTPResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="TreasuryPinVerifyOTPError", fields={"error": s.CharField()}
+        ),
     },
 )
 class PinVerifyOTP(generics.GenericAPIView):
@@ -475,11 +547,15 @@ class PinVerifyOTP(generics.GenericAPIView):
 
     def post(self, request):
         decrypted_resp = decrypt(request.data)
-        user_data = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_resp.items()}
+        user_data = {
+            k: v.strip() if isinstance(v, str) else v for k, v in decrypted_resp.items()
+        }
         user = request.user
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         received_otp = serializer.data["otp"]
         user_id = otp_manager.validate_user_otp(received_otp)
@@ -506,8 +582,13 @@ class PinVerifyOTP(generics.GenericAPIView):
     description="Resets the treasury account PIN after OTP verification. Both new pin and pin2 must match.",
     request=ResetAccountPinSerializer,
     responses={
-        200: inline_serializer(name="TreasuryResetPinResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="TreasuryResetPinError", fields={"error": s.CharField()}),
+        200: inline_serializer(
+            name="TreasuryResetPinResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="TreasuryResetPinError", fields={"error": s.CharField()}
+        ),
     },
 )
 class ResetAccountPin(generics.CreateAPIView):
@@ -522,7 +603,9 @@ class ResetAccountPin(generics.CreateAPIView):
     def create(self, request):
         user = request.user
         decrypted_data = decrypt(request.data)
-        user_data = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_data.items()}
+        user_data = {
+            k: v.strip() if isinstance(v, str) else v for k, v in decrypted_data.items()
+        }
         serializer = self.get_serializer(data=user_data)
 
         try:
@@ -534,7 +617,9 @@ class ResetAccountPin(generics.CreateAPIView):
             )
 
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         otp = user_data["otp"]
         user_id = otp_manager.validate_user_otp(otp=otp)
@@ -555,7 +640,9 @@ class ResetAccountPin(generics.CreateAPIView):
         account.pin = make_password(pin)
         account.save(update_fields=["pin"])
 
-        UserNotification.objects.create(user=user, title="Account PIN Reset", message="PIN reset successfully.")
+        UserNotification.objects.create(
+            user=user, title="Account PIN Reset", message="PIN reset successfully."
+        )
         ActivityModel.objects.create(
             user=user,
             title="Account PIN Reset",
@@ -574,8 +661,14 @@ class ResetAccountPin(generics.CreateAPIView):
     description="Submit BVN and date of birth to initiate Tier 2 KYC verification via Anchor. Tier 2 unlocks higher daily transaction limits per CBN guidelines. Verification is asynchronous; status updates arrive via webhook.",
     request=UpgradeTier2Serializer,
     responses={
-        200: inline_serializer(name="UpgradeTier2Response", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="UpgradeTier2Error", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="UpgradeTier2Response",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="UpgradeTier2Error",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpgradeTierTwoView(generics.GenericAPIView):
@@ -590,25 +683,34 @@ class UpgradeTierTwoView(generics.GenericAPIView):
     def post(self, request):
         user = request.user
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         try:
             account = TreasuryAccount.objects.get(user=user)
         except TreasuryAccount.DoesNotExist:
             return Response(
-                data=encrypt({"status": "fail", "message": "Treasury account not found."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Treasury account not found."}
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if account.tier_level >= 2:
             return Response(
-                data=encrypt({"status": "fail", "message": "Account is already Tier 2 or above."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Account is already Tier 2 or above."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         bvn = serializer.validated_data["bvn"]
         date_of_birth = str(serializer.validated_data["date_of_birth"])  # "YYYY-MM-DD"
@@ -616,11 +718,18 @@ class UpgradeTierTwoView(generics.GenericAPIView):
 
         if not account.anchor_customer_id:
             return Response(
-                data=encrypt({"status": "fail", "message": "No Anchor customer linked to this account."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "No Anchor customer linked to this account.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resp = Anchor.upgrade_tier2(account.anchor_customer_id, bvn, date_of_birth, gender)
+        resp = Anchor.upgrade_tier2(
+            account.anchor_customer_id, bvn, date_of_birth, gender
+        )
         if not resp or not Anchor.is_success(resp):
             error_detail = ""
             if resp:
@@ -628,9 +737,19 @@ class UpgradeTierTwoView(generics.GenericAPIView):
                     error_detail = resp.json().get("errors", [{}])[0].get("detail", "")
                 except Exception:
                     pass
-            logger.error("Anchor upgrade_tier2 failed for user %s: %s", user.id, getattr(resp, "text", "no response"))
+            logger.error(
+                "Anchor upgrade_tier2 failed for user %s: %s",
+                user.id,
+                getattr(resp, "text", "no response"),
+            )
             return Response(
-                data=encrypt({"status": "fail", "message": error_detail or "BVN verification failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": error_detail
+                        or "BVN verification failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -650,10 +769,12 @@ class UpgradeTierTwoView(generics.GenericAPIView):
         )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "BVN verification submitted. Your account will be upgraded to Tier 2 once verified.",
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "BVN verification submitted. Your account will be upgraded to Tier 2 once verified.",
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -664,8 +785,14 @@ class UpgradeTierTwoView(generics.GenericAPIView):
     description="Submit a government-issued ID for Tier 3 KYC upgrade via Anchor manual review. The account must already be at Tier 2. Tier 3 unlocks unrestricted transaction limits.",
     request=UpgradeTier3Serializer,
     responses={
-        200: inline_serializer(name="UpgradeTier3Response", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="UpgradeTier3Error", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="UpgradeTier3Response",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="UpgradeTier3Error",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class UpgradeTierThreeView(generics.GenericAPIView):
@@ -681,38 +808,57 @@ class UpgradeTierThreeView(generics.GenericAPIView):
     def post(self, request):
         user = request.user
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         try:
             account = TreasuryAccount.objects.get(user=user)
         except TreasuryAccount.DoesNotExist:
             return Response(
-                data=encrypt({"status": "fail", "message": "Treasury account not found."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Treasury account not found."}
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if account.tier_level < 2:
             return Response(
-                data=encrypt({"status": "fail", "message": "Account must be Tier 2 before upgrading to Tier 3."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Account must be Tier 2 before upgrading to Tier 3.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if account.tier_level >= 3:
             return Response(
-                data=encrypt({"status": "fail", "message": "Account is already Tier 3."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Account is already Tier 3."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         id_type = serializer.validated_data["id_type"]
         id_number = serializer.validated_data["id_number"]
 
         if not account.anchor_customer_id:
             return Response(
-                data=encrypt({"status": "fail", "message": "No Anchor customer linked to this account."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "No Anchor customer linked to this account.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -724,9 +870,19 @@ class UpgradeTierThreeView(generics.GenericAPIView):
                     error_detail = resp.json().get("errors", [{}])[0].get("detail", "")
                 except Exception:
                     pass
-            logger.error("Anchor upgrade_tier3 failed for user %s: %s", user.id, getattr(resp, "text", "no response"))
+            logger.error(
+                "Anchor upgrade_tier3 failed for user %s: %s",
+                user.id,
+                getattr(resp, "text", "no response"),
+            )
             return Response(
-                data=encrypt({"status": "fail", "message": error_detail or "ID verification failed. Please try again."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": error_detail
+                        or "ID verification failed. Please try again.",
+                    }
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -746,10 +902,12 @@ class UpgradeTierThreeView(generics.GenericAPIView):
         )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "ID verification submitted. Your account will be upgraded to Tier 3 once reviewed.",
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "ID verification submitted. Your account will be upgraded to Tier 3 once reviewed.",
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -759,17 +917,22 @@ class UpgradeTierThreeView(generics.GenericAPIView):
     tags=["Treasury"],
     description="Returns all beneficiaries saved by the authenticated user for quick repeat transfers.",
     responses={
-        200: inline_serializer(name="ListBeneficiariesResponse", fields={
-            "status": s.CharField(),
-            "data": TreasuryBeneficiarySerializer(many=True),
-        }),
+        200: inline_serializer(
+            name="ListBeneficiariesResponse",
+            fields={
+                "status": s.CharField(),
+                "data": TreasuryBeneficiarySerializer(many=True),
+            },
+        ),
     },
 )
 class ListBeneficiariesView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        beneficiaries = TreasuryBeneficiary.objects.filter(user=request.user).order_by("-created_at")
+        beneficiaries = TreasuryBeneficiary.objects.filter(user=request.user).order_by(
+            "-created_at"
+        )
         data = TreasuryBeneficiarySerializer(beneficiaries, many=True).data
         return Response(
             data=encrypt({"status": "success", "data": data}),
@@ -782,15 +945,23 @@ class ListBeneficiariesView(generics.GenericAPIView):
     tags=["Treasury"],
     description="Removes a previously saved beneficiary by its ID. The beneficiary must belong to the authenticated user.",
     responses={
-        200: inline_serializer(name="DeleteBeneficiaryResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer(name="DeleteBeneficiaryNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="DeleteBeneficiaryResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="DeleteBeneficiaryNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class DeleteBeneficiaryView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
-        deleted, _ = TreasuryBeneficiary.objects.filter(user=request.user, pk=pk).delete()
+        deleted, _ = TreasuryBeneficiary.objects.filter(
+            user=request.user, pk=pk
+        ).delete()
         if not deleted:
             return Response(
                 data=encrypt({"status": "fail", "message": "Beneficiary not found."}),
@@ -807,12 +978,18 @@ class DeleteBeneficiaryView(generics.GenericAPIView):
     tags=["Treasury"],
     description="Returns the cached cashback balance accrued on the user's treasury account from eligible transactions.",
     responses={
-        200: inline_serializer(name="TreasuryCashbackBalanceResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "cashback_balance": s.CharField(),
-        }),
-        404: inline_serializer(name="CashbackBalanceNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="TreasuryCashbackBalanceResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "cashback_balance": s.CharField(),
+            },
+        ),
+        404: inline_serializer(
+            name="CashbackBalanceNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class GetTreasuryCashbackBalance(generics.GenericAPIView):
@@ -834,10 +1011,12 @@ class GetTreasuryCashbackBalance(generics.GenericAPIView):
             )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Cashback balance retrieved.",
-                "cashback_balance": str(account.cashback_balance),
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Cashback balance retrieved.",
+                    "cashback_balance": str(account.cashback_balance),
+                }
+            ),
             status=status.HTTP_200_OK,
         )

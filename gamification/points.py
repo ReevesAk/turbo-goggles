@@ -55,6 +55,7 @@ def get_point_value(key: str) -> int:
     """Return the configured point value for an activity key, falling back to BASE_POINTS."""
     try:
         from .models import PointConfig
+
         config = PointConfig.objects.filter(key=key).first()
         if config is not None:
             return config.value
@@ -133,18 +134,28 @@ class Points:
 
         try:
             from tasks.models import UserTrustScore
+
             trust = UserTrustScore.objects.get(user=user)
 
             if trust.requires_manual_review:
-                return False, f"Trust score too low ({trust.score}/100) — manual review required"
+                return (
+                    False,
+                    f"Trust score too low ({trust.score}/100) — manual review required",
+                )
 
             if trust.flagged_submissions >= 6:
-                return False, f"Too many flagged submissions ({trust.flagged_submissions})"
+                return (
+                    False,
+                    f"Too many flagged submissions ({trust.flagged_submissions})",
+                )
 
             if trust.total_submissions >= 5:
                 rejection_rate = trust.rejected_submissions / trust.total_submissions
                 if rejection_rate > 0.6:
-                    return False, f"Rejection rate too high ({int(rejection_rate * 100)}%)"
+                    return (
+                        False,
+                        f"Rejection rate too high ({int(rejection_rate * 100)}%)",
+                    )
 
         except Exception:
             # No trust record yet (brand new user) — allow
@@ -187,7 +198,9 @@ class Points:
 
         try:
             with transaction.atomic():
-                points_obj, _ = PointsModel.objects.select_for_update().get_or_create(user=user)
+                points_obj, _ = PointsModel.objects.select_for_update().get_or_create(
+                    user=user
+                )
 
                 new_balance = points_obj.balance + amount
                 new_lifetime = (user.total_points or 0) + amount
@@ -221,16 +234,29 @@ class Points:
             logger.exception("Failed to award %d points to %s", amount, user.email)
             return False, str(exc)
 
-        logger.info("Awarded %d pts to %s (balance: %d, tier: %s)", amount, user.email, new_balance, new_tier)
+        logger.info(
+            "Awarded %d pts to %s (balance: %d, tier: %s)",
+            amount,
+            user.email,
+            new_balance,
+            new_tier,
+        )
 
         send_push_to_user(
             user=user,
             title="Points Awarded",
             body=f"You earned {amount} pts! {reason}",
-            data={"type": "points_awarded", "amount": str(amount), "reference_id": str(reference_id) if reference_id else ""},
+            data={
+                "type": "points_awarded",
+                "amount": str(amount),
+                "reference_id": str(reference_id) if reference_id else "",
+            },
         )
 
-        return True, f"{amount} points awarded. New balance: {new_balance}, tier: {new_tier}"
+        return (
+            True,
+            f"{amount} points awarded. New balance: {new_balance}, tier: {new_tier}",
+        )
 
     @staticmethod
     def deduct(
@@ -247,7 +273,9 @@ class Points:
         """
         try:
             with transaction.atomic():
-                points_obj, _ = PointsModel.objects.select_for_update().get_or_create(user=user)
+                points_obj, _ = PointsModel.objects.select_for_update().get_or_create(
+                    user=user
+                )
 
                 actual_deduction = min(amount, points_obj.balance)
                 new_balance = points_obj.balance - actual_deduction
@@ -269,13 +297,22 @@ class Points:
             logger.exception("Failed to deduct %d points from %s", amount, user.email)
             return False, str(exc)
 
-        logger.info("Deducted %d pts from %s (balance: %d)", actual_deduction, user.email, new_balance)
+        logger.info(
+            "Deducted %d pts from %s (balance: %d)",
+            actual_deduction,
+            user.email,
+            new_balance,
+        )
 
         send_push_to_user(
             user=user,
             title="Points Deducted",
             body=f"{actual_deduction} pts have been deducted from your account. Reason: {reason}",
-            data={"type": "points_deducted", "amount": str(actual_deduction), "reference_id": str(reference_id) if reference_id else ""},
+            data={
+                "type": "points_deducted",
+                "amount": str(actual_deduction),
+                "reference_id": str(reference_id) if reference_id else "",
+            },
         )
 
         return True, f"{actual_deduction} points deducted. New balance: {new_balance}"
@@ -288,8 +325,12 @@ class Points:
         Use this to self-heal after manual DB edits or to sync a user on login.
         """
         totals = PointTransaction.objects.filter(user=user).aggregate(
-            awarded=models.Sum("amount", filter=models.Q(transaction_type=PointTransaction.AWARD)),
-            deducted=models.Sum("amount", filter=models.Q(transaction_type=PointTransaction.DEDUCT)),
+            awarded=models.Sum(
+                "amount", filter=models.Q(transaction_type=PointTransaction.AWARD)
+            ),
+            deducted=models.Sum(
+                "amount", filter=models.Q(transaction_type=PointTransaction.DEDUCT)
+            ),
         )
         lifetime = totals["awarded"] or 0
         deducted = totals["deducted"] or 0
@@ -311,5 +352,7 @@ class Points:
             user.total_points = lifetime
             user.save(update_fields=["total_points"])
 
-        logger.info("Refreshed points for %s: balance=%d, tier=%s", user.email, balance, tier)
+        logger.info(
+            "Refreshed points for %s: balance=%d, tier=%s", user.email, balance, tier
+        )
         return points_obj

@@ -3,7 +3,6 @@ import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
-
 BASE_POINTS_SEED = {
     "daily_login": ("Daily Login", 30),
     "service_purchase": ("Service Purchase", 30),
@@ -24,7 +23,9 @@ BASE_POINTS_SEED = {
 def seed_point_configs(apps, schema_editor):
     PointConfig = apps.get_model("gamification", "PointConfig")
     for key, (label, value) in BASE_POINTS_SEED.items():
-        PointConfig.objects.get_or_create(key=key, defaults={"label": label, "value": value})
+        PointConfig.objects.get_or_create(
+            key=key, defaults={"label": label, "value": value}
+        )
 
 
 def unseed_point_configs(apps, schema_editor):
@@ -43,7 +44,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="PointConfig",
             fields=[
-                ("id", models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("key", models.CharField(max_length=50, unique=True)),
                 ("label", models.CharField(max_length=100)),
                 ("value", models.PositiveIntegerField()),
@@ -63,7 +72,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="StreakChallenge",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 ("name", models.CharField(max_length=200)),
                 ("description", models.TextField(blank=True)),
                 (
@@ -109,7 +126,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="UserStreak",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 ("current_count", models.PositiveIntegerField(default=0)),
                 ("longest_count", models.PositiveIntegerField(default=0)),
                 ("last_activity_date", models.DateField(blank=True, null=True)),
@@ -139,7 +164,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="StreakHistory",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 ("streak_count_reached", models.PositiveIntegerField()),
                 ("broken_at", models.DateField(blank=True, null=True)),
                 ("completed", models.BooleanField(default=False)),

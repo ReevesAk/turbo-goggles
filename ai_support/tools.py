@@ -1,4 +1,3 @@
-import json
 import logging
 
 from django.utils import timezone
@@ -107,7 +106,13 @@ TOOLS = [
                     ),
                 },
             },
-            "required": ["title", "description", "category", "priority", "conversation_summary"],
+            "required": [
+                "title",
+                "description",
+                "category",
+                "priority",
+                "conversation_summary",
+            ],
         },
     },
 ]
@@ -133,7 +138,10 @@ def _get_wallet_info(inputs, user, session):
     try:
         wallet = WalletModel.objects.filter(user=user).first()
         if not wallet:
-            return {"data": {"error": "No wallet found for this user."}, "escalated": False}
+            return {
+                "data": {"error": "No wallet found for this user."},
+                "escalated": False,
+            }
         return {
             "data": {
                 "balance": str(wallet.balance),
@@ -141,21 +149,31 @@ def _get_wallet_info(inputs, user, session):
                 "tier_level": wallet.tier_level,
                 "account_number": wallet.account_number,
                 "status": "Active" if wallet.status else "Inactive",
-                "pin_locked": wallet.pin_locked_until is not None and wallet.pin_locked_until > timezone.now(),
-                "pin_locked_until": wallet.pin_locked_until.isoformat() if wallet.pin_locked_until else None,
+                "pin_locked": wallet.pin_locked_until is not None
+                and wallet.pin_locked_until > timezone.now(),
+                "pin_locked_until": (
+                    wallet.pin_locked_until.isoformat()
+                    if wallet.pin_locked_until
+                    else None
+                ),
                 "tier2_upgrade_status": wallet.tier2_upgrade_status,
             },
             "escalated": False,
         }
     except Exception as e:
         logger.error("get_wallet_info failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not retrieve wallet info."}, "escalated": False}
+        return {
+            "data": {"error": "Could not retrieve wallet info."},
+            "escalated": False,
+        }
 
 
 def _get_recent_transfers(inputs, user, session):
     try:
         limit = min(int(inputs.get("limit", 5)), 10)
-        transfers = TransferModel.objects.filter(user=user).order_by("-created_at")[:limit]
+        transfers = TransferModel.objects.filter(user=user).order_by("-created_at")[
+            :limit
+        ]
         return {
             "data": [
                 {
@@ -189,7 +207,9 @@ def _get_cashback_info(inputs, user, session):
                         "amount": str(c.amount),
                         "service_type": c.service_type,
                         "date": c.created_at.isoformat(),
-                        "expires_at": c.expires_at.isoformat() if c.expires_at else None,
+                        "expires_at": (
+                            c.expires_at.isoformat() if c.expires_at else None
+                        ),
                     }
                     for c in cashbacks
                 ],
@@ -198,7 +218,10 @@ def _get_cashback_info(inputs, user, session):
         }
     except Exception as e:
         logger.error("get_cashback_info failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not retrieve cashback info."}, "escalated": False}
+        return {
+            "data": {"error": "Could not retrieve cashback info."},
+            "escalated": False,
+        }
 
 
 def _get_vas_transactions(inputs, user, session):
@@ -216,7 +239,9 @@ def _get_vas_transactions(inputs, user, session):
                     "amount": str(t.amount),
                     "phone_number": t.phone_number,
                     "status": t.status,
-                    "date": t.created_at.isoformat() if hasattr(t, "created_at") else None,
+                    "date": (
+                        t.created_at.isoformat() if hasattr(t, "created_at") else None
+                    ),
                 }
                 for t in transactions
             ],
@@ -224,13 +249,18 @@ def _get_vas_transactions(inputs, user, session):
         }
     except Exception as e:
         logger.error("get_vas_transactions failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not retrieve VAS transactions."}, "escalated": False}
+        return {
+            "data": {"error": "Could not retrieve VAS transactions."},
+            "escalated": False,
+        }
 
 
 def _get_points_info(inputs, user, session):
     try:
         points = Points.objects.filter(user=user).first()
-        recent_txns = PointTransaction.objects.filter(user=user).order_by("-created_at")[:5]
+        recent_txns = PointTransaction.objects.filter(user=user).order_by(
+            "-created_at"
+        )[:5]
         return {
             "data": {
                 "balance": points.balance if points else 0,
@@ -252,7 +282,10 @@ def _get_points_info(inputs, user, session):
         }
     except Exception as e:
         logger.error("get_points_info failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not retrieve points info."}, "escalated": False}
+        return {
+            "data": {"error": "Could not retrieve points info."},
+            "escalated": False,
+        }
 
 
 def _get_ticket_status(inputs, user, session):
@@ -282,12 +315,17 @@ def _get_ticket_status(inputs, user, session):
         }
     except Exception as e:
         logger.error("get_ticket_status failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not retrieve ticket status."}, "escalated": False}
+        return {
+            "data": {"error": "Could not retrieve ticket status."},
+            "escalated": False,
+        }
 
 
 def _create_support_ticket(inputs, user, session):
     try:
-        full_name = user.full_name or f"{user.first_name or ''} {user.last_name or ''}".strip()
+        full_name = (
+            user.full_name or f"{user.first_name or ''} {user.last_name or ''}".strip()
+        )
         ticket = Ticket.objects.create(
             user=user,
             title=inputs["title"],
@@ -303,7 +341,9 @@ def _create_support_ticket(inputs, user, session):
             opened_at=timezone.now(),
         )
         session.escalate(ticket)
-        logger.info("AI support escalated to ticket %s for user %s", ticket.number, user.id)
+        logger.info(
+            "AI support escalated to ticket %s for user %s", ticket.number, user.id
+        )
         return {
             "data": {"ticket_number": ticket.number, "status": "created"},
             "escalated": True,
@@ -311,4 +351,7 @@ def _create_support_ticket(inputs, user, session):
         }
     except Exception as e:
         logger.error("create_support_ticket failed for user %s: %s", user.id, e)
-        return {"data": {"error": "Could not create support ticket."}, "escalated": False}
+        return {
+            "data": {"error": "Could not create support ticket."},
+            "escalated": False,
+        }

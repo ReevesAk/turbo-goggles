@@ -12,20 +12,34 @@ def _check_user_activity(user, streak_type, date):
     if streak_type == "daily_login":
         return bool(user.last_login and user.last_login.date() == date)
 
-    brand_task_types = {"watch_video", "website_visit", "store_visit", "survey_completion", "app_download", "brand_task"}
+    brand_task_types = {
+        "watch_video",
+        "website_visit",
+        "store_visit",
+        "survey_completion",
+        "app_download",
+        "brand_task",
+    }
     if streak_type in brand_task_types:
         from tasks.models import BrandTaskSubmission
-        qs = BrandTaskSubmission.objects.filter(user=user, status="Approved", created_at__date=date)
+
+        qs = BrandTaskSubmission.objects.filter(
+            user=user, status="Approved", created_at__date=date
+        )
         if streak_type != "brand_task":
             qs = qs.filter(ad__task_type=streak_type)
         return qs.exists()
 
     if streak_type == "social_engagement":
         from tasks.models import TaskSubmission
-        return TaskSubmission.objects.filter(user=user, status="Approved", created_at__date=date).exists()
+
+        return TaskSubmission.objects.filter(
+            user=user, status="Approved", created_at__date=date
+        ).exists()
 
     # Fallback: check PointTransaction with matching source
     from .models import PointTransaction
+
     return PointTransaction.objects.filter(
         user=user,
         source=streak_type,
@@ -56,7 +70,9 @@ def check_and_update_streaks():
         ).select_related("user")
 
         for user_streak in user_streaks:
-            did_activity = _check_user_activity(user_streak.user, challenge.streak_type, yesterday)
+            did_activity = _check_user_activity(
+                user_streak.user, challenge.streak_type, yesterday
+            )
 
             if did_activity:
                 user_streak.current_count += 1
@@ -64,7 +80,10 @@ def check_and_update_streaks():
                 if user_streak.current_count > user_streak.longest_count:
                     user_streak.longest_count = user_streak.current_count
 
-                if user_streak.current_count >= challenge.duration_days and not user_streak.reward_issued:
+                if (
+                    user_streak.current_count >= challenge.duration_days
+                    and not user_streak.reward_issued
+                ):
                     user_streak.completed = True
                     user_streak.completed_at = timezone.now()
                     ok, _ = Points.award(
@@ -85,14 +104,21 @@ def check_and_update_streaks():
                         )
                         try:
                             from user_profile.fcm import send_push_to_user
+
                             send_push_to_user(
                                 user=user_streak.user,
                                 title="Streak Complete! 🔥",
                                 body=f"You completed the '{challenge.name}' streak! {challenge.reward_points} pts have been credited.",
-                                data={"type": "streak_completed", "challenge_id": str(challenge.id)},
+                                data={
+                                    "type": "streak_completed",
+                                    "challenge_id": str(challenge.id),
+                                },
                             )
                         except Exception:
-                            logger.exception("FCM push failed for streak completion: user=%s", user_streak.user.email)
+                            logger.exception(
+                                "FCM push failed for streak completion: user=%s",
+                                user_streak.user.email,
+                            )
                         logger.info(
                             "Streak completed + reward issued: user=%s challenge=%s",
                             user_streak.user.email,
@@ -121,7 +147,9 @@ def check_and_update_streaks():
 
             processed += 1
 
-    logger.info("check_and_update_streaks completed: %d user-streaks processed", processed)
+    logger.info(
+        "check_and_update_streaks completed: %d user-streaks processed", processed
+    )
     return processed
 
 
@@ -159,6 +187,7 @@ def send_streak_reminders():
                 )
                 try:
                     from user_profile.fcm import send_push_to_user
+
                     send_push_to_user(
                         user=user_streak.user,
                         title="Keep your streak alive! 🔥",
@@ -166,10 +195,15 @@ def send_streak_reminders():
                             f"You're on a {user_streak.current_count}-day streak for "
                             f"'{challenge.name}'. Complete today's activity before midnight!"
                         ),
-                        data={"type": "streak_reminder", "challenge_id": str(challenge.id)},
+                        data={
+                            "type": "streak_reminder",
+                            "challenge_id": str(challenge.id),
+                        },
                     )
                 except Exception:
-                    logger.exception("FCM reminder failed for user=%s", user_streak.user.email)
+                    logger.exception(
+                        "FCM reminder failed for user=%s", user_streak.user.email
+                    )
                 reminded += 1
 
     logger.info("send_streak_reminders: %d reminders sent", reminded)

@@ -6,19 +6,17 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-from django.template.loader import render_to_string
 
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from permissions import IsPartnerUserOrMember, IsBrandAd
-from commons import generate_txId, Messaging, Biometrics
+from commons import generate_txId, Biometrics
 from security import encrypt, decrypt
 
 from .serializers import (
@@ -27,10 +25,15 @@ from .serializers import (
     TreasuryTransferSerializer,
     CardFundingSerializer,
 )
-from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding, TreasuryBeneficiary
+from .models import (
+    TreasuryAccount,
+    TreasuryTransfer,
+    TreasuryCardFunding,
+    TreasuryBeneficiary,
+)
 from .controllers import Anchor
 from .helpers import Pin
-from .tasks import post_transfer_update, post_beneficiary_credit, send_transfer_notifications
+from .tasks import post_transfer_update, post_beneficiary_credit
 from banking.controllers import Paystack
 from banking.transfer_charge import TransferCharge
 from accounts.models import TxModel, UserNotification
@@ -50,16 +53,25 @@ def _generate_tx_id(prefix="TRX"):
     description="Look up another user's treasury account by account number to confirm it exists before initiating an internal transfer.",
     request=ValidateTreasuryAccountSerializer,
     responses={
-        200: inline_serializer(name="ValidateTreasuryAccountResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="ValidateTreasuryAccountData", fields={
-                "account_number": s.CharField(),
-                "acct_name": s.CharField(),
-                "bank_name": s.CharField(),
-            }),
-        }),
-        404: inline_serializer(name="ValidateTreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="ValidateTreasuryAccountResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="ValidateTreasuryAccountData",
+                    fields={
+                        "account_number": s.CharField(),
+                        "acct_name": s.CharField(),
+                        "bank_name": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        404: inline_serializer(
+            name="ValidateTreasuryAccountNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ValidateTreasuryAccount(generics.GenericAPIView):
@@ -73,11 +85,16 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         acct_no = payload.get("account_number")
         try:
@@ -89,15 +106,17 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
             )
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "message": "Account found.",
-                "data": {
-                    "account_number": acct.account_number,
-                    "acct_name": acct.acct_name,
-                    "bank_name": acct.bank_name,
-                },
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Account found.",
+                    "data": {
+                        "account_number": acct.account_number,
+                        "acct_name": acct.acct_name,
+                        "bank_name": acct.bank_name,
+                    },
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -108,12 +127,21 @@ class ValidateTreasuryAccount(generics.GenericAPIView):
     description="Performs a NIP name enquiry for any Nigerian bank account via Anchor to confirm the account name before an external transfer.",
     request=ValidateExternalAccountSerializer,
     responses={
-        200: inline_serializer(name="ValidateExternalAccountResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="ValidateExternalAccountData", fields={"account_name": s.CharField()}),
-        }),
-        400: inline_serializer(name="ValidateExternalAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="ValidateExternalAccountResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="ValidateExternalAccountData",
+                    fields={"account_name": s.CharField()},
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="ValidateExternalAccountError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class ValidateExternalAccount(generics.GenericAPIView):
@@ -127,11 +155,16 @@ class ValidateExternalAccount(generics.GenericAPIView):
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         resp = Anchor.verify_bank_account(
             bank_code=payload["bank_code"],
@@ -140,16 +173,20 @@ class ValidateExternalAccount(generics.GenericAPIView):
 
         if resp and Anchor.is_success(resp):
             resp_data = resp.json()
-            account_name = (
-                resp_data.get("data", {}).get("attributes", {}).get("accountName")
-                or resp_data.get("data", {}).get("attributes", {}).get("name")
-            )
+            account_name = resp_data.get("data", {}).get("attributes", {}).get(
+                "accountName"
+            ) or resp_data.get("data", {}).get("attributes", {}).get("name")
             return Response(
-                data=encrypt({
-                    "status": "success",
-                    "message": "Account validated.",
-                    "data": {"account_name": account_name, **resp_data.get("data", {}).get("attributes", {})},
-                }),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Account validated.",
+                        "data": {
+                            "account_name": account_name,
+                            **resp_data.get("data", {}).get("attributes", {}),
+                        },
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )
         else:
@@ -160,7 +197,13 @@ class ValidateExternalAccount(generics.GenericAPIView):
                 except Exception:
                     err = {"detail": resp.text}
             return Response(
-                data=encrypt({"status": "fail", "message": "Account validation failed.", "data": err}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Account validation failed.",
+                        "data": err,
+                    }
+                ),
                 status=getattr(resp, "status_code", status.HTTP_400_BAD_REQUEST),
             )
 
@@ -171,20 +214,32 @@ class ValidateExternalAccount(generics.GenericAPIView):
     description="Transfer funds between two Picadailys treasury accounts. Requires an Idempotency-Key header. The first 5 daily internal transfers are free; a ₦10 fee applies thereafter.",
     request=TreasuryTransferSerializer,
     responses={
-        200: inline_serializer(name="InternalTransferResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="InternalTransferData", fields={
-                "credit_account": s.CharField(),
-                "debit_account": s.CharField(),
-                "amount": s.CharField(),
-                "narration": s.CharField(),
-                "transactionReference": s.CharField(),
-                "total_debited": s.CharField(),
-            }),
-        }),
-        400: inline_serializer(name="InternalTransferError", fields={"status": s.CharField(), "error": s.CharField()}),
-        401: inline_serializer(name="InternalTransferUnauth", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            name="InternalTransferResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="InternalTransferData",
+                    fields={
+                        "credit_account": s.CharField(),
+                        "debit_account": s.CharField(),
+                        "amount": s.CharField(),
+                        "narration": s.CharField(),
+                        "transactionReference": s.CharField(),
+                        "total_debited": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="InternalTransferError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="InternalTransferUnauth",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class InternalTransfer(generics.CreateAPIView):
@@ -202,49 +257,74 @@ class InternalTransfer(generics.CreateAPIView):
         idempotency_key = request.headers.get("Idempotency-Key")
         if not idempotency_key:
             return Response(
-                data=encrypt({"status": "fail", "error": "Idempotency-Key header required."}),
+                data=encrypt(
+                    {"status": "fail", "error": "Idempotency-Key header required."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Guard: beneficiary must be a Picadailys treasury account
         beneficiary_acct_no = payload.get("beneficiary_account_number")
-        if not TreasuryAccount.objects.filter(account_number=beneficiary_acct_no).exists():
+        if not TreasuryAccount.objects.filter(
+            account_number=beneficiary_acct_no
+        ).exists():
             return Response(
-                data=encrypt({
-                    "status": "fail",
-                    "error": "Beneficiary account not found on Picadailys. Use external transfer for other banks.",
-                }),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "error": "Beneficiary account not found on Picadailys. Use external transfer for other banks.",
+                    }
+                ),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         # Idempotency: return same result for duplicate requests
-        existing_tx = TxModel.objects.filter(user=user, tx_reference=idempotency_key).first()
+        existing_tx = TxModel.objects.filter(
+            user=user, tx_reference=idempotency_key
+        ).first()
         if existing_tx:
             if existing_tx.status == "PENDING":
                 return Response(
-                    data=encrypt({"status": "pending", "message": "Transfer in progress."}),
+                    data=encrypt(
+                        {"status": "pending", "message": "Transfer in progress."}
+                    ),
                     status=status.HTTP_202_ACCEPTED,
                 )
             if existing_tx.status == "SUCCESS":
                 transfer = TreasuryTransfer.objects.filter(tx=existing_tx).first()
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Transfer successful.",
-                        "data": {
-                            "credit_account": transfer.beneficiary_account_number if transfer else payload.get("beneficiary_account_number"),
-                            "debit_account": transfer.sender_account_number if transfer else payload.get("sender_account_number"),
-                            "amount": str(existing_tx.amount),
-                            "transactionReference": idempotency_key,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": {
+                                "credit_account": (
+                                    transfer.beneficiary_account_number
+                                    if transfer
+                                    else payload.get("beneficiary_account_number")
+                                ),
+                                "debit_account": (
+                                    transfer.sender_account_number
+                                    if transfer
+                                    else payload.get("sender_account_number")
+                                ),
+                                "amount": str(existing_tx.amount),
+                                "transactionReference": idempotency_key,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             return Response(
@@ -262,7 +342,9 @@ class InternalTransfer(generics.CreateAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 else:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
 
                 if not verification:
                     return Response(
@@ -284,21 +366,32 @@ class InternalTransfer(generics.CreateAPIView):
 
                 if account.balance < total:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Insufficient balance."}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Insufficient balance."}
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 # Look up destination account
                 beneficiary_acct_no = payload.get("beneficiary_account_number")
-                dest_account = TreasuryAccount.objects.filter(account_number=beneficiary_acct_no).first()
+                dest_account = TreasuryAccount.objects.filter(
+                    account_number=beneficiary_acct_no
+                ).first()
                 if not dest_account or not dest_account.anchor_account_id:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Beneficiary account not found."}),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "error": "Beneficiary account not found.",
+                            }
+                        ),
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
                 user_narration = payload.get("narration") or ""
-                anchor_narration = f"From {account.acct_name}: {user_narration}".strip(": ")
+                anchor_narration = f"From {account.acct_name}: {user_narration}".strip(
+                    ": "
+                )
 
                 tx = TxModel.objects.create(
                     user=user,
@@ -320,9 +413,6 @@ class InternalTransfer(generics.CreateAPIView):
             if transfer_resp and Anchor.is_success(transfer_resp):
                 tx.status = "SUCCESS"
                 tx.save(update_fields=["status"])
-                anchor_data = transfer_resp.json()
-                anchor_transfer_id = anchor_data.get("data", {}).get("id")
-
                 post_transfer_update.delay(
                     user_id=user.id,
                     tx_id=tx.id,
@@ -367,7 +457,13 @@ class InternalTransfer(generics.CreateAPIView):
                     resp_data["merchant_fee"] = str(merchant_fee)
 
                 return Response(
-                    data=encrypt({"status": "success", "message": "Transfer successful.", "data": resp_data}),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": resp_data,
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             else:
@@ -380,8 +476,12 @@ class InternalTransfer(generics.CreateAPIView):
                     except Exception:
                         err = {"detail": getattr(transfer_resp, "text", "")}
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": err}),
-                    status=getattr(transfer_resp, "status_code", status.HTTP_400_BAD_REQUEST),
+                    data=encrypt(
+                        {"status": "fail", "error": "Transfer failed.", "data": err}
+                    ),
+                    status=getattr(
+                        transfer_resp, "status_code", status.HTTP_400_BAD_REQUEST
+                    ),
                 )
 
         except TreasuryAccount.DoesNotExist:
@@ -392,7 +492,9 @@ class InternalTransfer(generics.CreateAPIView):
         except Exception as e:
             logger.exception("Unexpected error during internal transfer: %s", e)
             return Response(
-                data=encrypt({"status": "fail", "error": "An error occurred. Please try again."}),
+                data=encrypt(
+                    {"status": "fail", "error": "An error occurred. Please try again."}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -403,21 +505,33 @@ class InternalTransfer(generics.CreateAPIView):
     description="Send an NIP (interbank) transfer to any Nigerian bank via Anchor payouts. Requires an Idempotency-Key header. Transfer fees are calculated automatically based on the transfer amount.",
     request=TreasuryTransferSerializer,
     responses={
-        200: inline_serializer(name="ExternalTransferResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "data": inline_serializer(name="ExternalTransferData", fields={
-                "credit_account": s.CharField(),
-                "debit_account": s.CharField(),
-                "amount": s.CharField(),
-                "transfer_fee": s.CharField(),
-                "total": s.CharField(),
-                "narration": s.CharField(),
-                "transactionReference": s.CharField(),
-            }),
-        }),
-        400: inline_serializer(name="ExternalTransferError", fields={"status": s.CharField(), "error": s.CharField()}),
-        401: inline_serializer(name="ExternalTransferUnauth", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            name="ExternalTransferResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": inline_serializer(
+                    name="ExternalTransferData",
+                    fields={
+                        "credit_account": s.CharField(),
+                        "debit_account": s.CharField(),
+                        "amount": s.CharField(),
+                        "transfer_fee": s.CharField(),
+                        "total": s.CharField(),
+                        "narration": s.CharField(),
+                        "transactionReference": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        400: inline_serializer(
+            name="ExternalTransferError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
+        401: inline_serializer(
+            name="ExternalTransferUnauth",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class ExternalTransfer(generics.CreateAPIView):
@@ -435,37 +549,58 @@ class ExternalTransfer(generics.CreateAPIView):
         idempotency_key = request.headers.get("Idempotency-Key")
         if not idempotency_key:
             return Response(
-                data=encrypt({"status": "fail", "error": "Idempotency-Key header required."}),
+                data=encrypt(
+                    {"status": "fail", "error": "Idempotency-Key header required."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         decrypted_payload = decrypt(request.data)
-        payload = {k: v.strip() if isinstance(v, str) else v for k, v in decrypted_payload.items()}
+        payload = {
+            k: v.strip() if isinstance(v, str) else v
+            for k, v in decrypted_payload.items()
+        }
 
         serializer = self.serializer_class(data=payload)
         if not serializer.is_valid():
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
-        existing_tx = TxModel.objects.filter(user=user, tx_reference=idempotency_key).first()
+        existing_tx = TxModel.objects.filter(
+            user=user, tx_reference=idempotency_key
+        ).first()
         if existing_tx:
             if existing_tx.status == "PENDING":
                 return Response(
-                    data=encrypt({"status": "pending", "message": "Transfer in progress."}),
+                    data=encrypt(
+                        {"status": "pending", "message": "Transfer in progress."}
+                    ),
                     status=status.HTTP_202_ACCEPTED,
                 )
             if existing_tx.status == "SUCCESS":
                 transfer = TreasuryTransfer.objects.filter(tx=existing_tx).first()
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Transfer successful.",
-                        "data": {
-                            "credit_account": transfer.beneficiary_account_number if transfer else payload.get("beneficiary_account_number"),
-                            "debit_account": transfer.sender_account_number if transfer else payload.get("sender_account_number"),
-                            "amount": str(existing_tx.amount),
-                            "transactionReference": idempotency_key,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": {
+                                "credit_account": (
+                                    transfer.beneficiary_account_number
+                                    if transfer
+                                    else payload.get("beneficiary_account_number")
+                                ),
+                                "debit_account": (
+                                    transfer.sender_account_number
+                                    if transfer
+                                    else payload.get("sender_account_number")
+                                ),
+                                "amount": str(existing_tx.amount),
+                                "transactionReference": idempotency_key,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             return Response(
@@ -483,7 +618,9 @@ class ExternalTransfer(generics.CreateAPIView):
                 if biometrics:
                     verification = Biometrics.authenticate(user.phone_number)
                 else:
-                    verification = Pin.verify(user=user, pin=pin, hashed_pin=account.pin)
+                    verification = Pin.verify(
+                        user=user, pin=pin, hashed_pin=account.pin
+                    )
 
                 if not verification:
                     return Response(
@@ -497,7 +634,9 @@ class ExternalTransfer(generics.CreateAPIView):
 
                 if account.balance < total:
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Insufficient balance."}),
+                        data=encrypt(
+                            {"status": "fail", "error": "Insufficient balance."}
+                        ),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -507,7 +646,8 @@ class ExternalTransfer(generics.CreateAPIView):
                     tx_type="External Transfer",
                     amount=charge["total"],
                     transfer_fee=charge["transfer_fee"],
-                    description=payload.get("narration") or f"Transfer to {payload.get('beneficiary_account_number')}",
+                    description=payload.get("narration")
+                    or f"Transfer to {payload.get('beneficiary_account_number')}",
                     status="PENDING",
                 )
 
@@ -540,8 +680,16 @@ class ExternalTransfer(generics.CreateAPIView):
                         except Exception:
                             err = {"detail": getattr(cp_resp, "text", "")}
                     return Response(
-                        data=encrypt({"status": "fail", "error": "Failed to register beneficiary.", "data": err}),
-                        status=getattr(cp_resp, "status_code", status.HTTP_400_BAD_REQUEST),
+                        data=encrypt(
+                            {
+                                "status": "fail",
+                                "error": "Failed to register beneficiary.",
+                                "data": err,
+                            }
+                        ),
+                        status=getattr(
+                            cp_resp, "status_code", status.HTTP_400_BAD_REQUEST
+                        ),
                     )
                 counterparty_id = cp_resp.json().get("data", {}).get("id")
                 TreasuryBeneficiary.objects.update_or_create(
@@ -584,19 +732,21 @@ class ExternalTransfer(generics.CreateAPIView):
                 )
 
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Transfer successful.",
-                        "data": {
-                            "credit_account": beneficiary_acct,
-                            "debit_account": account.account_number,
-                            "amount": charge["principal"],
-                            "transfer_fee": charge["transfer_fee"],
-                            "total": charge["total"],
-                            "narration": payload.get("narration"),
-                            "transactionReference": idempotency_key,
-                        },
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Transfer successful.",
+                            "data": {
+                                "credit_account": beneficiary_acct,
+                                "debit_account": account.account_number,
+                                "amount": charge["principal"],
+                                "transfer_fee": charge["transfer_fee"],
+                                "total": charge["total"],
+                                "narration": payload.get("narration"),
+                                "transactionReference": idempotency_key,
+                            },
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             else:
@@ -609,8 +759,12 @@ class ExternalTransfer(generics.CreateAPIView):
                     except Exception:
                         err = {"detail": getattr(transfer_resp, "text", "")}
                 return Response(
-                    data=encrypt({"status": "fail", "error": "Transfer failed.", "data": err}),
-                    status=getattr(transfer_resp, "status_code", status.HTTP_400_BAD_REQUEST),
+                    data=encrypt(
+                        {"status": "fail", "error": "Transfer failed.", "data": err}
+                    ),
+                    status=getattr(
+                        transfer_resp, "status_code", status.HTTP_400_BAD_REQUEST
+                    ),
                 )
 
         except TreasuryAccount.DoesNotExist:
@@ -621,7 +775,9 @@ class ExternalTransfer(generics.CreateAPIView):
         except Exception as e:
             logger.exception("Unexpected error during external transfer: %s", e)
             return Response(
-                data=encrypt({"status": "fail", "error": "An error occurred. Please try again."}),
+                data=encrypt(
+                    {"status": "fail", "error": "An error occurred. Please try again."}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -631,13 +787,16 @@ class ExternalTransfer(generics.CreateAPIView):
     tags=["Treasury"],
     description="Returns how many free internal transfers the user has used and has remaining for the current calendar day. A ₦10 fee applies after the free limit is exhausted.",
     responses={
-        200: inline_serializer(name="InternalTransferFreeCountResponse", fields={
-            "status": s.CharField(),
-            "free_transfers_used": s.IntegerField(),
-            "free_transfers_remaining": s.IntegerField(),
-            "free_limit": s.IntegerField(),
-            "fee_after_limit": s.CharField(),
-        }),
+        200: inline_serializer(
+            name="InternalTransferFreeCountResponse",
+            fields={
+                "status": s.CharField(),
+                "free_transfers_used": s.IntegerField(),
+                "free_transfers_remaining": s.IntegerField(),
+                "free_limit": s.IntegerField(),
+                "fee_after_limit": s.CharField(),
+            },
+        ),
     },
 )
 class InternalTransferFreeCount(APIView):
@@ -660,13 +819,15 @@ class InternalTransferFreeCount(APIView):
         remaining = max(0, free_limit - used)
 
         return Response(
-            data=encrypt({
-                "status": "success",
-                "free_transfers_used": used,
-                "free_transfers_remaining": remaining,
-                "free_limit": free_limit,
-                "fee_after_limit": "10.00",
-            }),
+            data=encrypt(
+                {
+                    "status": "success",
+                    "free_transfers_used": used,
+                    "free_transfers_remaining": remaining,
+                    "free_limit": free_limit,
+                    "fee_after_limit": "10.00",
+                }
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -677,14 +838,20 @@ class InternalTransferFreeCount(APIView):
     description="Generates a Paystack checkout URL to fund the user's treasury account using a debit or credit card. Returns the authorization URL, access code, and payment reference.",
     request=CardFundingSerializer,
     responses={
-        200: inline_serializer(name="TreasuryPayWithCardResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "checkout_url": s.URLField(),
-            "access_code": s.CharField(),
-            "reference": s.CharField(),
-        }),
-        502: inline_serializer(name="PayWithCardError", fields={"status": s.CharField(), "error": s.CharField()}),
+        200: inline_serializer(
+            name="TreasuryPayWithCardResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "checkout_url": s.URLField(),
+                "access_code": s.CharField(),
+                "reference": s.CharField(),
+            },
+        ),
+        502: inline_serializer(
+            name="PayWithCardError",
+            fields={"status": s.CharField(), "error": s.CharField()},
+        ),
     },
 )
 class PayWithCard(generics.CreateAPIView):
@@ -702,11 +869,15 @@ class PayWithCard(generics.CreateAPIView):
 
         serializer = self.serializer_class(data=user_data)
         if not serializer.is_valid(raise_exception=True):
-            return Response(data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             amount_in_kobo = int(user_data["amount"]) * 100
-            checkout_resp = Paystack.generate_url(email=user.email, amount=amount_in_kobo)
+            checkout_resp = Paystack.generate_url(
+                email=user.email, amount=amount_in_kobo
+            )
 
             if checkout_resp and checkout_resp.status_code == 200:
                 url_resp = checkout_resp.json()
@@ -716,24 +887,34 @@ class PayWithCard(generics.CreateAPIView):
                     defaults={"user": user},
                 )
                 return Response(
-                    data=encrypt({
-                        "status": "success",
-                        "message": "Checkout URL generated.",
-                        "checkout_url": url_resp["data"]["authorization_url"],
-                        "access_code": url_resp["data"]["access_code"],
-                        "reference": ref,
-                    }),
+                    data=encrypt(
+                        {
+                            "status": "success",
+                            "message": "Checkout URL generated.",
+                            "checkout_url": url_resp["data"]["authorization_url"],
+                            "access_code": url_resp["data"]["access_code"],
+                            "reference": ref,
+                        }
+                    ),
                     status=status.HTTP_200_OK,
                 )
             else:
                 return Response(
-                    data=encrypt(checkout_resp.json() if checkout_resp else {"error": "Service unavailable."}),
-                    status=getattr(checkout_resp, "status_code", status.HTTP_502_BAD_GATEWAY),
+                    data=encrypt(
+                        checkout_resp.json()
+                        if checkout_resp
+                        else {"error": "Service unavailable."}
+                    ),
+                    status=getattr(
+                        checkout_resp, "status_code", status.HTTP_502_BAD_GATEWAY
+                    ),
                 )
         except Exception as e:
             logger.exception("PayWithCard error for user %s: %s", user.id, e)
             return Response(
-                data=encrypt({"status": "fail", "error": "Checkout URL generation failed."}),
+                data=encrypt(
+                    {"status": "fail", "error": "Checkout URL generation failed."}
+                ),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -742,11 +923,22 @@ class PayWithCard(generics.CreateAPIView):
     summary="Credit treasury account after confirmed card payment",
     tags=["Treasury"],
     description="Records and marks a Paystack card deposit as processed, crediting the user's treasury account. Requires the transaction reference returned from the checkout flow.",
-    request=inline_serializer(name="FundTreasuryAccountRequest", fields={"txn_reference": s.CharField()}),
+    request=inline_serializer(
+        name="FundTreasuryAccountRequest", fields={"txn_reference": s.CharField()}
+    ),
     responses={
-        200: inline_serializer(name="FundTreasuryAccountResponse", fields={"status": s.CharField(), "message": s.CharField()}),
-        400: inline_serializer(name="FundTreasuryAccountError", fields={"status": s.CharField(), "message": s.CharField()}),
-        404: inline_serializer(name="FundTreasuryAccountNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+        200: inline_serializer(
+            name="FundTreasuryAccountResponse",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        400: inline_serializer(
+            name="FundTreasuryAccountError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+        404: inline_serializer(
+            name="FundTreasuryAccountNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class FundTreasuryAccount(generics.GenericAPIView):
@@ -764,26 +956,35 @@ class FundTreasuryAccount(generics.GenericAPIView):
 
         if not tx_ref:
             return Response(
-                data=encrypt({"status": "fail", "message": "Transaction reference required."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Transaction reference required."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        funding = TreasuryCardFunding.objects.filter(user=user, txn_reference=tx_ref).first()
+        funding = TreasuryCardFunding.objects.filter(
+            user=user, txn_reference=tx_ref
+        ).first()
         if not funding:
             return Response(
-                data=encrypt({"status": "fail", "message": "Transaction not found or does not belong to user."}),
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Transaction not found or does not belong to user.",
+                    }
+                ),
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         if funding.is_processed:
             return Response(
-                data=encrypt({"status": "fail", "message": "Transaction already processed."}),
+                data=encrypt(
+                    {"status": "fail", "message": "Transaction already processed."}
+                ),
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            account = TreasuryAccount.objects.get(user=user)
-        except TreasuryAccount.DoesNotExist:
+        if not TreasuryAccount.objects.filter(user=user).exists():
             return Response(
                 data=encrypt({"status": "fail", "message": "Account not found."}),
                 status=status.HTTP_404_NOT_FOUND,

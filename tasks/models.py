@@ -1,5 +1,3 @@
-import uuid
-
 from django.db import models
 from django.utils import timezone
 
@@ -44,11 +42,16 @@ VERDICT_CHOICES = (
 )
 
 
-
 class SocialTask(BaseModel):
     """A task created by a brand admin that users can complete for rewards."""
 
-    ad = models.ForeignKey(CreateAd, on_delete=models.CASCADE, related_name="social_tasks", null=True, blank=True)
+    ad = models.ForeignKey(
+        CreateAd,
+        on_delete=models.CASCADE,
+        related_name="social_tasks",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     platform = models.CharField(choices=PLATFORM_CHOICES, max_length=20)
@@ -57,7 +60,9 @@ class SocialTask(BaseModel):
     target_url = models.URLField(blank=True, null=True)
     target_account = models.CharField(max_length=150, blank=True, null=True)
     target_content_hint = models.CharField(
-        max_length=300, blank=True, null=True,
+        max_length=300,
+        blank=True,
+        null=True,
         help_text=(
             "Short description of the target post/video so the AI can visually identify it. "
             "E.g. 'Video titled PicaDaily App Launch' or 'Post captioned Summer Sale is here'."
@@ -76,7 +81,9 @@ class SocialTask(BaseModel):
     is_active = models.BooleanField(default=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="tasks_created")
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="tasks_created"
+    )
 
     @property
     def is_expired(self):
@@ -86,7 +93,11 @@ class SocialTask(BaseModel):
 
     @property
     def is_available(self):
-        return self.is_active and not self.is_expired and self.total_submissions < self.max_submissions
+        return (
+            self.is_active
+            and not self.is_expired
+            and self.total_submissions < self.max_submissions
+        )
 
     def __str__(self):
         return f"{self.platform} {self.task_type} — {self.title}"
@@ -95,17 +106,27 @@ class SocialTask(BaseModel):
 class TaskSubmission(BaseModel):
     """Proof submitted by a user for a social task."""
 
-    task = models.ForeignKey(SocialTask, on_delete=models.CASCADE, related_name="submissions")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_submissions")
+    task = models.ForeignKey(
+        SocialTask, on_delete=models.CASCADE, related_name="submissions"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="task_submissions"
+    )
 
     screenshot_url = models.CharField(max_length=500, blank=True, null=True)
     post_url = models.URLField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     verification_code = models.CharField(max_length=15, blank=True, null=True)
 
-    status = models.CharField(choices=SUBMISSION_STATUS, max_length=20, default="Pending")
+    status = models.CharField(
+        choices=SUBMISSION_STATUS, max_length=20, default="Pending"
+    )
     reviewed_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_submissions"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_submissions",
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True, null=True)
@@ -122,7 +143,9 @@ class TaskSubmission(BaseModel):
 class VerificationResult(BaseModel):
     """AI verdict on a task submission."""
 
-    submission = models.OneToOneField(TaskSubmission, on_delete=models.CASCADE, related_name="verification")
+    submission = models.OneToOneField(
+        TaskSubmission, on_delete=models.CASCADE, related_name="verification"
+    )
 
     verdict = models.CharField(choices=VERDICT_CHOICES, max_length=20)
     confidence_score = models.PositiveIntegerField(default=0)
@@ -143,7 +166,9 @@ class VerificationResult(BaseModel):
 class BrandVerificationResult(BaseModel):
     """AI verdict on a brand task submission."""
 
-    submission = models.OneToOneField("BrandTaskSubmission", on_delete=models.CASCADE, related_name="verification")
+    submission = models.OneToOneField(
+        "BrandTaskSubmission", on_delete=models.CASCADE, related_name="verification"
+    )
 
     verdict = models.CharField(choices=VERDICT_CHOICES, max_length=20)
     confidence_score = models.PositiveIntegerField(default=0)
@@ -162,7 +187,9 @@ class BrandVerificationResult(BaseModel):
 class UserTrustScore(BaseModel):
     """Tracks a user's submission history and trustworthiness."""
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="trust_score")
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="trust_score"
+    )
     score = models.IntegerField(default=50)
 
     total_submissions = models.PositiveIntegerField(default=0)
@@ -211,16 +238,25 @@ class UserTrustScore(BaseModel):
 class BrandTaskSubmission(BaseModel):
     """Proof submitted by a user for a brand ad campaign task (all 6 task types)."""
 
-    ad = models.ForeignKey(CreateAd, on_delete=models.CASCADE, related_name="brand_submissions")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="brand_task_submissions")
+    ad = models.ForeignKey(
+        CreateAd, on_delete=models.CASCADE, related_name="brand_submissions"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="brand_task_submissions"
+    )
 
     screenshot_url = models.CharField(max_length=500, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     survey_answers = models.JSONField(default=list, blank=True)
 
-    status = models.CharField(choices=BRAND_SUBMISSION_STATUS, max_length=20, default="Pending")
+    status = models.CharField(
+        choices=BRAND_SUBMISSION_STATUS, max_length=20, default="Pending"
+    )
     reviewed_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="reviewed_brand_submissions",
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
@@ -250,9 +286,7 @@ class StoreVisitArrival(BaseModel):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="store_arrivals"
     )
-    status = models.CharField(
-        choices=ARRIVAL_STATUS, max_length=20, default="arrived"
-    )
+    status = models.CharField(choices=ARRIVAL_STATUS, max_length=20, default="arrived")
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
-from accounts.models import TxModel
-from .models import TreasuryAccount, TreasuryTransfer, TreasuryCardFunding, TreasuryBeneficiary
+from .models import TreasuryAccount, TreasuryCardFunding, TreasuryBeneficiary
 
 
 class TreasuryStatusSerializer(serializers.Serializer):
@@ -54,7 +53,9 @@ class UpgradeTier2Serializer(serializers.Serializer):
 
 
 class UpgradeTier3Serializer(serializers.Serializer):
-    id_type = serializers.ChoiceField(choices=["NIN", "Passport", "DriversLicense", "VotersCard"])
+    id_type = serializers.ChoiceField(
+        choices=["NIN", "Passport", "DriversLicense", "VotersCard"]
+    )
     id_number = serializers.CharField(max_length=30)
 
     def validate_id_number(self, value):
@@ -68,7 +69,9 @@ class TreasuryTransferSerializer(serializers.Serializer):
     use_biometrics = serializers.BooleanField(required=False, default=False)
     beneficiary_name = serializers.CharField(max_length=150)
     beneficiary_account_number = serializers.CharField(max_length=30)
-    beneficiary_bank_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    beneficiary_bank_code = serializers.CharField(
+        max_length=20, required=False, allow_blank=True
+    )
     sender_account_number = serializers.CharField(max_length=30)
     narration = serializers.CharField(required=False, allow_blank=True, default="")
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
@@ -135,7 +138,14 @@ class ListTreasuryAccountsSerializer(serializers.ModelSerializer):
 class TreasuryBeneficiarySerializer(serializers.ModelSerializer):
     class Meta:
         model = TreasuryBeneficiary
-        fields = ["id", "account_number", "account_name", "bank_code", "bank_name", "created_at"]
+        fields = [
+            "id",
+            "account_number",
+            "account_name",
+            "bank_code",
+            "bank_name",
+            "created_at",
+        ]
 
 
 class ChangeTreasuryAccountStatusSerializer(serializers.ModelSerializer):

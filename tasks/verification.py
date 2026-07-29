@@ -25,10 +25,17 @@ _SCHEMA = {
         "flags": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
-        "verdict", "confidence_score", "reasoning",
-        "username_matched", "hashtag_found", "mention_found",
-        "action_confirmed", "verification_code_found", "target_matched",
-        "platform_confirmed", "flags",
+        "verdict",
+        "confidence_score",
+        "reasoning",
+        "username_matched",
+        "hashtag_found",
+        "mention_found",
+        "action_confirmed",
+        "verification_code_found",
+        "target_matched",
+        "platform_confirmed",
+        "flags",
     ],
 }
 
@@ -256,7 +263,9 @@ def _build_prompt(submission, registered_username: str | None) -> str:
     if submission.post_url:
         lines.append(f"Submitted post URL: {submission.post_url}")
     if verification_code:
-        lines.append(f"Unique verification code (must appear verbatim in the screenshot): {verification_code}")
+        lines.append(
+            f"Unique verification code (must appear verbatim in the screenshot): {verification_code}"
+        )
 
     # Platform + action-specific proof guidance
     guidance = _PLATFORM_PROOF_GUIDANCE.get((task.platform, task.task_type))
@@ -266,7 +275,9 @@ def _build_prompt(submission, registered_username: str | None) -> str:
         hint = task.target_content_hint or (task.description or task.title or "")
         lines += [
             "",
-            guidance.replace("{target}", target).replace("{code}", code).replace("{hint}", hint),
+            guidance.replace("{target}", target)
+            .replace("{code}", code)
+            .replace("{hint}", hint),
         ]
 
     lines += [
@@ -282,19 +293,21 @@ def _build_prompt(submission, registered_username: str | None) -> str:
         f"- Is the verification code '{verification_code}' present verbatim in the screenshot? (only relevant for Comment/Post tasks)",
         "- Are there any red flags: wrong platform UI, inconsistent elements, obvious edits, wrong screenshot type, or wrong target?",
         "",
-        'Return ONLY valid JSON matching this structure, no other text:',
-        json.dumps({
-            "verdict": "Pass|Fail|Uncertain",
-            "confidence_score": "0-100 integer",
-            "reasoning": "one or two sentences",
-            "username_matched": "true if registered username is visible and matches, false otherwise",
-            "target_matched": "true if the target account or post/video is clearly identifiable in the screenshot and matches the task's target, false otherwise",
-            "hashtag_found": "true if required hashtag present or not required",
-            "mention_found": "true if required mention present or not required",
-            "action_confirmed": "true if the action (follow/like/comment/post/subscribe) is clearly visible",
-            "verification_code_found": "true if the verification code appears verbatim in the screenshot, or if no code was required",
-            "flags": ["list", "of", "concerns"],
-        }),
+        "Return ONLY valid JSON matching this structure, no other text:",
+        json.dumps(
+            {
+                "verdict": "Pass|Fail|Uncertain",
+                "confidence_score": "0-100 integer",
+                "reasoning": "one or two sentences",
+                "username_matched": "true if registered username is visible and matches, false otherwise",
+                "target_matched": "true if the target account or post/video is clearly identifiable in the screenshot and matches the task's target, false otherwise",
+                "hashtag_found": "true if required hashtag present or not required",
+                "mention_found": "true if required mention present or not required",
+                "action_confirmed": "true if the action (follow/like/comment/post/subscribe) is clearly visible",
+                "verification_code_found": "true if the verification code appears verbatim in the screenshot, or if no code was required",
+                "flags": ["list", "of", "concerns"],
+            }
+        ),
     ]
     return "\n".join(lines)
 
@@ -350,7 +363,9 @@ def verify_submission(submission) -> dict:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("Non-JSON response from Claude for submission %s: %s", submission.pk, raw)
+        logger.error(
+            "Non-JSON response from Claude for submission %s: %s", submission.pk, raw
+        )
         raise VerificationError("Invalid JSON from Claude") from exc
 
     return {
@@ -426,8 +441,7 @@ def verify_brand_submission(submission) -> dict:
         guidance = _PLATFORM_PROOF_GUIDANCE.get((platform, action.capitalize()))
         if guidance:
             lines.append(
-                guidance
-                .replace("{target}", post_url)
+                guidance.replace("{target}", post_url)
                 .replace("{code}", "")
                 .replace("{hint}", ad.campaign_name or "")
             )
@@ -444,19 +458,21 @@ def verify_brand_submission(submission) -> dict:
         "If you are not fully certain on any of the above, return Uncertain — do NOT guess Pass.",
         "",
         "Return ONLY valid JSON matching this structure, no other text:",
-        json.dumps({
-            "verdict": "Pass|Fail|Uncertain",
-            "confidence_score": "0-100 integer",
-            "reasoning": "one or two sentences explaining the verdict",
-            "platform_confirmed": "true if you confirmed the platform using at least two matching signals from STEP 1, false if uncertain",
-            "username_matched": "true if the user's profile or handle is visible",
-            "target_matched": "true if the target page/profile at the URL is clearly identifiable",
-            "hashtag_found": True,
-            "mention_found": True,
-            "action_confirmed": "true only if the required action is unambiguously confirmed",
-            "verification_code_found": True,
-            "flags": ["list every concern, even minor ones"],
-        }),
+        json.dumps(
+            {
+                "verdict": "Pass|Fail|Uncertain",
+                "confidence_score": "0-100 integer",
+                "reasoning": "one or two sentences explaining the verdict",
+                "platform_confirmed": "true if you confirmed the platform using at least two matching signals from STEP 1, false if uncertain",
+                "username_matched": "true if the user's profile or handle is visible",
+                "target_matched": "true if the target page/profile at the URL is clearly identifiable",
+                "hashtag_found": True,
+                "mention_found": True,
+                "action_confirmed": "true only if the required action is unambiguously confirmed",
+                "verification_code_found": True,
+                "flags": ["list every concern, even minor ones"],
+            }
+        ),
     ]
 
     prompt = "\n".join(lines)
@@ -481,18 +497,27 @@ def verify_brand_submission(submission) -> dict:
             ],
         )
     except anthropic.APIError as exc:
-        logger.exception("Claude API error verifying brand submission %s", submission.pk)
+        logger.exception(
+            "Claude API error verifying brand submission %s", submission.pk
+        )
         raise VerificationError(str(exc)) from exc
 
     raw = response.content[0].text
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("Non-JSON response from Claude for brand submission %s: %s", submission.pk, raw)
+        logger.error(
+            "Non-JSON response from Claude for brand submission %s: %s",
+            submission.pk,
+            raw,
+        )
         raise VerificationError("Invalid JSON from Claude") from exc
 
     if not data.get("platform_confirmed", True):
-        logger.info("Brand submission %s: platform not confirmed — overriding to Uncertain for manual review", submission.pk)
+        logger.info(
+            "Brand submission %s: platform not confirmed — overriding to Uncertain for manual review",
+            submission.pk,
+        )
         data["verdict"] = "Uncertain"
         data["confidence_score"] = 65
 

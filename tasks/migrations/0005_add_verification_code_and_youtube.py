@@ -6,23 +6,32 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0004_remove_socialprofile'),
+        ("tasks", "0004_remove_socialprofile"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tasksubmission',
-            name='verification_code',
+            model_name="tasksubmission",
+            name="verification_code",
             field=models.CharField(blank=True, max_length=15, null=True),
         ),
         migrations.AddField(
-            model_name='verificationresult',
-            name='verification_code_found',
+            model_name="verificationresult",
+            name="verification_code_found",
             field=models.BooleanField(default=True),
         ),
         migrations.AlterField(
-            model_name='socialtask',
-            name='platform',
-            field=models.CharField(choices=[('X', 'X (Twitter)'), ('Instagram', 'Instagram'), ('Facebook', 'Facebook'), ('TikTok', 'TikTok'), ('YouTube', 'YouTube')], max_length=20),
+            model_name="socialtask",
+            name="platform",
+            field=models.CharField(
+                choices=[
+                    ("X", "X (Twitter)"),
+                    ("Instagram", "Instagram"),
+                    ("Facebook", "Facebook"),
+                    ("TikTok", "TikTok"),
+                    ("YouTube", "YouTube"),
+                ],
+                max_length=20,
+            ),
         ),
     ]

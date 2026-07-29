@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from decouple import config
 
-from django.db import transaction
 from django.template.loader import render_to_string
 
 from rest_framework import generics, status
@@ -15,8 +14,6 @@ import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import TreasuryAccount, TreasuryNotification, TreasuryCardFunding
-from .controllers import Anchor
-from .serializers import CardFundingSerializer
 from accounts.models import UserNotification, TxModel
 from roles.models import ActivityModel
 from commons import Messaging
@@ -32,13 +29,20 @@ paystack_secret_key = config("PAYSTACK_SECRET_KEY", default="")
     summary="Anchor webhook receiver (credit/debit/KYC events)",
     tags=["Treasury"],
     description="Receives and processes Anchor webhook events including account credits, debits, and KYC approval/rejection. Validates the HMAC-SHA512 signature before processing.",
-    request=inline_serializer(name="AnchorWebhookRequest", fields={
-        "type": s.CharField(),
-        "data": s.DictField(),
-    }),
+    request=inline_serializer(
+        name="AnchorWebhookRequest",
+        fields={
+            "type": s.CharField(),
+            "data": s.DictField(),
+        },
+    ),
     responses={
-        200: inline_serializer(name="AnchorWebhookResponse", fields={"status": s.CharField()}),
-        400: inline_serializer(name="AnchorWebhookError", fields={"status": s.CharField()}),
+        200: inline_serializer(
+            name="AnchorWebhookResponse", fields={"status": s.CharField()}
+        ),
+        400: inline_serializer(
+            name="AnchorWebhookError", fields={"status": s.CharField()}
+        ),
     },
 )
 class AnchorWebhookView(generics.GenericAPIView):
@@ -50,7 +54,9 @@ class AnchorWebhookView(generics.GenericAPIView):
     """
 
     def _verify_signature(self, request):
-        signature = request.headers.get("X-Anchor-Hmac-Sha512") or request.headers.get("X-Anchor-Signature")
+        signature = request.headers.get("X-Anchor-Hmac-Sha512") or request.headers.get(
+            "X-Anchor-Signature"
+        )
         if not signature or not anchor_api_key:
             return True  # Skip verification if key not yet configured
 
@@ -100,7 +106,10 @@ class AnchorWebhookView(generics.GenericAPIView):
     def _handle_credit(self, data, attributes):
         account = self._get_account(attributes)
         if not account:
-            logger.warning("Anchor credit webhook: account not found %s", attributes.get("accountNumber"))
+            logger.warning(
+                "Anchor credit webhook: account not found %s",
+                attributes.get("accountNumber"),
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         user = account.user
@@ -112,7 +121,10 @@ class AnchorWebhookView(generics.GenericAPIView):
         balance_after = Decimal(str(balance_after_kobo)) / 100
 
         # Idempotency: skip if already recorded for this specific user
-        if reference and TxModel.objects.filter(user=user, tx_reference=reference).exists():
+        if (
+            reference
+            and TxModel.objects.filter(user=user, tx_reference=reference).exists()
+        ):
             logger.info("Duplicate Anchor credit webhook, reference=%s", reference)
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
@@ -170,7 +182,10 @@ class AnchorWebhookView(generics.GenericAPIView):
                     {"label": "Account Number", "value": account.account_number},
                     {"label": "Narration", "value": narration},
                     {"label": "Reference", "value": reference},
-                    {"label": "Balance After", "value": f"₦{float(balance_after):,.2f}"},
+                    {
+                        "label": "Balance After",
+                        "value": f"₦{float(balance_after):,.2f}",
+                    },
                 ],
                 "support_email": "notifications@picadailys.com",
                 "picadailys_phone": "02012271894 02012271895",
@@ -191,9 +206,9 @@ class AnchorWebhookView(generics.GenericAPIView):
         """Extract customer ID from Anchor's top-level KYC webhook payload."""
         return (
             payload.get("relationships", {})
-                   .get("customer", {})
-                   .get("data", {})
-                   .get("id")
+            .get("customer", {})
+            .get("data", {})
+            .get("id")
         )
 
     def _handle_kyc_approved(self, payload):
@@ -201,7 +216,9 @@ class AnchorWebhookView(generics.GenericAPIView):
 
         account = TreasuryAccount.objects.filter(anchor_customer_id=customer_id).first()
         if not account:
-            logger.warning("KYC approved webhook: no account for customer_id=%s", customer_id)
+            logger.warning(
+                "KYC approved webhook: no account for customer_id=%s", customer_id
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         user = account.user
@@ -218,7 +235,9 @@ class AnchorWebhookView(generics.GenericAPIView):
             account.save(update_fields=["tier_level", "tier3_upgrade_status"])
             tier_label = "Tier 3"
         else:
-            logger.info("KYC approved webhook: no pending tier for customer=%s", customer_id)
+            logger.info(
+                "KYC approved webhook: no pending tier for customer=%s", customer_id
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         UserNotification.objects.create(
@@ -267,7 +286,9 @@ class AnchorWebhookView(generics.GenericAPIView):
 
         account = TreasuryAccount.objects.filter(anchor_customer_id=customer_id).first()
         if not account:
-            logger.warning("KYC rejected webhook: no account for customer_id=%s", customer_id)
+            logger.warning(
+                "KYC rejected webhook: no account for customer_id=%s", customer_id
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         user = account.user
@@ -281,7 +302,9 @@ class AnchorWebhookView(generics.GenericAPIView):
             account.save(update_fields=["tier3_upgrade_status"])
             tier_label = "Tier 3"
         else:
-            logger.info("KYC rejected webhook: no pending tier for customer=%s", customer_id)
+            logger.info(
+                "KYC rejected webhook: no pending tier for customer=%s", customer_id
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         UserNotification.objects.create(
@@ -295,7 +318,12 @@ class AnchorWebhookView(generics.GenericAPIView):
             description=f"{getattr(user, 'full_name', str(user))} KYC rejected for {tier_label}: {reason}",
         )
 
-        logger.warning("KYC rejected: customer=%s tier=%s reason=%s", customer_id, tier_label, reason)
+        logger.warning(
+            "KYC rejected: customer=%s tier=%s reason=%s",
+            customer_id,
+            tier_label,
+            reason,
+        )
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
     def _handle_kyc_error(self, payload):
@@ -306,10 +334,12 @@ class AnchorWebhookView(generics.GenericAPIView):
     def _handle_debit(self, data, attributes):
         account = self._get_account(attributes)
         if not account:
-            logger.warning("Anchor debit webhook: account not found %s", attributes.get("accountNumber"))
+            logger.warning(
+                "Anchor debit webhook: account not found %s",
+                attributes.get("accountNumber"),
+            )
             return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
-        user = account.user
         kobo = attributes.get("amount", 0)
         amount = Decimal(str(kobo)) / 100
         reference = attributes.get("reference") or data.get("id")
@@ -338,13 +368,20 @@ class AnchorWebhookView(generics.GenericAPIView):
     summary="Paystack webhook for treasury card deposits",
     tags=["Treasury"],
     description="Receives Paystack charge.success webhook events and updates the corresponding treasury card funding record. Validates the Paystack signature before processing.",
-    request=inline_serializer(name="PaystackWebhookRequest", fields={
-        "event": s.CharField(),
-        "data": s.DictField(),
-    }),
+    request=inline_serializer(
+        name="PaystackWebhookRequest",
+        fields={
+            "event": s.CharField(),
+            "data": s.DictField(),
+        },
+    ),
     responses={
-        200: inline_serializer(name="PaystackWebhookResponse", fields={"status": s.CharField()}),
-        400: inline_serializer(name="PaystackWebhookError", fields={"status": s.CharField()}),
+        200: inline_serializer(
+            name="PaystackWebhookResponse", fields={"status": s.CharField()}
+        ),
+        400: inline_serializer(
+            name="PaystackWebhookError", fields={"status": s.CharField()}
+        ),
     },
 )
 class CardDepositPaystackWebhook(generics.CreateAPIView):
@@ -386,7 +423,9 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
             funding.email = email
             funding.amount = amount
             funding.save()
-            logger.info("Treasury card funding updated: ref=%s status=%s", reference, tx_status)
+            logger.info(
+                "Treasury card funding updated: ref=%s status=%s", reference, tx_status
+            )
             return Response({"status": "success"}, status=status.HTTP_200_OK)
 
         logger.warning("No TreasuryCardFunding found for reference: %s", reference)
@@ -398,17 +437,26 @@ class CardDepositPaystackWebhook(generics.CreateAPIView):
     tags=["Treasury"],
     description="Returns the current status of a Paystack card deposit by its transaction reference. Use this to confirm a card funding before crediting the treasury account.",
     responses={
-        200: inline_serializer(name="TreasuryVerifyCardPaymentResponse", fields={
-            "status": s.CharField(),
-            "message": s.CharField(),
-            "transaction": inline_serializer(name="VerifyCardPaymentTransaction", fields={
-                "txn_reference": s.CharField(),
-                "amount": s.CharField(),
-                "email": s.EmailField(),
+        200: inline_serializer(
+            name="TreasuryVerifyCardPaymentResponse",
+            fields={
                 "status": s.CharField(),
-            }),
-        }),
-        404: inline_serializer(name="VerifyCardPaymentNotFound", fields={"status": s.CharField(), "message": s.CharField()}),
+                "message": s.CharField(),
+                "transaction": inline_serializer(
+                    name="VerifyCardPaymentTransaction",
+                    fields={
+                        "txn_reference": s.CharField(),
+                        "amount": s.CharField(),
+                        "email": s.EmailField(),
+                        "status": s.CharField(),
+                    },
+                ),
+            },
+        ),
+        404: inline_serializer(
+            name="VerifyCardPaymentNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
     },
 )
 class VerifyCardPaymentTransaction(generics.GenericAPIView):
@@ -421,11 +469,16 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
     permission_classes = []
 
     def get(self, request, txn_reference, *args, **kwargs):
-        funding = TreasuryCardFunding.objects.filter(txn_reference=txn_reference).first()
+        funding = TreasuryCardFunding.objects.filter(
+            txn_reference=txn_reference
+        ).first()
 
         if not funding:
             return Response(
-                data={"status": "fail", "message": "No transaction found for this reference."},
+                data={
+                    "status": "fail",
+                    "message": "No transaction found for this reference.",
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -438,14 +491,22 @@ class VerifyCardPaymentTransaction(generics.GenericAPIView):
 
         if funding.status == "success":
             return Response(
-                data=encrypt({"status": "success", "message": "Transaction successful.", "transaction": tx_data}),
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Transaction successful.",
+                        "transaction": tx_data,
+                    }
+                ),
                 status=status.HTTP_200_OK,
             )
         return Response(
-            data=encrypt({
-                "status": "fail",
-                "message": f"Transaction status: {funding.status}.",
-                "transaction": tx_data,
-            }),
+            data=encrypt(
+                {
+                    "status": "fail",
+                    "message": f"Transaction status: {funding.status}.",
+                    "transaction": tx_data,
+                }
+            ),
             status=status.HTTP_400_BAD_REQUEST,
         )

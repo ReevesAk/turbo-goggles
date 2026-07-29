@@ -86,7 +86,9 @@ def post_transfer_update(
                 if bal_resp and Anchor.is_success(bal_resp):
                     kobo = bal_resp.json().get("data", {}).get("availableBalance", 0)
                     new_balance = Decimal(str(kobo)) / 100
-                    TreasuryAccount.objects.filter(user=user).update(balance=new_balance)
+                    TreasuryAccount.objects.filter(user=user).update(
+                        balance=new_balance
+                    )
             except Exception as e:
                 logger.warning("post_transfer_update: could not sync balance: %s", e)
 
@@ -127,7 +129,10 @@ def post_transfer_update(
                 {"label": "Receiver Account", "value": beneficiary_account_number},
                 {"label": "Narration", "value": narration or "No narration"},
                 {"label": "Reference", "value": idempotency_key},
-                {"label": "Datetime", "value": timezone.now().strftime("%d-%b-%Y %H:%M")},
+                {
+                    "label": "Datetime",
+                    "value": timezone.now().strftime("%d-%b-%Y %H:%M"),
+                },
                 {"label": "Balance", "value": f"₦{float(new_balance):,.2f}"},
             ],
             "support_email": "notifications@picadailys.com",
@@ -176,7 +181,9 @@ def post_treasury_vas_update(
                 if bal_resp and Anchor.is_success(bal_resp):
                     kobo = bal_resp.json().get("data", {}).get("availableBalance", 0)
                     new_balance = Decimal(str(kobo)) / 100
-                    TreasuryAccount.objects.filter(user=user).update(balance=new_balance)
+                    TreasuryAccount.objects.filter(user=user).update(
+                        balance=new_balance
+                    )
             except Exception as e:
                 logger.warning("post_treasury_vas_update: balance sync failed: %s", e)
 
@@ -244,7 +251,9 @@ def post_beneficiary_credit(
                 if bal_resp and Anchor.is_success(bal_resp):
                     kobo = bal_resp.json().get("data", {}).get("availableBalance", 0)
                     new_balance = Decimal(str(kobo)) / 100
-                    TreasuryAccount.objects.filter(user=user).update(balance=new_balance)
+                    TreasuryAccount.objects.filter(user=user).update(
+                        balance=new_balance
+                    )
             except Exception as e:
                 logger.warning("post_beneficiary_credit: balance sync failed: %s", e)
 
@@ -300,4 +309,6 @@ def post_beneficiary_credit(
             email_body,
         )
     except Exception as e:
-        logger.exception("post_beneficiary_credit failed for user %s: %s", beneficiary_user_id, e)
+        logger.exception(
+            "post_beneficiary_credit failed for user %s: %s", beneficiary_user_id, e
+        )

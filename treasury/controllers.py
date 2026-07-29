@@ -4,7 +4,9 @@ import requests
 from decouple import config
 
 anchor_api_key = config("ANCHOR_API_KEY", default="")
-anchor_base_url = config("ANCHOR_BASE_URL", default="https://api.sandbox.getanchor.co").rstrip("/")
+anchor_base_url = config(
+    "ANCHOR_BASE_URL", default="https://api.sandbox.getanchor.co"
+).rstrip("/")
 anchor_ops_account_id = config("ANCHOR_OPS_ACCOUNT_ID", default="")
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,9 @@ def _log_response(label, response):
         body = response.json()
     except Exception:
         body = response.text
-    logger.warning("Anchor %s RESPONSE: status=%s | body=%s", label, response.status_code, body)
+    logger.warning(
+        "Anchor %s RESPONSE: status=%s | body=%s", label, response.status_code, body
+    )
 
 
 class Anchor:
@@ -70,7 +74,9 @@ class Anchor:
         }
         _log_request("create_customer", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("create_customer", resp)
             return resp
         except requests.RequestException as e:
@@ -117,7 +123,9 @@ class Anchor:
         }
         _log_request("create_deposit_account", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("create_deposit_account", resp)
             return resp
         except requests.RequestException as e:
@@ -158,7 +166,13 @@ class Anchor:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def internal_transfer(source_account_id, destination_account_id, amount_naira, narration, reference=None):
+    def internal_transfer(
+        source_account_id,
+        destination_account_id,
+        amount_naira,
+        narration,
+        reference=None,
+    ):
         """
         Transfer between two Anchor sub-accounts (instant, stays within Anchor ledger).
         amount_naira is in naira — converted to kobo internally.
@@ -186,7 +200,9 @@ class Anchor:
         }
         _log_request("internal_transfer", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("internal_transfer", resp)
             return resp
         except requests.RequestException as e:
@@ -213,7 +229,9 @@ class Anchor:
         }
         _log_request("create_counterparty", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("create_counterparty", resp)
             return resp
         except requests.RequestException as e:
@@ -221,7 +239,9 @@ class Anchor:
             return None
 
     @staticmethod
-    def nip_transfer(source_account_id, counterparty_id, amount_naira, narration, reference=None):
+    def nip_transfer(
+        source_account_id, counterparty_id, amount_naira, narration, reference=None
+    ):
         """
         Send money to any Nigerian bank via NIP/NIBSS.
         Requires a counterparty_id from create_counterparty().
@@ -251,7 +271,9 @@ class Anchor:
         }
         _log_request("nip_transfer", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("nip_transfer", resp)
             return resp
         except requests.RequestException as e:
@@ -314,15 +336,15 @@ class Anchor:
                     "description": description,
                 },
                 "relationships": {
-                    "account": {
-                        "data": {"type": "DepositAccount", "id": account_id}
-                    }
+                    "account": {"data": {"type": "DepositAccount", "id": account_id}}
                 },
             }
         }
         _log_request("charge_custom_fee", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("charge_custom_fee", resp)
             return resp
         except requests.RequestException as e:
@@ -342,7 +364,9 @@ class Anchor:
         gender: "Male" | "Female"
         Result arrives via customer.identification.approved/rejected webhook.
         """
-        url = f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        url = (
+            f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        )
         payload = {
             "data": {
                 "type": "Verification",
@@ -358,7 +382,9 @@ class Anchor:
         }
         _log_request("upgrade_tier2", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("upgrade_tier2", resp)
             return resp
         except requests.RequestException as e:
@@ -373,7 +399,9 @@ class Anchor:
         id_type: "NIN" | "Passport" | "DriversLicense" | "VotersCard"
         Result arrives via customer.identification.approved/rejected webhook.
         """
-        url = f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        url = (
+            f"{anchor_base_url}/api/v1/customers/{customer_id}/verification/individual"
+        )
         payload = {
             "data": {
                 "type": "Verification",
@@ -388,7 +416,9 @@ class Anchor:
         }
         _log_request("upgrade_tier3", url, payload)
         try:
-            resp = requests.post(url, json=payload, headers=Anchor._get_headers(), timeout=30)
+            resp = requests.post(
+                url, json=payload, headers=Anchor._get_headers(), timeout=30
+            )
             _log_response("upgrade_tier3", resp)
             return resp
         except requests.RequestException as e:
@@ -410,7 +440,9 @@ class Anchor:
         }
         _log_request("get_transactions", url, params)
         try:
-            resp = requests.get(url, headers=Anchor._get_headers(), params=params, timeout=15)
+            resp = requests.get(
+                url, headers=Anchor._get_headers(), params=params, timeout=15
+            )
             _log_response("get_transactions", resp)
             return resp
         except requests.RequestException as e:
