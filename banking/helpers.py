@@ -139,12 +139,14 @@ def verify_wallet_auth(user, payment_option, pin=None, use_biometrics=False):
     return True, None
 
 
-def verify_card_payment(card_reference, amount):
+def verify_card_payment(card_reference, amount, user):
     """
-    Validates a confirmed, unspent PayWithCard payment and reserves it
-    against a purchase before the request proceeds. Reservation happens
-    here (before the caller talks to the provider) so a reference can't
-    be spent twice by concurrent requests.
+    Validates a confirmed, unspent PayWithCard payment belonging to `user`
+    and reserves it against a purchase before the request proceeds.
+    Reservation happens here (before the caller talks to the provider) so
+    a reference can't be spent twice by concurrent requests, and the user
+    scope stops one user from spending a payment reference that isn't
+    theirs.
 
     Returns (funding_or_None, error_response_or_None).
     """
@@ -155,7 +157,7 @@ def verify_card_payment(card_reference, amount):
         )
 
     funding = FundWithCard.objects.filter(
-        txn_reference=card_reference, status="success", is_processed=False
+        txn_reference=card_reference, status="success", is_processed=False, user=user
     ).first()
     if not funding:
         return None, Response(

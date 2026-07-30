@@ -32,13 +32,11 @@ from .serializers import (
 )
 
 # from mail import send_email
-from accounts.models import User, AccountType, UserNotification
+from accounts.models import User, AccountType
 from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
 from .models import CreateAd
-from banking.helpers import verify_wallet_auth, verify_card_payment
-from banking.models import WalletModel, TxModel
-from banking.controllers import Wallet
-from roles.models import ActivityModel
+from banking.helpers import verify_wallet_auth
+from modules.billing_mixings import BrandChargeMixin
 
 from security import encrypt, decrypt
 from commons import first_validation_error, is_slot_target_reached
@@ -291,62 +289,9 @@ def _ad_success_response(ad) -> dict:
     return data
 
 
-class CreateAdAndOnboardBrandView(generics.CreateAPIView):
+class CreateAdAndOnboardBrandView(BrandChargeMixin, generics.CreateAPIView):
     serializer_class = CreateAdSerializers
     permission_classes = (IsAuthenticated,)
-
-    def _finalize_ad(self, *, serializer, user, tx_reference, amount, refund_account):
-        """
-        Persists the ad after payment has been taken, and returns the
-        success response. On save failure, refunds the wallet debit
-        (refund_account is None for CARD — nothing to refund, the card
-        reference has already been marked spent by verify_card_payment).
-        """
-        try:
-            new_ad = serializer.save()
-        except Exception:
-            logger.exception(
-                "Ad creation failed after successful payment for tx_reference=%s",
-                tx_reference,
-            )
-            if refund_account is not None:
-                Wallet.Credit(
-                    acct_no=refund_account.account_number,
-                    amount=float(amount),
-                    reason="Refund: brand promotion (creation failed)",
-                )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "Ad creation failed. Your payment has been reversed — please try again.",
-                    }
-                ),
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        TxModel.objects.create(
-            user=user,
-            tx_reference=tx_reference,
-            tx_type="Brand Promotion",
-            amount=amount,
-            description="Brand promotion payment",
-        )
-        UserNotification.objects.create(
-            user=user,
-            title="Brand Promotion",
-            message=f"Your payment of {amount} for brand promotion was successful.",
-        )
-        ActivityModel.objects.create(
-            user=user,
-            title="Brand Promotion",
-            description=f"{user} promoted their brand successfully.",
-        )
-
-        return Response(
-            data=encrypt(_ad_success_response(new_ad)),
-            status=status.HTTP_200_OK,
-        )
 
     def create(self, request, *args, **kwargs):
         try:
@@ -377,21 +322,6 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
                 else f"brand_promotion_{user.id}_{CreateAd.objects.count() + 1}"
             )
 
-            if idempotency_key:
-                existing_tx = TxModel.objects.filter(
-                    user=user, tx_reference=idempotency_key
-                ).first()
-                if existing_tx:
-                    return Response(
-                        data=encrypt(
-                            {
-                                "status": "success",
-                                "message": "This request was already processed.",
-                            }
-                        ),
-                        status=status.HTTP_200_OK,
-                    )
-
             is_verified, error_response = verify_wallet_auth(
                 user=user,
                 payment_option=payment_option,
@@ -401,67 +331,27 @@ class CreateAdAndOnboardBrandView(generics.CreateAPIView):
             if not is_verified:
                 return error_response
 
-            match payment_option:
-                case "WALLET":
-                    try:
-                        account = WalletModel.objects.get(
-                            user=user, walletType="INDIVIDUAL"
-                        )
-                    except WalletModel.DoesNotExist:
-                        return Response(
-                            data=encrypt(
-                                {"status": "fail", "message": "Wallet not found."}
-                            ),
-                            status=status.HTTP_404_NOT_FOUND,
-                        )
+            new_ad, error_response = self.charge_and_create(
+                user=user,
+                payment_option=payment_option,
+                card_reference=card_reference,
+                amount=amount,
+                tx_reference=tx_reference,
+                tx_type="Brand Promotion",
+                tx_description="Brand promotion payment",
+                notification_title="Brand Promotion",
+                notification_phrase="brand promotion",
+                activity_description="promoted their brand successfully",
+                debit_reason="Debit for brand promotion.",
+                save_fn=serializer.save,
+            )
+            if error_response is not None:
+                return error_response
 
-                    debit_response = Wallet.Debit(
-                        debitAccount=account.account_number,
-                        amount=float(amount),
-                        reason="Debit for brand promotion.",
-                        merchantFeeAmount="0.00",
-                    )
-                    if debit_response is None or debit_response.status_code != 200:
-                        return Response(
-                            data=encrypt(
-                                {
-                                    "status": "fail",
-                                    "message": "Debit failed. Please try again.",
-                                }
-                            ),
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    return self._finalize_ad(
-                        serializer=serializer,
-                        user=user,
-                        tx_reference=tx_reference,
-                        amount=amount,
-                        refund_account=account,
-                    )
-
-                case "CARD":
-                    funding, card_error_response = verify_card_payment(
-                        card_reference, amount
-                    )
-                    if card_error_response is not None:
-                        return card_error_response
-
-                    return self._finalize_ad(
-                        serializer=serializer,
-                        user=user,
-                        tx_reference=tx_reference,
-                        amount=amount,
-                        refund_account=None,
-                    )
-
-                case _:
-                    return Response(
-                        data=encrypt(
-                            {"status": "fail", "message": "Invalid payment option."}
-                        ),
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            return Response(
+                data=encrypt(_ad_success_response(new_ad)),
+                status=status.HTTP_200_OK,
+            )
 
         except DRFValidationError as exc:
             message = first_validation_error(exc.detail)

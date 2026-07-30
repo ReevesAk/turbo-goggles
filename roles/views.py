@@ -5658,7 +5658,12 @@ class MessageThirdPartyView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        payload = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in decrypted_payload.items()
+        }
+        serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
 
         transaction_id = serializer.validated_data["transaction_id"]
