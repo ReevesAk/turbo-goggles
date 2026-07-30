@@ -19,7 +19,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import User, AccountType, TxModel
 from adverts.models import BrandAdCreditWallet
-from banking.models import WalletModel
+from banking.models import FundWithCard, WalletModel
 from .models import (
     StepCampaignModel,
     StepSessionModel,
@@ -371,7 +371,18 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
 
     def test_brand_create_task_with_card_payment(self):
         """Task creation succeeds with card payment option."""
-        data = self._valid_payload("Card Task", payment_option="CARD")
+        data = self._valid_payload(
+            "Card Task", payment_option="CARD", card_reference="1wa2345sa3gxx1"
+        )
+
+        funding = FundWithCard.objects.create(
+            txn_reference="1wa2345sa3gxx1",
+            status="success",
+            is_processed=False,
+            amount="10000.00",
+        )
+
+        funding.save()
 
         with patch("banking.helpers.verify_wallet_auth") as mock_verify:
             mock_verify.return_value = (True, None)
@@ -383,6 +394,7 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = decrypt(response.content)
+        print(f"BODY: {body}")
         self.assertEqual(body["status"], "success")
         self.assertEqual(UserGeneratedContent.objects.count(), 1)
 
@@ -531,7 +543,9 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
     # --- Helper ---
 
     @staticmethod
-    def _valid_payload(task_name, payment_option="WALLET", idempotency_key=None):
+    def _valid_payload(
+        task_name, payment_option="WALLET", idempotency_key=None, card_reference=None
+    ):
         """Return a minimal valid creation payload."""
         data = {
             "payment_option": payment_option,
@@ -549,6 +563,8 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
             "location_perimeter": "nation_wide",
             "gender": "all",
         }
+        if card_reference:
+            data["card_reference"] = card_reference
         if idempotency_key:
             data["idempotency_key"] = idempotency_key
         return data
