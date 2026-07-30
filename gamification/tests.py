@@ -375,14 +375,13 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
             "Card Task", payment_option="CARD", card_reference="1wa2345sa3gxx1"
         )
 
-        funding = FundWithCard.objects.create(
+        FundWithCard.objects.create(
+            user=self.user,
             txn_reference="1wa2345sa3gxx1",
             status="success",
             is_processed=False,
             amount="10000.00",
         )
-
-        funding.save()
 
         with patch("banking.helpers.verify_wallet_auth") as mock_verify:
             mock_verify.return_value = (True, None)
@@ -394,9 +393,34 @@ class BrandUGCListCreateViewTests(ThrottleDisabledAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = decrypt(response.content)
-        print(f"BODY: {body}")
         self.assertEqual(body["status"], "success")
         self.assertEqual(UserGeneratedContent.objects.count(), 1)
+
+    def test_brand_create_task_rejects_another_users_card_reference(self):
+        """A confirmed card payment belonging to a different user can't be spent."""
+        other_user = _create_user(active_role="BrandAd")
+        FundWithCard.objects.create(
+            user=other_user,
+            txn_reference="not-mine-123",
+            status="success",
+            is_processed=False,
+            amount="10000.00",
+        )
+
+        data = self._valid_payload(
+            "Card Task", payment_option="CARD", card_reference="not-mine-123"
+        )
+
+        with patch("banking.helpers.verify_wallet_auth") as mock_verify:
+            mock_verify.return_value = (True, None)
+            response = self.client.post(
+                "/v1/gamification/ugc/brand/tasks/",
+                data=encrypt(data),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(UserGeneratedContent.objects.count(), 0)
 
     # --- Validation & permissions ---
 

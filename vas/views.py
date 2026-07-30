@@ -645,7 +645,7 @@ class AirTimeTopUp(generics.GenericAPIView):
 
                 case "CARD":
                     funding, card_error_response = verify_card_payment(
-                        card_reference, amount
+                        card_reference, amount, user
                     )
                     if card_error_response is not None:
                         return card_error_response
@@ -1329,7 +1329,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
                 funding, card_error_response = verify_card_payment(
-                    card_reference, amount
+                    card_reference, amount, user
                 )
                 if card_error_response is not None:
                     return card_error_response
@@ -2231,7 +2231,7 @@ class BillPaymentView(generics.GenericAPIView):
             # case "TREASURY": disabled — treasury VAS payments on hold
             case "CARD":
                 funding, card_error_response = verify_card_payment(
-                    card_reference, amount
+                    card_reference, amount, user
                 )
                 if card_error_response is not None:
                     return card_error_response

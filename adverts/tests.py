@@ -1,14 +1,17 @@
 from datetime import timedelta
 from uuid import uuid4
+from unittest.mock import patch, MagicMock
 
+from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import User
+from accounts.models import User, TxModel
 from adverts.models import AdLocation, CreateAd
 from adverts.serializers import AdSerializers
-from security import decrypt
+from banking.models import FundWithCard, WalletModel
+from security import decrypt, encrypt
 from tasks.models import BrandTaskSubmission
 from user_profile.models import MemberSurvey
 
@@ -344,3 +347,169 @@ class BrandAdAnalyticsViewTests(APITestCase):
         self.assertEqual(demographic["by_sex"], {})
         self.assertEqual(demographic["by_age_bracket"], {})
         self.assertEqual(demographic["by_state"], {})
+
+
+def _valid_ad_payload(payment_option="WALLET", **overrides):
+    """Return a minimal valid payload for CreateAdAndOnboardBrandView."""
+    data = {
+        "payment_option": payment_option,
+        "business_or_brand_name": "Acme Co",
+        "type_of_business": "Online",
+        "industry": "Technology",
+        "brand_objective": "Brand Awareness",
+        "campaign_name": f"Campaign {uuid4().hex[:6]}",
+        "gender": "All",
+        "demography": "26 - 35",
+        "campaign_duration": "7",
+        "amount": "10000.00",
+        "targeting_type": "broad",
+        "location_type": "states",
+        "state": ["Lagos"],
+        "city": ["Ikeja"],
+        "task_type": "watch_video",
+        "task_name": "Watch our promo",
+        "task_description": "Watch 30 secs of our latest ad.",
+        "task_details": {
+            "video_url": "https://youtube.com/watch?v=abc123",
+            "platform": "YouTube",
+            "min_watch_duration": "30s",
+        },
+        "slot_cap": 200,
+    }
+    if payment_option == "WALLET":
+        data["pin"] = "123456"
+    data.update(overrides)
+    return data
+
+
+class CreateAdAndOnboardBrandViewTests(APITestCase):
+    """Tests for ad creation's brand-charging flow (BrandChargeMixin)."""
+
+    url = "/v1/adverts/onboard-and-create"
+
+    def setUp(self):
+        self.user = _create_user(active_role="BrandAd")
+        self.client.force_authenticate(user=self.user)
+        self.wallet = WalletModel.objects.create(
+            user=self.user,
+            account_number="1234567890",
+            balance="50000.00",
+            walletType="INDIVIDUAL",
+            pin=make_password("123456"),
+        )
+
+    # --- Wallet payment ---
+
+    def test_create_ad_with_wallet_success(self):
+        data = _valid_ad_payload()
+
+        with patch("banking.controllers.Wallet.getWalletDetails") as mock_wallet:
+            mock_wallet.return_value = MagicMock(
+                json=lambda: {
+                    "status": "SUCCESS",
+                    "data": {"availableBalance": 50000.00},
+                }
+            )
+            with patch("banking.controllers.Wallet.Debit") as mock_debit:
+                mock_debit.return_value = MagicMock(status_code=200)
+                response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "Success!")
+        self.assertEqual(CreateAd.objects.filter(user=self.user).count(), 1)
+        tx = TxModel.objects.get(user=self.user, tx_type="Brand Promotion")
+        self.assertEqual(tx.status, "SUCCESS")
+
+    def test_create_ad_insufficient_balance(self):
+        data = _valid_ad_payload(amount="100000.00")
+
+        with patch("banking.controllers.Wallet.getWalletDetails") as mock_wallet:
+            mock_wallet.return_value = MagicMock(
+                json=lambda: {
+                    "status": "SUCCESS",
+                    "data": {"availableBalance": 50000.00},
+                }
+            )
+            response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        body = decrypt(response.content)
+        self.assertEqual(body["message"], "Insufficient balance.")
+        self.assertEqual(CreateAd.objects.filter(user=self.user).count(), 0)
+
+    def test_create_ad_no_wallet_returns_404(self):
+        self.wallet.delete()
+        data = _valid_ad_payload()
+
+        response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        body = decrypt(response.content)
+        self.assertEqual(body["error"], "Account or PIN not found")
+
+    # --- Card payment ---
+
+    def test_create_ad_with_card_payment_success(self):
+        FundWithCard.objects.create(
+            user=self.user,
+            txn_reference="card-ref-123",
+            status="success",
+            is_processed=False,
+            amount="10000.00",
+        )
+        data = _valid_ad_payload(payment_option="CARD", card_reference="card-ref-123")
+
+        response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "Success!")
+        self.assertEqual(CreateAd.objects.filter(user=self.user).count(), 1)
+
+    def test_create_ad_rejects_another_users_card_reference(self):
+        other_user = _create_user(active_role="BrandAd")
+        FundWithCard.objects.create(
+            user=other_user,
+            txn_reference="not-mine-456",
+            status="success",
+            is_processed=False,
+            amount="10000.00",
+        )
+        data = _valid_ad_payload(payment_option="CARD", card_reference="not-mine-456")
+
+        response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(CreateAd.objects.filter(user=self.user).count(), 0)
+
+    # --- Validation & idempotency ---
+
+    def test_create_ad_invalid_payment_option(self):
+        data = _valid_ad_payload(payment_option="INVALID")
+
+        response = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_ad_idempotency_key_replays_success(self):
+        data = _valid_ad_payload(idempotency_key="idem-key-1")
+
+        with patch("banking.controllers.Wallet.getWalletDetails") as mock_wallet:
+            mock_wallet.return_value = MagicMock(
+                json=lambda: {
+                    "status": "SUCCESS",
+                    "data": {"availableBalance": 50000.00},
+                }
+            )
+            with patch("banking.controllers.Wallet.Debit") as mock_debit:
+                mock_debit.return_value = MagicMock(status_code=200)
+                first = self.client.post(self.url, data=encrypt(data), format="json")
+                second = self.client.post(self.url, data=encrypt(data), format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        second_body = decrypt(second.content)
+        self.assertEqual(second_body["status"], "success")
+        self.assertEqual(second_body["message"], "This request was already processed.")
+        self.assertEqual(CreateAd.objects.filter(user=self.user).count(), 1)
