@@ -1662,6 +1662,7 @@ class BrandUGCListCreateView(BrandChargeMixin, generics.ListCreateAPIView):
             task, error_response = self.charge_and_create(
                 user=user,
                 payment_option=decrypted_payload.get("payment_option"),
+                card_reference=decrypted_payload.get("card_reference"),
                 amount=amount,
                 tx_reference=tx_reference,
                 tx_type="UGC Task Funding",
